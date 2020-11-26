@@ -22,7 +22,13 @@
 
 ;;
 
-;;; Code
+;;; Code:
+
+;;;; Requirements
+
+(require 'ewoc)
+(require 'map)
+(require 'subr-x)
 
 ;;;; Debugging
 
@@ -35,7 +41,9 @@
 The warning automatically includes the name of the containing
 function, and it is only displayed if `warning-minimum-log-level'
 is `:debug' at expansion time (otherwise the macro expands to nil
-and is eliminated by the byte-compiler).
+and is eliminated by the byte-compiler).  When debugging, the
+form also returns nil so, e.g. it may be used in a conditional in
+place of nil.
 
 Each of ARGS may be a string, which is displayed as-is, or a
 symbol, the value of which is displayed prefixed by its name, or
@@ -71,13 +79,11 @@ keywords are supported:
                                                     (_ "...)"))
                                                   ":%S "))))))
     (when (eq :debug warning-minimum-log-level)
-      `(display-warning ',fn-name (format ,string ,@args) ,level ,buffer))))
+      `(progn
+         (display-warning ',fn-name (format ,string ,@args) ,level ,buffer)
+         nil))))
 
 (defvar-local argh-counter 0)
-
-;;;; Requirements
-
-(require 'ewoc)
 
 ;;;; Structs
 
@@ -102,20 +108,22 @@ keywords are supported:
 ;;;; Customization
 
 (defgroup ement nil
-  "FIXME"
+  "Options for Ement.el."
   :group 'matrix-client)
 
 (defcustom ement-timestamp-format "%H:%M:%S"
-  "FIXME"
+  "Format string for event timestamps.
+See function `format-time-string'."
   :type 'string)
 
 (defface ement-timestamp
   '((t (:inherit matrix-client-metadata)))
-  "FIXME")
+  "Event timestamps.")
 
 ;;;; Commands
 
 (defun ement-ewoc-groups-test ()
+  "Start a new EWOC test."
   (interactive)
   (let* ((buffer (get-buffer-create "*EWOC Test")))
     (with-current-buffer buffer
@@ -130,6 +138,7 @@ keywords are supported:
     (ement-ewoc-groups-test-add-random-event matrix-ewoc)))
 
 (defun ement-ewoc-groups-test-add-random-event (&optional ewoc)
+  "Add a randon event to the EWOC test buffer."
   (interactive)
   (with-current-buffer (get-buffer-create "*EWOC Test")
     (let* ((ewoc (or ewoc matrix-ewoc))
@@ -142,9 +151,9 @@ keywords are supported:
                                                      (cl-incf argh-counter))
                                     :origin-server-ts (ts-adjust 'second offset-seconds (ts-now))
                                     :type "m.message"))
+           (_ (debug-warn user (ts-format "%H:%M:%S" (ement-event-origin-server-ts event))))
            (node-before (ement-ewoc-node-before ewoc event #'ement-event< :pred #'ement-event-p))
            new-node)
-      (debug-warn user (ts-format "%H:%M:%S" (ement-event-origin-server-ts event)))
       (setf new-node (if (not node-before)
                          (progn
                            (debug-warn "No event before it: add first.")
@@ -193,33 +202,35 @@ keywords are supported:
 ;;;; Functions
 
 (defun ement-ewoc-pp (data)
+  "Pretty-print DATA.
+See function `ewoc-create'."
   (cl-etypecase data
+    ;; FIXME: Null probably not needed anymore.
     (null (insert ""))
     (ement-event (insert "  " (ement-event-format data)))
     (ement-user (insert (ement-user-format data)))
+    ;; FIXME: Function probably not needed anymore.
     (function (insert ""))))
 
 (defun ement-event-format (event)
+  "Format `ement-event' EVENT."
   (pcase-let* (((cl-struct ement-event content origin-server-ts) event))
     (concat (propertize (format "[%s] " (ts-format "%H:%M:%S" origin-server-ts))
                         'face 'matrix-client-date-header)
             content)))
 
 (defun ement-user-format (user)
+  "Format `ement-user' USER."
   (propertize (ement-user-displayname user)
               'face 'matrix-client-metadata))
 
 (cl-defun ement-ewoc-node-before (ewoc data <-fn
                                        &key (from 'last) (pred #'identity))
-  ;; FIXME: Naming things is hard.
   "Return node in EWOC that matches PRED and belongs before DATA according to COMPARATOR."
   (cl-assert (member from '(first last)))
-  (message "TS:%S" (ts-format "%H:%M:%S" (ement-event-origin-server-ts data)))
-  ;; MAYBE: Use a thunk for enter-fn?
   (if (null (ewoc-nth ewoc 0))
-      ;; EWOC is empty.
-      nil
-    ;; EWOC has data: add at appropriate place.
+      (debug-warn "EWOC is empty: returning nil.")
+    (debug-warn "EWOC has data: add at appropriate place.")
     (cl-labels ((next-matching
                  (ewoc node next-fn pred) (cl-loop do (setf node (funcall next-fn ewoc node))
                                                    until (or (null node)
@@ -230,16 +241,18 @@ keywords are supported:
         (unless (funcall pred (ewoc-data start-node))
           (setf start-node (next-matching ewoc start-node next-fn pred)))
         (if (funcall <-fn (ewoc-data start-node) data)
-            ;; New data goes before start node.
-            start-node
-          ;; New data goes after start node: find node before new data.
+            (progn
+              (debug-warn "New data goes before start node.")
+              start-node)
+          (debug-warn "New data goes after start node: find node before new data.")
           (let ((compare-node start-node))
             (cl-loop while (setf compare-node (next-matching ewoc compare-node next-fn pred))
                      until (funcall <-fn (ewoc-data compare-node) data)
                      finally return (if compare-node
-                                        ;; Found place: enter there.
-                                        compare-node
-                                      ;; Reached end of collection: insert there.
+                                        (progn
+                                          (debug-warn "Found place: enter there.")
+                                          compare-node)
+                                      (debug-warn "Reached end of collection: insert there.")
                                       (pcase from
                                         ('first (ewoc-nth ewoc -1))
                                         ('last nil))))))))))
