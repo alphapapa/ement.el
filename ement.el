@@ -155,6 +155,11 @@
                      ('unread_notifications unread-notifications))
                 event-types))
     (ignore account-data unread-notifications summary state ephemeral)
+    ;; NOTE: The idea is that, assuming that events in the sync reponse are in chronological
+    ;; order, we push them to the lists in the room slots in that order, leaving the head of
+    ;; each list as the most recent event of that type.  That means that, e.g. the room
+    ;; state events may be searched in order to find, e.g. the most recent room name event.
+
     ;; FIXME: Further mapping instead of alist-get.
     (cl-loop for event across (alist-get 'events state)
              do (push event (ement-room-state room)))
