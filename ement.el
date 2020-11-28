@@ -123,7 +123,7 @@
                                                     room)))
                (names (mapcar #'car name-to-room))
                (selected-name (completing-read "Room: " names nil t)))
-    (alist-get name-to-room selected-name)))
+    (alist-get selected-name name-to-room nil nil #'string=)))
 
 (cl-defun ement--sync (session &key since)
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
