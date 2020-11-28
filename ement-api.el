@@ -63,7 +63,7 @@
                (headers (ement-alist "Content-Type" content-type
                                      "Authorization" (concat "Bearer " token))))
     (debug-warn (current-time) method url headers then)
-    (pcase method
+    (pcase-exhaustive method
       ('get (plz-get url :headers headers :as #'json-read :then then :else else)))))
 
 (defun ement-api-error (&rest args)

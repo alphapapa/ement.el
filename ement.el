@@ -21,7 +21,7 @@
 
 ;;; Commentary:
 
-;;
+;; Another Matrix client!
 
 ;;; Code:
 

@@ -259,6 +259,6 @@ See function `ewoc-create'."
 
 ;;;; Footer
 
-(provide 'ement-ewoc)
+;; (provide 'ement-ewoc)
 
 ;;; ement-ewoc.el ends here
