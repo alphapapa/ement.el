@@ -24,6 +24,12 @@
 
 ;;; Code:
 
+;;;; Debugging
+
+(eval-and-compile
+  (setq-local warning-minimum-log-level nil)
+  (setq-local warning-minimum-log-level :debug))
+
 ;;;; Requirements
 
 (require 'json)
@@ -45,17 +51,24 @@
 
 ;;;; Functions
 
-(cl-defun ement-api (hostname port token transaction-id endpoint data then
-                              &key timeout raw-data
+(cl-defun ement-api (hostname port token _transaction-id endpoint _data then
+                              &key _timeout _raw-data
                               (content-type "application/json")
                               (else #'ement-api-error) (method 'get))
+  ;; FIXME: Use transaction-id or add it in calling functions.
+  ;; FIXME: Use timeout.
   (declare (indent defun))
   (pcase-let* ((path (concat "/_matrix/client/r0/" endpoint))
                (url (url-recreate-url (url-parse-make-urlobj "https" nil nil hostname port path nil nil t)))
                (headers (ement-alist "Content-Type" content-type
                                      "Authorization" (concat "Bearer " token))))
-    (debug-warn (current-time) session method endpoint data then timeout url)
-    (debug-warn (list 'plz-get url :headers headers :as #'json-read :then then :else else))))
+    (debug-warn (current-time) method url headers then)
+    (pcase method
+      ('get (plz-get url :headers headers :as #'json-read :then then :else else)))))
+
+(defun ement-api-error (&rest args)
+  (debug-warn args)
+  (error "ement-api-error: %S" args))
 
 ;;;; Footer
 
