@@ -53,6 +53,9 @@
 (cl-defstruct ement-session
   user server token transaction-id rooms next-batch)
 
+(cl-defstruct ement-room
+  id summary state timeline timeline* ephemeral account-data unread-notifications)
+
 ;;;; Variables
 
 (defvar ement-sessions nil
@@ -110,8 +113,17 @@
 
 ;;;; Functions
 
-;; (defun ement-complete-room (session)
-;;   "Return a room selected from SESSION with completion.")
+(defun ement-complete-room (session)
+  "Return a room selected from SESSION with completion."
+  (pcase-let* (((cl-struct ement-session rooms) session)
+               (name-to-room (cl-loop for room in rooms
+                                      collect (cons (format "%s (%s)"
+                                                            (ement--room-display-name room)
+                                                            (ement--room-alias room))
+                                                    room)))
+               (names (mapcar #'car name-to-room))
+               (selected-name (completing-read "Room: " names nil t)))
+    (alist-get name-to-room selected-name)))
 
 (cl-defun ement--sync (session &key since)
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
@@ -132,9 +144,6 @@
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (message "Sync done")))
 
-(cl-defstruct ement-room
-  id summary state timeline timeline* ephemeral account-data unread-notifications)
-
 (defun ement--push-joined-room-events (session joined-room)
   (pcase-let* ((`(,id . ,event-types) joined-room)
                (room (or (cl-find-if (lambda (room)
@@ -146,8 +155,30 @@
                      ('unread_notifications unread-notifications))
                 event-types))
     (ignore account-data unread-notifications summary state ephemeral)
+    ;; FIXME: Further mapping instead of alist-get.
+    (cl-loop for event across (alist-get 'events state)
+             do (push event (ement-room-state room)))
     (cl-loop for event across (alist-get 'events timeline)
              do (push event (ement-room-timeline* room)))))
+
+(defun ement--room-display-name (room)
+  "Return the displayname for ROOM."
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id349>.
+  ;; MAYBE: Optional "force" argument to make it update the room name/alias in the struct.
+  (or (ement--room-name room)
+      (ement--room-alias room)
+      ;; FIXME: Steps 3, etc.
+      (ement-room-id room)))
+
+(defun ement--room-name (room)
+  (cl-loop for event in (ement-room-state room)
+           when (equal "m.room.name" (alist-get 'type event))
+           return (map-nested-elt event '(content name))))
+
+(defun ement--room-alias (room)
+  (cl-loop for event in (ement-room-state room)
+           when (equal "m.room.canonical_alias" (alist-get 'type event))
+           return (map-nested-elt event '(content alias))))
 
 (defun ement--load-session ()
   "Return saved session from file."
