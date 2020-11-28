@@ -23,7 +23,11 @@
 ;;; Commentary:
 
 ;; Another Matrix client!  This one is written from scratch and is
-;; intended to be more "Emacsy," more suitable for MELPA, etc.
+;; intended to be more "Emacsy," more suitable for MELPA, etc.  Also
+;; it has a shorter, perhaps catchier name, that is a mildly clever
+;; play on the name of the official Matrix client and the Emacs Lisp
+;; filename extension (oops, I explained the joke), which makes for
+;; much shorter symbol names.
 
 ;;; Code:
 
