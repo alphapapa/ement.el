@@ -4,6 +4,7 @@
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Keywords: comm
+;; URL: https://github.com/alphapapa/ement.el
 ;; Package-Requires: ((emacs "26.3") (plz "0.1-pre"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -21,7 +22,8 @@
 
 ;;; Commentary:
 
-;; Another Matrix client!
+;; Another Matrix client!  This one is written from scratch and is
+;; intended to be more "Emacsy," more suitable for MELPA, etc.
 
 ;;; Code:
 
@@ -126,6 +128,8 @@
     (alist-get selected-name name-to-room nil nil #'string=)))
 
 (cl-defun ement--sync (session &key since)
+  "Send sync request for SESSION.
+SINCE may be such a token."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Timeout.
@@ -138,13 +142,14 @@
       "sync" data (apply-partially #'ement--sync-callback session))))
 
 (defun ement--sync-callback (session data)
-  "SESSION.  DATA should be the parsed JSON response."
+  "FIXME: Docstring."
   (pcase-let* (((map rooms) data)
                ((map ('join joined-rooms)) rooms))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (message "Sync done")))
 
 (defun ement--push-joined-room-events (session joined-room)
+  "Push events for JOINED-ROOM into that room in SESSION."
   (pcase-let* ((`(,id . ,event-types) joined-room)
                (room (or (cl-find-if (lambda (room)
                                        (equal id (ement-room-id room)))
