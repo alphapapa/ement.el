@@ -34,6 +34,7 @@
 ;;;; Debugging
 
 (eval-and-compile
+  (require 'warnings)
   (setq-local warning-minimum-log-level nil)
   (setq-local warning-minimum-log-level :debug))
 
@@ -131,18 +132,20 @@
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room nil nil #'string=)))
 
-(cl-defun ement--sync (session &key since)
+(cl-defun ement--sync (session)
   "Send sync request for SESSION.
-SINCE may be such a token."
+If SESSION has a `next-batch' token, it's used."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Timeout.
-  (pcase-let* (((cl-struct ement-session server token transaction-id) session)
+  (pcase-let* (((cl-struct ement-session server token transaction-id next-batch) session)
                ((cl-struct ement-server hostname port) server)
-               (data (ement-alist 'since since
-                                  'full_state (not since)))
+               (data (remove nil (list (list "since" next-batch)
+				       (list "full_state" (if next-batch "false" "true"))
+				       (when next-batch
+					 (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds)))
-    (debug-warn session data)
+    (debug-warn data)
     (message "Ement: Sync request sent, waiting for response...")
     (ement-api hostname port token transaction-id
       "sync" data (apply-partially #'ement--sync-callback session)
@@ -160,7 +163,7 @@ SINCE may be such a token."
 
 (defun ement--sync-callback (session data)
   "FIXME: Docstring."
-  (pcase-let* (((map rooms) data)
+  (pcase-let* (((map rooms ('next_batch next-batch)) data)
                ((map ('join joined-rooms)) rooms)
                ;; FIXME: Only counts events in joined-rooms list.
                (num-events (cl-loop for (_id . room) in joined-rooms
@@ -169,6 +172,7 @@ SINCE may be such a token."
                (ement-progress-reporter (make-progress-reporter "Ement: Reading events..." 0 num-events))
                (ement-progress-value 0))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
+    (setf (ement-session-next-batch session) next-batch)
     (message "Sync done")))
 
 (defun ement--push-joined-room-events (session joined-room)

@@ -51,7 +51,7 @@
 
 ;;;; Functions
 
-(cl-defun ement-api (hostname port token _transaction-id endpoint _data then
+(cl-defun ement-api (hostname port token _transaction-id endpoint data then
                               &key _timeout _raw-data
                               (content-type "application/json")
                               (else #'ement-api-error) (method 'get)
@@ -60,15 +60,21 @@
   ;; FIXME: Use timeout.
   (declare (indent defun))
   (pcase-let* ((path (concat "/_matrix/client/r0/" endpoint))
-               (url (url-recreate-url (url-parse-make-urlobj "https" nil nil hostname port path nil nil t)))
+	       (query (url-build-query-string data))
+	       (filename (concat path "?" query))
+               (url (url-recreate-url
+		     (url-parse-make-urlobj "https" nil nil hostname port filename nil data t)))
                (headers (ement-alist "Content-Type" content-type
                                      "Authorization" (concat "Bearer " token))))
-    (debug-warn (current-time) method url headers then)
+    ;; Omit `then' from debugging because if it's a partially applied
+    ;; function on the session object, which may be very large, it
+    ;; will take a very long time to print into the warnings buffer.
+    (debug-warn (current-time) method url headers)
     (pcase-exhaustive method
       ('get (plz-get url :headers headers :as json-read-fn :then then :else else)))))
 
 (defun ement-api-error (&rest args)
-  (debug-warn args)
+  ;; (debug-warn args)
   (error "ement-api-error: %S" args))
 
 ;;;; Footer
