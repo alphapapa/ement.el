@@ -48,6 +48,7 @@
 (require 'ement-api)
 (require 'ement-macros)
 (require 'ement-structs)
+(require 'ement-room)
 
 ;;;; Variables
 
@@ -99,6 +100,15 @@
     (setf ement-sessions (list session)))
   (debug-warn (car ement-sessions))
   (ement--sync (car ement-sessions)))
+
+(defun ement-view-room (room)
+  "Switch to a buffer showing ROOM."
+  (interactive (list (ement-complete-room (car ement-sessions))))
+  (let ((buffer-name (concat ement-room-buffer-prefix
+                             (setf (ement-room-display-name room)
+                                   (ement--room-display-name room))
+                             ement-room-buffer-suffix)))
+    (pop-to-buffer (ement-room--buffer room buffer-name))))
 
 (defvar ement-progress-reporter nil
   "Used to report progress while processing sync events.")
@@ -187,6 +197,8 @@ SINCE may be such a token."
              (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))))
 
 (defvar ement-users (make-hash-table :test #'equal)
+  ;; NOTE: When changing the ement-user struct, it's necessary to
+  ;; reset this table to clear old-type structs.
   "Hash table storing user structs keyed on user ID.")
 
 (require 'map)
@@ -198,7 +210,8 @@ Adds sender to `ement-users' when necessary."
                      ('event_id id) ('origin_server_ts ts) ('sender sender-id) ('state_key _state-key))
                 event)
                (sender (or (gethash sender-id ement-users)
-                           (puthash sender-id (make-ement-user :id sender-id) ement-users))))
+                           (puthash sender-id (make-ement-user :id sender-id :room-display-names (make-hash-table))
+                                    ement-users))))
     (make-ement-event :id id :sender sender :content content :origin-server-ts ts :type type :unsigned unsigned)))
 
 (defun ement--room-display-name (room)

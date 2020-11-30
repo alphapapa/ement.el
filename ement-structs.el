@@ -32,7 +32,7 @@
 ;;;; Structs
 
 (cl-defstruct ement-user
-  id displayname account-data)
+  id displayname account-data room-display-names)
 
 (cl-defstruct ement-event
   id sender content origin-server-ts type unsigned)

@@ -60,29 +60,26 @@ See function `format-time-string'."
   '((t (:inherit font-lock-variable-name-face)))
   "Event timestamps.")
 
-(defface ement-room-username
-  '((t (:inherit font-lock-function-name-face)))
+(defface ement-room-user
+  '((t (:inherit font-lock-keyword-face)))
   "Usernames.")
 
 ;;;; Commands
 
-(defun ement-room-view (room)
-  "Switch to a buffer showing ROOM."
-  (interactive (list (ement-complete-room (car ement-sessions))))
-  (pop-to-buffer (ement-room--buffer room)))
-
 ;;;; Functions
 
-(defun ement-room--buffer (room)
-  "Return a buffer showing ROOM's events."
-  (let* ((buffer-name (concat ement-room-buffer-prefix
-                              (setf (ement-room-display-name room)
-                                    (ement--room-display-name room))
-                              ement-room-buffer-suffix)))
-    (or (get-buffer buffer-name)
-        (with-current-buffer (get-buffer-create buffer-name)
-          (ement-room-mode)
-          (ement-room--insert-events room)))))
+(defun ement-room--buffer (room name)
+  "Return a buffer named NAME showing ROOM's events."
+  (or (get-buffer name)
+      (with-current-buffer (get-buffer-create name)
+        (ement-room-mode)
+        (visual-line-mode 1)
+        (setf ement-room room)
+        ;; Move new events to main list.
+        (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
+              (ement-room-timeline* room) nil)
+        (ement-room--insert-events room)
+        (current-buffer))))             ; Return the buffer!
 
 (define-derived-mode ement-room-mode fundamental-mode "Ement Room"
   "Major mode for Ement room buffers.
@@ -98,12 +95,16 @@ and erases the buffer."
 
 ;;;;; EWOC
 
+(defvar-local ement-room nil
+  "The room displayed in the current buffer.")
+
 (defun ement-room--insert-events (room)
   "Insert events for ROOM into current buffer."
-  (mapc #'ement-room--insert-event (ement-room-timeline* room))
-  ;; Move new events to timeline slot.
+  (mapc #'ement-room--insert-event (ement-room-timeline room))
+  ;; Move new events to timeline slot.  FIXME: This belongs elsewhere.
   (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
-        (ement-room-timeline* room) nil))
+        (ement-room-timeline* room) nil)
+  )
 
 (defun ement-room--pp-event (struct)
   "Pretty-print STRUCT.
@@ -112,22 +113,51 @@ To be used as the pretty-printer for `ewoc-create'."
     ;; FIXME: Null probably not needed anymore.
     ;;  (null (insert ""))
     (ement-event (insert "  " (ement-room--format-event struct)))
-    (ement-user (insert (ement-room--format-format struct)))
+    (ement-user (insert (ement-room--format-user struct)))
     ;; FIXME: Function probably not needed anymore.
     ;; (function (insert ""))
     ))
 
+(defface ement-room-membership
+  '((t (:inherit font-lock-comment-face)))
+  "Membership events (join/part).")
+
 (defun ement-room--format-event (event)
   "Format `ement-event' EVENT."
-  (pcase-let* (((cl-struct ement-event content origin-server-ts) event))
-    (concat (propertize (format "[%s] " (format-time-string "%H:%M:%S" origin-server-ts))
-                        'face 'ement-room-timestamp)
-            content)))
+  (pcase-let* (((cl-struct ement-event type content origin-server-ts) event)
+               ((map body) content)
+               (timestamp (propertize (format "[%s] " (format-time-string "%H:%M:%S" origin-server-ts))
+                                      'face 'ement-room-timestamp))
+               (body-face (pcase type
+                            ("m.room.member" 'ement-room-membership)
+                            (_ 'default)))
+               (string (propertize (pcase type
+                                     ("m.room.message" body)
+                                     ("m.room.member" (alist-get 'membership content)))
+                                   'face body-face)))
+    (concat timestamp string)))
 
-(defun ement-room--format-format (user)
-  "Format `ement-user' USER."
-  (propertize (ement-user-displayname user)
-              'face 'matrix-client-metadata))
+(defun ement-room--format-user (user)
+  "Format `ement-user' USER for current buffer's room."
+  (propertize (or (gethash ement-room (ement-user-room-display-names user))
+                  (puthash ement-room (ement-room--user-display-name user ement-room)
+                           (ement-user-room-display-names user)))
+              'face 'ement-room-user))
+
+(defun ement-room--user-display-name (user room)
+  "Return the displayname for USER in ROOM."
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-user>.
+  (if-let ((member-state-event (cl-loop for event in (ement-room-state room)
+                                        when (and (equal "m.room.member" (ement-event-type event))
+                                                  (equal user (ement-event-sender event)))
+                                        return event)))
+      (or (alist-get 'displayname (ement-event-content member-state-event))
+          ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
+          ;; No displayname given: use raw user ID.
+          (ement-user-id user))
+    ;; No membership state event: use pre-calculated displayname or ID.
+    (or (ement-user-displayname user)
+        (ement-user-id user))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
