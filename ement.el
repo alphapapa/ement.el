@@ -100,6 +100,8 @@
   (debug-warn (car ement-sessions))
   (ement--sync (car ement-sessions)))
 
+(defvar ement-progress-reporter nil
+  "Used to report progress while processing sync events.")
 ;; (defun ement-view-room (room)
 ;;   "Switch to a buffer for ROOM."
 ;;   (interactive (list (ement-complete-room (car ement-sessions)))))
@@ -111,7 +113,8 @@
   (pcase-let* (((cl-struct ement-session rooms) session)
                (name-to-room (cl-loop for room in rooms
                                       collect (cons (format "%s (%s)"
-                                                            (ement--room-display-name room)
+                                                            (setf (ement-room-display-name room)
+                                                                  (ement--room-display-name room))
                                                             (ement--room-alias room))
                                                     room)))
                (names (mapcar #'car name-to-room))
@@ -127,15 +130,34 @@ SINCE may be such a token."
   (pcase-let* (((cl-struct ement-session server token transaction-id) session)
                ((cl-struct ement-server hostname port) server)
                (data (ement-alist 'since since
-                                  'full_state (not since))))
+                                  'full_state (not since)))
+               (sync-start-time (time-to-seconds)))
     (debug-warn session data)
+    (message "Ement: Sync request sent, waiting for response...")
     (ement-api hostname port token transaction-id
-      "sync" data (apply-partially #'ement--sync-callback session))))
+      "sync" data (apply-partially #'ement--sync-callback session)
+      :json-read-fn (lambda ()
+                      "Print a message, then call `json-read'."
+                      (require 'files)
+                      (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
+                               (- (time-to-seconds) sync-start-time)
+                               (file-size-human-readable (buffer-size)))
+                      (let ((start-time (time-to-seconds)))
+                        (prog1 (json-read)
+                          (message "Ement: Reading JSON took %.2f seconds" (- (time-to-seconds) start-time))))))))
+
+(defvar ement-progress-value nil)
 
 (defun ement--sync-callback (session data)
   "FIXME: Docstring."
   (pcase-let* (((map rooms) data)
-               ((map ('join joined-rooms)) rooms))
+               ((map ('join joined-rooms)) rooms)
+               ;; FIXME: Only counts events in joined-rooms list.
+               (num-events (cl-loop for room in joined-rooms
+                                    sum (length (map-nested-elt room '(state events)))
+                                    sum (length (map-nested-elt room '(timeline events)))))
+               (ement-progress-reporter (make-progress-reporter "Ement: Reading events..." 0 num-events))
+               (ement-progress-value 0))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (message "Sync done")))
 
@@ -158,9 +180,26 @@ SINCE may be such a token."
 
     ;; FIXME: Further mapping instead of alist-get.
     (cl-loop for event across (alist-get 'events state)
-             do (push event (ement-room-state room)))
+             do (push (ement--make-event event) (ement-room-state room))
+             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
     (cl-loop for event across (alist-get 'events timeline)
-             do (push event (ement-room-timeline* room)))))
+             do (push (ement--make-event event) (ement-room-timeline* room))
+             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))))
+
+(defvar ement-users (make-hash-table :test #'equal)
+  "Hash table storing user structs keyed on user ID.")
+
+(require 'map)
+
+(defun ement--make-event (event)
+  "Return `ement-event' struct for raw EVENT list.
+Adds sender to `ement-users' when necessary."
+  (pcase-let* (((map content type unsigned
+                     ('event_id id) ('origin_server_ts ts) ('sender sender-id) ('state_key _state-key))
+                event)
+               (sender (or (gethash sender-id ement-users)
+                           (puthash sender-id (make-ement-user :id sender-id) ement-users))))
+    (make-ement-event :id id :sender sender :content content :origin-server-ts ts :type type :unsigned unsigned)))
 
 (defun ement--room-display-name (room)
   "Return the displayname for ROOM."
@@ -173,13 +212,13 @@ SINCE may be such a token."
 
 (defun ement--room-name (room)
   (cl-loop for event in (ement-room-state room)
-           when (equal "m.room.name" (alist-get 'type event))
-           return (map-nested-elt event '(content name))))
+           when (equal "m.room.name" (ement-event-type event))
+           return (alist-get 'name (ement-event-content event))))
 
 (defun ement--room-alias (room)
   (cl-loop for event in (ement-room-state room)
-           when (equal "m.room.canonical_alias" (alist-get 'type event))
-           return (map-nested-elt event '(content alias))))
+           when (equal "m.room.canonical_alias" (ement-event-type event))
+           return (alist-get 'alias (ement-event-content event))))
 
 (defun ement--load-session ()
   "Return saved session from file."

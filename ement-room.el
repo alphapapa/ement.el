@@ -68,7 +68,7 @@ See function `format-time-string'."
 
 (defun ement-room-view (room)
   "Switch to a buffer showing ROOM."
-  (interactive)
+  (interactive (list (ement-complete-room (car ement-sessions))))
   (pop-to-buffer (ement-room--buffer room)))
 
 ;;;; Functions
@@ -76,7 +76,8 @@ See function `format-time-string'."
 (defun ement-room--buffer (room)
   "Return a buffer showing ROOM's events."
   (let* ((buffer-name (concat ement-room-buffer-prefix
-                              (ement-room-display-name room)
+                              (setf (ement-room-display-name room)
+                                    (ement--room-display-name room))
                               ement-room-buffer-suffix)))
     (or (get-buffer buffer-name)
         (with-current-buffer (get-buffer-create buffer-name)

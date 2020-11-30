@@ -54,7 +54,8 @@
 (cl-defun ement-api (hostname port token _transaction-id endpoint _data then
                               &key _timeout _raw-data
                               (content-type "application/json")
-                              (else #'ement-api-error) (method 'get))
+                              (else #'ement-api-error) (method 'get)
+                              (json-read-fn #'json-read))
   ;; FIXME: Use transaction-id or add it in calling functions.
   ;; FIXME: Use timeout.
   (declare (indent defun))
@@ -64,7 +65,7 @@
                                      "Authorization" (concat "Bearer " token))))
     (debug-warn (current-time) method url headers then)
     (pcase-exhaustive method
-      ('get (plz-get url :headers headers :as #'json-read :then then :else else)))))
+      ('get (plz-get url :headers headers :as json-read-fn :then then :else else)))))
 
 (defun ement-api-error (&rest args)
   (debug-warn args)
