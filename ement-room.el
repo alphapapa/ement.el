@@ -37,6 +37,9 @@
 (defvar-local ement-room-ewoc nil
   "EWOC for Ement room buffers.")
 
+(defvar-local ement-room nil
+  "Ement room for current buffer.")
+
 ;;;; Customization
 
 (defgroup ement-room nil

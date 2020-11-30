@@ -140,8 +140,9 @@ If SESSION has a `next-batch' token, it's used."
   ;; TODO: Timeout.
   (pcase-let* (((cl-struct ement-session server token transaction-id next-batch) session)
                ((cl-struct ement-server hostname port) server)
-               (data (remove nil (list (list "since" next-batch)
-				       (list "full_state" (if next-batch "false" "true"))
+               (data (remove nil (list (list "full_state" (if next-batch "false" "true"))
+				       (when next-batch
+					 (list "since" next-batch))
 				       (when next-batch
 					 (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds)))
@@ -161,6 +162,11 @@ If SESSION has a `next-batch' token, it's used."
 
 (defvar ement-progress-value nil)
 
+(defvar ement-sync-callback-hook '(ement--update-rooms)
+  "Hook run after `ement--sync-callback'.
+Hooks are called with one argument, the session that was
+synced.")
+
 (defun ement--sync-callback (session data)
   "FIXME: Docstring."
   (pcase-let* (((map rooms ('next_batch next-batch)) data)
@@ -173,7 +179,25 @@ If SESSION has a `next-batch' token, it's used."
                (ement-progress-value 0))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (setf (ement-session-next-batch session) next-batch)
+    (run-hook-with-args 'ement-sync-callback-hook session)
     (message "Sync done")))
+
+(defun ement--update-rooms (&rest _)
+  "Add new events to Ement rooms which have buffers.
+To be called in `ement-sync-callback-hook'."
+  ;; For now, we primitively iterate over the buffer list to find ones
+  ;; whose mode is `ement-room-mode'.
+  (let* ((buffers (cl-loop for buffer being the buffers
+                           when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
+                           collect buffer)))
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+        (cl-assert ement-room)
+        (ement-room--insert-events (ement-room-timeline* ement-room))
+        ;; Move new events.
+        (setf (ement-room-timeline ement-room)
+              (append (ement-room-timeline* ement-room) (ement-room-timeline ement-room))
+              (ement-room-timeline* ement-room) nil)))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
