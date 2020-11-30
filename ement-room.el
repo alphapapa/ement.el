@@ -40,6 +40,12 @@
 (defvar-local ement-room nil
   "Ement room for current buffer.")
 
+(defvar ement-room-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ement-room-view-event)
+    map)
+  "Keymap for Ement room buffers.")
+
 ;;;; Customization
 
 (defgroup ement-room nil
@@ -71,6 +77,22 @@ See function `format-time-string'."
 
 ;;;; Commands
 
+(defun ement-room-view-event (event)
+  "Pop up buffer showing details of EVENT (interactively, the one at point)."
+  (interactive (list (ewoc-data (ewoc-locate ement-room-ewoc))))
+  (require 'pp)
+  (let* ((buffer-name (format "*Ement event: %s*" (ement-event-id event)))
+         (event (ement-alist :id (ement-event-id event)
+                             :sender (ement-user-id (ement-event-sender event))
+                             :content (ement-event-content event)
+                             :origin-server-ts (ement-event-origin-server-ts event)
+                             :type (ement-event-type event)
+                             :unsigned (ement-event-unsigned event))))
+    (with-current-buffer (get-buffer-create buffer-name)
+      (erase-buffer)
+      (pp event (current-buffer))
+      (pop-to-buffer (current-buffer)))))
+
 ;;;; Functions
 
 (defun ement-room--buffer (room name)
@@ -81,10 +103,11 @@ See function `format-time-string'."
         ;; FIXME: Move visual-line-mode to a hook.
         (visual-line-mode 1)
         (setf ement-room room)
+        (mapc #'ement-room--insert-event (ement-room-timeline room))
+        (mapc #'ement-room--insert-event (ement-room-timeline* room))
         ;; Move new events to main list.
         (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
               (ement-room-timeline* room) nil)
-        (ement-room--insert-events room)
         (current-buffer))))             ; Return the buffer!
 
 (define-derived-mode ement-room-mode fundamental-mode "Ement Room"
@@ -102,14 +125,6 @@ and erases the buffer."
 
 (defvar-local ement-room nil
   "The room displayed in the current buffer.")
-
-(defun ement-room--insert-events (room)
-  "Insert events for ROOM into current buffer."
-  (mapc #'ement-room--insert-event (ement-room-timeline room))
-  ;; Move new events to timeline slot.  FIXME: This belongs elsewhere.
-  (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
-        (ement-room-timeline* room) nil)
-  )
 
 (defun ement-room--pp-event (struct)
   "Pretty-print STRUCT.
