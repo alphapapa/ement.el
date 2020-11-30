@@ -138,7 +138,8 @@ To be used as the pretty-printer for `ewoc-create'."
                             (_ 'default)))
                (string (propertize (pcase type
                                      ("m.room.message" body)
-                                     ("m.room.member" (alist-get 'membership content)))
+                                     ("m.room.member" (alist-get 'membership content))
+                                     (_ (concat "EVENT-TYPE: " type)))
                                    'face body-face)))
     (concat timestamp string)))
 

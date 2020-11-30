@@ -163,7 +163,7 @@ SINCE may be such a token."
   (pcase-let* (((map rooms) data)
                ((map ('join joined-rooms)) rooms)
                ;; FIXME: Only counts events in joined-rooms list.
-               (num-events (cl-loop for room in joined-rooms
+               (num-events (cl-loop for (_id . room) in joined-rooms
                                     sum (length (map-nested-elt room '(state events)))
                                     sum (length (map-nested-elt room '(timeline events)))))
                (ement-progress-reporter (make-progress-reporter "Ement: Reading events..." 0 num-events))
