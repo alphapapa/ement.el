@@ -47,20 +47,7 @@
 ;; This package.
 (require 'ement-api)
 (require 'ement-macros)
-
-;;;; Structs
-
-(cl-defstruct ement-user
-  id displayname account-data)
-
-(cl-defstruct ement-server
-  hostname port)
-
-(cl-defstruct ement-session
-  user server token transaction-id rooms next-batch)
-
-(cl-defstruct ement-room
-  id summary state timeline timeline* ephemeral account-data unread-notifications)
+(require 'ement-structs)
 
 ;;;; Variables
 
