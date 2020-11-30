@@ -51,10 +51,12 @@
   "Suffix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-timestamp-format "%Y-%m-%d %H:%M:%S"  ;; "%H:%M:%S"
+(defcustom ement-room-timestamp-format "%H:%M:%S"
   "Format string for event timestamps.
 See function `format-time-string'."
-  :type 'string)
+  :type '(choice (const "%H:%M:%S")
+                 (const "%Y-%m-%d %H:%M:%S")
+                 string))
 
 (defface ement-room-timestamp
   '((t (:inherit font-lock-variable-name-face)))
