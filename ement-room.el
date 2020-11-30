@@ -51,7 +51,7 @@
   "Suffix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-timestamp-format "%H:%M:%S"
+(defcustom ement-room-timestamp-format "%Y-%m-%d %H:%M:%S"  ;; "%H:%M:%S"
   "Format string for event timestamps.
 See function `format-time-string'."
   :type 'string)
@@ -73,6 +73,7 @@ See function `format-time-string'."
   (or (get-buffer name)
       (with-current-buffer (get-buffer-create name)
         (ement-room-mode)
+        ;; FIXME: Move visual-line-mode to a hook.
         (visual-line-mode 1)
         (setf ement-room room)
         ;; Move new events to main list.
@@ -126,8 +127,10 @@ To be used as the pretty-printer for `ewoc-create'."
   "Format `ement-event' EVENT."
   (pcase-let* (((cl-struct ement-event type content origin-server-ts) event)
                ((map body) content)
-               (timestamp (propertize (format "[%s] " (format-time-string "%H:%M:%S" origin-server-ts))
-                                      'face 'ement-room-timestamp))
+               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
+               (timestamp
+                (propertize (format "[%s] " (format-time-string ement-room-timestamp-format ts))
+                            'face 'ement-room-timestamp))
                (body-face (pcase type
                             ("m.room.member" 'ement-room-membership)
                             (_ 'default)))
