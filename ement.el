@@ -99,7 +99,7 @@
                (transaction-id (or transaction-id (random 100000)))
                (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
     (setf ement-sessions (list session)))
-  (debug-warn (car ement-sessions))
+  ;; (debug-warn (car ement-sessions))
   (ement--sync (car ement-sessions)))
 
 (defun ement-view-room (room)
@@ -193,7 +193,7 @@ To be called in `ement-sync-callback-hook'."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
-        (ement-room--insert-events (ement-room-timeline* ement-room))
+        (mapc #'ement-room--insert-event (ement-room-timeline* ement-room))
         ;; Move new events.
         (setf (ement-room-timeline ement-room)
               (append (ement-room-timeline* ement-room) (ement-room-timeline ement-room))

@@ -92,7 +92,6 @@ See function `format-time-string'."
 This mode initializes a buffer to be used for showing events in
 an Ement room.  It kills all local variables, removes overlays,
 and erases the buffer."
-  (kill-all-local-variables)
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
