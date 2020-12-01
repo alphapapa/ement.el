@@ -3,7 +3,7 @@
 # * makem.sh --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.4
+# Version: 0.4.1
 
 # * Commentary:
 
@@ -154,7 +154,8 @@ function elisp-checkdoc-file {
                                ": " text)))
               (message msg)
               (setq makem-checkdoc-errors-p t)
-              (list text start end unfixable)))))
+              ;; Return nil because we *are* generating a buffered list of errors.
+              nil))))
     (mapcar #'checkdoc-file files)
     (when makem-checkdoc-errors-p
       (kill-emacs 1))))
