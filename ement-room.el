@@ -66,11 +66,11 @@
   "Suffix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-timestamp-format "%H:%M:%S"
+(defcustom ement-room-timestamp-format " [%H:%M:%S]"
   "Format string for event timestamps.
 See function `format-time-string'."
-  :type '(choice (const "%H:%M:%S")
-                 (const "%Y-%m-%d %H:%M:%S")
+  :type '(choice (const " [%H:%M:%S]")
+                 (const " [%Y-%m-%d %H:%M:%S]")
                  string))
 
 (defface ement-room-timestamp
@@ -153,6 +153,7 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
+        left-margin-width 11
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-room-ewoc (ewoc-create #'ement-room--pp-event)))
 
@@ -167,7 +168,7 @@ To be used as the pretty-printer for `ewoc-create'."
   (cl-etypecase struct
     ;; FIXME: Null probably not needed anymore.
     ;;  (null (insert ""))
-    (ement-event (insert "  " (ement-room--format-event struct)))
+    (ement-event (insert "" (ement-room--format-event struct)))
     (ement-user (insert (ement-room--format-user struct)))
     ;; FIXME: Function probably not needed anymore.
     ;; (function (insert ""))
@@ -183,8 +184,10 @@ To be used as the pretty-printer for `ewoc-create'."
                ((map body) content)
                (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
                (timestamp
-                (propertize (format "[%s] " (format-time-string ement-room-timestamp-format ts))
-                            'face 'ement-room-timestamp))
+                (propertize " "
+                            'display `((margin left-margin)
+                                       ,(propertize (format-time-string ement-room-timestamp-format ts)
+                                                    'face 'ement-room-timestamp))))
                (body-face (pcase type
                             ("m.room.member" 'ement-room-membership)
                             (_ 'default)))
@@ -197,10 +200,12 @@ To be used as the pretty-printer for `ewoc-create'."
 
 (defun ement-room--format-user (user)
   "Format `ement-user' USER for current buffer's room."
-  (propertize (or (gethash ement-room (ement-user-room-display-names user))
-                  (puthash ement-room (ement-room--user-display-name user ement-room)
-                           (ement-user-room-display-names user)))
-              'face 'ement-room-user))
+  (propertize
+   " " 'display `((margin left-margin)
+                  ,(propertize (or (gethash ement-room (ement-user-room-display-names user))
+                                   (puthash ement-room (ement-room--user-display-name user ement-room)
+                                            (ement-user-room-display-names user)))
+                               'face 'ement-room-user))))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
