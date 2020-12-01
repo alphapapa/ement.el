@@ -44,7 +44,7 @@
   user server token transaction-id rooms next-batch)
 
 (cl-defstruct ement-room
-  id display-name
+  id display-name prev-batch
   summary state timeline timeline* ephemeral account-data unread-notifications)
 
 ;;;; Variables

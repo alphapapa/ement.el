@@ -49,6 +49,7 @@
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
+    (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     map)
   "Keymap for Ement room buffers.")
 
@@ -73,15 +74,73 @@ See function `format-time-string'."
                  (const " [%Y-%m-%d %H:%M:%S]")
                  string))
 
+(defcustom ement-room-username-display-property '(raise -0.25)
+  "Display property applied to username strings.
+See Info node `(elisp)Other Display Specs'."
+  :type '(choice (list :tag "Raise" (const raise :tag "Raise") (number :tag "Factor"))
+		 (list :tag "Height" (const height)
+		       (choice (list :tag "Larger" (const + :tag "Larger") (number :tag "Steps"))
+			       (list :tag "Smaller" (const - :tag "Smaller") (number :tag "Steps"))
+			       (number :tag "Factor")
+			       (function :tag "Function")
+			       (sexp :tag "Form"))) ))
+
 (defface ement-room-timestamp
-  '((t (:inherit font-lock-variable-name-face)))
+  '((t (:inherit font-lock-comment-face)))
   "Event timestamps.")
 
 (defface ement-room-user
-  '((t (:inherit font-lock-keyword-face)))
+  '((t (:inherit font-lock-function-name-face :weight bold)))
   "Usernames.")
 
 ;;;; Commands
+
+(defun ement-room-scroll-down-command ()
+  "Scroll down, and load NUMBER older messages when at top."
+  (interactive)
+  (condition-case _err
+      (scroll-down nil)
+    (beginning-of-buffer
+     (message "Loading earlier messages...")
+     (call-interactively #'ement-room-retro))))
+
+(defun ement-room-retro (session room number)
+  "Retrieve NUMBER older messages in ROOM on SESSION."
+  (interactive (list ement-session ement-room
+		     (if current-prefix-arg
+			 (read-number "Number of messages: ")
+		       10)))
+  (pcase-let* (((cl-struct ement-session server token) session)
+	       ((cl-struct ement-server hostname port) server)
+	       ((cl-struct ement-room id prev-batch) room)
+	       (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
+    (ement-api hostname port token endpoint
+      (apply-partially #'ement-room-retro-callback room)
+      :params (list (list "from" prev-batch)
+		    (list "dir" "b")
+		    (list   "limit" (number-to-string number))))))
+
+(defun ement-room-retro-callback (room data)
+  "Push new DATA to ROOM on SESSION and add events to room buffer."
+  (pcase-let* (((cl-struct ement-room) room)
+	       ((map _start end chunk state) data)
+	       (buffer (cl-loop for buffer in (buffer-list)
+				when (equal room (buffer-local-value 'ement-room buffer))
+				return buffer)))
+    ;; FIXME: These are pushed onto the front of the lists.  Doesn't
+    ;; really matter, but maybe better to put them at the other end.
+    (cl-loop for event across state
+	     ;; FIXME: Need to use make-event
+	     do (push event (ement-room-state room)))
+    (cl-loop for event across-ref chunk
+	     do (setf event (ement--make-event event))
+	     (push event (ement-room-timeline room)))
+    (when buffer
+      (with-current-buffer buffer
+	(cl-loop for event across chunk
+		 do (ement-room--insert-event event))))
+    (setf (ement-room-prev-batch room) end)))
+
 
 ;; FIXME: What is the best way to do this, with ement--sync being in another file?
 (declare-function ement--sync "ement.el")
@@ -200,12 +259,11 @@ To be used as the pretty-printer for `ewoc-create'."
 
 (defun ement-room--format-user (user)
   "Format `ement-user' USER for current buffer's room."
-  (propertize
-   " " 'display `((margin left-margin)
-                  ,(propertize (or (gethash ement-room (ement-user-room-display-names user))
-                                   (puthash ement-room (ement-room--user-display-name user ement-room)
-                                            (ement-user-room-display-names user)))
-                               'face 'ement-room-user))))
+  (propertize (or (gethash ement-room (ement-user-room-display-names user))
+		  (puthash ement-room (ement-room--user-display-name user ement-room)
+			   (ement-user-room-display-names user)))
+	      'display ement-room-username-display-property
+	      'face 'ement-room-user))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."

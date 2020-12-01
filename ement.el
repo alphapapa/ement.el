@@ -251,7 +251,8 @@ To be called in `ement-sync-callback-hook'."
              (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
     (cl-loop for event across (alist-get 'events timeline)
              do (push (ement--make-event event) (ement-room-timeline* room))
-             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))))
+             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
+    (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))
 
 (defvar ement-users (make-hash-table :test #'equal)
   ;; NOTE: When changing the ement-user struct, it's necessary to
