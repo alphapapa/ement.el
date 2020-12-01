@@ -5,6 +5,7 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Keywords: comm
 ;; URL: https://github.com/alphapapa/ement.el
+;; Package-Version: 0.1-pre
 ;; Package-Requires: ((emacs "26.3") (plz "0.1-pre"))
 
 ;; This program is free software; you can redistribute it and/or modify
