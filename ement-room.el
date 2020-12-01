@@ -139,12 +139,11 @@ See Info node `(elisp)Other Display Specs'."
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
   (interactive)
-  (with-selected-window (posn-window (event-start event))
-    (condition-case _err
-        (scroll-down nil)
-      (beginning-of-buffer
-       (when (call-interactively #'ement-room-retro)
-         (message "Loading earlier messages..."))))))
+  (condition-case _err
+      (scroll-down nil)
+    (beginning-of-buffer
+     (when (call-interactively #'ement-room-retro)
+       (message "Loading earlier messages...")))))
 
 (defun ement-room-mwheel-scroll (event)
   "Scroll according to EVENT, loading earlier messages when at top."
@@ -201,13 +200,13 @@ See Info node `(elisp)Other Display Specs'."
       (with-current-buffer buffer
 	(when-let* ((window (get-buffer-window buffer))
                     (point-node (with-selected-window window
-                                  (ewoc-locate ement-ewoc (save-excursion
-                                                            (goto-line (window-top-line))
-                                                            (point))))))
+                                  (ewoc-locate ement-ewoc (window-start)))))
           (cl-loop for event across chunk
                    do (ement-room--insert-event event))
           (with-selected-window (get-buffer-window buffer)
-            (ewoc-goto-node ement-ewoc point-node)))
+            (set-window-start nil (ewoc-location point-node))
+            ;; FIXME: Experiment with this.
+            (forward-line -1)))
         (setf (ement-room-prev-batch room) end
               ement-room-retro-loading nil)))))
 
