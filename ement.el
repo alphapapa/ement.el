@@ -107,6 +107,7 @@ synced.")
 
 ;;;; Commands
 
+;;;###autoload
 (defun ement-connect (user-id password &optional token transaction-id)
   "Connect to Matrix.
 Interactively, with prefix, ignore a saved session and log in again."
