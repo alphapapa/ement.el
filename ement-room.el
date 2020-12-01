@@ -49,6 +49,8 @@
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
+    (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
+    (define-key map (kbd "TAB") #'ement-room-goto-next)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     map)
   "Keymap for Ement room buffers.")
@@ -94,6 +96,16 @@ See Info node `(elisp)Other Display Specs'."
   "Usernames.")
 
 ;;;; Commands
+
+(defun ement-room-goto-prev (num)
+  "Goto the NUM'th previous message in buffer."
+  (interactive "p")
+  (ewoc-goto-prev ement-room-ewoc num))
+
+(defun ement-room-goto-next (num)
+  "Goto the NUM'th next message in buffer."
+  (interactive "p")
+  (ewoc-goto-next ement-room-ewoc num))
 
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER older messages when at top."
