@@ -182,7 +182,7 @@ If SESSION has a `next-batch' token, it's used."
 
 (defvar ement-progress-value nil)
 
-(defvar ement-sync-callback-hook '(ement--update-rooms ement--auto-sync)
+(defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
 synced.")
@@ -210,7 +210,7 @@ synced.")
     (run-hook-with-args 'ement-sync-callback-hook session)
     (message "Sync done")))
 
-(defun ement--update-rooms (&rest _)
+(defun ement--update-room-buffers (&rest _)
   "Add new events to Ement rooms which have buffers.
 To be called in `ement-sync-callback-hook'."
   ;; For now, we primitively iterate over the buffer list to find ones
