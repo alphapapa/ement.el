@@ -139,42 +139,46 @@ See Info node `(elisp)Other Display Specs'."
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
   (interactive)
-  (condition-case _err
-      (scroll-down nil)
-    (beginning-of-buffer
-     (message "Loading earlier messages...")
-     (call-interactively #'ement-room-retro))))
+  (with-selected-window (posn-window (event-start event))
+    (condition-case _err
+        (scroll-down nil)
+      (beginning-of-buffer
+       (when (call-interactively #'ement-room-retro)
+         (message "Loading earlier messages..."))))))
 
 (defun ement-room-mwheel-scroll (event)
   "Scroll according to EVENT, loading earlier messages when at top."
   (interactive "e")
-  (condition-case _err
-      (mwheel-scroll event)
-    (beginning-of-buffer
-     (message "Loading earlier messages...")
-     (call-interactively #'ement-room-retro))))
+  (with-selected-window (posn-window (event-start event))
+    (condition-case _err
+        (mwheel-scroll event)
+      (beginning-of-buffer
+       (when (call-interactively #'ement-room-retro)
+         (message "Loading earlier messages..."))))))
 
-(defun ement-room-retro (session room number)
+(defun ement-room-retro (session room number &optional buffer)
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
   (interactive (list ement-session ement-room
                      (if current-prefix-arg
                          (read-number "Number of messages: ")
-                       10)))
+                       10)
+                     (current-buffer)))
   (unless ement-room-retro-loading
     (pcase-let* (((cl-struct ement-session server token) session)
                  ((cl-struct ement-room id prev-batch) room)
-                 (endpoint (format "rooms/%s/messages" (url-hexify-string id)))
-                 (buffer (current-buffer)))
+                 (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
       (ement-api server token endpoint
         (apply-partially #'ement-room-retro-callback room)
+        :timeout 5
         :params (list (list "from" prev-batch)
                       (list "dir" "b")
                       (list "limit" (number-to-string number)))
         :else (lambda (&rest args)
-                (with-current-buffer buffer
-                  (setf ement-room-retro-loading nil)
-                  (apply #'ement-api-error args))))
+                (when buffer
+                  (with-current-buffer buffer
+                    (setf ement-room-retro-loading nil)))
+                (signal 'error (format "Ement: loading earlier messages failed (%S)" args))))
       (setf ement-room-retro-loading t))))
 
 (declare-function ement--make-event "ement.el")
@@ -195,10 +199,17 @@ See Info node `(elisp)Other Display Specs'."
 	     (push event (ement-room-timeline room)))
     (when buffer
       (with-current-buffer buffer
-	(cl-loop for event across chunk
-		 do (ement-room--insert-event event))))
-    (setf (ement-room-prev-batch room) end
-          ement-room-retro-loading nil)))
+	(when-let* ((window (get-buffer-window buffer))
+                    (point-node (with-selected-window window
+                                  (ewoc-locate ement-ewoc (save-excursion
+                                                            (goto-line (window-top-line))
+                                                            (point))))))
+          (cl-loop for event across chunk
+                   do (ement-room--insert-event event))
+          (with-selected-window (get-buffer-window buffer)
+            (ewoc-goto-node ement-ewoc point-node)))
+        (setf (ement-room-prev-batch room) end
+              ement-room-retro-loading nil)))))
 
 ;; FIXME: What is the best way to do this, with ement--sync being in another file?
 (declare-function ement--sync "ement.el")
