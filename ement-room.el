@@ -47,6 +47,7 @@
 (defvar-local ement-session nil
   "Ement session for current buffer.")
 
+(declare-function ement-view-room "ement.el")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ement-room-sync)
@@ -141,16 +142,15 @@ See Info node `(elisp)Other Display Specs'."
 			 (read-number "Number of messages: ")
 		       10)))
   (pcase-let* (((cl-struct ement-session server token) session)
-	       ((cl-struct ement-server hostname port) server)
 	       ((cl-struct ement-room id prev-batch) room)
 	       (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
-    (ement-api hostname port token endpoint
+    (ement-api server token endpoint
       (apply-partially #'ement-room-retro-callback room)
       :params (list (list "from" prev-batch)
 		    (list "dir" "b")
 		    (list   "limit" (number-to-string number))))))
 
-
+(declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room) room)
@@ -203,13 +203,12 @@ See Info node `(elisp)Other Display Specs'."
   (let ((body (read-string "Send message: ")))
     (unless (string-empty-p body)
       (pcase-let* (((cl-struct ement-session server token) ement-session)
-                   ((cl-struct ement-server hostname port) server)
                    ((cl-struct ement-room id) ement-room)
                    (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
 				     "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
 		   (json-string (json-encode (ement-alist "msgtype" "m.text"
 							  "body" body))))
-        (ement-api hostname port token endpoint
+        (ement-api server token endpoint
           (lambda (&rest args)
             (message "SEND MESSAGE CALLBACK: %S" args))
 	  :data json-string

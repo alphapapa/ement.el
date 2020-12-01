@@ -72,6 +72,10 @@
 (defvar ement-progress-value nil
   "Used to report progress while processing sync events.")
 
+(defvar ement-login-hook '(ement--sync)
+  "Hook run after successful login.
+Run with one argument, the session logged into.")
+
 (defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
@@ -103,33 +107,48 @@ synced.")
 
 ;;;; Commands
 
-(defun ement-connect (user-id _password hostname token &optional transaction-id)
-  ;; FIXME: Use password if given.
-  "Connect to Matrix and sync once."
-  (interactive (pcase-let* (((map username server token ('txn-id transaction-id))
-                             (ement--load-session)))
-                 (list username nil server token transaction-id))
-               ;; (list (read-string "User ID: " (or (when (car ement-sessions)
-               ;;                                      (ement-session-user (car ement-sessions)))
-               ;;                                    ""))
-               ;;       (read-passwd "Password: ")
-               ;;       (read-string "Hostname (default: from user ID): ")
-               ;;       (alist-get 'token (ement--load-session)))
-               )
-  ;; FIXME: Overwrites any current session.
-  (pcase-let* ((hostname (if (not (string-empty-p hostname))
-                             hostname
-                           (if (string-match (rx ":" (group (1+ anything))) user-id)
-                               (match-string 1 user-id)
-                             "matrix.org")))
+(defun ement-connect (user-id password &optional token transaction-id)
+  "Connect to Matrix.
+Interactively, with prefix, ignore a saved session and log in again."
+  (interactive (pcase-let* (((map username password server token ('txn-id transaction-id))
+                             (or (unless current-prefix-arg
+				   (ement--load-session))
+                                 (ement-alist 'username (read-string "User ID: ")
+                                              'password (read-passwd "Password: ")))))
+                 (list username password token transaction-id)))
+  (pcase-let* ((hostname (if (string-match (rx ":" (group (1+ anything))) user-id)
+                             (match-string 1 user-id)
+                           "matrix.org"))
                ;; FIXME: Lookup hostname from user ID with DNS.
                ;; FIXME: Dynamic port.
                (server (make-ement-server :hostname hostname :port 443))
                (user (make-ement-user :id user-id))
                (transaction-id (or transaction-id (random 100000)))
                (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
-    (setf ement-sessions (list session)))
-  (ement--sync (car ement-sessions)))
+    (if token
+        (progn
+          ;; FIXME: Overwrites any current session.
+          (setf ement-sessions (list session))
+          (ement--sync (car ement-sessions)))
+      ;; Log in.
+      (pcase-let* (((cl-struct ement-session user server token device-id initial-device-display-name) session)
+                   ((cl-struct ement-user id) user)
+                   (data (ement-alist "type" "m.login.password"
+                                      "user" id
+                                      "password" password
+                                      "device_id" device-id
+                                      "initial_device_display_name" initial-device-display-name)))
+        ;; TODO: Clear password in callback.
+        (ement-api server token "login" (apply-partially #'ement--login-callback session)
+          :data (json-encode data) :method 'post)))))
+
+(defun ement--login-callback (session data)
+  "Finish logging in to SESSION and sync."
+  (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
+    (setf ement-sessions (list session)
+	  (ement-session-token session) token
+          (ement-session-device-id session) device-id)
+    (run-hook-with-args 'ement-login-hook session)))
 
 (defun ement-view-room (session room)
   "Switch to a buffer showing ROOM on SESSION."
@@ -162,7 +181,6 @@ If SESSION has a `next-batch' token, it's used."
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   (cl-assert (not (map-elt ement-syncs session)))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
-               ((cl-struct ement-server hostname port) server)
                (params (remove nil (list (list "full_state" (if next-batch "false" "true"))
 					 (when next-batch
 					   (list "since" next-batch))
@@ -170,7 +188,7 @@ If SESSION has a `next-batch' token, it's used."
 					   (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds))
                ;; FIXME: Auto-sync again in error handler.
-               (process (ement-api hostname port token "sync" (apply-partially #'ement--sync-callback session)
+               (process (ement-api server token "sync" (apply-partially #'ement--sync-callback session)
                           :params params
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
