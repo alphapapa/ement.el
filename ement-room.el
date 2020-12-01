@@ -50,6 +50,7 @@
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ement-room-sync)
+    (define-key map (kbd "r") #'ement-view-room)
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)

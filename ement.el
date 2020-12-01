@@ -42,6 +42,8 @@
 
 ;; Built in.
 (require 'cl-lib)
+(require 'files)
+(require 'map)
 
 ;; Third-party.
 
@@ -58,6 +60,22 @@
 
 (defvar ement-syncs nil
   "Alist of outstanding sync processes for each session.")
+
+(defvar ement-users (make-hash-table :test #'equal)
+  ;; NOTE: When changing the ement-user struct, it's necessary to
+  ;; reset this table to clear old-type structs.
+  "Hash table storing user structs keyed on user ID.")
+
+(defvar ement-progress-reporter nil
+  "Used to report progress while processing sync events.")
+
+(defvar ement-progress-value nil
+  "Used to report progress while processing sync events.")
+
+(defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
+  "Hook run after `ement--sync-callback'.
+Hooks are called with one argument, the session that was
+synced.")
 
 ;;;; Customization
 
@@ -111,7 +129,6 @@
                (transaction-id (or transaction-id (random 100000)))
                (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
     (setf ement-sessions (list session)))
-  ;; (debug-warn (car ement-sessions))
   (ement--sync (car ement-sessions)))
 
 (defun ement-view-room (session room)
@@ -122,12 +139,6 @@
                                    (ement--room-display-name room))
                              ement-room-buffer-suffix)))
     (pop-to-buffer (ement-room--buffer session room buffer-name))))
-
-(defvar ement-progress-reporter nil
-  "Used to report progress while processing sync events.")
-;; (defun ement-view-room (room)
-;;   "Switch to a buffer for ROOM."
-;;   (interactive (list (ement-complete-room (car ement-sessions)))))
 
 ;;;; Functions
 
@@ -169,7 +180,6 @@ If SESSION has a `next-batch' token, it's used."
                                     (_ (ement-api-error plz-error))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
-                                          (require 'files)
                                           (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
                                                    (- (time-to-seconds) sync-start-time)
                                                    (file-size-human-readable (buffer-size)))
@@ -179,18 +189,6 @@ If SESSION has a `next-batch' token, it's used."
     (when process
       (setf (map-elt ement-syncs session) process)
       (message "Ement: Sync request sent, waiting for response..."))))
-
-(defvar ement-progress-value nil)
-
-(defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
-  "Hook run after `ement--sync-callback'.
-Hooks are called with one argument, the session that was
-synced.")
-
-(defun ement--auto-sync (session)
-  "If `ement-auto-sync' is non-nil, sync SESSION again."
-  (when ement-auto-sync
-    (ement--sync session)))
 
 (defun ement--sync-callback (session data)
   "FIXME: Docstring."
@@ -209,6 +207,11 @@ synced.")
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
     (message "Sync done")))
+
+(defun ement--auto-sync (session)
+  "If `ement-auto-sync' is non-nil, sync SESSION again."
+  (when ement-auto-sync
+    (ement--sync session)))
 
 (defun ement--update-room-buffers (&rest _)
   "Add new events to Ement rooms which have buffers.
@@ -253,13 +256,6 @@ To be called in `ement-sync-callback-hook'."
              do (push (ement--make-event event) (ement-room-timeline* room))
              (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
     (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))
-
-(defvar ement-users (make-hash-table :test #'equal)
-  ;; NOTE: When changing the ement-user struct, it's necessary to
-  ;; reset this table to clear old-type structs.
-  "Hash table storing user structs keyed on user ID.")
-
-(require 'map)
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
