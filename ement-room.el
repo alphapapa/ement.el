@@ -53,6 +53,10 @@
 (defvar-local ement-session nil
   "Ement session for current buffer.")
 
+(defvar-local ement-room-retro-loading nil
+  "Non-nil when earlier messages are being loaded.
+Used to avoid overlapping requests.")
+
 (declare-function ement-view-room "ement.el")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
@@ -64,6 +68,7 @@
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "TAB") #'ement-room-goto-next)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
+    (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
     map)
   "Keymap for Ement room buffers.")
 
@@ -132,10 +137,19 @@ See Info node `(elisp)Other Display Specs'."
   (ewoc-goto-next ement-ewoc num))
 
 (defun ement-room-scroll-down-command ()
-  "Scroll down, and load NUMBER older messages when at top."
+  "Scroll down, and load NUMBER earlier messages when at top."
   (interactive)
   (condition-case _err
       (scroll-down nil)
+    (beginning-of-buffer
+     (message "Loading earlier messages...")
+     (call-interactively #'ement-room-retro))))
+
+(defun ement-room-mwheel-scroll (event)
+  "Scroll according to EVENT, loading earlier messages when at top."
+  (interactive "e")
+  (condition-case _err
+      (mwheel-scroll event)
     (beginning-of-buffer
      (message "Loading earlier messages...")
      (call-interactively #'ement-room-retro))))
@@ -144,17 +158,24 @@ See Info node `(elisp)Other Display Specs'."
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
   (interactive (list ement-session ement-room
-		     (if current-prefix-arg
-			 (read-number "Number of messages: ")
-		       10)))
-  (pcase-let* (((cl-struct ement-session server token) session)
-	       ((cl-struct ement-room id prev-batch) room)
-	       (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
-    (ement-api server token endpoint
-      (apply-partially #'ement-room-retro-callback room)
-      :params (list (list "from" prev-batch)
-		    (list "dir" "b")
-		    (list   "limit" (number-to-string number))))))
+                     (if current-prefix-arg
+                         (read-number "Number of messages: ")
+                       10)))
+  (unless ement-room-retro-loading
+    (pcase-let* (((cl-struct ement-session server token) session)
+                 ((cl-struct ement-room id prev-batch) room)
+                 (endpoint (format "rooms/%s/messages" (url-hexify-string id)))
+                 (buffer (current-buffer)))
+      (ement-api server token endpoint
+        (apply-partially #'ement-room-retro-callback room)
+        :params (list (list "from" prev-batch)
+                      (list "dir" "b")
+                      (list "limit" (number-to-string number)))
+        :else (lambda (&rest args)
+                (with-current-buffer buffer
+                  (setf ement-room-retro-loading nil)
+                  (apply #'ement-api-error args))))
+      (setf ement-room-retro-loading t))))
 
 (declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
@@ -176,7 +197,8 @@ See Info node `(elisp)Other Display Specs'."
       (with-current-buffer buffer
 	(cl-loop for event across chunk
 		 do (ement-room--insert-event event))))
-    (setf (ement-room-prev-batch room) end)))
+    (setf (ement-room-prev-batch room) end
+          ement-room-retro-loading nil)))
 
 ;; FIXME: What is the best way to do this, with ement--sync being in another file?
 (declare-function ement--sync "ement.el")
