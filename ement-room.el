@@ -20,7 +20,9 @@
 
 ;;; Commentary:
 
-;;
+;; EWOC is a great library.  If I had known about it and learned it
+;; sooner, it would have saved me a lot of time in other projects.
+;; I'm glad I decided to try it for this one.
 
 ;;; Code:
 
@@ -36,7 +38,7 @@
 
 ;;;; Variables
 
-(defvar-local ement-room-ewoc nil
+(defvar-local ement-ewoc nil
   "EWOC for Ement room buffers.")
 
 (defvar-local ement-room nil
@@ -48,6 +50,7 @@
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ement-room-sync)
+    (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
@@ -88,6 +91,10 @@ See Info node `(elisp)Other Display Specs'."
 			       (function :tag "Function")
 			       (sexp :tag "Form"))) ))
 
+(defface ement-room-membership
+  '((t (:inherit font-lock-comment-face)))
+  "Membership events (join/part).")
+
 (defface ement-room-timestamp
   '((t (:inherit font-lock-comment-face)))
   "Event timestamps.")
@@ -109,12 +116,12 @@ See Info node `(elisp)Other Display Specs'."
 (defun ement-room-goto-prev (num)
   "Goto the NUM'th previous message in buffer."
   (interactive "p")
-  (ewoc-goto-prev ement-room-ewoc num))
+  (ewoc-goto-prev ement-ewoc num))
 
 (defun ement-room-goto-next (num)
   "Goto the NUM'th next message in buffer."
   (interactive "p")
-  (ewoc-goto-next ement-room-ewoc num))
+  (ewoc-goto-next ement-ewoc num))
 
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER older messages when at top."
@@ -126,6 +133,7 @@ See Info node `(elisp)Other Display Specs'."
      (call-interactively #'ement-room-retro))))
 
 (defun ement-room-retro (session room number)
+  ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
   (interactive (list ement-session ement-room
 		     (if current-prefix-arg
@@ -140,6 +148,7 @@ See Info node `(elisp)Other Display Specs'."
       :params (list (list "from" prev-batch)
 		    (list "dir" "b")
 		    (list   "limit" (number-to-string number))))))
+
 
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
@@ -162,7 +171,6 @@ See Info node `(elisp)Other Display Specs'."
 		 do (ement-room--insert-event event))))
     (setf (ement-room-prev-batch room) end)))
 
-
 ;; FIXME: What is the best way to do this, with ement--sync being in another file?
 (declare-function ement--sync "ement.el")
 (defun ement-room-sync (session)
@@ -172,7 +180,7 @@ See Info node `(elisp)Other Display Specs'."
 
 (defun ement-room-view-event (event)
   "Pop up buffer showing details of EVENT (interactively, the one at point)."
-  (interactive (list (ewoc-data (ewoc-locate ement-room-ewoc))))
+  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
   (require 'pp)
   (let* ((buffer-name (format "*Ement event: %s*" (ement-event-id event)))
          (event (ement-alist :id (ement-event-id event)
@@ -208,6 +216,19 @@ See Info node `(elisp)Other Display Specs'."
 
 ;;;; Functions
 
+(define-derived-mode ement-room-mode fundamental-mode "Ement Room"
+  "Major mode for Ement room buffers.
+This mode initializes a buffer to be used for showing events in
+an Ement room.  It kills all local variables, removes overlays,
+and erases the buffer."
+  (let ((inhibit-read-only t))
+    (erase-buffer))
+  (remove-overlays)
+  (setf buffer-read-only t
+        left-margin-width (length ement-room-timestamp-format)
+        ;; TODO: Use EWOC header/footer for, e.g. typing messages.
+        ement-ewoc (ewoc-create #'ement-room--pp-event)))
+
 (defun ement-room--buffer (session room name)
   "Return a buffer named NAME showing ROOM's events on SESSION."
   (or (get-buffer name)
@@ -222,97 +243,8 @@ See Info node `(elisp)Other Display Specs'."
         ;; Move new events to main list.
         (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
               (ement-room-timeline* room) nil)
-        (current-buffer))))             ; Return the buffer!
-
-(define-derived-mode ement-room-mode fundamental-mode "Ement Room"
-  "Major mode for Ement room buffers.
-This mode initializes a buffer to be used for showing events in
-an Ement room.  It kills all local variables, removes overlays,
-and erases the buffer."
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (remove-overlays)
-  (setf buffer-read-only t
-        left-margin-width 11
-        ;; TODO: Use EWOC header/footer for, e.g. typing messages.
-        ement-room-ewoc (ewoc-create #'ement-room--pp-event)))
-
-;;;;; EWOC
-
-(defvar-local ement-room nil
-  "The room displayed in the current buffer.")
-
-(defun ement-room--pp-event (struct)
-  "Pretty-print STRUCT.
-To be used as the pretty-printer for `ewoc-create'."
-  (cl-etypecase struct
-    ;; FIXME: Null probably not needed anymore.
-    ;;  (null (insert ""))
-    (ement-event (insert "" (ement-room--format-event struct)))
-    (ement-user (insert (ement-room--format-user struct)))
-    ;; FIXME: Function probably not needed anymore.
-    ;; (function (insert ""))
-    ))
-
-(defface ement-room-membership
-  '((t (:inherit font-lock-comment-face)))
-  "Membership events (join/part).")
-
-(defun ement-room--format-event (event)
-  "Format `ement-event' EVENT."
-  (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
-               ((map body format ('formatted_body formatted-body)) content)
-               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
-               (body (if (not formatted-body)
-                         body
-                       (pcase format
-                         ("org.matrix.custom.html"
-                          (ement-room--render-html formatted-body))
-                         (_ (format "[unknown formatted-body format: %s] %s" format body)))))
-               (timestamp (propertize
-                           " " 'display `((margin left-margin)
-                                          ,(propertize (format-time-string ement-room-timestamp-format ts)
-                                                       'face 'ement-room-timestamp))))
-               (body-face (pcase type
-                            ("m.room.member" 'ement-room-membership)
-                            (_ (if (equal (ement-user-id sender)
-                                          (ement-user-id (ement-session-user ement-session)))
-				   'ement-room-self-message 'default))))
-               (string (pcase type
-                         ("m.room.message" body)
-                         ("m.room.member" "")
-                         (_ (format "[unknown event-type: %s] %s" type body)))))
-    (add-face-text-property 0 (length body) body-face 'append body)
-    (prog1 (concat timestamp string)
-      ;; Hacky or elegant?  We return the string, but for certain event
-      ;; types, we also insert a widget (this function is called by
-      ;; EWOC with point at the insertion position).  Seems to work...
-      (pcase type
-        ("m.room.member"
-         (widget-create 'ement-room-membership
-			:button-face 'ement-room-membership
-                        :value (list (alist-get 'membership content))))))))
-
-(defun ement-room--render-html (string)
-  "Return rendered version of HTML string.
-HTML is rendered to Emacs text using `shr-insert-document'."
-  (with-temp-buffer
-    (insert string)
-    (save-excursion
-      (cl-letf (((symbol-function 'shr-fill-line) #'ignore))
-        (shr-insert-document
-         (libxml-parse-html-region (point-min) (point-max)))))
-    (string-trim (buffer-substring (point) (point-max)))))
-
-(defun ement-room--format-user (user)
-  "Format `ement-user' USER for current buffer's room."
-  (let ((face (if (equal (ement-user-id user) (ement-user-id (ement-session-user ement-session)))
-		  'ement-room-self 'ement-room-user)))
-    (propertize (or (gethash ement-room (ement-user-room-display-names user))
-		    (puthash ement-room (ement-room--user-display-name user ement-room)
-			     (ement-user-room-display-names user)))
-		'display ement-room-username-display-property
-		'face face)))
+        ;; Return the buffer!
+        (current-buffer))))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
@@ -329,9 +261,11 @@ HTML is rendered to Emacs text using `shr-insert-document'."
     (or (ement-user-displayname user)
         (ement-user-id user))))
 
+;;;;; EWOC
+
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
-  (let* ((ewoc ement-room-ewoc)
+  (let* ((ewoc ement-ewoc)
          (event< (lambda (a b)
                    "Return non-nil if event A's timestamp is before B's."
                    (< (ement-event-origin-server-ts a)
@@ -414,7 +348,72 @@ HTML is rendered to Emacs text using `shr-insert-document'."
                                         ('first (ewoc-nth ewoc -1))
                                         ('last nil))))))))))
 
-;;;; Widgets
+;;;;; Formatting
+
+(defun ement-room--pp-event (struct)
+  "Pretty-print STRUCT.
+To be used as the pretty-printer for `ewoc-create'."
+  (cl-etypecase struct
+    (ement-event (insert "" (ement-room--format-event struct)))
+    (ement-user (insert (ement-room--format-user struct)))))
+
+(defun ement-room--format-event (event)
+  "Format `ement-event' EVENT."
+  (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
+               ((map body format ('formatted_body formatted-body)) content)
+               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
+               (body (if (not formatted-body)
+                         body
+                       (pcase format
+                         ("org.matrix.custom.html"
+                          (ement-room--render-html formatted-body))
+                         (_ (format "[unknown formatted-body format: %s] %s" format body)))))
+               (timestamp (propertize
+                           " " 'display `((margin left-margin)
+                                          ,(propertize (format-time-string ement-room-timestamp-format ts)
+                                                       'face 'ement-room-timestamp))))
+               (body-face (pcase type
+                            ("m.room.member" 'ement-room-membership)
+                            (_ (if (equal (ement-user-id sender)
+                                          (ement-user-id (ement-session-user ement-session)))
+				   'ement-room-self-message 'default))))
+               (string (pcase type
+                         ("m.room.message" body)
+                         ("m.room.member" "")
+                         (_ (format "[unknown event-type: %s] %s" type body)))))
+    (add-face-text-property 0 (length body) body-face 'append body)
+    (prog1 (concat timestamp string)
+      ;; Hacky or elegant?  We return the string, but for certain event
+      ;; types, we also insert a widget (this function is called by
+      ;; EWOC with point at the insertion position).  Seems to work...
+      (pcase type
+        ("m.room.member"
+         (widget-create 'ement-room-membership
+			:button-face 'ement-room-membership
+                        :value (list (alist-get 'membership content))))))))
+
+(defun ement-room--render-html (string)
+  "Return rendered version of HTML string.
+HTML is rendered to Emacs text using `shr-insert-document'."
+  (with-temp-buffer
+    (insert string)
+    (save-excursion
+      (cl-letf (((symbol-function 'shr-fill-line) #'ignore))
+        (shr-insert-document
+         (libxml-parse-html-region (point-min) (point-max)))))
+    (string-trim (buffer-substring (point) (point-max)))))
+
+(defun ement-room--format-user (user)
+  "Format `ement-user' USER for current buffer's room."
+  (let ((face (if (equal (ement-user-id user) (ement-user-id (ement-session-user ement-session)))
+		  'ement-room-self 'ement-room-user)))
+    (propertize (or (gethash ement-room (ement-user-room-display-names user))
+		    (puthash ement-room (ement-room--user-display-name user ement-room)
+			     (ement-user-room-display-names user)))
+		'display ement-room-username-display-property
+		'face face)))
+
+;;;;; Widgets
 
 (require 'widget)
 
