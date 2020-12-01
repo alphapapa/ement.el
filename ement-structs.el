@@ -24,6 +24,11 @@
 
 ;;; Code:
 
+;;;; Debugging
+
+(eval-and-compile
+  (setq-local warning-minimum-log-level nil)
+  (setq-local warning-minimum-log-level :debug))
 
 ;;;; Requirements
 
