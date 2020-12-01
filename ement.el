@@ -56,6 +56,9 @@
 (defvar ement-sessions nil
   "List of active `ement-session' sessions.")
 
+(defvar ement-syncs nil
+  "Alist of outstanding sync processes for each session.")
+
 ;;;; Customization
 
 (defgroup ement nil
@@ -67,9 +70,18 @@
   :type 'boolean)
 
 (defcustom ement-save-session-file "~/.cache/matrix-client.el.token"
-  ;; FIXME: Uses matrix-client.el token.
+  ;; FIXME: Uses matrix-client.el token.  This causes hair-pulling
+  ;; bugs if a transaction ID is reused, causing sent messages to
+  ;; appear to send but really the server says, nah, you already sent
+  ;; one with that ID, but here's an event ID to make it look like
+  ;; sending worked.
   "Save username and access token to this file."
   :type 'file)
+
+(defcustom ement-auto-sync nil
+  ;; FIXME: When ready, enable by default.
+  "Automatically sync again after syncing."
+  :type 'boolean)
 
 ;;;; Commands
 
@@ -138,6 +150,7 @@ If SESSION has a `next-batch' token, it's used."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Timeout.
+  (cl-assert (not (map-elt ement-syncs session)))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
                ((cl-struct ement-server hostname port) server)
                (params (remove nil (list (list "full_state" (if next-batch "false" "true"))
@@ -145,30 +158,43 @@ If SESSION has a `next-batch' token, it's used."
 					   (list "since" next-batch))
 					 (when next-batch
 					   (list "timeout" "30000")))))
-               (sync-start-time (time-to-seconds)))
-    (debug-warn params)
-    (message "Ement: Sync request sent, waiting for response...")
-    (ement-api hostname port token "sync" (apply-partially #'ement--sync-callback session)
-      :params params
-      :json-read-fn (lambda ()
-                      "Print a message, then call `json-read'."
-                      (require 'files)
-                      (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
-                               (- (time-to-seconds) sync-start-time)
-                               (file-size-human-readable (buffer-size)))
-                      (let ((start-time (time-to-seconds)))
-                        (prog1 (json-read)
-                          (message "Ement: Reading JSON took %.2f seconds" (- (time-to-seconds) start-time))))))))
+               (sync-start-time (time-to-seconds))
+               ;; FIXME: Auto-sync again in error handler.
+               (process (ement-api hostname port token "sync" (apply-partially #'ement--sync-callback session)
+                          :params params
+                          :else (lambda (&rest args)
+                                  (setf (map-elt ement-syncs session) nil)
+                                  (apply #'ement-api-error args))
+                          :json-read-fn (lambda ()
+                                          "Print a message, then call `json-read'."
+                                          (require 'files)
+                                          (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
+                                                   (- (time-to-seconds) sync-start-time)
+                                                   (file-size-human-readable (buffer-size)))
+                                          (let ((start-time (time-to-seconds)))
+                                            (prog1 (json-read)
+                                              (message "Ement: Reading JSON took %.2f seconds" (- (time-to-seconds) start-time))))))))
+    (when process
+      (setf (map-elt ement-syncs session) process)
+      (message "Ement: Sync request sent, waiting for response..."))))
 
 (defvar ement-progress-value nil)
 
-(defvar ement-sync-callback-hook '(ement--update-rooms)
+(defvar ement-sync-callback-hook '(ement--update-rooms ement--auto-sync)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
 synced.")
 
+(defun ement--auto-sync (session)
+  "If `ement-auto-sync' is non-nil, sync SESSION again."
+  (when ement-auto-sync
+    (ement--sync session)))
+
 (defun ement--sync-callback (session data)
   "FIXME: Docstring."
+  ;; Remove the sync first.  We already have the data from it, and the
+  ;; process has exited, so it's safe to run another one.
+  (setf (map-elt ement-syncs session) nil)
   (pcase-let* (((map rooms ('next_batch next-batch)) data)
                ((map ('join joined-rooms)) rooms)
                ;; FIXME: Only counts events in joined-rooms list.
@@ -202,6 +228,7 @@ To be called in `ement-sync-callback-hook'."
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
   (pcase-let* ((`(,id . ,event-types) joined-room)
+               (id (symbol-name id))    ; Really important that the ID is a STRING!
                (room (or (cl-find-if (lambda (room)
                                        (equal id (ement-room-id room)))
                                      (ement-session-rooms session))

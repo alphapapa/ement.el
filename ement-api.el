@@ -69,13 +69,13 @@
     ;; Omit `then' from debugging because if it's a partially applied
     ;; function on the session object, which may be very large, it
     ;; will take a very long time to print into the warnings buffer.
-    (debug-warn (current-time) method url headers)
+    ;;  (debug-warn (current-time) method url headers)
     (pcase-exhaustive method
       ('get (plz-get url :headers headers :as json-read-fn :then then :else else))
       ('put (plz-put url data :headers headers :as json-read-fn :then then :else else)))))
 
 (defun ement-api-error (&rest args)
-  ;; (debug-warn args)
+  "Signal an error about ARGS."
   (error "ement-api-error: %S" args))
 
 ;;;; Footer

@@ -46,6 +46,7 @@
 
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
     map)
@@ -82,6 +83,13 @@ See function `format-time-string'."
 
 ;;;; Commands
 
+;; FIXME: What is the best way to do this, with ement--sync being in another file?
+(declare-function ement--sync "ement.el")
+(defun ement-room-sync (session)
+  "Sync SESSION (interactively, current buffer's)."
+  (interactive (list ement-session))
+  (ement--sync session))
+
 (defun ement-room-view-event (event)
   "Pop up buffer showing details of EVENT (interactively, the one at point)."
   (interactive (list (ewoc-data (ewoc-locate ement-room-ewoc))))
@@ -101,13 +109,14 @@ See function `format-time-string'."
 (defun ement-room-send-message ()
   "Send message in current buffer's room."
   (interactive)
+  (cl-assert ement-room) (cl-assert ement-session)
   (let ((body (read-string "Send message: ")))
     (unless (string-empty-p body)
-      (pcase-let* (((cl-struct ement-session server token transaction-id) ement-session)
+      (pcase-let* (((cl-struct ement-session server token) ement-session)
                    ((cl-struct ement-server hostname port) server)
                    ((cl-struct ement-room id) ement-room)
-                   (endpoint (format "rooms/%s/send/%s/%s" id "m.room.message"
-				     (cl-incf transaction-id)))
+                   (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
+				     "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
 		   (json-string (json-encode (ement-alist "msgtype" "m.text"
 							  "body" body))))
         (ement-api hostname port token endpoint
@@ -143,7 +152,7 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
-        ement-room-ewoc (ewoc-create #'ement-room--pp-event "HEADER" "FOOTER")))
+        ement-room-ewoc (ewoc-create #'ement-room--pp-event "WHATHEADER" "FOOTER")))
 
 ;;;;; EWOC
 
