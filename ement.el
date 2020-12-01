@@ -163,11 +163,10 @@ If SESSION has a `next-batch' token, it's used."
                           :params params
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
-                                  (pcase-let (((cl-struct plz-error curl-error) plz-error))
-                                    (pcase curl-error
-                                      (28 ; Timeout: sync again if enabled.
-                                       (ement--auto-sync session))
-                                      (_ (ement-api-error plz-error)))))
+                                  (pcase (plz-error-curl-error plz-error)
+                                    (`(28 . ,_) ; Timeout: sync again if enabled.
+                                     (ement--auto-sync session))
+                                    (_ (ement-api-error plz-error))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
                                           (require 'files)
