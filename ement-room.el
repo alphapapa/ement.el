@@ -95,6 +95,14 @@ See Info node `(elisp)Other Display Specs'."
   '((t (:inherit font-lock-function-name-face :weight bold)))
   "Usernames.")
 
+(defface ement-room-self
+  '((t (:inherit font-lock-variable-name-face :weight bold)))
+  "Own username.")
+
+(defface ement-room-self-message
+  '((t (:inherit font-lock-variable-name-face)))
+  "Own messages.")
+
 ;;;; Commands
 
 (defun ement-room-goto-prev (num)
@@ -251,7 +259,7 @@ To be used as the pretty-printer for `ewoc-create'."
 
 (defun ement-room--format-event (event)
   "Format `ement-event' EVENT."
-  (pcase-let* (((cl-struct ement-event type content origin-server-ts) event)
+  (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
                ((map body) content)
                (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
                (timestamp
@@ -261,7 +269,8 @@ To be used as the pretty-printer for `ewoc-create'."
                                                     'face 'ement-room-timestamp))))
                (body-face (pcase type
                             ("m.room.member" 'ement-room-membership)
-                            (_ 'default)))
+                            (_ (if (equal (ement-user-id sender) (ement-user-id (ement-session-user ement-session)))
+				   'ement-room-self-message 'default))))
                (string (propertize (pcase type
                                      ("m.room.message" body)
                                      ("m.room.member" (alist-get 'membership content))
@@ -271,11 +280,13 @@ To be used as the pretty-printer for `ewoc-create'."
 
 (defun ement-room--format-user (user)
   "Format `ement-user' USER for current buffer's room."
-  (propertize (or (gethash ement-room (ement-user-room-display-names user))
-		  (puthash ement-room (ement-room--user-display-name user ement-room)
-			   (ement-user-room-display-names user)))
-	      'display ement-room-username-display-property
-	      'face 'ement-room-user))
+  (let ((face (if (equal (ement-user-id user) (ement-user-id (ement-session-user ement-session)))
+		  'ement-room-self 'ement-room-user)))
+    (propertize (or (gethash ement-room (ement-user-room-display-names user))
+		    (puthash ement-room (ement-room--user-display-name user ement-room)
+			     (ement-user-room-display-names user)))
+		'display ement-room-username-display-property
+		'face face)))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
