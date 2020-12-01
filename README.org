@@ -19,13 +19,27 @@ This is what a room buffer looks like.
 :TOC:      :include siblings
 :END:
 :CONTENTS:
-  -  [[#installation][Installation]]
-  -  [[#usage][Usage]]
-  -  [[#changelog][Changelog]]
-  -  [[#credits][Credits]]
-  -  [[#development][Development]]
-  -  [[#license][License]]
+- [[#rationale][Rationale]]
+- [[#installation][Installation]]
+- [[#usage][Usage]]
+- [[#changelog][Changelog]]
+- [[#development][Development]]
+- [[#license][License]]
 :END:
+
+* Rationale
+
+Why write a new Emacs Matrix client when there is already [[https://github.com/alphapapa/matrix-client.el][matrix-client.el]], by the same author, no less?  A few reasons:
+
+-  ~matrix-client~ uses an older version of the Matrix spec, r0.3.0, with a few elements of r0.4.0 grafted in.  Bringing it up to date with the current version of the spec, r0.6.1, would be more work than to begin with the current version.  Ement.el targets r0.6.1 from the beginning.
+-  ~matrix-client~ was developed without the intention of publishing it to, e.g. MELPA or ELPA.  It has several dependencies, and its code does not always install or compile cleanly due to macro-expansion issues (apparently depending on the user's Emacs config).  Ement.el is designed to have minimal dependencies outside of Emacs (currently only one, ~plz~, which could be imported into the project), and every file is linted and compiles cleanly using [[https://github.com/alphapapa/makem.sh][makem.sh]].
+-  ~matrix-client~ uses EIEIO, probably unnecessarily, since few, if any, of the benefits of EIEIO are realized in it.  Ement.el uses structs instead.
+-  ~matrix-client~ uses bespoke code for inserting messages into buffers, which works pretty well, but has a few minor bugs which are difficult to track down.  Ement.el uses Emacs's built-in (and perhaps little-known) ~ewoc~ library, which makes it much simpler and more reliable to insert and update messages in buffers, and enables the development of advanced UI features more easily.
+-  ~matrix-client~ was, to a certain extent, designed to imitate other messaging apps.  The result is, at least when used with the ~matrix-client-frame~ command, fairly pleasing to use, but isn't especially "Emacsy."  Ement.el is intended to better fit into Emacs's paradigms.
+-  ~matrix-client~'s long name makes for long symbol names, which makes for tedious, verbose code.  ~ement~ is easy to type and makes for concise, readable code.
+-  The author has learned much since writing ~matrix-client~ and hopes to write simpler, more readable, more maintainable code in Ement.el.  It's hoped that this will enable others to contribute more easily.
+
+However, note that ~matrix-client~ is a more mature client and is very reliable in the author's experience.  While Ement.el is intended to reach feature parity with it and eventually surpass it, that will take some time, so ~matrix-client~ remains a good choice.
 
 * Installation
 :PROPERTIES:
