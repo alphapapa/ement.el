@@ -139,9 +139,21 @@ Interactively, with prefix, ignore a saved session and log in again."
                                       "password" password
                                       "device_id" device-id
                                       "initial_device_display_name" initial-device-display-name)))
-        ;; TODO: Clear password in callback.
+        ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
         (ement-api server token "login" (apply-partially #'ement--login-callback session)
           :data (json-encode data) :method 'post)))))
+
+(defun ement-disconnect (session)
+  "Disconnect from SESSION.
+If `ement-auto-sync' is enabled, stop syncing, and clear the
+session data.  Any existing room buffers are left alive and can
+be read, but other commands in them won't work."
+  (interactive (list (ement-complete-session)))
+  (let ((id (ement-user-id (ement-session-user session))))
+    ;; FIXME: Stop outstanding sync processes.
+    (setf (map-elt ement-syncs session) nil)
+    (setf ement-syncs (map-delete ement-syncs session))
+    (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
   "Finish logging in to SESSION and sync."
@@ -154,23 +166,35 @@ Interactively, with prefix, ignore a saved session and log in again."
 (defun ement-view-room (session room)
   "Switch to a buffer showing ROOM on SESSION."
   (interactive (list (car ement-sessions) (ement-complete-room (car ement-sessions))))
-  (let ((buffer-name (concat ement-room-buffer-prefix
-                             (setf (ement-room-display-name room)
-                                   (ement--room-display-name room))
-                             ement-room-buffer-suffix)))
+  (let ((buffer-name (concat ement-room-buffer-name-prefix
+                             (or (ement-room-display-name room)
+                                 (setf (ement-room-display-name room)
+                                       (ement--room-display-name room)))
+                             ement-room-buffer-name-suffix)))
     (pop-to-buffer (ement-room--buffer session room buffer-name))))
 
 ;;;; Functions
 
+(defun ement-complete-session ()
+  "Return an Ement session selected with completion."
+  (pcase-let* ((session-to-id
+                (cl-loop for session in ement-sessions
+                         collect (cons (ement-user-id (ement-session-user session))
+                                       session)))
+               (ids (mapcar #'car session-to-id))
+               (selected-id (completing-read "Session: " ids nil t)))
+    (alist-get selected-id session-to-id nil nil #'string=)))
+
 (defun ement-complete-room (session)
   "Return a room selected from SESSION with completion."
-  (pcase-let* (((cl-struct ement-session rooms) session)
-               (name-to-room (cl-loop for room in rooms
-                                      collect (cons (format "%s (%s)"
-                                                            (setf (ement-room-display-name room)
-                                                                  (ement--room-display-name room))
-                                                            (ement--room-alias room))
-                                                    room)))
+  (pcase-let* ((name-to-room
+                (cl-loop for room in (ement-session-rooms session)
+                         collect (cons (format "%s (%s)"
+                                               (or (ement-room-display-name room)
+                                                   (setf (ement-room-display-name room)
+                                                         (ement--room-display-name room)))
+                                               (ement--room-alias room))
+                                       room)))
                (names (mapcar #'car name-to-room))
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room nil nil #'string=)))
@@ -182,11 +206,12 @@ If SESSION has a `next-batch' token, it's used."
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   (cl-assert (not (map-elt ement-syncs session)))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
-               (params (remove nil (list (list "full_state" (if next-batch "false" "true"))
-					 (when next-batch
-					   (list "since" next-batch))
-					 (when next-batch
-					   (list "timeout" "30000")))))
+               (params (remove
+                        nil (list (list "full_state" (if next-batch "false" "true"))
+                                  (when next-batch
+                                    (list "since" next-batch))
+                                  (when next-batch
+                                    (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds))
                ;; FIXME: Auto-sync again in error handler.
                (process (ement-api server token "sync" (apply-partially #'ement--sync-callback session)
@@ -194,7 +219,7 @@ If SESSION has a `next-batch' token, it's used."
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
                                   (pcase (plz-error-curl-error plz-error)
-                                    (`(28 . ,_) ; Timeout: sync again if enabled.
+                                    (`("28" . ,_) ; Timeout: sync again if enabled.
                                      (ement--auto-sync session))
                                     (_ (ement-api-error plz-error))))
                           :json-read-fn (lambda ()
@@ -204,7 +229,8 @@ If SESSION has a `next-batch' token, it's used."
                                                    (file-size-human-readable (buffer-size)))
                                           (let ((start-time (time-to-seconds)))
                                             (prog1 (json-read)
-                                              (message "Ement: Reading JSON took %.2f seconds" (- (time-to-seconds) start-time))))))))
+                                              (message "Ement: Reading JSON took %.2f seconds"
+                                                       (- (time-to-seconds) start-time))))))))
     (when process
       (setf (map-elt ement-syncs session) process)
       (message "Ement: Sync request sent, waiting for response..."))))
@@ -245,8 +271,8 @@ To be called in `ement-sync-callback-hook'."
         (cl-assert ement-room)
         (mapc #'ement-room--insert-event (ement-room-timeline* ement-room))
         ;; Move new events.
-        (setf (ement-room-timeline ement-room)
-              (append (ement-room-timeline* ement-room) (ement-room-timeline ement-room))
+        (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
+                                                       (ement-room-timeline ement-room))
               (ement-room-timeline* ement-room) nil)))))
 
 (defun ement--push-joined-room-events (session joined-room)
@@ -279,18 +305,21 @@ To be called in `ement-sync-callback-hook'."
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
 Adds sender to `ement-users' when necessary."
+  ;; FIXME: Can this work for state events, or only for timeline events?
   (pcase-let* (((map content type unsigned
-                     ('event_id id) ('origin_server_ts ts) ('sender sender-id) ('state_key _state-key))
+                     ('event_id id) ('origin_server_ts ts)
+                     ('sender sender-id) ('state_key _state-key))
                 event)
                (sender (or (gethash sender-id ement-users)
-                           (puthash sender-id (make-ement-user :id sender-id :room-display-names (make-hash-table))
+                           (puthash sender-id (make-ement-user
+                                               :id sender-id :room-display-names (make-hash-table))
                                     ement-users))))
-    (make-ement-event :id id :sender sender :content content :origin-server-ts ts :type type :unsigned unsigned)))
+    (make-ement-event :id id :sender sender :type type :content content
+                      :origin-server-ts ts :unsigned unsigned)))
 
 (defun ement--room-display-name (room)
   "Return the displayname for ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id349>.
-  ;; MAYBE: Optional "force" argument to make it update the room name/alias in the struct.
   (or (ement--room-name room)
       (ement--room-alias room)
       ;; FIXME: Steps 3, etc.
