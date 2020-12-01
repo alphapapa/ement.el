@@ -111,7 +111,7 @@ synced.")
 (defun ement-connect (user-id password &optional token transaction-id)
   "Connect to Matrix.
 Interactively, with prefix, ignore a saved session and log in again."
-  (interactive (pcase-let* (((map username password server token ('txn-id transaction-id))
+  (interactive (pcase-let* (((map username password token ('txn-id transaction-id))
                              (or (unless current-prefix-arg
 				   (ement--load-session))
                                  (ement-alist 'username (read-string "User ID: ")
@@ -132,7 +132,7 @@ Interactively, with prefix, ignore a saved session and log in again."
           (setf ement-sessions (list session))
           (ement--sync (car ement-sessions)))
       ;; Log in.
-      (pcase-let* (((cl-struct ement-session user server token device-id initial-device-display-name) session)
+      (pcase-let* (((cl-struct ement-session user token device-id initial-device-display-name) session)
                    ((cl-struct ement-user id) user)
                    (data (ement-alist "type" "m.login.password"
                                       "user" id
