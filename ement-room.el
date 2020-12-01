@@ -58,7 +58,7 @@
   "Options for room buffers."
   :group 'ement)
 
-(defcustom ement-room-buffer-prefix "*Ement: "
+(defcustom ement-room-buffer-prefix "*Ement Room: "
   "Prefix for Ement room buffer names."
   :type 'string)
 
@@ -104,6 +104,7 @@ See function `format-time-string'."
     (with-current-buffer (get-buffer-create buffer-name)
       (erase-buffer)
       (pp event (current-buffer))
+      (view-mode)
       (pop-to-buffer (current-buffer)))))
 
 (defun ement-room-send-message ()
