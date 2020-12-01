@@ -102,14 +102,14 @@
   ;; (debug-warn (car ement-sessions))
   (ement--sync (car ement-sessions)))
 
-(defun ement-view-room (room)
-  "Switch to a buffer showing ROOM."
-  (interactive (list (ement-complete-room (car ement-sessions))))
+(defun ement-view-room (session room)
+  "Switch to a buffer showing ROOM on SESSION."
+  (interactive (list (car ement-sessions) (ement-complete-room (car ement-sessions))))
   (let ((buffer-name (concat ement-room-buffer-prefix
                              (setf (ement-room-display-name room)
                                    (ement--room-display-name room))
                              ement-room-buffer-suffix)))
-    (pop-to-buffer (ement-room--buffer room buffer-name))))
+    (pop-to-buffer (ement-room--buffer session room buffer-name))))
 
 (defvar ement-progress-reporter nil
   "Used to report progress while processing sync events.")
@@ -138,18 +138,18 @@ If SESSION has a `next-batch' token, it's used."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Timeout.
-  (pcase-let* (((cl-struct ement-session server token transaction-id next-batch) session)
+  (pcase-let* (((cl-struct ement-session server token next-batch) session)
                ((cl-struct ement-server hostname port) server)
-               (data (remove nil (list (list "full_state" (if next-batch "false" "true"))
-				       (when next-batch
-					 (list "since" next-batch))
-				       (when next-batch
-					 (list "timeout" "30000")))))
+               (params (remove nil (list (list "full_state" (if next-batch "false" "true"))
+					 (when next-batch
+					   (list "since" next-batch))
+					 (when next-batch
+					   (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds)))
-    (debug-warn data)
+    (debug-warn params)
     (message "Ement: Sync request sent, waiting for response...")
-    (ement-api hostname port token transaction-id
-      "sync" data (apply-partially #'ement--sync-callback session)
+    (ement-api hostname port token "sync" (apply-partially #'ement--sync-callback session)
+      :params params
       :json-read-fn (lambda ()
                       "Print a message, then call `json-read'."
                       (require 'files)

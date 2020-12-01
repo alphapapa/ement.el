@@ -29,6 +29,7 @@
 (require 'ewoc)
 (require 'subr-x)
 
+(require 'ement-api)
 (require 'ement-macros)
 (require 'ement-structs)
 
@@ -40,9 +41,13 @@
 (defvar-local ement-room nil
   "Ement room for current buffer.")
 
+(defvar-local ement-session nil
+  "Ement session for current buffer.")
+
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'ement-room-view-event)
+    (define-key map (kbd "v") #'ement-room-view-event)
+    (define-key map (kbd "RET") #'ement-room-send-message)
     map)
   "Keymap for Ement room buffers.")
 
@@ -93,16 +98,35 @@ See function `format-time-string'."
       (pp event (current-buffer))
       (pop-to-buffer (current-buffer)))))
 
+(defun ement-room-send-message ()
+  "Send message in current buffer's room."
+  (interactive)
+  (let ((body (read-string "Send message: ")))
+    (unless (string-empty-p body)
+      (pcase-let* (((cl-struct ement-session server token transaction-id) ement-session)
+                   ((cl-struct ement-server hostname port) server)
+                   ((cl-struct ement-room id) ement-room)
+                   (endpoint (format "rooms/%s/send/%s/%s" id "m.room.message"
+				     (cl-incf transaction-id)))
+		   (json-string (json-encode (ement-alist "msgtype" "m.text"
+							  "body" body))))
+        (ement-api hostname port token endpoint
+          (lambda (&rest args)
+            (message "SEND MESSAGE CALLBACK: %S" args))
+	  :data json-string
+          :method 'put)))))
+
 ;;;; Functions
 
-(defun ement-room--buffer (room name)
-  "Return a buffer named NAME showing ROOM's events."
+(defun ement-room--buffer (session room name)
+  "Return a buffer named NAME showing ROOM's events on SESSION."
   (or (get-buffer name)
       (with-current-buffer (get-buffer-create name)
         (ement-room-mode)
         ;; FIXME: Move visual-line-mode to a hook.
         (visual-line-mode 1)
-        (setf ement-room room)
+        (setf ement-session session
+              ement-room room)
         (mapc #'ement-room--insert-event (ement-room-timeline room))
         (mapc #'ement-room--insert-event (ement-room-timeline* room))
         ;; Move new events to main list.

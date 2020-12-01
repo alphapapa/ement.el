@@ -51,8 +51,8 @@
 
 ;;;; Functions
 
-(cl-defun ement-api (hostname port token _transaction-id endpoint data then
-                              &key _timeout _raw-data
+(cl-defun ement-api (hostname port token endpoint then
+                              &key _timeout data params
                               (content-type "application/json")
                               (else #'ement-api-error) (method 'get)
                               (json-read-fn #'json-read))
@@ -60,7 +60,7 @@
   ;; FIXME: Use timeout.
   (declare (indent defun))
   (pcase-let* ((path (concat "/_matrix/client/r0/" endpoint))
-	       (query (url-build-query-string data))
+	       (query (url-build-query-string params))
 	       (filename (concat path "?" query))
                (url (url-recreate-url
 		     (url-parse-make-urlobj "https" nil nil hostname port filename nil data t)))
@@ -71,7 +71,8 @@
     ;; will take a very long time to print into the warnings buffer.
     (debug-warn (current-time) method url headers)
     (pcase-exhaustive method
-      ('get (plz-get url :headers headers :as json-read-fn :then then :else else)))))
+      ('get (plz-get url :headers headers :as json-read-fn :then then :else else))
+      ('put (plz-put url data :headers headers :as json-read-fn :then then :else else)))))
 
 (defun ement-api-error (&rest args)
   ;; (debug-warn args)
