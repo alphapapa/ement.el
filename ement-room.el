@@ -258,62 +258,51 @@ To be used as the pretty-printer for `ewoc-create'."
   '((t (:inherit font-lock-comment-face)))
   "Membership events (join/part).")
 
-;; (defun ement-room--format-event (event)
-;;   "Format `ement-event' EVENT."
-;;   (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
-;;                ((map body) content)
-;;                (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
-;;                (timestamp
-;;                 (propertize " "
-;;                             'display `((margin left-margin)
-;;                                        ,(propertize (format-time-string ement-room-timestamp-format ts)
-;;                                                     'face 'ement-room-timestamp))))
-;;                (body-face (pcase type
-;;                             ("m.room.member" 'ement-room-membership)
-;;                             (_ (if (equal (ement-user-id sender) (ement-user-id (ement-session-user ement-session)))
-;; 				   'ement-room-self-message 'default))))
-;;                (string (propertize (pcase type
-;;                                      ("m.room.message" body)
-;;                                      ("m.room.member" (alist-get 'membership content))
-;;                                      (_ (concat "EVENT-TYPE: " type)))
-;;                                    'face body-face)))
-;;     (concat timestamp string)))
-
 (defun ement-room--format-event (event)
   "Format `ement-event' EVENT."
   (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
                ((map body format ('formatted_body formatted-body)) content)
+               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
                (body (if (not formatted-body)
                          body
                        (pcase format
                          ("org.matrix.custom.html"
-                          (with-temp-buffer
-                            (insert formatted-body)
-                            (save-excursion
-                              (shr-insert-document
-                               (libxml-parse-html-region (point-min) (point-max))))
-                            (string-trim (buffer-substring (point) (point-max))))))))
-               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
-               (timestamp
-                (propertize " "
-                            'display `((margin left-margin)
-                                       ,(propertize (format-time-string ement-room-timestamp-format ts)
-                                                    'face 'ement-room-timestamp))))
+                          (ement-room--render-html formatted-body))
+                         (_ (format "[unknown formatted-body format: %s] %s" format body)))))
+               (timestamp (propertize
+                           " " 'display `((margin left-margin)
+                                          ,(propertize (format-time-string ement-room-timestamp-format ts)
+                                                       'face 'ement-room-timestamp))))
                (body-face (pcase type
                             ("m.room.member" 'ement-room-membership)
-                            (_ (if (equal (ement-user-id sender) (ement-user-id (ement-session-user ement-session)))
+                            (_ (if (equal (ement-user-id sender)
+                                          (ement-user-id (ement-session-user ement-session)))
 				   'ement-room-self-message 'default))))
                (string (pcase type
                          ("m.room.message" body)
                          ("m.room.member" "")
-                         (_ (concat "EVENT-TYPE: " type)))))
+                         (_ (format "[unknown event-type: %s] %s" type body)))))
     (add-face-text-property 0 (length body) body-face 'append body)
     (prog1 (concat timestamp string)
+      ;; Hacky or elegant?  We return the string, but for certain event
+      ;; types, we also insert a widget (this function is called by
+      ;; EWOC with point at the insertion position).  Seems to work...
       (pcase type
         ("m.room.member"
          (widget-create 'ement-room-membership
 			:button-face 'ement-room-membership
                         :value (list (alist-get 'membership content))))))))
+
+(defun ement-room--render-html (string)
+  "Return rendered version of HTML string.
+HTML is rendered to Emacs text using `shr-insert-document'."
+  (with-temp-buffer
+    (insert string)
+    (save-excursion
+      (cl-letf (((symbol-function 'shr-fill-line) #'ignore))
+        (shr-insert-document
+         (libxml-parse-html-region (point-min) (point-max)))))
+    (string-trim (buffer-substring (point) (point-max)))))
 
 (defun ement-room--format-user (user)
   "Format `ement-user' USER for current buffer's room."
