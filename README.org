@@ -1,0 +1,110 @@
+#+TITLE: ement.el
+
+#+PROPERTY: LOGGING nil
+
+# Note: This readme works with the org-make-toc <https://github.com/alphapapa/org-make-toc> package, which automatically updates the table of contents.
+
+# [[https://melpa.org/#/package-name][file:https://melpa.org/packages/package-name-badge.svg]] [[https://stable.melpa.org/#/package-name][file:https://stable.melpa.org/packages/package-name-badge.svg]]
+
+Ement.el is a new Matrix client for Emacs.  It's basic at the moment, but it can be used to send and read messages.
+
+* Screenshots
+
+This is what a room buffer looks like.
+
+[[images/screenshot.png]]
+
+* Contents                                                         :noexport:
+:PROPERTIES:
+:TOC:      :include siblings
+:END:
+:CONTENTS:
+  -  [[#installation][Installation]]
+  -  [[#usage][Usage]]
+  -  [[#changelog][Changelog]]
+  -  [[#credits][Credits]]
+  -  [[#development][Development]]
+  -  [[#license][License]]
+:END:
+
+* Installation
+:PROPERTIES:
+:TOC:      :depth 0
+:END:
+
+# ** MELPA
+# 
+# If you installed from MELPA, you're done.  Just run one of the commands below.
+
+** Quelpa
+
+The recommended way to install is with [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]], like this:
+
+#+BEGIN_SRC elisp
+  ;; Install and load `quelpa-use-package'.
+  (package-install 'quelpa-use-package)
+  (require 'quelpa-use-package)
+
+  ;; Install `plz' HTTP library (not on MELPA yet).
+  (use-package plz
+    :quelpa (plz :fetcher github :repo "alphapapa/plz.el"))
+
+  ;; Install Ement.
+  (use-package ement
+    :quelpa (ement :fetcher github :repo "alphapapa/ement.el"))
+#+END_SRC
+
+** Manual
+
+If you want to install it manually, it's simple enough, but you should know what you're doing, and you're on your own.
+
+* Usage
+:PROPERTIES:
+:TOC:      :depth 0
+:END:
+
+1.  Call command ~ement-connect~ to connect.
+2.  Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
+3.  Call command ~ement-view-room~ to select a room buffer to view.
+
+In the room buffer:
+
+-  ~RET~ sends a message.
+-  ~TAB~ / ~<backtab>~ moves between messages.
+-  ~M-v~ at the top of the buffer loads older messages.
+-  ~v~ views an event's source.
+-  ~g~ syncs new messages (not necessary if auto sync is enabled; see below).
+-  ~r~ selects another room.
+
+** Tips
+
++  You can customize settings in the ~ement~ group.
+     -  Set ~ement-auto-sync~ to sync new messages automatically.
+
+* Changelog
+:PROPERTIES:
+:TOC:      :depth 0
+:END:
+
+** 0.1-pre
+
+Yet to be released.
+
+* COMMENT Credits
+
+
+* Development
+
+Bug reports, feature requests, suggestions — /oh my/!
+
+* License
+
+GPLv3
+
+# Local Variables:
+# eval: (require 'org-make-toc)
+# before-save-hook: org-make-toc
+# org-export-with-properties: ()
+# org-export-with-title: t
+# End:
+
