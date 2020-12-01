@@ -71,14 +71,14 @@
     ;; Omit `then' from debugging because if it's a partially applied
     ;; function on the session object, which may be very large, it
     ;; will take a very long time to print into the warnings buffer.
-    ;;  (debug-warn (current-time) method url headers)
+    ;;  (ement-debug (current-time) method url headers)
     (plz method url :headers headers :body data :as json-read-fn :then then :else else
       ;; FIXME: Timeout is not necessarily the same as connect-timeout, or shouldn't be.
       :connect-timeout timeout)))
 
 (defun ement-api-error (&rest args)
   "Signal an error about ARGS."
-  (error "ement-api-error: %S" args))
+  (error "Ement API error: %S" args))
 
 ;;;; Footer
 

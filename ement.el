@@ -110,8 +110,10 @@ synced.")
 
 ;;;###autoload
 (defun ement-connect (user-id password &optional token transaction-id)
-  "Connect to Matrix.
-Interactively, with prefix, ignore a saved session and log in again."
+  "Connect to Matrix with USER-ID and PASSWORD.
+Optionally, ignore PASSWORD and use TOKEN and TRANSACTION-ID to
+sync a saved session.  Interactively, with prefix, ignore a saved
+session and log in again."
   (interactive (pcase-let* (((map username password token ('txn-id transaction-id))
                              (or (unless current-prefix-arg
 				   (ement--load-session))
@@ -157,13 +159,16 @@ be read, but other commands in them won't work."
     (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
-  "Finish logging in to SESSION and sync."
+  "Finish logging in to SESSION with DATA and sync."
   (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
     (setf ement-sessions (list session)
 	  (ement-session-token session) token
           (ement-session-device-id session) device-id)
     (run-hook-with-args 'ement-login-hook session)))
 
+;; FIXME: Make a room-buffer-name function or something.
+(defvar ement-room-buffer-name-prefix)
+(defvar ement-room-buffer-name-suffix)
 (defun ement-view-room (session room)
   "Switch to a buffer showing ROOM on SESSION."
   (interactive (list (car ement-sessions) (ement-complete-room (car ement-sessions))))
@@ -237,7 +242,8 @@ If SESSION has a `next-batch' token, it's used."
       (message "Ement: Sync request sent, waiting for response..."))))
 
 (defun ement--sync-callback (session data)
-  "FIXME: Docstring."
+  "Process sync DATA for SESSION.
+Runs `ement-sync-callback-hook' with SESSION."
   ;; Remove the sync first.  We already have the data from it, and the
   ;; process has exited, so it's safe to run another one.
   (setf (map-elt ement-syncs session) nil)
@@ -327,11 +333,13 @@ Adds sender to `ement-users' when necessary."
       (ement-room-id room)))
 
 (defun ement--room-name (room)
+  "Return latest m.room.name event in ROOM."
   (cl-loop for event in (ement-room-state room)
            when (equal "m.room.name" (ement-event-type event))
            return (alist-get 'name (ement-event-content event))))
 
 (defun ement--room-alias (room)
+  "Return latest m.room.canonical_alias evenet in ROOM."
   (cl-loop for event in (ement-room-state room)
            when (equal "m.room.canonical_alias" (ement-event-type event))
            return (alist-get 'alias (ement-event-content event))))

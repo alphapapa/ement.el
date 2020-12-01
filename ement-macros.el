@@ -34,7 +34,7 @@
   (setq-local warning-minimum-log-level nil)
   (setq-local warning-minimum-log-level :debug))
 
-(cl-defmacro debug-warn (&rest args)
+(cl-defmacro ement-debug (&rest args)
   "Display a debug warning showing the runtime value of ARGS.
 The warning automatically includes the name of the containing
 function, and it is only displayed if `warning-minimum-log-level'

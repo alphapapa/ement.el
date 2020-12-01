@@ -312,45 +312,45 @@ and erases the buffer."
          new-node)
     (setf new-node (if (not node-before)
                        (progn
-                         (debug-warn "No event before it: add first.")
+                         (ement-debug "No event before it: add first.")
                          (if-let ((first-node (ewoc-nth ewoc 0)))
                              (progn
-                               (debug-warn "EWOC not empty.")
+                               (ement-debug "EWOC not empty.")
                                (if (and (ement-user-p (ewoc-data first-node))
                                         (equal (ement-event-sender event)
                                                (ewoc-data first-node)))
                                    (progn
-                                     (debug-warn "First node is header for this sender: insert after it, instead.")
+                                     (ement-debug "First node is header for this sender: insert after it, instead.")
                                      (setf node-before first-node)
                                      (ewoc-enter-after ewoc first-node event))
-                                 (debug-warn "First node is not header for this sender: insert first.")
+                                 (ement-debug "First node is not header for this sender: insert first.")
                                  (ewoc-enter-first ewoc event)))
-                           (debug-warn "EWOC empty: add first.")
+                           (ement-debug "EWOC empty: add first.")
                            (ewoc-enter-first ewoc event)))
-                     (debug-warn "Found event before new event: insert after it.")
+                     (ement-debug "Found event before new event: insert after it.")
                      (when-let ((next-node (ewoc-next ewoc node-before)))
                        (when (and (ement-user-p (ewoc-data next-node))
                                   (equal (ement-event-sender event)
                                          (ewoc-data next-node)))
-                         (debug-warn "Next node is header for this sender: insert after it, instead.")
+                         (ement-debug "Next node is header for this sender: insert after it, instead.")
                          (setf node-before next-node)))
                      (ewoc-enter-after ewoc node-before event)))
     ;; Insert sender where necessary.
     (if (not node-before)
         (progn
-          (debug-warn "No event before: Add sender before new node.")
+          (ement-debug "No event before: Add sender before new node.")
           (ewoc-enter-before ewoc new-node (ement-event-sender event)))
-      (debug-warn "Event before: compare sender.")
+      (ement-debug "Event before: compare sender.")
       (if (equal (ement-event-sender event)
                  (cl-typecase (ewoc-data node-before)
                    (ement-event (ement-event-sender (ewoc-data node-before)))
                    (ement-user (ewoc-data node-before))))
-          (debug-warn "Same sender.")
-        (debug-warn "Different sender: insert new sender node.")
+          (ement-debug "Same sender.")
+        (ement-debug "Different sender: insert new sender node.")
         (ewoc-enter-before ewoc new-node (ement-event-sender event))
         (when-let* ((next-node (ewoc-next ewoc new-node)))
           (when (ement-event-p (ewoc-data next-node))
-            (debug-warn "Event after from different sender: insert its sender before it.")
+            (ement-debug "Event after from different sender: insert its sender before it.")
             (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node)))))))))
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
@@ -358,8 +358,8 @@ and erases the buffer."
   "Return node in EWOC that matches PRED and belongs before DATA according to COMPARATOR."
   (cl-assert (member from '(first last)))
   (if (null (ewoc-nth ewoc 0))
-      (debug-warn "EWOC is empty: returning nil.")
-    (debug-warn "EWOC has data: add at appropriate place.")
+      (ement-debug "EWOC is empty: returning nil.")
+    (ement-debug "EWOC has data: add at appropriate place.")
     (cl-labels ((next-matching
                  (ewoc node next-fn pred) (cl-loop do (setf node (funcall next-fn ewoc node))
                                                    until (or (null node)
@@ -371,17 +371,17 @@ and erases the buffer."
           (setf start-node (next-matching ewoc start-node next-fn pred)))
         (if (funcall <-fn (ewoc-data start-node) data)
             (progn
-              (debug-warn "New data goes before start node.")
+              (ement-debug "New data goes before start node.")
               start-node)
-          (debug-warn "New data goes after start node: find node before new data.")
+          (ement-debug "New data goes after start node: find node before new data.")
           (let ((compare-node start-node))
             (cl-loop while (setf compare-node (next-matching ewoc compare-node next-fn pred))
                      until (funcall <-fn (ewoc-data compare-node) data)
                      finally return (if compare-node
                                         (progn
-                                          (debug-warn "Found place: enter there.")
+                                          (ement-debug "Found place: enter there.")
                                           compare-node)
-                                      (debug-warn "Reached end of collection: insert there.")
+                                      (ement-debug "Reached end of collection: insert there.")
                                       (pcase from
                                         ('first (ewoc-nth ewoc -1))
                                         ('last nil))))))))))
@@ -431,7 +431,7 @@ To be used as the pretty-printer for `ewoc-create'."
                         :value (list (alist-get 'membership content))))))))
 
 (defun ement-room--render-html (string)
-  "Return rendered version of HTML string.
+  "Return rendered version of HTML STRING.
 HTML is rendered to Emacs text using `shr-insert-document'."
   (with-temp-buffer
     (insert string)
