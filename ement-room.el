@@ -153,7 +153,8 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
-        ement-room-ewoc (ewoc-create #'ement-room--pp-event "WHATHEADER" "FOOTER")))
+        ;; TODO: Use EWOC header/footer for, e.g. typing messages.
+        ement-room-ewoc (ewoc-create #'ement-room--pp-event)))
 
 ;;;;; EWOC
 

@@ -149,7 +149,6 @@
 If SESSION has a `next-batch' token, it's used."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
-  ;; TODO: Timeout.
   (cl-assert (not (map-elt ement-syncs session)))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
                ((cl-struct ement-server hostname port) server)
@@ -162,9 +161,13 @@ If SESSION has a `next-batch' token, it's used."
                ;; FIXME: Auto-sync again in error handler.
                (process (ement-api hostname port token "sync" (apply-partially #'ement--sync-callback session)
                           :params params
-                          :else (lambda (&rest args)
+                          :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
-                                  (apply #'ement-api-error args))
+                                  (pcase-let (((cl-struct plz-error curl-error) plz-error))
+                                    (pcase curl-error
+                                      (28 ; Timeout: sync again if enabled.
+                                       (ement--auto-sync session))
+                                      (_ (ement-api-error plz-error)))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
                                           (require 'files)
