@@ -82,6 +82,11 @@ Run with one argument, the session logged into.")
 Hooks are called with one argument, the session that was
 synced.")
 
+(defvar ement-default-sync-filter
+  '((room (state (lazy_load_members . t))
+          (timeline (lazy_load_members . t))))
+  "Default filter for sync requests.")
+
 ;;;; Customization
 
 (defgroup ement nil
@@ -206,15 +211,24 @@ be read, but other commands in them won't work."
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room nil nil #'string=)))
 
-(cl-defun ement--sync (session)
+(cl-defun ement--sync (session &key (filter ement-default-sync-filter))
   "Send sync request for SESSION.
-If SESSION has a `next-batch' token, it's used."
+If SESSION has a `next-batch' token, it's used.
+
+FILTER may be an alist representing a raw event filter (i.e. not
+a filter ID).  When unspecified, the value of
+`ement-default-sync-filter' is used.  The filter is encoded with
+`json-encode'.  To use no filter, specify FILTER as nil."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
+  ;; TODO: Use a filter ID for default filter.
   (cl-assert (not (map-elt ement-syncs session)))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
                (params (remove
                         nil (list (list "full_state" (if next-batch "false" "true"))
+                                  (when filter
+				    ;; TODO: Document filter arg.
+                                    (list "filter" (json-encode filter)))
                                   (when next-batch
                                     (list "since" next-batch))
                                   (when next-batch
