@@ -1,0 +1,33 @@
+#+TITLE: Ement.el Notes
+
+* Tasks
+
+** PROJECT [#A] Room list buffer
+:LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+
+Probably using ~tabulated-list-mode~.
+
+** PROJECT [#B] Multi-room buffer
+:LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+
+Like the "notifications" buffer in ~matrix-client~.
+
+** PROJECT [#B] Replies
+:LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:45]
+:END:
+
+*** TODO Simple replies
+
+i.e. without quoting a specific part.
+
+*** TODO Replies with quoted parts
+
+** PROJECT [#C] Send Org-formatted messages
+:LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
