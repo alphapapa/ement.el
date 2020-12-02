@@ -177,7 +177,8 @@ be read, but other commands in them won't work."
                                  (setf (ement-room-display-name room)
                                        (ement--room-display-name room)))
                              ement-room-buffer-name-suffix)))
-    (pop-to-buffer (ement-room--buffer session room buffer-name))))
+    (pop-to-buffer (ement-room--buffer session room buffer-name))
+    (goto-char (point-max))))
 
 ;;;; Functions
 
