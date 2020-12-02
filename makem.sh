@@ -3,7 +3,7 @@
 # * makem.sh --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.4.1
+# Version: 0.4.2
 
 # * Commentary:
 
@@ -233,7 +233,6 @@ function elisp-package-initialize-file {
                              (cons "melpa-stable" "https://stable.melpa.org/packages/")))
 $elisp_org_package_archive
 (package-initialize)
-(setq load-prefer-newer t)
 EOF
     echo $file
 }
@@ -246,6 +245,7 @@ function run_emacs {
     local emacs_command=(
         "${emacs_command[@]}"
         -Q
+        --eval "(setq load-prefer-newer t)"
         "${args_debug[@]}"
         "${args_sandbox[@]}"
         -l $package_initialize_file
@@ -379,7 +379,8 @@ function args-load-files {
     # For file in $@, echo "--load $file".
     for file in "$@"
     do
-        printf -- '--load %q ' "$file"
+        sans_extension=${file%%.el}
+        printf -- '--load %q ' "$sans_extension"
     done
 }
 
@@ -766,12 +767,15 @@ function batch {
 
 function interactive {
     # Run Emacs interactively.  Most useful with --sandbox and --install-deps.
+    local load_file_args=$(args-load-files "${files_project_feature[@]}" "${files_project_test[@]}")
     verbose 1 "Running Emacs interactively..."
-    verbose 2 "Loading files:" "${files_project_feature[@]}" "${files_project_test[@]}"
+    verbose 2 "Loading files: ${load_file_args//--load /}"
+
+    [[ $compile ]] && compile
 
     unset arg_batch
     run_emacs \
-        $(args-load-files "${files_project_feature[@]}" "${files_project_test[@]}") \
+        $load_file_args \
         --eval "(load user-init-file)" \
         "${args_batch_interactive[@]}"
     arg_batch="--batch"
