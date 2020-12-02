@@ -259,7 +259,11 @@ Runs `ement-sync-callback-hook' with SESSION."
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
-    (message "Ement: Sync done.  Use command `ement-view-room' to view a room.")))
+    (message (concat "Ement: Sync done."
+                     (unless (ement-session-has-synced-p session)
+                       ;; Show tip after initial sync.
+                       (setf (ement-session-has-synced-p session) t)
+                       "  Use command `ement-view-room' to view a room.")))))
 
 (defun ement--auto-sync (session)
   "If `ement-auto-sync' is non-nil, sync SESSION again."
