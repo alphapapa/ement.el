@@ -1,2 +1,4 @@
 /.sandbox/
 *.elc
+/worktrees/
+/NOTES.org
