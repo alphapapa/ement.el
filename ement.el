@@ -73,7 +73,7 @@
 (defvar ement-progress-value nil
   "Used to report progress while processing sync events.")
 
-(defvar ement-login-hook '(ement--auto-sync)
+(defvar ement-login-callback-hook '(ement--auto-sync)
   "Hook run after successful login.
 Run with one argument, the session logged into.")
 
@@ -164,7 +164,7 @@ be read, but other commands in them won't work."
     (setf ement-sessions (list session)
 	  (ement-session-token session) token
           (ement-session-device-id session) device-id)
-    (run-hook-with-args 'ement-login-hook session)))
+    (run-hook-with-args 'ement-login-callback-hook session)))
 
 ;; FIXME: Make a room-buffer-name function or something.
 (defvar ement-room-buffer-name-prefix)
