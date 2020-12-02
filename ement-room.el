@@ -78,11 +78,11 @@ Used to avoid overlapping requests.")
   "Options for room buffers."
   :group 'ement)
 
-(defcustom ement-room-buffer-prefix "*Ement Room: "
+(defcustom ement-room-buffer-name-prefix "*Ement Room: "
   "Prefix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-buffer-suffix "*"
+(defcustom ement-room-buffer-name-suffix "*"
   "Suffix for Ement room buffer names."
   :type 'string)
 
