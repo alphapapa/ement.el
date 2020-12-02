@@ -73,7 +73,7 @@
 (defvar ement-progress-value nil
   "Used to report progress while processing sync events.")
 
-(defvar ement-login-hook '(ement--sync)
+(defvar ement-login-hook '(ement--auto-sync)
   "Hook run after successful login.
 Run with one argument, the session logged into.")
 
