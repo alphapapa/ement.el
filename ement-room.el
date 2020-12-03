@@ -86,12 +86,41 @@ Used to avoid overlapping requests.")
   "Suffix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-timestamp-format " [%H:%M:%S]"
+(defcustom ement-room-message-format-spec "%B%R%t"
+  "Format messages according to this spec.
+It may contain these specifiers:
+
+  %L  End of left margin
+  %R  Start of right margin
+
+  %b  Message body (plain-text)
+  %B  Message body (formatted if available)
+  %i  Event ID
+  %s  Sender ID
+  %S  Sender display name
+  %t  Event timestamp, formatted according to
+      `ement-room-timestamp-format'
+  %y  Event type
+
+Note that margin sizes must be set manually with
+`ement-room-left-margin-width' and
+`ement-room-right-margin-width'."
+  :type 'string)
+
+(defcustom ement-room-timestamp-format "[%H:%M:%S]"
   "Format string for event timestamps.
 See function `format-time-string'."
-  :type '(choice (const " [%H:%M:%S]")
-                 (const " [%Y-%m-%d %H:%M:%S]")
+  :type '(choice (const "[%H:%M:%S]")
+                 (const "[%Y-%m-%d %H:%M:%S]")
                  string))
+
+(defcustom ement-room-left-margin-width 0
+  "Width of left margin in room buffers."
+  :type 'integer)
+
+(defcustom ement-room-right-margin-width (length ement-room-timestamp-format)
+  "Width of right margin in room buffers."
+  :type 'integer)
 
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
@@ -263,7 +292,8 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
-        left-margin-width (length ement-room-timestamp-format)
+        left-margin-width ement-room-left-margin-width
+        right-margin-width ement-room-right-margin-width
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-event)))
 
@@ -393,42 +423,162 @@ and erases the buffer."
 To be used as the pretty-printer for `ewoc-create'."
   (cl-etypecase struct
     (ement-event (insert "" (ement-room--format-event struct)))
-    (ement-user (insert (ement-room--format-user struct)))))
+    (ement-user (insert (propertize (ement-room--format-user struct)
+                                    'display ement-room-username-display-property)))))
+
+;; (defun ement-room--format-event (event)
+;;   "Format `ement-event' EVENT."
+;;   (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
+;;                ((map body format ('formatted_body formatted-body)) content)
+;;                (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
+;;                (body (if (not formatted-body)
+;;                          body
+;;                        (pcase format
+;;                          ("org.matrix.custom.html"
+;;                           (ement-room--render-html formatted-body))
+;;                          (_ (format "[unknown formatted-body format: %s] %s" format body)))))
+;;                (timestamp (propertize
+;;                            " " 'display `((margin left-margin)
+;;                                           ,(propertize (format-time-string ement-room-timestamp-format ts)
+;;                                                        'face 'ement-room-timestamp))))
+;;                (body-face (pcase type
+;;                             ("m.room.member" 'ement-room-membership)
+;;                             (_ (if (equal (ement-user-id sender)
+;;                                           (ement-user-id (ement-session-user ement-session)))
+;; 				   'ement-room-self-message 'default))))
+;;                (string (pcase type
+;;                          ("m.room.message" body)
+;;                          ("m.room.member" "")
+;;                          (_ (format "[unknown event-type: %s] %s" type body)))))
+;;     (add-face-text-property 0 (length body) body-face 'append body)
+;;     (prog1 (concat timestamp string)
+;;       ;; Hacky or elegant?  We return the string, but for certain event
+;;       ;; types, we also insert a widget (this function is called by
+;;       ;; EWOC with point at the insertion position).  Seems to work...
+;;       (pcase type
+;;         ("m.room.member"
+;;          (widget-create 'ement-room-membership
+;; 			:button-face 'ement-room-membership
+;;                         :value (list (alist-get 'membership content))))))))
 
 (defun ement-room--format-event (event)
-  "Format `ement-event' EVENT."
-  (pcase-let* (((cl-struct ement-event sender type content origin-server-ts) event)
-               ((map body format ('formatted_body formatted-body)) content)
-               (ts (/ origin-server-ts 1000)) ; Matrix timestamps are in milliseconds.
-               (body (if (not formatted-body)
-                         body
-                       (pcase format
-                         ("org.matrix.custom.html"
-                          (ement-room--render-html formatted-body))
-                         (_ (format "[unknown formatted-body format: %s] %s" format body)))))
-               (timestamp (propertize
-                           " " 'display `((margin left-margin)
-                                          ,(propertize (format-time-string ement-room-timestamp-format ts)
-                                                       'face 'ement-room-timestamp))))
-               (body-face (pcase type
-                            ("m.room.member" 'ement-room-membership)
-                            (_ (if (equal (ement-user-id sender)
-                                          (ement-user-id (ement-session-user ement-session)))
-				   'ement-room-self-message 'default))))
-               (string (pcase type
-                         ("m.room.message" body)
-                         ("m.room.member" "")
-                         (_ (format "[unknown event-type: %s] %s" type body)))))
-    (add-face-text-property 0 (length body) body-face 'append body)
-    (prog1 (concat timestamp string)
-      ;; Hacky or elegant?  We return the string, but for certain event
-      ;; types, we also insert a widget (this function is called by
-      ;; EWOC with point at the insertion position).  Seems to work...
-      (pcase type
-        ("m.room.member"
-         (widget-create 'ement-room-membership
-			:button-face 'ement-room-membership
-                        :value (list (alist-get 'membership content))))))))
+  "Return EVENT formatted according to `ement-room-message-format-spec'."
+  (pcase (ement-event-type event)
+    ("m.room.message" (ement-room--format-message event))
+    ("m.room.member"
+     (widget-create 'ement-room-membership
+                    :button-face 'ement-room-membership
+                    :value (list (alist-get 'membership (ement-event-content event))))
+     "")))
+
+(cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
+  "Return EVENT formatted according to FORMAT.
+Format defaults to `ement-room-message-format-spec', which see."
+  (cl-macrolet ((defspecs (&rest specs)
+                  `(list ,@(cl-loop for (char form) in specs
+                                    collect `(cons ,char (lambda (event) ,form))))))
+    (let* ((room-buffer (current-buffer))
+           (margin-p)
+           (specs (defspecs
+                    ;; NOTE: When adding specs, also add them to docstring
+                    ;; for `ement-room-message-format-spec'.
+                    (?L (progn (ignore event) (setf margin-p t) (propertize " " 'left-margin-end t)))
+                    (?R (progn (ignore event) (setf margin-p t) (propertize " " 'right-margin-start t)))
+                    ;; HACK: Reads `ement-session' from current buffer.
+                    (?b (pcase-let*
+                            (((cl-struct ement-event content sender) event)
+                             ((map body) content)
+                             (body-face (if (equal (ement-user-id sender)
+                                                   (ement-user-id (ement-session-user ement-session)))
+                                            'ement-room-self-message 'default)))
+                          (add-face-text-property 0 (length body) body-face 'append body)
+                          body))
+                    (?B (pcase-let*
+                            (((cl-struct ement-event content sender) event)
+                             ((map body ('format content-format) ('formatted_body formatted-body)) content)
+                             (body-face (if (equal (ement-user-id sender)
+                                                   (ement-user-id (ement-session-user ement-session)))
+                                            'ement-room-self-message 'default))
+                             (body (if (not formatted-body)
+                                       body
+                                     (pcase content-format
+                                       ("org.matrix.custom.html"
+                                        (save-match-data
+                                          (ement-room--render-html formatted-body)))
+                                       (_ (format "[unknown body format: %s] %s"
+                                                  content-format body))))))
+                          (add-face-text-property 0 (length body) body-face 'append body)
+                          body))
+                    (?i (ement-event-id event))
+                    (?s (propertize (ement-user-id (ement-event-sender event))
+                                    'face 'ement-room-user))
+                    (?S (ement-room--format-user (ement-event-sender event) ement-room))
+                    (?t (propertize (format-time-string ement-room-timestamp-format
+                                                        ;; Timestamps are in milliseconds.
+                                                        (/ (ement-event-origin-server-ts event) 1000))
+                                    'face 'ement-room-timestamp))
+                    (?y (ement-event-type event)))))
+      ;; Copied from `format-spec'.
+      (with-temp-buffer
+        ;; Pretend this is a room buffer.
+        (setf ement-session (buffer-local-value 'ement-session room-buffer)
+              ement-room (buffer-local-value 'ement-room room-buffer))
+        (insert format)
+        (goto-char (point-min))
+        (while (search-forward "%" nil t)
+          (cond
+           ;; Quoted percent sign.
+           ((eq (char-after) ?%)
+            (delete-char 1))
+           ;; Valid format spec.
+           ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
+            (let* ((num (match-string 1))
+                   (spec (string-to-char (match-string 2)))
+                   (fn (or (alist-get spec specs)
+                           (error "Invalid format character: `%%%c'" spec)))
+                   (val (funcall fn event)))
+              (unless val
+                (error "Event has no value for spec %s: %S" spec event))
+              ;; (setq val (cdr val))
+              ;; Pad result to desired length.
+              (let ((text (format (concat "%" num "s") val)))
+                ;; Insert first, to preserve text properties.
+                ;; (insert-and-inherit text)
+                ;; ;;  Delete the specifier body.
+                ;; (delete-region (+ (match-beginning 0) (string-width text))
+                ;;                (+ (match-end 0) (string-width text)))
+                ;; ;; Delete the percent sign.
+                ;; (delete-region (1- (match-beginning 0)) (match-beginning 0))
+
+                ;; NOTE: Actually, delete the specifier first, because it seems that if
+                ;; `text' is multiline, the specifier body does not get deleted that way.
+                ;; (Not sure if preserving the text properties is needed for this use case.
+                ;; Leaving the old code commented in case there's a better solution.)
+                (delete-region (1- (match-beginning 0)) (match-end 0))
+                (insert text))))
+           ;; Signal an error on bogus format strings.
+           (t
+            (error "Invalid format string"))))
+        ;; Propertize margin text.
+        (when margin-p
+          (when-let ((left-margin-end (next-single-property-change (point-min) 'left-margin-end)))
+            (goto-char left-margin-end)
+            (delete-char 1)
+            (put-text-property (point-min) (point)
+                               'display `((margin left-margin)
+                                          ,(buffer-substring (point-min) (point)))))
+          (when-let ((right-margin-start (next-single-property-change (point-min) 'right-margin-start)))
+            (goto-char right-margin-start)
+            (delete-char 1)
+            (let ((string (buffer-substring (point) (point-max))))
+              ;; Relocate its text to the beginning so it won't be
+              ;; displayed at the last line of wrapped messages.
+              (delete-region (point) (point-max))
+              (goto-char (point-min))
+              (insert-and-inherit
+               (propertize " "
+                           'display `((margin right-margin) ,string))))))
+        (buffer-string)))))
 
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
@@ -441,14 +591,14 @@ HTML is rendered to Emacs text using `shr-insert-document'."
          (libxml-parse-html-region (point-min) (point-max)))))
     (string-trim (buffer-substring (point) (point-max)))))
 
-(defun ement-room--format-user (user)
-  "Format `ement-user' USER for current buffer's room."
+(cl-defun ement-room--format-user (user &optional (room ement-room))
+  "Format `ement-user' USER for ROOM.
+ROOM defaults to the value of `ement-room'."
   (let ((face (if (equal (ement-user-id user) (ement-user-id (ement-session-user ement-session)))
 		  'ement-room-self 'ement-room-user)))
-    (propertize (or (gethash ement-room (ement-user-room-display-names user))
-		    (puthash ement-room (ement-room--user-display-name user ement-room)
-			     (ement-user-room-display-names user)))
-		'display ement-room-username-display-property
+    (propertize (or (gethash room (ement-user-room-display-names user))
+		    (puthash room (ement-room--user-display-name user room)
+                             (ement-user-room-display-names user)))
 		'face face)))
 
 ;;;;; Widgets
