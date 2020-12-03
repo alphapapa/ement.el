@@ -21,6 +21,13 @@ I don't think adding these features would benefit more than a few unix hackers (
 
 In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
 
+** MAYBE Use line-prefix and/or wrap-prefix
+:LOGBOOK:
+-  State "MAYBE"      from              [2020-12-03 Thu 15:28]
+:END:
+
+These could be alternatives to using margins.  See [[info:elisp#Truncation][info:elisp#Truncation]].
+
 ** PROJECT [#A] Room list buffer
 :LOGBOOK:
 -  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
