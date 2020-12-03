@@ -107,11 +107,11 @@ Note that margin sizes must be set manually with
 `ement-room-right-margin-width'."
   :type 'string)
 
-(defcustom ement-room-timestamp-format "[%H:%M:%S]"
+(defcustom ement-room-timestamp-format "%H:%M:%S"
   "Format string for event timestamps.
 See function `format-time-string'."
-  :type '(choice (const "[%H:%M:%S]")
-                 (const "[%Y-%m-%d %H:%M:%S]")
+  :type '(choice (const "%H:%M:%S")
+                 (const "%Y-%m-%d %H:%M:%S")
                  string))
 
 (defcustom ement-room-left-margin-width 0
