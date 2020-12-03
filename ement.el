@@ -240,7 +240,8 @@ a filter ID).  When unspecified, the value of
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
                                   (pcase (plz-error-curl-error plz-error)
-                                    (`("28" . ,_) ; Timeout: sync again if enabled.
+                                    (`(28 . ,_) ; Timeout: sync again if enabled.
+                                     (display-warning 'ement "Sync timed out" :warning)
                                      (ement--auto-sync session))
                                     (_ (ement-api-error plz-error))))
                           :json-read-fn (lambda ()
