@@ -2,6 +2,25 @@
 
 * Tasks
 
+** PROJECT [#A] Avoid passing URL params on command line
+:LOGBOOK:
+-  State "PROJECT"    from              [2020-12-02 Wed 22:58]
+:END:
+
+There seem to be two options: pass the URL on the command line, or pass it in a temp file.  Either way is bad: the command line makes it visible to all users (AFAIK), and temp files are messy, could be left behind, clutter the disk, etc.
+
+Curl has so many options that I was hoping for a way to pass the URL via STDIN, and there is, but that appears to preclude the passing of other data via STDIN.  I found [[https://curl.se/mail/archive-2003-08/0099.html][this mailing list thread from 2003]] where Rich Gray asks for this very feature, but Daniel Stenberg shoots down the idea:
+
+#+BEGIN_QUOTE
+While you of course are 100% correct, I fail to see why curl has to do all this by itself. This kind of magic will only be attempted by people who are using unix(-like) operating systems and if you sit in front of a unix box, it would be dead easy to write a wrapper script around curl that hides all the arguments quite nicely already, right?
+
+The same goes for your idea of being able to read from specific file handle numbers.
+
+I don't think adding these features would benefit more than a few unix hackers (most likely wearing beards! ;-O), who already know how to overcome the problems they fix.
+#+END_QUOTE
+
+In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
+
 ** PROJECT [#A] Room list buffer
 :LOGBOOK:
 -  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
