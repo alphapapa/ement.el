@@ -133,6 +133,12 @@ See Info node `(elisp)Other Display Specs'."
 			       (function :tag "Function")
 			       (sexp :tag "Form"))) ))
 
+(defcustom ement-room-timestamp-header-delta 600
+  "Show timestamp header where events are at least this many seconds apart."
+  :type 'integer)
+
+;;;;; Faces
+
 (defface ement-room-membership
   '((t (:inherit font-lock-comment-face)))
   "Membership events (join/part).")
@@ -152,6 +158,10 @@ See Info node `(elisp)Other Display Specs'."
 (defface ement-room-self-message
   '((t (:inherit font-lock-variable-name-face)))
   "Own messages.")
+
+(defface ement-room-timestamp-header
+  '((t (:inherit header-line :weight bold)))
+  "Timestamp headers.")
 
 ;;;; Commands
 
@@ -216,7 +226,8 @@ See Info node `(elisp)Other Display Specs'."
 	       ((map _start end chunk state) data)
 	       (buffer (cl-loop for buffer in (buffer-list)
 				when (equal room (buffer-local-value 'ement-room buffer))
-				return buffer)))
+				return buffer))
+               (window) (point-node) (orig-first-node))
     ;; FIXME: These are pushed onto the front of the lists.  Doesn't
     ;; really matter, but maybe better to put them at the other end.
     (cl-loop for event across state
@@ -227,15 +238,19 @@ See Info node `(elisp)Other Display Specs'."
 	     (push event (ement-room-timeline room)))
     (when buffer
       (with-current-buffer buffer
-	(when-let* ((window (get-buffer-window buffer))
-                    (point-node (with-selected-window window
-                                  (ewoc-locate ement-ewoc (window-start)))))
-          (cl-loop for event across chunk
-                   do (ement-room--insert-event event))
-          (with-selected-window (get-buffer-window buffer)
-            (set-window-start nil (ewoc-location point-node))
-            ;; FIXME: Experiment with this.
-            (forward-line -1)))
+        (setf window (get-buffer-window buffer)
+              point-node (when window
+                           (with-selected-window window
+                             (ewoc-locate ement-ewoc (window-start))))
+              orig-first-node (ewoc-nth ement-ewoc 0))
+	(cl-loop for event across chunk
+                 do (ement-room--insert-event event))
+        ;; Insert timestamp headers up to the original first node.
+        (ement-room--insert-ts-headers nil orig-first-node)
+        (with-selected-window (get-buffer-window buffer)
+          (set-window-start nil (ewoc-location point-node))
+          ;; FIXME: Experiment with this.
+          (forward-line -1))
         (setf (ement-room-prev-batch room) end
               ement-room-retro-loading nil)))))
 
@@ -295,7 +310,7 @@ and erases the buffer."
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
-        ement-ewoc (ewoc-create #'ement-room--pp-event)))
+        ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 
 (defun ement-room--buffer (session room name)
   "Return a buffer named NAME showing ROOM's events on SESSION."
@@ -311,6 +326,8 @@ and erases the buffer."
         ;; Move new events to main list.
         (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
               (ement-room-timeline* room) nil)
+        ;; Insert timestamp headers.
+        (ement-room--insert-ts-headers)
         ;; Return the buffer!
         (current-buffer))))
 
@@ -330,6 +347,38 @@ and erases the buffer."
         (ement-user-id user))))
 
 ;;;;; EWOC
+
+(defun ement-room--ewoc-next-matching (ewoc node pred)
+  "Return the next node in EWOC after NODE that matches PRED."
+  ;; MAYBE: Make the next/prev fn an arg.
+  (cl-loop do (setf node (ewoc-next ewoc node))
+           until (or (null node)
+                     (funcall pred (ewoc-data node)))
+           finally return node))
+
+(defun ement-room--insert-ts-headers (&optional start-node end-node)
+  "Insert timestamp headers into current buffer."
+  (ignore start-node end-node)
+  (let* ((ewoc ement-ewoc)
+         (end-pos (ewoc-location (or end-node
+                                     (ewoc-nth ewoc -1))))
+         (node-b (or start-node (ewoc-nth ewoc 0)))
+         node-a)
+    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc node-b #'ement-event-p)
+                      node-b (when node-a
+                               (ement-room--ewoc-next-matching ewoc node-a #'ement-event-p)))
+                (not (or (>= (ewoc-location node-a) end-pos)
+                         (>= (ewoc-location node-b) end-pos))))
+      ;; NOTE: Matrix timestamps are in milliseconds.
+      (let* ((a-ts (/ (ement-event-origin-server-ts (ewoc-data node-a)) 1000))
+             (b-ts (/ (ement-event-origin-server-ts (ewoc-data node-b)) 1000))
+             (diff-seconds (- b-ts a-ts)))
+        (when (and (>= diff-seconds ement-room-timestamp-header-delta)
+                   (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
+                          (pcase (ewoc-data node-after-a)
+                            (`(ts) t)))))
+          (ewoc-enter-after ewoc node-a
+                            (list 'ts b-ts)))))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
@@ -372,9 +421,20 @@ and erases the buffer."
           (ewoc-enter-before ewoc new-node (ement-event-sender event)))
       (ement-debug "Event before: compare sender.")
       (if (equal (ement-event-sender event)
-                 (cl-typecase (ewoc-data node-before)
-                   (ement-event (ement-event-sender (ewoc-data node-before)))
-                   (ement-user (ewoc-data node-before))))
+                 (pcase-exhaustive (ewoc-data node-before)
+                   ((pred ement-event-p)
+                    (ement-event-sender (ewoc-data node-before)))
+                   ((pred ement-user-p)
+                    (ewoc-data node-before))
+                   (`(ts ,(pred numberp))
+                    ;; Timestamp header.
+                    (when-let ((node-before-ts (ewoc-prev ewoc node-before)))
+                      ;; FIXME: Well this is ugly.  Make a filter predicate or something.
+                      (pcase-exhaustive (ewoc-data node-before-ts)
+                        ((pred ement-event-p)
+                         (ement-event-sender (ewoc-data node-before)))
+                        ((pred ement-user-p)
+                         (ewoc-data node-before)))))))
           (ement-debug "Same sender.")
         (ement-debug "Different sender: insert new sender node.")
         (ewoc-enter-before ewoc new-node (ement-event-sender event))
@@ -418,13 +478,21 @@ and erases the buffer."
 
 ;;;;; Formatting
 
-(defun ement-room--pp-event (struct)
-  "Pretty-print STRUCT.
-To be used as the pretty-printer for `ewoc-create'."
-  (cl-etypecase struct
-    (ement-event (insert "" (ement-room--format-event struct)))
-    (ement-user (insert (propertize (ement-room--format-user struct)
-                                    'display ement-room-username-display-property)))))
+(defun ement-room--pp-thing (thing)
+  "Pretty-print THING.
+To be used as the pretty-printer for `ewoc-create'.  THING may be
+an `ement-event' or `ement-user' struct, or a list like `(ts
+TIMESTAMP)', where TIMESTAMP is a Unix timestamp number of
+seconds."
+  (pcase-exhaustive thing
+    ((pred ement-event-p)
+     (insert "" (ement-room--format-event thing)))
+    ((pred ement-user-p)
+     (insert (propertize (ement-room--format-user thing)
+                         'display ement-room-username-display-property)))
+    (`(ts ,(and (pred numberp) ts)) ;; Insert a date header.
+     (insert "\n" (propertize (format-time-string " %H:%M\n" ts)
+                              'face 'ement-room-timestamp-header)))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."

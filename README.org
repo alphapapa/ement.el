@@ -14,6 +14,10 @@ The message formatting is customizeable (e.g. the timestamp can be displayed in 
 
 [[images/screenshot2.png]]
 
+Timestamp headers are displayed where a certain amount of time passes between events.
+
+[[images/screenshot3.png]]
+
 * Contents                                                         :noexport:
 :PROPERTIES:
 :TOC:      :include siblings
