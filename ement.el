@@ -175,9 +175,15 @@ be read, but other commands in them won't work."
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
 (defun ement-view-room (session room)
-  "Switch to a buffer showing ROOM on SESSION."
-  (interactive (list (car ement-sessions) (ement-complete-room (car ement-sessions))))
-  (pop-to-buffer (ement-room--buffer session room (ement--room-buffer-name room)))
+  "Switch to a buffer showing ROOM on SESSION.
+Calls `pop-to-buffer'.  Interactively, with prefix, call
+`pop-to-buffer-same-window'."
+  (interactive (list (car ement-sessions)
+                     (ement-complete-room (car ement-sessions))))
+  ;; FIXME: There must be a better way to handle this.
+  (funcall (if current-prefix-arg
+               #'pop-to-buffer #'pop-to-buffer-same-window)
+           (ement-room--buffer session room (ement--room-buffer-name room)))
   (goto-char (point-max)))
 
 ;;;; Functions
