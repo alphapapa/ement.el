@@ -58,6 +58,7 @@
 Used to avoid overlapping requests.")
 
 (declare-function ement-view-room "ement.el")
+(declare-function ement-list-rooms "ement.el")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ement-room-sync)

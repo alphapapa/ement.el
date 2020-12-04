@@ -73,10 +73,6 @@
 (defvar ement-progress-value nil
   "Used to report progress while processing sync events.")
 
-(defvar ement-login-callback-hook '(ement--auto-sync)
-  "Hook run after successful login.
-Run with one argument, the session logged into.")
-
 (defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
@@ -110,6 +106,11 @@ synced.")
   ;; FIXME: When ready, enable by default.
   "Automatically sync again after syncing."
   :type 'boolean)
+
+(defcustom ement-after-initial-sync-hook '(ement-list-rooms)
+  "Hook run after initial sync.
+Run with one argument, the session synced."
+  :type 'hook)
 
 ;;;; Commands
 
@@ -164,12 +165,11 @@ be read, but other commands in them won't work."
     (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
-  "Finish logging in to SESSION with DATA and sync."
+  "Record DATA from logging in to SESSION."
   (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
     (setf ement-sessions (list session)
 	  (ement-session-token session) token
-          (ement-session-device-id session) device-id)
-    (run-hook-with-args 'ement-login-callback-hook session)))
+          (ement-session-device-id session) device-id)))
 
 ;; FIXME: Make a room-buffer-name function or something.
 (defvar ement-room-buffer-name-prefix)
@@ -285,6 +285,7 @@ Runs `ement-sync-callback-hook' with SESSION."
     (run-hook-with-args 'ement-sync-callback-hook session)
     (message (concat "Ement: Sync done."
                      (unless (ement-session-has-synced-p session)
+                       (run-hook-with-args 'ement-after-initial-sync-hook session)
                        ;; Show tip after initial sync.
                        (setf (ement-session-has-synced-p session) t)
                        "  Use commands `ement-list-rooms' or `ement-view-room' to view a room.")))))

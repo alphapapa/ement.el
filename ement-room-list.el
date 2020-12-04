@@ -58,7 +58,7 @@
 ;;;; Commands
 
 ;;;###autoload
-(defun ement-room-list ()
+(defun ement-room-list (&rest _ignore)
   "Show buffer listing joined rooms.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
