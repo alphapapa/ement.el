@@ -51,7 +51,8 @@
 
 (cl-defstruct ement-room
   id display-name prev-batch
-  summary state timeline timeline* ephemeral account-data unread-notifications)
+  summary state timeline timeline* ephemeral account-data unread-notifications
+  latest-ts topic canonical-alias)
 
 ;;;; Variables
 

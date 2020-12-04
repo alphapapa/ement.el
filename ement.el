@@ -6,7 +6,7 @@
 ;; Keywords: comm
 ;; URL: https://github.com/alphapapa/ement.el
 ;; Package-Version: 0.1-pre
-;; Package-Requires: ((emacs "26.3") (plz "0.1-pre"))
+;; Package-Requires: ((emacs "26.3") (plz "0.1-pre") (ts "0.2"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -177,15 +177,18 @@ be read, but other commands in them won't work."
 (defun ement-view-room (session room)
   "Switch to a buffer showing ROOM on SESSION."
   (interactive (list (car ement-sessions) (ement-complete-room (car ement-sessions))))
-  (let ((buffer-name (concat ement-room-buffer-name-prefix
-                             (or (ement-room-display-name room)
-                                 (setf (ement-room-display-name room)
-                                       (ement--room-display-name room)))
-                             ement-room-buffer-name-suffix)))
-    (pop-to-buffer (ement-room--buffer session room buffer-name))
-    (goto-char (point-max))))
+  (pop-to-buffer (ement-room--buffer session room (ement--room-buffer-name room)))
+  (goto-char (point-max)))
 
 ;;;; Functions
+
+(defun ement--room-buffer-name (room)
+  "Return name for ROOM's buffer."
+  (concat ement-room-buffer-name-prefix
+          (or (ement-room-display-name room)
+              (setf (ement-room-display-name room)
+                    (ement--room-display-name room)))
+          ement-room-buffer-name-suffix))
 
 (defun ement-complete-session ()
   "Return an Ement session selected with completion."
@@ -278,7 +281,7 @@ Runs `ement-sync-callback-hook' with SESSION."
                      (unless (ement-session-has-synced-p session)
                        ;; Show tip after initial sync.
                        (setf (ement-session-has-synced-p session) t)
-                       "  Use command `ement-view-room' to view a room.")))))
+                       "  Use commands `ement-list-rooms' or `ement-view-room' to view a room.")))))
 
 (defun ement--auto-sync (session)
   "If `ement-auto-sync' is non-nil, sync SESSION again."
@@ -305,7 +308,7 @@ To be called in `ement-sync-callback-hook'."
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
   (pcase-let* ((`(,id . ,event-types) joined-room)
-               (id (symbol-name id))    ; Really important that the ID is a STRING!
+               (id (symbol-name id)) ; Really important that the ID is a STRING!
                (room (or (cl-find-if (lambda (room)
                                        (equal id (ement-room-id room)))
                                      (ement-session-rooms session))
@@ -313,21 +316,38 @@ To be called in `ement-sync-callback-hook'."
                ((map summary state ephemeral timeline
                      ('account_data account-data)
                      ('unread_notifications unread-notifications))
-                event-types))
+                event-types)
+               (latest-timestamp))
     (ignore account-data unread-notifications summary state ephemeral)
-    ;; NOTE: The idea is that, assuming that events in the sync reponse are in chronological
-    ;; order, we push them to the lists in the room slots in that order, leaving the head of
-    ;; each list as the most recent event of that type.  That means that, e.g. the room
-    ;; state events may be searched in order to find, e.g. the most recent room name event.
+    ;; NOTE: The idea is that, assuming that events in the sync reponse are in
+    ;; chronological order, we push them to the lists in the room slots in that order,
+    ;; leaving the head of each list as the most recent event of that type.  That means
+    ;; that, e.g. the room state events may be searched in order to find, e.g. the most
+    ;; recent room name event.  However, chronological order is not guaranteed, e.g. after
+    ;; loading older messages (the "retro" function; this behavior is in development).
 
     ;; FIXME: Further mapping instead of alist-get.
-    (cl-loop for event across (alist-get 'events state)
-             do (push (ement--make-event event) (ement-room-state room))
-             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
-    (cl-loop for event across (alist-get 'events timeline)
-             do (push (ement--make-event event) (ement-room-timeline* room))
-             (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
-    (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))
+
+    (cl-macrolet ((push-events
+                   (type accessor)
+                   ;; Push new events of TYPE to room's slot of ACCESSOR, and return the latest timestamp pushed.
+		   `(let ((ts 0))
+		      (cl-loop for event across (alist-get 'events ,type)
+                               for event-struct = (ement--make-event event)
+                               do (push event-struct (,accessor room))
+                               (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value))
+                               (when (> (ement-event-origin-server-ts event-struct) ts)
+                                 (setf ts (ement-event-origin-server-ts event-struct))))
+		      ;; One would think that one should use `maximizing' here, but, completely
+		      ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
+		      ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
+		      ts)))
+      (setf latest-timestamp
+	    (max (push-events state ement-room-state)
+		 (push-events timeline ement-room-timeline*)))
+      (when (> latest-timestamp (or (ement-room-latest-ts room) 0))
+	(setf (ement-room-latest-ts room) latest-timestamp))
+      (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline)))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
@@ -352,6 +372,10 @@ Adds sender to `ement-users' when necessary."
       ;; FIXME: Steps 3, etc.
       (ement-room-id room)))
 
+;; FIXME: These functions probably need to compare timestamps to
+;; ensure that older events that are inserted at the head of the
+;; events lists aren't used instead of newer ones.
+
 (defun ement--room-name (room)
   "Return latest m.room.name event in ROOM."
   (cl-loop for event in (ement-room-state room)
@@ -359,10 +383,16 @@ Adds sender to `ement-users' when necessary."
            return (alist-get 'name (ement-event-content event))))
 
 (defun ement--room-alias (room)
-  "Return latest m.room.canonical_alias evenet in ROOM."
+  "Return latest m.room.canonical_alias event in ROOM."
   (cl-loop for event in (ement-room-state room)
            when (equal "m.room.canonical_alias" (ement-event-type event))
            return (alist-get 'alias (ement-event-content event))))
+
+(defun ement--room-topic (room)
+  "Return latest m.room.topic event in ROOM."
+  (cl-loop for event in (ement-room-state room)
+           when (equal "m.room.topic" (ement-event-type event))
+           return (alist-get 'topic (ement-event-content event))))
 
 (defun ement--load-session ()
   "Return saved session from file."
