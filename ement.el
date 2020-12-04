@@ -176,8 +176,8 @@ be read, but other commands in them won't work."
 (defvar ement-room-buffer-name-suffix)
 (defun ement-view-room (session room)
   "Switch to a buffer showing ROOM on SESSION.
-Calls `pop-to-buffer'.  Interactively, with prefix, call
-`pop-to-buffer-same-window'."
+Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
+call `pop-to-buffer'."
   (interactive (list (car ement-sessions)
                      (ement-complete-room (car ement-sessions))))
   ;; FIXME: There must be a better way to handle this.

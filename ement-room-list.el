@@ -59,11 +59,16 @@
 
 ;;;###autoload
 (defun ement-room-list ()
-  "Show buffer listing joined rooms."
+  "Show buffer listing joined rooms.
+Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
+call `pop-to-buffer'."
   (interactive)
   (with-current-buffer (get-buffer-create "*Ement Rooms*")
     (ement-room-list-mode)
-    (pop-to-buffer (current-buffer))))
+    ;; FIXME: There must be a better way to handle this.
+    (funcall (if current-prefix-arg
+                 #'pop-to-buffer #'pop-to-buffer-same-window)
+             (current-buffer))))
 
 ;;;###autoload
 (defalias 'ement-list-rooms 'ement-room-list)
@@ -84,7 +89,7 @@
   (tabulated-list-revert))
 
 (defun ement-room-list-action (event)
-  "Pop to buffer for room at EVENT or point."
+  "Show buffer for room at EVENT or point."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
@@ -93,7 +98,7 @@
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
                                  return session)))
-    (pop-to-buffer
+    (pop-to-buffer-same-window
      (ement-room--buffer session room (ement--room-buffer-name room)))))
 
 ;;;; Functions

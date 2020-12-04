@@ -95,6 +95,7 @@ In a room buffer:
 -  ~v~ views an event's source.
 -  ~g~ syncs new messages (not necessary if auto sync is enabled; see below).
 -  ~r~ selects another room.
+-  ~R~ shows the room list.
 
 ** Tips
 
