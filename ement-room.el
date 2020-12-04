@@ -469,7 +469,10 @@ To be used as the pretty-printer for `ewoc-create'."
      (widget-create 'ement-room-membership
                     :button-face 'ement-room-membership
                     :value (list (alist-get 'membership (ement-event-content event))))
-     "")))
+     "")
+    (_ (format "[sender:%s type:%s]"
+               (ement-user-id (ement-event-sender event))
+               (ement-event-type event)))))
 
 (cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
   "Return EVENT formatted according to FORMAT.
