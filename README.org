@@ -10,9 +10,9 @@ Ement.el is a new Matrix client for Emacs.  It's basic at the moment, but it can
 
 * Screenshots
 
-This is what a room buffer looks like.
+The message formatting is customizeable (e.g. the timestamp can be displayed in the left or right margin).
 
-[[images/screenshot.png]]
+[[images/screenshot2.png]]
 
 * Contents                                                         :noexport:
 :PROPERTIES:
