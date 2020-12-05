@@ -2,6 +2,31 @@
 
 * Tasks
 
+** DONE [#A] Subsequent syncs overwrite prev-batch token               :bug:
+CLOSED: [2020-12-05 Sat 00:13]
+:LOGBOOK:
+-  State "DONE"       from "TODO"       [2020-12-05 Sat 00:13]
+:END:
+
+Which breaks loading of older messages and causes dupes in the list as attempts are made to load older messages.
+
+** PROJECT [#B] Some displaynames not shown when loading earlier events :bug:
+:LOGBOOK:
+-  State "PROJECT"    from              [2020-12-05 Sat 00:14]
+:END:
+
+It seems that using lazy loading causes the server to not send membership events for senders when loading earlier messages.  According to [[https://matrix.org/docs/spec/client_server/r0.6.1#id267][the spec for ~/members~]]:
+
+#+BEGIN_QUOTE
+Unless include_redundant_members is true, the server may remove membership events which would have already been sent to the client in prior calls to this endpoint, assuming the membership of those members has not changed.
+#+END_QUOTE
+
+But these are senders for whom we have not already been sent membership events, neither by ~/sync~ nor by ~/members~, so they would not be redundant, so it shouldn't be necessary to enable redundant membership events.  So I don't know if this is a bug in the spec or in the matrix.org server, or if somehow I'm missing something.
+
+I guess it's worth a try to enable redundant membership events for ~/members~.  If that fixes it, then I guess it's a bug in the spec or the server.
+
+I wonder how Element and other clients handle this.  It would seem like the alternative would be to manually request membership data for senders that haven't been seen before, but that would mean having to either wait for that data before inserting earlier messages into a room's buffer, or using a callback and then manually replacing all of the username headers with the proper displayname, which would be awkward, and seemingly ridiculous since the spec indicates that the membership events are supposed to be included when necessary.  (Though I can't imagine how complicated it must be to program this logic on the server side.)
+
 ** PROJECT [#A] Avoid passing URL params on command line
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-02 Wed 22:58]
@@ -20,7 +45,6 @@ I don't think adding these features would benefit more than a few unix hackers (
 #+END_QUOTE
 
 In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
-
 ** MAYBE Use line-prefix and/or wrap-prefix
 :LOGBOOK:
 -  State "MAYBE"      from              [2020-12-03 Thu 15:28]
