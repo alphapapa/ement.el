@@ -363,8 +363,9 @@ and erases the buffer."
            finally return node))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
-  "Insert timestamp headers into current buffer."
-  (ignore start-node end-node)
+  "Insert timestamp headers into current buffer's `ement-ewoc' between START-NODE and END-NODE.
+START-NODE and END-NODE default to the first and last nodes in
+the buffer."
   (let* ((ewoc ement-ewoc)
          (end-pos (ewoc-location (or end-node
                                      (ewoc-nth ewoc -1))))
