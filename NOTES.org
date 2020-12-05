@@ -29,6 +29,27 @@ I wonder how Element and other clients handle this.  It would seem like the alte
 
 [2020-12-05 Sat 02:19]  I wonder if the ~/members~ response isn't including the membership events because I'm not passing a lazy-load-members filter parameter.  Maybe it's assuming that I'm not using lazy-loading and that I already have all of the member events for the room.
 
+** PROJECT [#A] Apply new room state events                            :bug:
+:LOGBOOK:
+-  State "PROJECT"    from              [2020-12-05 Sat 16:11]
+:END:
+
+[2020-12-05 Sat 16:11]  I made a new room, =#ement.el:matrix.org=, but the room is listed in this client without a name, alias, topic, etc.  In the room buffer, I see these events:
+
+#+BEGIN_EXAMPLE
+@alphapapa:matrix.org
+[sender:@alphapapa:matrix.org type:m.room.create]
+ (join)
+[sender:@alphapapa:matrix.org type:m.room.power_levels]
+[sender:@alphapapa:matrix.org type:m.room.canonical_alias]
+[sender:@alphapapa:matrix.org type:m.room.join_rules]
+[sender:@alphapapa:matrix.org type:m.room.history_visibility]
+[sender:@alphapapa:matrix.org type:m.room.name]
+[sender:@alphapapa:matrix.org type:m.room.topic]
+#+END_EXAMPLE
+
+I guess, for some reason, the server isn't sending the same initial state data, so we need to apply the room state events as they come in.  This is also necessary for when those things are changed during a session.
+
 ** PROJECT [#A] Avoid passing URL params on command line
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-02 Wed 22:58]
