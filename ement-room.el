@@ -679,7 +679,14 @@ ROOM defaults to the value of `ement-room'."
     (propertize (or (gethash room (ement-user-room-display-names user))
 		    (puthash room (ement-room--user-display-name user room)
                              (ement-user-room-display-names user)))
-		'face face)))
+		'face face
+                'help-echo #'ement-room--user-help-echo)))
+
+(defun ement-room--user-help-echo (window _object pos)
+  "Return user ID string for POS in WINDOW.
+For use as a `help-echo' function on `ement-user' headings."
+  (with-selected-window window
+    (ement-user-id (ewoc-data (ewoc-locate ement-ewoc pos)))))
 
 ;;;;; Widgets
 
