@@ -30,6 +30,8 @@
 ;; the number of members when using lazy-loading.  So I guess we just
 ;; won't show the number of members.
 
+;; TODO: (Or maybe there is, see m.joined_member_count).
+
 ;;; Code:
 
 ;;;; Requirements
