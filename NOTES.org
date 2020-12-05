@@ -27,6 +27,8 @@ I guess it's worth a try to enable redundant membership events for ~/members~.  
 
 I wonder how Element and other clients handle this.  It would seem like the alternative would be to manually request membership data for senders that haven't been seen before, but that would mean having to either wait for that data before inserting earlier messages into a room's buffer, or using a callback and then manually replacing all of the username headers with the proper displayname, which would be awkward, and seemingly ridiculous since the spec indicates that the membership events are supposed to be included when necessary.  (Though I can't imagine how complicated it must be to program this logic on the server side.)
 
+[2020-12-05 Sat 02:19]  I wonder if the ~/members~ response isn't including the membership events because I'm not passing a lazy-load-members filter parameter.  Maybe it's assuming that I'm not using lazy-loading and that I already have all of the member events for the room.
+
 ** PROJECT [#A] Avoid passing URL params on command line
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-02 Wed 22:58]
