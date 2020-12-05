@@ -35,6 +35,32 @@ Nope, I still don't receive membership state events for senders of earlier messa
 
 At this point, I don't know what to do.  I may have to ask someone about the spec...sigh...
 
+[2020-12-05 Sat 17:12]  Found these issues that seem related, but I can't find a solution in them.
+
++  [[https://github.com/matrix-org/matrix-doc/pull/1758][Spec lazy_load_members and include_redundant_members by KitsuneRal · Pull Request #1758 · matrix-org/matrix-doc · GitHub]]
++  [[https://github.com/vector-im/element-web/issues/7211#issuecomment-419668549][LL members can get out of sync with server on limited sync response · Issue #7211 · vector-im/element-web · GitHub]]
++  [[https://github.com/vector-im/element-web/issues/7303][State is incomplete on joining a room with LL · Issue #7303 · vector-im/element-web · GitHub]]
++  [[https://github.com/matrix-org/matrix-doc/pull/1758][Spec lazy_load_members and include_redundant_members by KitsuneRal · Pull Request #1758 · matrix-org/matrix-doc · GitHub]]
++  [[https://github.com/matrix-org/matrix-doc/pull/2035][Spec lazy-loading room members by turt2live · Pull Request #2035 · matrix-org/matrix-doc · GitHub]]
+
+There's also this Google Doc about the spec proposal: [[https://docs.google.com/document/d/11yn-mAkYll10RJpN0mkYEVqraTbU3U4eQx9MNrzqX1U/edit#heading=h.q5mz9uiufb2g][Proposal for lazy-loading room members to improve initial sync speed and client RAM usage - Google Docs]].  It says:
+
+#+BEGIN_QUOTE
+When returning a /sync or /messages response, the server includes a state block (similar to that seen in an initial /sync) to provide the membership info about the senders of the events in the timeline segment being synced.
+#+END_QUOTE
+
+But it doesn't seem to be doing that.
+
+I guess I'll look for that Matrix client developer room and see if anyone in there can help...  I can't find such a room with Element.  I guess I'll try the Matrix Spec room, assuming that still exists...  That one says it's about specific proposals, so I guess I'll try the Matrix HQ room...
+
+[2020-12-05 Sat 17:22]  I [[https://matrix.to/#/!OGEhHVWSdvArJzumhm:matrix.org/$FH17k_CQD4hl9a7VMtdU5KQRCHf6A-Io2tQe5X_xlNY?via=matrix.org][sent]] this message in it:
+
+#+BEGIN_QUOTE
+Hi, I'm trying to implement lazy-loading in my client, and I've found that, when I retrieve earlier messages using /messages, the server doesn't seem to send membership state events for senders that were not in the initial sync.  I've looked up what seem to be the related issues on the repo, and I've looked at the spec proposal, and it seems to say that the server should be sending them.  I'm setting lazy_load_member to true for both the RoomEvent and State filters, and I've also tried setting include_redundant_members in both filters, and it makes no difference.  Is the server not behaving according to the spec?  Or am I missing something?  Am I supposed to manually fetch membership data for newly seen senders?
+#+END_QUOTE
+
+
+
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 16:11]
