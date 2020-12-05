@@ -129,7 +129,7 @@ See function `format-time-string'."
   "Width of right margin in room buffers."
   :type 'integer)
 
-(defcustom ement-room-prism 'both
+(defcustom ement-room-prism 'name
   "Display users' names and messages in unique colors."
   :type '(choice (const :tag "Name only" name)
                  (const :tag "Name and message" both)
