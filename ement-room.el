@@ -109,6 +109,10 @@ Note that margin sizes must be set manually with
 `ement-room-right-margin-width'."
   :type 'string)
 
+(defcustom ement-room-retro-messages-number 30
+  "Number of messages to retrieve when loading earlier messages."
+  :type 'integer)
+
 (defcustom ement-room-timestamp-format "%H:%M:%S"
   "Format string for event timestamps.
 See function `format-time-string'."
@@ -202,7 +206,7 @@ See Info node `(elisp)Other Display Specs'."
   (interactive (list ement-session ement-room
                      (if current-prefix-arg
                          (read-number "Number of messages: ")
-                       10)
+                       ement-room-retro-messages-number)
                      (current-buffer)))
   (unless ement-room-retro-loading
     (pcase-let* (((cl-struct ement-session server token) session)
