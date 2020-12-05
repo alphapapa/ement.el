@@ -29,6 +29,12 @@ I wonder how Element and other clients handle this.  It would seem like the alte
 
 [2020-12-05 Sat 02:19]  I wonder if the ~/members~ response isn't including the membership events because I'm not passing a lazy-load-members filter parameter.  Maybe it's assuming that I'm not using lazy-loading and that I already have all of the member events for the room.
 
+[2020-12-05 Sat 16:37]  I added the default sync filter to the ~/members~ request, but it still isn't returning the membership events for senders of earlier messages.  I guess I'll try enabling the "redundant" option...  
+
+Nope, I still don't receive membership state events for senders of earlier messages, even though I set ~include_redundant_members~ to true in both the StateFilter and the RoomEventFilter.
+
+At this point, I don't know what to do.  I may have to ask someone about the spec...sigh...
+
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 16:11]
@@ -68,6 +74,7 @@ I don't think adding these features would benefit more than a few unix hackers (
 #+END_QUOTE
 
 In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
+
 ** MAYBE Use line-prefix and/or wrap-prefix
 :LOGBOOK:
 -  State "MAYBE"      from              [2020-12-03 Thu 15:28]
