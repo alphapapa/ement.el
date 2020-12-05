@@ -37,7 +37,8 @@
 ;;;; Structs
 
 (cl-defstruct ement-user
-  id displayname account-data room-display-names)
+  id displayname account-data room-display-names
+  color)
 
 (cl-defstruct ement-event
   id sender content origin-server-ts type unsigned)
