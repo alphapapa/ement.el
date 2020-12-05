@@ -593,7 +593,9 @@ Format defaults to `ement-room-message-format-spec', which see."
                     (?t (propertize (format-time-string ement-room-timestamp-format
                                                         ;; Timestamps are in milliseconds.
                                                         (/ (ement-event-origin-server-ts event) 1000))
-                                    'face 'ement-room-timestamp))
+                                    'face 'ement-room-timestamp
+                                    'help-echo (format-time-string
+                                                "%Y-%m-%d %H:%M:%S" (/ (ement-event-origin-server-ts event) 1000))))
                     (?y (ement-event-type event)))))
       ;; Copied from `format-spec'.
       (with-temp-buffer
