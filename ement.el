@@ -354,7 +354,10 @@ To be called in `ement-sync-callback-hook'."
 		 (push-events timeline ement-room-timeline*)))
       (when (> latest-timestamp (or (ement-room-latest-ts room) 0))
 	(setf (ement-room-latest-ts room) latest-timestamp))
-      (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline)))))
+      (unless (ement-session-has-synced-p session)
+        ;; Only set this token on initial sync, otherwise it would
+        ;; overwrite earlier tokens from loading earlier messages.
+        (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
