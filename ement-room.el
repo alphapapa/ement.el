@@ -676,6 +676,9 @@ HTML is rendered to Emacs text using `shr-insert-document'."
 ROOM defaults to the value of `ement-room'."
   (let ((face (if (equal (ement-user-id user) (ement-user-id (ement-session-user ement-session)))
 		  'ement-room-self 'ement-room-user)))
+    ;; FIXME: If a membership state event has not yet been received, this
+    ;; sets the display name in the room to the user ID, and that prevents
+    ;; the display name from being used if the state event arrives later.
     (propertize (or (gethash room (ement-user-room-display-names user))
 		    (puthash room (ement-room--user-display-name user room)
                              (ement-user-room-display-names user)))
