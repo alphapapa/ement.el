@@ -82,6 +82,12 @@ state	[RoomStateEvent]  A list of state events relevant to showing the chunk. Fo
 
 And it says that ~RoomStateEvent~ includes the parameters like ~prev_content~, which I'm seeing in the membership events in ~chunk~.  It also says that ~chunk~ is a list of ~RoomEvent~, which are /not/ listed as including ~prev_content~.  So it seems that the server is sending the membership events in the wrong parameter!  I guess this gives me a better question to ask in the dev channel...
 
+[2020-12-05 Sat 18:32]  [[https://matrix.to/#/!jxlRxnrZCsjpjDubDX:matrix.org/$2appXOe87ge7JrECqZMQRY6nobsxdS0WSUFyRdRNdjY?via=matrix.org&via=interpont.com&via=cervoi.se][Sent]] this message in that channel:
+
+#+BEGIN_QUOTE
+Hi, I've been implementing lazy-loading support in my client, and I seem to be seeing a response from the server that is not according to the [[https://matrix.org/docs/spec/client_server/r0.6.1#id267][spec]] for ~/messages~: The spec says that the ~state~ parameter is a list of ~RoomStateEvent~ objects, and the ~chunk~ parameter is a list of ~RoomEvent~ objects.  But in the response I'm getting from the server, the ~state~ parameter is not present, and the ~chunk~ parameter includes ~RoomStateEvent~ events, such as ~m.room.member~, which, e.g. have ~prev_content~ keys, which would make them ~RoomStateEvent~ objects according to the spec.  Am I missing something, or is the matrix.org server not behaving according to spec?
+#+END_QUOTE
+
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 16:11]
