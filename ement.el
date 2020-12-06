@@ -160,8 +160,10 @@ be read, but other commands in them won't work."
   (interactive (list (ement-complete-session)))
   (let ((id (ement-user-id (ement-session-user session))))
     ;; FIXME: Stop outstanding sync processes.
-    (setf (map-elt ement-syncs session) nil)
-    (setf ement-syncs (map-delete ement-syncs session))
+    (when-let ((process (map-elt ement-syncs session)))
+      (delete-process process))
+    (setf ement-syncs (map-delete ement-syncs session)
+          ement-sessions (map-delete ement-sessions session))
     (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
