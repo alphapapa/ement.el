@@ -88,6 +88,24 @@ And it says that ~RoomStateEvent~ includes the parameters like ~prev_content~, w
 Hi, I've been implementing lazy-loading support in my client, and I seem to be seeing a response from the server that is not according to the [[https://matrix.org/docs/spec/client_server/r0.6.1#id267][spec]] for ~/messages~: The spec says that the ~state~ parameter is a list of ~RoomStateEvent~ objects, and the ~chunk~ parameter is a list of ~RoomEvent~ objects.  But in the response I'm getting from the server, the ~state~ parameter is not present, and the ~chunk~ parameter includes ~RoomStateEvent~ events, such as ~m.room.member~, which, e.g. have ~prev_content~ keys, which would make them ~RoomStateEvent~ objects according to the spec.  Am I missing something, or is the matrix.org server not behaving according to spec?
 #+END_QUOTE
 
+To make it all extra confusing, the example response in the spec does not have a ~state~ key, and it includes an ~m.room.name~ event in the ~chunk~!
+
+[2020-12-05 Sat 18:41]  Well, I don't know if I'll get a response anytime soon, if ever.  So I guess, for now at least, I have to work around it by adding events that are not  ~m.room.message~ events to the state list myself.
+
+[2020-12-05 Sat 18:54]  Well, I thought that if I did that, it would fix the problem.  But now that I've written the code for that, I'm not actually seeing those events in the chunk, so I'm still not getting the membership events when loading earlier messages.
+
+[2020-12-05 Sat 18:57]  It appears that I wrote that code on master and forgot I had the attempted fix on ~wip/lazy-retro~.  So let's try it on the right branch...  Still not seeing any ~m.room.member~ events in the ~chunk~.  What is going on?!
+
+[2020-12-05 Sat 19:08]  I can no longer find any non- ~m.room.message~ events in ~chunk~ in the ~/messages~ responses.  I have no explanation for any of this.
+
+[2020-12-05 Sat 19:40]  Well, I'm about out of ideas.  I just [[https://matrix.to/#/!jxlRxnrZCsjpjDubDX:matrix.org/$2hcPB3Og6spKfEsh0yRr3_uMxrf-qpkRfZr_7ldgiUc?via=matrix.org&via=interpont.com&via=cervoi.se][posted]] this to that room:
+
+#+BEGIN_QUOTE markdown
+Well, this is very strange: I can no longer find `RoomStateEvent` events in the `chunk` parameter.  I don't know what I did to cause that.  But the ultimate problem I've been trying to solve remains: When I'm using lazy-loading, and I request `/messages`, and some of those messages are from senders that were not in the initial `/sync`, I do not receive any `RoomStateEvent` events for those senders, such as their `m.room.member` events, and, in fact, the `state` parameter in the response is always missing.  I need these membership events so I can show the senders' displaynames, and the spec says that they should be sent by the server for senders whose membership events haven't been sent to me yet.  Even when I set `include_redundant_members` to `true`, the server still doesn't send anything in `state`.  AFAICT the server is not behaving according to the spec, but I hope I'm missing something.
+#+END_QUOTE
+
+I don't know what else to do, other than to not use lazy-loading, which would be awful to go back to.  And manually requesting membership data and iterating over the messages in the buffer to fix them would be pretty awful too.
+
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 16:11]
