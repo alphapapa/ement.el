@@ -11,6 +11,9 @@ CLOSED: [2020-12-05 Sat 00:13]
 Which breaks loading of older messages and causes dupes in the list as attempts are made to load older messages.
 
 ** PROJECT [#B] Some displaynames not shown when loading earlier events :bug:
+:PROPERTIES:
+:ID:       5ec9ae28-b44b-4d95-b0f9-50abeac0dfb2
+:END:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 00:14]
 :END:
@@ -59,7 +62,25 @@ I guess I'll look for that Matrix client developer room and see if anyone in the
 Hi, I'm trying to implement lazy-loading in my client, and I've found that, when I retrieve earlier messages using /messages, the server doesn't seem to send membership state events for senders that were not in the initial sync.  I've looked up what seem to be the related issues on the repo, and I've looked at the spec proposal, and it seems to say that the server should be sending them.  I'm setting lazy_load_member to true for both the RoomEvent and State filters, and I've also tried setting include_redundant_members in both filters, and it makes no difference.  Is the server not behaving according to the spec?  Or am I missing something?  Am I supposed to manually fetch membership data for newly seen senders?
 #+END_QUOTE
 
+[2020-12-05 Sat 17:44]  Someone suggested I ask in =#matrix-dev:matrix.org=, the channel I was unable to find.
 
+[2020-12-05 Sat 17:47]  Something weird: In the current retro callback, the state events are currently coded to push the raw alists rather than event structs (which is not the right thing to do), but after loading earlier messages, every element of the room's state list is an event struct.  That would suggest that this code isn't doing anything:
+
+#+BEGIN_SRC elisp
+  (cl-loop for event across state
+           ;; FIXME: Need to use make-event
+           do (push event (ement-room-state room)))
+#+END_SRC
+
+Which would suggest that the ~state~ variable is nil there, which doesn't make sense...  Sure enough, the ~state~ key in the ~/messages~ response is nil.  That doesn't make sense...
+
+[2020-12-05 Sat 18:20]  Wow, in every response to ~/messages~, there is no ~state~ key, and I see ~m.room.member~ events in the ~chunk~!  That is not according to the spec!  ...Yes, it appears that all the membership events, including the ones with the displaynames, are in the ~chunk~!  The [[https://matrix.org/docs/spec/client_server/r0.6.1#id267][spec says]] that the ~state~ parameter includes:
+
+#+BEGIN_QUOTE
+state	[RoomStateEvent]  A list of state events relevant to showing the chunk. For example, if lazy_load_members is enabled in the filter then this may contain the membership events for the senders of events in the chunk.
+#+END_QUOTE
+
+And it says that ~RoomStateEvent~ includes the parameters like ~prev_content~, which I'm seeing in the membership events in ~chunk~.  It also says that ~chunk~ is a list of ~RoomEvent~, which are /not/ listed as including ~prev_content~.  So it seems that the server is sending the membership events in the wrong parameter!  I guess this gives me a better question to ask in the dev channel...
 
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
