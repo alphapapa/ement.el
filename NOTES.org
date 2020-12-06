@@ -106,6 +106,56 @@ Well, this is very strange: I can no longer find `RoomStateEvent` events in the 
 
 I don't know what else to do, other than to not use lazy-loading, which would be awful to go back to.  And manually requesting membership data and iterating over the messages in the buffer to fix them would be pretty awful too.
 
+[2020-12-05 Sat 19:51]  Digging into the ~matrix-js-sdk~ tests, it looks like even [[https://github.com/matrix-org/matrix-js-sdk/blob/04bbfae08e3e8fe9d329b2f950c4f86545a3cfea/spec/integ/matrix-client-room-timeline.spec.js#L230][their own code]] doesn't expect a ~state~ parameter, and it just uses ~chunk~.
+
+[2020-12-05 Sat 19:55]  Oh, great, I see [[https://github.com/matrix-org/matrix-js-sdk/blob/5993dd588c697ff8f5b9ca87616f038c886aac56/src/client.js#L4037][this comment]] in their ~/messages~ fetching code:
+
+#+BEGIN_SRC js
+  // XXX: it's horrific that /messages' filter parameter doesn't match
+  // /sync's one - see https://matrix.org/jira/browse/SPEC-451
+#+END_SRC
+
+That issue is now at https://github.com/matrix-org/matrix-doc/issues/706, which has not been closed.  The original description:
+
+#+BEGIN_QUOTE
+Superficially /messages and /sync both take filter params. Except /sync is a 'filter collection' (which may be either an ID or a blob of JSON, and is also known as a 'filter'), whereas /messages takes a 'filter component' as a blob of JSON (sometimes called a 'filter'). At the very least, the params should be named differently, and the whole naming convention should be untangled.
+#+END_QUOTE
+
+So I don't know if that's causing the problem.  But Matthew even [[https://github.com/matrix-org/matrix-doc/issues/706#issuecomment-418191755][says]] (Sep 3, 2018):
+
+#+BEGIN_QUOTE
+this continues to bite me constantly (esp with LL)
+#+END_QUOTE
+
+I guess if I don't get a response in the chat room, I'll file an issue.  But I don't know if it's a bug in the spec, or the server, or both.
+
+But their own JS code (not the test spec) [[https://github.com/matrix-org/matrix-js-sdk/blob/5993dd588c697ff8f5b9ca87616f038c886aac56/src/client.js#L4149][seems to look for a ~state~ parameter]]:
+
+#+BEGIN_SRC js
+        promise.then(function(res) {
+            if (res.state) {
+                const roomState = eventTimeline.getState(dir);
+                const stateEvents = utils.map(res.state, self.getEventMapper());
+                roomState.setUnknownStateEvents(stateEvents);
+            }
+            const token = res.end;
+            const matrixEvents = utils.map(res.chunk, self.getEventMapper());
+            eventTimeline.getTimelineSet()
+                .addEventsToTimeline(matrixEvents, backwards, eventTimeline, token);
+#+END_SRC
+
+I wonder what ~roomState.setUnknownStateEvents~ does.
+
+Anyway, here's what I currently understand to be the case:
+
++  The spec says that, when calling ~/messages~ with a lazy-loading filter, the response should include a ~state~ parameter, and it should include membership events for senders in the ~chunk~ parameter for whom membership events have not yet been sent.
++  In practice, ~/messages~ responses never have a ~state~ parameter set, and the ~chunk~ parameter does not include membership events, either (although at one point in my testing, I seemed to find some membership events in a ~chunk~, but later I couldn't reproduce that behavior).
++  The JS SDK's test spec does not appear to expect or test for a ~state~ parameter in ~/messages~ responses.
++  The JS SDK's code appears to use the ~state~ parameter when it's in the response, but it's not clear what it does with such events.
++  I don't know how the JS SDK handles getting displaynames for senders that were not in the initial sync.  Does it work around the fact that the server appears to violate the spec?  (The JS code is very complicated, and the codebase is labyrinthine, so I have little enthusiasm for digging deeper into it.)
+
+So as best I can tell, the server is violating the spec.
+
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
 -  State "PROJECT"    from              [2020-12-05 Sat 16:11]
