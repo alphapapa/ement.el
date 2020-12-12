@@ -713,19 +713,20 @@ For use as a `help-echo' function on `ement-user' headings."
 (defun ement-room--user-color (user)
   "Return a color in which to display USER's messages."
   (cl-labels ((relative-luminance
-               ;; Copy of `rainbow-color-luminance', except it doesn't divide by 256,
-               ;; which appears to be the wrong thing to do, because with that removed,
-               ;; the relative luminance of black to white is the correct ratio of
-               ;; 21.0.  Also see <https://en.wikipedia.org/wiki/Relative_luminance>
-               ;; and <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (r g b) (+ (* 0.2126 r) (* 0.7152 g) (* 0.0722 b)))
+               ;; Copy of `modus-themes-wcag-formula', an elegant
+               ;; implementation by Protesilaos Stavrou.  Also see
+               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+               (name) (cl-loop for k in '(0.2126 0.7152 0.0722)
+                               for x in (color-name-to-rgb name)
+                               sum (* k (if (<= x 0.03928)
+                                            (/ x 12.92)
+                                          (expt (/ (+ x 0.055) 1.055) 2.4)))))
               (contrast-ratio
-               (a b) (pcase-let* ((`(,_ah ,_as ,av) (apply #'color-rgb-to-hsv a))
-                                  (`(,_bh ,_bs ,bv) (apply #'color-rgb-to-hsv b))
-                                  (lighter-luminance (apply #'relative-luminance (if (> av bv) a b)))
-                                  (darker-luminance (apply #'relative-luminance (if (> av bv) b a))))
-                       (/ (+ 0.05 lighter-luminance)
-                          (+ 0.05 darker-luminance)))))
+               ;; Copy of `modus-themes-contrast'; see above.
+               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
+                                  (+ (relative-luminance b) 0.05))))
+                       (max ct (/ ct)))))
     (let* ((id (ement-user-id user))
            (id-hash (float (abs (sxhash id))))
            ;; TODO: Wrap-around the value to get the color I want.
@@ -734,9 +735,8 @@ For use as a `help-echo' function on `ement-user' headings."
            (color-rgb (list (/ (float (logand color-num 255)) 255)
                             (/ (float (lsh (logand color-num 65280) -8)) 255)
                             (/ (float (lsh (logand color-num 16711680) -16)) 255)))
-           (background-rgb (color-name-to-rgb (face-background 'default)))
-           (contrast-ratio (contrast-ratio color-rgb background-rgb)))
-      (if (< contrast-ratio 3)
+           (background-rgb (color-name-to-rgb (face-background 'default))))
+      (if (< (contrast-ratio color-rgb background-rgb) 3)
           (progn
             ;; Contrast ratio too low: I don't know the best way to fix this,
             ;; but using the complement seems to produce decent results.
