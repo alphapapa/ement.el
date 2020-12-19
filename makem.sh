@@ -3,7 +3,7 @@
 # * makem.sh --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.4.2
+# Version: 0.5
 
 # * Commentary:
 
@@ -166,6 +166,39 @@ EOF
     echo $file
 }
 
+function elisp-byte-compile-file {
+    # This seems to be the only way to make byte-compilation signal
+    # errors for warnings AND display all warnings rather than only
+    # the first one.
+    local file=$(mktemp)
+    # TODO: Add file to $paths_temp in other elisp- functions.
+    paths_temp+=("$file")
+
+    cat >"$file" <<EOF
+(defun makem-batch-byte-compile (&rest args)
+  ""
+  (let ((num-errors 0))
+    ;; NOTE: Only accepts files as args, not directories.
+    (dolist (file command-line-args-left)
+      (unless (makem-byte-compile-file file)
+        (cl-incf num-errors)))
+    (zerop num-errors)))
+
+(defun makem-byte-compile-file (filename &optional load)
+  "Call \`byte-compile-warn', returning nil if there are any warnings."
+  (let ((num-warnings 0))
+    (cl-letf (((symbol-function 'byte-compile-warn)
+               (lambda (format &rest args)
+                 ;; Copied from \`byte-compile-warn'.
+                 (cl-incf num-warnings)
+                 (setq format (apply #'format-message format args))
+                 (byte-compile-log-warning format t :warning))))
+      (byte-compile-file filename load))
+    (zerop num-warnings)))
+EOF
+    echo "$file"
+}
+
 function elisp-check-declare-file {
     # Since check-declare doesn't have a batch function that exits
     # non-zero when errors are found, we make one.
@@ -287,8 +320,9 @@ function batch-byte-compile {
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
 
     run_emacs \
+        --load "$(elisp-byte-compile-file)" \
         "${error_on_warn[@]}" \
-        --funcall batch-byte-compile \
+        --eval "(unless (makem-batch-byte-compile) (kill-emacs 1))" \
         "$@"
 }
 
@@ -300,8 +334,9 @@ function byte-compile-file {
 
     # FIXME: Why is the line starting with "&& verbose 3" not indented properly?  Emacs insists on indenting it back a level.
     run_emacs \
+        --load "$(elisp-byte-compile-file)" \
         "${error_on_warn[@]}" \
-        --eval "(unless (byte-compile-file \"$file\") (kill-emacs 1))" \
+        --eval "(unless (makem-byte-compile-file \"$file\") (kill-emacs 1))" \
         && verbose 3 "Compiling $file finished without errors." \
             || { verbose 3 "Compiling file failed: $file"; return 1; }
 }
@@ -662,7 +697,7 @@ function verbose {
     if [[ $verbose -ge $1 ]]
     then
         [[ $1 -eq 1 ]] && local color_name=blue
-        [[ $1 -ge 2 ]] && local color_name=cyan
+        [[ $1 -eq 2 ]] && local color_name=cyan
         [[ $1 -ge 3 ]] && local color_name=white
 
         shift
@@ -711,9 +746,7 @@ function compile-batch {
     verbose 2 "Batch-compiling files..."
     debug "Byte-compile files: ${files_project_byte_compile[@]}"
 
-    batch-byte-compile "${files_project_byte_compile[@]}" \
-        && success "Compiling finished without errors." \
-            || error "Compilation failed."
+    batch-byte-compile "${files_project_byte_compile[@]}"
 }
 
 function compile-each {

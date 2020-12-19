@@ -1,7 +1,7 @@
 # * makem.sh/Makefile --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.4.2
+# Version: 0.5
 
 # * Arguments
 
