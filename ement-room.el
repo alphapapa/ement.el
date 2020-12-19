@@ -717,11 +717,11 @@ For use as a `help-echo' function on `ement-user' headings."
                ;; implementation by Protesilaos Stavrou.  Also see
                ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
                ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (name) (cl-loop for k in '(0.2126 0.7152 0.0722)
-                               for x in (color-name-to-rgb name)
-                               sum (* k (if (<= x 0.03928)
-                                            (/ x 12.92)
-                                          (expt (/ (+ x 0.055) 1.055) 2.4)))))
+               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
+                              for x in rgb
+                              sum (* k (if (<= x 0.03928)
+                                           (/ x 12.92)
+                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
               (contrast-ratio
                ;; Copy of `modus-themes-contrast'; see above.
                (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
