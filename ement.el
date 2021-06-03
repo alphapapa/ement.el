@@ -126,13 +126,14 @@ session and log in again."
                                  (ement-alist 'username (read-string "User ID: ")
                                               'password (read-passwd "Password: ")))))
                  (list username password token transaction-id)))
-  (pcase-let* ((hostname (if (string-match (rx ":" (group (1+ anything))) user-id)
-                             (match-string 1 user-id)
-                           "matrix.org"))
+  (string-match (rx (? "@") (group (1+ (not ":"))) (? ":") (group (* anything))) user-id)
+  (pcase-let* ((hostname (if (string= "" (match-string 2 user-id))
+                             "matrix.org"
+                           (match-string 2 user-id)))
                ;; FIXME: Lookup hostname from user ID with DNS.
                ;; FIXME: Dynamic port.
                (server (make-ement-server :hostname hostname :port 443))
-               (user (make-ement-user :id user-id))
+               (user (make-ement-user :id (match-string 1 user-id)))
                (transaction-id (or transaction-id (random 100000)))
                (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
     (if token
