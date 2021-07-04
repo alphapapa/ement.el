@@ -660,9 +660,11 @@ Format defaults to `ement-room-message-format-spec', which see."
                    (spec (string-to-char (match-string 2)))
                    (fn (or (alist-get spec specs)
                            (error "Invalid format character: `%%%c'" spec)))
-                   (val (funcall fn event)))
-              (unless val
-                (error "Event has no value for spec %s: %S" spec event))
+                   (val (or (funcall fn event)
+                            (let ((print-level 1))
+                              (propertize (format "[Event has no value for spec \"?%s\"]" (char-to-string spec))
+                                          'face 'font-lock-comment-face
+                                          'help-echo (format "%S" event))))))
               ;; (setq val (cdr val))
               ;; Pad result to desired length.
               (let ((text (format (concat "%" num "s") val)))
