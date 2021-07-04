@@ -583,9 +583,10 @@ seconds."
                     :button-face 'ement-room-membership
                     :value (list (alist-get 'membership (ement-event-content event))))
      "")
-    (_ (format "[sender:%s type:%s]"
-               (ement-user-id (ement-event-sender event))
-               (ement-event-type event)))))
+    (_ (propertize (format "[sender:%s type:%s]"
+                           (ement-user-id (ement-event-sender event))
+                           (ement-event-type event))
+                   'help-echo (format "%S" event)))))
 
 (cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
   "Return EVENT formatted according to FORMAT.
