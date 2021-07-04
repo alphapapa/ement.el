@@ -129,6 +129,7 @@ See function `format-time-string'."
                  string))
 
 (defcustom ement-room-timestamp-header-with-date-format " %Y-%m-%d (%A) %H:%M\n"
+  ;; FIXME: In Emacs 27+, maybe use :extend t instead of adding a newline.
   "Format string for timestamp headers where date changes.
 See function `format-time-string'."
   :type '(choice (const " %H:%M\n")
