@@ -161,7 +161,7 @@ See Info node `(elisp)Other Display Specs'."
   "Event timestamps.")
 
 (defface ement-room-user
-  '((t (:inherit font-lock-function-name-face :weight bold)))
+  '((t (:inherit font-lock-function-name-face :weight bold :overline t :extend t)))
   "Usernames.")
 
 (defface ement-room-self
