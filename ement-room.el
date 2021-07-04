@@ -383,6 +383,18 @@ the buffer."
                                (ement-room--ewoc-next-matching ewoc node-a #'ement-event-p)))
                 (not (or (>= (ewoc-location node-a) end-pos)
                          (>= (ewoc-location node-b) end-pos))))
+      (cl-labels ((format-event
+                   (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
+                                   (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
+                                   (format-time-string "%Y-%m-%d %H:%M:%S"
+                                                       (/ (ement-event-origin-server-ts (ewoc-data event)) 1000))
+                                   (ement-user-id (ement-event-sender (ewoc-data event)))
+                                   (when (alist-get 'body (ement-event-content (ewoc-data event)))
+                                     (substring-no-properties
+                                      (truncate-string-to-width (alist-get 'body (ement-event-content (ewoc-data event))) 20))))))
+        (ement-debug "Comparing event timestamps:"
+                     (list 'A (format-event node-a))
+                     (list 'B (format-event node-b))))
       ;; NOTE: Matrix timestamps are in milliseconds.
       (let* ((a-ts (/ (ement-event-origin-server-ts (ewoc-data node-a)) 1000))
              (b-ts (/ (ement-event-origin-server-ts (ewoc-data node-b)) 1000))
