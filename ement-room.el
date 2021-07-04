@@ -179,7 +179,7 @@ See Info node `(elisp)Other Display Specs'."
   "Usernames.")
 
 (defface ement-room-self
-  '((t (:inherit font-lock-variable-name-face :weight bold)))
+  '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
   "Own username.")
 
 (defface ement-room-self-message
