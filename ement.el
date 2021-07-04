@@ -378,7 +378,12 @@ Adds sender to `ement-users' when necessary."
 
 (defun ement--room-display-name (room)
   "Return the displayname for ROOM."
-  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id349>.
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
+
+  ;; NOTE: That spec says "state event," but in practice some rooms have these events only in
+  ;; their "timeline" events, so these functions need to check both.  Which should take
+  ;; priority?  I don't know.  Since some don't have, e.g. "m.room.name" events in their state
+  ;; events, I'll assume that the timeline events take priority and should be checked first.
   (or (ement--room-name room)
       (ement--room-alias room)
       ;; FIXME: Steps 3, etc.
@@ -390,21 +395,30 @@ Adds sender to `ement-users' when necessary."
 
 (defun ement--room-name (room)
   "Return latest m.room.name event in ROOM."
-  (cl-loop for event in (ement-room-state room)
-           when (equal "m.room.name" (ement-event-type event))
-           return (alist-get 'name (ement-event-content event))))
+  (or (cl-loop for event in (ement-room-timeline room)
+               when (equal "m.room.name" (ement-event-type event))
+               return (alist-get 'name (ement-event-content event)))
+      (cl-loop for event in (ement-room-state room)
+               when (equal "m.room.name" (ement-event-type event))
+               return (alist-get 'name (ement-event-content event)))))
 
 (defun ement--room-alias (room)
   "Return latest m.room.canonical_alias event in ROOM."
-  (cl-loop for event in (ement-room-state room)
-           when (equal "m.room.canonical_alias" (ement-event-type event))
-           return (alist-get 'alias (ement-event-content event))))
+  (or (cl-loop for event in (ement-room-timeline room)
+               when (equal "m.room.canonical_alias" (ement-event-type event))
+               return (alist-get 'alias (ement-event-content event)))
+      (cl-loop for event in (ement-room-state room)
+               when (equal "m.room.canonical_alias" (ement-event-type event))
+               return (alist-get 'alias (ement-event-content event)))))
 
 (defun ement--room-topic (room)
   "Return latest m.room.topic event in ROOM."
-  (cl-loop for event in (ement-room-state room)
-           when (equal "m.room.topic" (ement-event-type event))
-           return (alist-get 'topic (ement-event-content event))))
+  (or (cl-loop for event in (ement-room-timeline room)
+               when (equal "m.room.topic" (ement-event-type event))
+               return (alist-get 'topic (ement-event-content event)))
+      (cl-loop for event in (ement-room-state room)
+               when (equal "m.room.topic" (ement-event-type event))
+               return (alist-get 'topic (ement-event-content event)))))
 
 (defun ement--load-session ()
   "Return saved session from file."
