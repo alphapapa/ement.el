@@ -187,7 +187,7 @@ See Info node `(elisp)Other Display Specs'."
   "Own messages.")
 
 (defface ement-room-timestamp-header
-  '((t (:inherit header-line :weight bold)))
+  '((t (:inherit header-line :weight bold :height 1.1)))
   "Timestamp headers.")
 
 ;;;; Commands
