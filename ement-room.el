@@ -121,19 +121,22 @@ See function `format-time-string'."
                  (const "%Y-%m-%d %H:%M:%S")
                  string))
 
-(defcustom ement-room-timestamp-header-format " %H:%M\n"
-  "Format string for timestamp headers.
-See function `format-time-string'."
-  :type '(choice (const " %H:%M\n")
-                 (const " %Y-%m-%d %H:%M\n")
+(defcustom ement-room-timestamp-header-format " %H:%M "
+  "Format string for timestamp headers where date is unchanged.
+See function `format-time-string'.  If this string ends in a
+newline, its background color will extend to the end of the
+line."
+  :type '(choice (const :tag "Time-only" " %H:%M ")
+                 (const :tag "Always show date" " %Y-%m-%d %H:%M ")
                  string))
 
 (defcustom ement-room-timestamp-header-with-date-format " %Y-%m-%d (%A) %H:%M\n"
   ;; FIXME: In Emacs 27+, maybe use :extend t instead of adding a newline.
   "Format string for timestamp headers where date changes.
-See function `format-time-string'."
-  :type '(choice (const " %H:%M\n")
-                 (const " %Y-%m-%d (%A) %H:%M\n")
+See function `format-time-string'.  If this string ends in a
+newline, its background color will extend to the end of the
+line."
+  :type '(choice (const " %Y-%m-%d (%A) %H:%M\n")
                  string))
 
 (defcustom ement-room-left-margin-width 0
@@ -545,8 +548,14 @@ seconds."
      (insert (propertize (ement-room--format-user thing)
                          'display ement-room-username-display-property)))
     (`(ts ,(and (pred numberp) ts)) ;; Insert a date header.
-     (insert "\n" (propertize (format-time-string ement-room-timestamp-header-format ts)
-                              'face 'ement-room-timestamp-header)))))
+     (insert
+      (if (equal ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format)
+          ;; HACK: Rather than using another variable, compare the format strings to
+          ;; determine whether the date is changing: if so, add a newline before the header.
+          "\n"
+        "")
+      (propertize (format-time-string ement-room-timestamp-header-format ts)
+                  'face 'ement-room-timestamp-header)))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."
