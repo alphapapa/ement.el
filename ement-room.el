@@ -161,6 +161,14 @@ See Info node `(elisp)Other Display Specs'."
 			       (function :tag "Function")
 			       (sexp :tag "Form"))) ))
 
+(defcustom ement-room-event-separator-display-property '(space :ascent 50)
+  "Display property applied to invisible space string after events.
+Allows visual separation between events without, e.g. inserting
+newlines.
+
+See Info node `(elisp)Specified Space'."
+  :type 'sexp)
+
 (defcustom ement-room-timestamp-header-delta 600
   "Show timestamp header where events are at least this many seconds apart."
   :type 'integer)
@@ -577,17 +585,19 @@ seconds."
 
 (defun ement-room--format-event (event)
   "Return EVENT formatted according to `ement-room-message-format-spec'."
-  (pcase (ement-event-type event)
-    ("m.room.message" (ement-room--format-message event))
-    ("m.room.member"
-     (widget-create 'ement-room-membership
-                    :button-face 'ement-room-membership
-                    :value event)
-     "")
-    (_ (propertize (format "[sender:%s type:%s]"
-                           (ement-user-id (ement-event-sender event))
-                           (ement-event-type event))
-                   'help-echo (format "%S" event)))))
+  (concat (pcase (ement-event-type event)
+            ("m.room.message" (ement-room--format-message event))
+            ("m.room.member"
+             (widget-create 'ement-room-membership
+                            :button-face 'ement-room-membership
+                            :value event)
+             "")
+            (_ (propertize (format "[sender:%s type:%s]"
+                                   (ement-user-id (ement-event-sender event))
+                                   (ement-event-type event))
+                           'help-echo (format "%S" event))))
+          (propertize " "
+                      'display ement-room-event-separator-display-property)))
 
 (cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
   "Return EVENT formatted according to FORMAT.
