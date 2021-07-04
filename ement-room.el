@@ -378,7 +378,9 @@ the buffer."
                                      (ewoc-nth ewoc -1))))
          (node-b (or start-node (ewoc-nth ewoc 0)))
          node-a)
-    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc node-b #'ement-event-p)
+    ;; On the first loop iteration, node-a is set to the first matching
+    ;; node after node-b; then its set to the first node after node-a.
+    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) #'ement-event-p)
                       node-b (when node-a
                                (ement-room--ewoc-next-matching ewoc node-a #'ement-event-p)))
                 (not (or (>= (ewoc-location node-a) end-pos)
