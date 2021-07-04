@@ -187,7 +187,7 @@ See Info node `(elisp)Specified Space'."
   "Event timestamps.")
 
 (defface ement-room-user
-  '((t (:inherit font-lock-function-name-face :weight bold :overline t :extend t)))
+  '((t (:inherit font-lock-function-name-face :weight bold :overline t)))
   "Usernames.")
 
 (defface ement-room-self
