@@ -391,8 +391,7 @@ the buffer."
                    (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
                           (pcase (ewoc-data node-after-a)
                             (`(ts) t)))))
-          (ewoc-enter-after ewoc node-a
-                            (list 'ts b-ts)))))))
+          (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
