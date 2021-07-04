@@ -581,7 +581,7 @@ seconds."
     ("m.room.member"
      (widget-create 'ement-room-membership
                     :button-face 'ement-room-membership
-                    :value (list (alist-get 'membership (ement-event-content event))))
+                    :value event)
      "")
     (_ (propertize (format "[sender:%s type:%s]"
                            (ement-user-id (ement-event-sender event))
@@ -785,10 +785,26 @@ For use as a `help-echo' function on `ement-user' headings."
 
 (require 'widget)
 
+(defun ement-room--membership-help-echo (window _object pos)
+  "Return membership event string for POS in WINDOW.
+For use as a `help-echo' function on `ement-user' headings."
+  (with-selected-window window
+    (format "%S" (ement-event-content (ewoc-data (ewoc-locate ement-ewoc pos))))))
+
+;; (defun ement-room--membership-help-echo (widget)
+;;   "Return membership event string for WIDGET."
+;;   (format "%S" (ement-event-content (widget-value widget))))
+
 (define-widget 'ement-room-membership 'item
   "Widget for membership events."
   :format "%{ %v %}"
-  :sample-face 'ement-room-membership)
+  :sample-face 'ement-room-membership
+  ;; FIXME: Using the :help-echo property on the widget doesn't seem to work, seemingly something to do with the widget
+  ;; hierarchy (using `widget-forward' says "No buttons or fields found"), so we use 'help-echo on the string for now.
+  ;;  :help-echo #'ement-room--membership-help-echo
+  :value-create (lambda (widget)
+                  (insert (propertize (alist-get 'membership (ement-event-content (widget-value widget)))
+                                      'help-echo #'ement-room--membership-help-echo))))
 
 ;;;; Footer
 
