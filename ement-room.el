@@ -121,6 +121,20 @@ See function `format-time-string'."
                  (const "%Y-%m-%d %H:%M:%S")
                  string))
 
+(defcustom ement-room-timestamp-header-format " %H:%M\n"
+  "Format string for timestamp headers.
+See function `format-time-string'."
+  :type '(choice (const " %H:%M\n")
+                 (const " %Y-%m-%d %H:%M\n")
+                 string))
+
+(defcustom ement-room-timestamp-header-with-date-format " %Y-%m-%d (%A) %H:%M\n"
+  "Format string for timestamp headers where date changes.
+See function `format-time-string'."
+  :type '(choice (const " %H:%M\n")
+                 (const " %Y-%m-%d (%A) %H:%M\n")
+                 string))
+
 (defcustom ement-room-left-margin-width 0
   "Width of left margin in room buffers."
   :type 'integer)
@@ -400,11 +414,15 @@ the buffer."
       ;; NOTE: Matrix timestamps are in milliseconds.
       (let* ((a-ts (/ (ement-event-origin-server-ts (ewoc-data node-a)) 1000))
              (b-ts (/ (ement-event-origin-server-ts (ewoc-data node-b)) 1000))
-             (diff-seconds (- b-ts a-ts)))
+             (diff-seconds (- b-ts a-ts))
+             (ement-room-timestamp-header-format ement-room-timestamp-header-format))
         (when (and (>= diff-seconds ement-room-timestamp-header-delta)
                    (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
                           (pcase (ewoc-data node-after-a)
                             (`(ts) t)))))
+          (unless (equal (time-to-days a-ts) (time-to-days b-ts))
+            ;; Different date: bind format to print date.
+            (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
           (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))))
 
 (defun ement-room--insert-event (event)
@@ -518,7 +536,7 @@ seconds."
      (insert (propertize (ement-room--format-user thing)
                          'display ement-room-username-display-property)))
     (`(ts ,(and (pred numberp) ts)) ;; Insert a date header.
-     (insert "\n" (propertize (format-time-string " %H:%M\n" ts)
+     (insert "\n" (propertize (format-time-string ement-room-timestamp-header-format ts)
                               'face 'ement-room-timestamp-header)))))
 
 ;; (defun ement-room--format-event (event)
