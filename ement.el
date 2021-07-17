@@ -93,12 +93,8 @@ synced.")
   "Save username and access token upon successful login."
   :type 'boolean)
 
-(defcustom ement-save-session-file "~/.cache/matrix-client.el.token"
-  ;; FIXME: Uses matrix-client.el token.  This causes hair-pulling
-  ;; bugs if a transaction ID is reused, causing sent messages to
-  ;; appear to send but really the server says, nah, you already sent
-  ;; one with that ID, but here's an event ID to make it look like
-  ;; sending worked.
+(defcustom ement-save-session-file "~/.cache/ement.el.token"
+  ;; FIXME: Expand correct XDG cache directory (new in Emacs 27).
   "Save username and access token to this file."
   :type 'file)
 
