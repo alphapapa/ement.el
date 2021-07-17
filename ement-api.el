@@ -75,7 +75,7 @@
     ;;  (ement-debug (current-time) method url headers)
     (plz method url :headers headers :body data :as json-read-fn :then then :else else
       ;; FIXME: Timeout is not necessarily the same as connect-timeout, or shouldn't be.
-      :connect-timeout timeout)))
+      :connect-timeout timeout :noquery t)))
 
 (defun ement-api-error (&rest args)
   "Signal an error about ARGS."

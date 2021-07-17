@@ -191,9 +191,7 @@ existing room buffers are left alive and can be read, but other
 commands in them won't work."
   (interactive (list (ement-complete-session)))
   (let ((id (ement-user-id (ement-session-user session))))
-    ;; FIXME: Stop outstanding sync processes.
     (when-let ((process (map-elt ement-syncs session)))
-      ;; FIXME: This prompts for whether to kill an active process.
       (ignore-errors
         (delete-process process)))
     (when ement-save-session
