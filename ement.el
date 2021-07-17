@@ -140,17 +140,27 @@ session and log in again."
           ;; FIXME: Overwrites any current session.
           (setf ement-sessions (list session))
           (ement--sync (car ement-sessions)))
-      ;; Log in.
-      (pcase-let* (((cl-struct ement-session user token device-id initial-device-display-name) session)
-                   ((cl-struct ement-user id) user)
-                   (data (ement-alist "type" "m.login.password"
-                                      "user" id
-                                      "password" password
-                                      "device_id" device-id
-                                      "initial_device_display_name" initial-device-display-name)))
-        ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
-        (ement-api server token "login" (apply-partially #'ement--login-callback session)
-          :data (json-encode data) :method 'post)))))
+      ;; No token: Log in with password.  (Using `cl-labels' to label callbacks is nice!)
+      (cl-labels ((flows-callback
+                   (data) (if (cl-loop for flow across (map-elt data 'flows)
+                                       thereis (equal (map-elt flow 'type) "m.login.password"))
+                              (password-login)
+                            (error "Matrix server doesn't support m.login.password login flow.  Supported flows: %s"
+                                   (cl-loop for flow in (map-elt data 'flows)
+                                            collect (map-elt flow 'type)))))
+                  (password-login
+                   () (pcase-let* (((cl-struct ement-session user token device-id initial-device-display-name) session)
+                                   ((cl-struct ement-user id) user)
+                                   (data (ement-alist "type" "m.login.password"
+                                                      "user" id
+                                                      "password" password
+                                                      "device_id" device-id
+                                                      "initial_device_display_name" initial-device-display-name)))
+                        ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
+                        (ement-api server token "login" (apply-partially #'ement--login-callback session)
+                          :data (json-encode data) :method 'post))))
+        ;; Verify that the m.login.password flow is supported.
+        (ement-api server nil "login" #'flows-callback)))))
 
 (defun ement-disconnect (session)
   "Disconnect from SESSION.
