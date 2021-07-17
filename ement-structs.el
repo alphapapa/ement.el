@@ -44,7 +44,7 @@
   id sender content origin-server-ts type unsigned)
 
 (cl-defstruct ement-server
-  hostname port)
+  name port uri-prefix)
 
 (cl-defstruct ement-session
   user server token transaction-id rooms next-batch

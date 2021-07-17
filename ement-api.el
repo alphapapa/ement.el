@@ -60,12 +60,13 @@
   "FIXME: Docstring."
   ;; FIXME: Use transaction-id or add it in calling functions.
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-server hostname port) server)
+  (pcase-let* (((cl-struct ement-server uri-prefix port) server)
+               ((cl-struct url type host) (url-generic-parse-url uri-prefix))
                (path (concat "/_matrix/client/r0/" endpoint))
 	       (query (url-build-query-string params))
 	       (filename (concat path "?" query))
                (url (url-recreate-url
-		     (url-parse-make-urlobj "https" nil nil hostname port filename nil data t)))
+		     (url-parse-make-urlobj type nil nil host port filename nil data t)))
                (headers (ement-alist "Content-Type" content-type
                                      "Authorization" (concat "Bearer " token))))
     ;; Omit `then' from debugging because if it's a partially applied

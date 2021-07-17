@@ -43,6 +43,7 @@
 
 ;; Built in.
 (require 'cl-lib)
+(require 'dns)
 (require 'files)
 (require 'map)
 
@@ -124,14 +125,15 @@ session and log in again."
                                               'password (read-passwd "Password: ")))))
                  (list username password token transaction-id)))
   (unless (string-match (rx bos "@" (1+ (not (any ":"))) ; Username (actually unused)
-                            ":" (group (optional (1+ (not (any blank)))))) ; Hostname
+                            ":" (group (optional (1+ (not (any blank)))))) ; Server name
                         user-id)
-    (user-error "Invalid user ID format: use @USERNAME:HOSTNAME"))
-  (let* (;; FIXME: Lookup hostname from user ID with DNS.
-         (hostname (match-string 1 user-id))
+    (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+  (let* ((server-name (match-string 1 user-id))
+         ;; TODO: Also return port, and actually use that port elsewhere.
+         (uri-prefix (ement--hostname-uri server-name))
          (user (make-ement-user :id user-id))
          ;; FIXME: Dynamic port.
-         (server (make-ement-server :hostname hostname :port 443))
+         (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
          ;; FIXME: Be smarter about transaction ID to prevent conflicts.
          (transaction-id (or transaction-id (random 100000)))
          (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
@@ -204,6 +206,28 @@ call `pop-to-buffer'."
   (goto-char (point-max)))
 
 ;;;; Functions
+
+(defun ement--hostname-uri (hostname)
+  "Return the \".well-known\" URI for server HOSTNAME.
+If no URI is found, prompt the user for the hostname."
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id178> ("4.1   Well-known URI")
+  (cl-labels ((fail-prompt
+               () (let ((input (read-string "Auto-discovery of server's well-known URI failed.  Input server hostname, or leave blank to use server name: ")))
+                    (pcase input
+                      ("" hostname)
+                      (_ input))))
+              (parse (string)
+                     (if-let ((object (ignore-errors (json-read-from-string string))))
+                         ;; Return extracted value.
+                         (map-nested-elt object '(m.homeserver base_url))
+                       ;; Parsing error: FAIL_PROMPT.
+                       (fail-prompt))))
+    (let ((response (plz-get-sync (concat "https://" hostname "/.well-known/matrix/client")
+                      :as 'response)))
+      (pcase (plz-response-status response)
+        (404 (fail-prompt))
+        (200 (parse (plz-response-body response)))
+        (_ (fail-prompt))))))
 
 (defun ement--room-buffer-name (room)
   "Return name for ROOM's buffer."
