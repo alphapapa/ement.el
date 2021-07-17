@@ -90,11 +90,17 @@ synced.")
   "Options for Ement, the Matrix client."
   :group 'comm)
 
-(defcustom ement-save-token nil
-  "Save username and access token upon successful login."
-  :type 'boolean)
+(defcustom ement-save-session nil
+  "Save session to disk.
+Writes the session file when Emacs is killed."
+  :type 'boolean
+  :set (lambda (option value)
+         (set-default option value)
+         (if value
+             (add-hook 'kill-emacs-hook #'ement--kill-emacs-hook)
+           (remove-hook 'kill-emacs-hook #'ement--kill-emacs-hook))))
 
-(defcustom ement-save-session-file "~/.cache/ement.el.token"
+(defcustom ement-session-file "~/.cache/ement.el"
   ;; FIXME: Expand correct XDG cache directory (new in Emacs 27).
   "Save username and access token to this file."
   :type 'file)
@@ -112,38 +118,47 @@ Run with one argument, the session synced."
 ;;;; Commands
 
 ;;;###autoload
-(defun ement-connect (user-id password &optional token transaction-id)
+(defun ement-connect (&optional user-id password)
   "Connect to Matrix with USER-ID and PASSWORD.
-Optionally, ignore PASSWORD and use TOKEN and TRANSACTION-ID to
-sync a saved session.  Interactively, with prefix, ignore a saved
+If USER-ID and PASSWORD are nil, and `ement-save-session' is
+non-nil, and the `ement-session-file' is available, use the
+saved session.  Interactively, with prefix, ignore a saved
 session and log in again."
   ;; FIXME: The session struct's username slot ought to be named user-id.
-  (interactive (pcase-let* (((map username password token ('txn-id transaction-id))
-                             (or (unless current-prefix-arg
-				   (ement--load-session))
-                                 (ement-alist 'username (read-string "User ID: ")
-                                              'password (read-passwd "Password: ")))))
-                 (list username password token transaction-id)))
-  (unless (string-match (rx bos "@" (1+ (not (any ":"))) ; Username (actually unused)
-                            ":" (group (optional (1+ (not (any blank)))))) ; Server name
-                        user-id)
-    (user-error "Invalid user ID format: use @USERNAME:SERVER"))
-  (let* ((server-name (match-string 1 user-id))
-         ;; TODO: Also return port, and actually use that port elsewhere.
-         (uri-prefix (ement--hostname-uri server-name))
-         (user (make-ement-user :id user-id))
-         ;; FIXME: Dynamic port.
-         (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
-         ;; FIXME: Be smarter about transaction ID to prevent conflicts.
-         (transaction-id (or transaction-id (random 100000)))
-         (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
-    (if token
-        ;; Token provided: use it to start syncing.
-        (progn
-          ;; FIXME: Overwrites any current session.
-          (setf ement-sessions (list session))
-          (ement--sync (car ement-sessions)))
-      ;; No token: Log in with password.  (Using `cl-labels' to label callbacks is nice!)
+  (interactive (if (and ement-save-session
+                        (file-readable-p ement-session-file))
+                   ;; Session available: use it.
+                   nil
+                 ;; Read username and password.
+                 (list (read-string "User ID: ")
+                       (read-passwd "Password: "))))
+  (if (not user-id)
+      ;; Use saved session.
+      (if-let ((saved-session (ement--read-session)))
+          (progn
+            ;; FIXME: Overwrites any current session.
+            (setf ement-sessions (list saved-session)
+                  ;; Unset has-synced flag so room list will be displayed.
+                  ;; MAYBE: Make this more customizeable.
+                  (ement-session-has-synced-p (car ement-sessions)) nil)
+            (ement--sync (car ement-sessions)))
+        ;; Unable to read session: log in again.
+        (let ((ement-save-session nil))
+          (call-interactively #'ement-connect)))
+    ;; Log in to new session.
+    (unless (string-match (rx bos "@" (1+ (not (any ":"))) ; Username (actually unused)
+                              ":" (group (optional (1+ (not (any blank)))))) ; Server name
+                          user-id)
+      (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+    (let* ((server-name (match-string 1 user-id))
+           ;; TODO: Also return port, and actually use that port elsewhere.
+           (uri-prefix (ement--hostname-uri server-name))
+           (user (make-ement-user :id user-id))
+           ;; FIXME: Dynamic port.
+           (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
+           ;; A new session with a new token should be able to start over with a transaction ID of 0.
+           (transaction-id 0)
+           (session (make-ement-session :user user :server server :transaction-id transaction-id)))
       (cl-labels ((flows-callback
                    (data) (if (cl-loop for flow across (map-elt data 'flows)
                                        thereis (equal (map-elt flow 'type) "m.login.password"))
@@ -171,13 +186,19 @@ session and log in again."
 (defun ement-disconnect (session)
   "Disconnect from SESSION.
 If `ement-auto-sync' is enabled, stop syncing, and clear the
-session data.  Any existing room buffers are left alive and can
-be read, but other commands in them won't work."
+session data.  When enabled, write the session to disk.  Any
+existing room buffers are left alive and can be read, but other
+commands in them won't work."
   (interactive (list (ement-complete-session)))
   (let ((id (ement-user-id (ement-session-user session))))
     ;; FIXME: Stop outstanding sync processes.
     (when-let ((process (map-elt ement-syncs session)))
-      (delete-process process))
+      ;; FIXME: This prompts for whether to kill an active process.
+      (ignore-errors
+        (delete-process process)))
+    (when ement-save-session
+      ;; FIXME: Multiple sessions.
+      (ement--write-session session))
     (setf ement-syncs (map-delete ement-syncs session)
           ement-sessions (map-delete ement-sessions session))
     (message "Disconnected %s" id)))
@@ -459,12 +480,43 @@ Adds sender to `ement-users' when necessary."
                when (equal "m.room.topic" (ement-event-type event))
                return (alist-get 'topic (ement-event-content event)))))
 
-(defun ement--load-session ()
+(defun ement--read-session ()
   "Return saved session from file."
-  (when (file-exists-p ement-save-session-file)
-    (read (with-temp-buffer
-            (insert-file-contents ement-save-session-file)
-            (buffer-substring-no-properties (point-min) (point-max))))))
+  (when (file-exists-p ement-session-file)
+    (condition-case err
+        ;; In case the saved session struct ever changes format, or something causes Emacs
+        ;; to fail to read the saved structs, we handle any errors by logging in again.
+        (prog1 (let ((read-circle t))
+                 (read (with-temp-buffer
+                         (insert-file-contents ement-session-file)
+                         (buffer-substring-no-properties (point-min) (point-max)))))
+          (message "Ement: Read session."))
+      (error (display-warning 'ement (format "Unable to read session from disk (%s).  Prompting to log in again.  Please report this error at https://github.com/alphapapa/ement.el"
+                                             (error-message-string err)))))))
+
+(defun ement--write-session (session)
+  "Write SESSION to disk."
+  ;; FIXME: This does not work with multiple sessions.
+  ;; TODO: Check if file exists; if so, ensure it has a proper header so we know it's ours.
+  ;; FIXME: Limit the amount of session data saved (e.g. room history could grow forever on-disk, which probably isn't what we want).
+  (message "Ement: Writing session...")
+  (with-temp-file ement-session-file
+    (let* ((print-level nil)
+           (print-length nil)
+           (print-circle t))            ; Very important!
+      (prin1 session (current-buffer))))
+  ;; Ensure permissions are safe.
+  (chmod ement-session-file #o600))
+
+(defun ement--kill-emacs-hook ()
+  "Function to be added to `kill-emacs-hook'.
+Writes Ement session to disk when enabled."
+  (ignore-errors
+    ;; To avoid interfering with Emacs' exit, We must be careful that
+    ;; this function handles errors, so just ignore any.
+    (when (and ement-save-session
+               (car ement-sessions))
+      (ement--write-session (car ement-sessions)))))
 
 ;;;; Footer
 
