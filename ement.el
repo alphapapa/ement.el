@@ -123,7 +123,6 @@ If USER-ID and PASSWORD are nil, and `ement-save-session' is
 non-nil, and the `ement-session-file' is available, use the
 saved session.  Interactively, with prefix, ignore a saved
 session and log in again."
-  ;; FIXME: The session struct's username slot ought to be named user-id.
   (interactive (if (and ement-save-session
                         (file-readable-p ement-session-file))
                    ;; Session available: use it.

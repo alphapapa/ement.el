@@ -58,7 +58,6 @@
                             (else #'ement-api-error) (method 'get)
                             (json-read-fn #'json-read))
   "FIXME: Docstring."
-  ;; FIXME: Use transaction-id or add it in calling functions.
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-server uri-prefix port) server)
                ((cl-struct url type host) (url-generic-parse-url uri-prefix))
