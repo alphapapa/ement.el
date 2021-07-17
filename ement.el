@@ -116,22 +116,27 @@ Run with one argument, the session synced."
 Optionally, ignore PASSWORD and use TOKEN and TRANSACTION-ID to
 sync a saved session.  Interactively, with prefix, ignore a saved
 session and log in again."
+  ;; FIXME: The session struct's username slot ought to be named user-id.
   (interactive (pcase-let* (((map username password token ('txn-id transaction-id))
                              (or (unless current-prefix-arg
 				   (ement--load-session))
                                  (ement-alist 'username (read-string "User ID: ")
                                               'password (read-passwd "Password: ")))))
                  (list username password token transaction-id)))
-  (pcase-let* ((hostname (if (string-match (rx ":" (group (1+ anything))) user-id)
-                             (match-string 1 user-id)
-                           "matrix.org"))
-               ;; FIXME: Lookup hostname from user ID with DNS.
-               ;; FIXME: Dynamic port.
-               (server (make-ement-server :hostname hostname :port 443))
-               (user (make-ement-user :id user-id))
-               (transaction-id (or transaction-id (random 100000)))
-               (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
+  (unless (string-match (rx bos "@" (1+ (not (any ":"))) ; Username (actually unused)
+                            ":" (group (optional (1+ (not (any blank)))))) ; Hostname
+                        user-id)
+    (user-error "Invalid user ID format: use @USERNAME:HOSTNAME"))
+  (let* (;; FIXME: Lookup hostname from user ID with DNS.
+         (hostname (match-string 1 user-id))
+         (user (make-ement-user :id user-id))
+         ;; FIXME: Dynamic port.
+         (server (make-ement-server :hostname hostname :port 443))
+         ;; FIXME: Be smarter about transaction ID to prevent conflicts.
+         (transaction-id (or transaction-id (random 100000)))
+         (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
     (if token
+        ;; Token provided: use it to start syncing.
         (progn
           ;; FIXME: Overwrites any current session.
           (setf ement-sessions (list session))
@@ -140,7 +145,9 @@ session and log in again."
       (cl-labels ((flows-callback
                    (data) (if (cl-loop for flow across (map-elt data 'flows)
                                        thereis (equal (map-elt flow 'type) "m.login.password"))
-                              (password-login)
+                              (progn
+                                (message "Ement: Logging in with password...")
+                                (password-login))
                             (error "Matrix server doesn't support m.login.password login flow.  Supported flows: %s"
                                    (cl-loop for flow in (map-elt data 'flows)
                                             collect (map-elt flow 'type)))))
@@ -156,7 +163,8 @@ session and log in again."
                         (ement-api server token "login" (apply-partially #'ement--login-callback session)
                           :data (json-encode data) :method 'post))))
         ;; Verify that the m.login.password flow is supported.
-        (ement-api server nil "login" #'flows-callback)))))
+        (when (ement-api server nil "login" #'flows-callback)
+          (message "Ement: Checking server's login flows..."))))))
 
 (defun ement-disconnect (session)
   "Disconnect from SESSION.
