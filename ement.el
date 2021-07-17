@@ -105,8 +105,7 @@ Writes the session file when Emacs is killed."
   "Save username and access token to this file."
   :type 'file)
 
-(defcustom ement-auto-sync nil
-  ;; FIXME: When ready, enable by default.
+(defcustom ement-auto-sync t
   "Automatically sync again after syncing."
   :type 'boolean)
 
