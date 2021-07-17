@@ -137,10 +137,7 @@ session and log in again."
       (if-let ((saved-session (ement--read-session)))
           (progn
             ;; FIXME: Overwrites any current session.
-            (setf ement-sessions (list saved-session)
-                  ;; Unset has-synced flag so room list will be displayed.
-                  ;; MAYBE: Make this more customizeable.
-                  (ement-session-has-synced-p (car ement-sessions)) nil)
+            (setf ement-sessions (list saved-session))
             (ement--sync (car ement-sessions)))
         ;; Unable to read session: log in again.
         (let ((ement-save-session nil))
@@ -501,8 +498,18 @@ Adds sender to `ement-users' when necessary."
   (with-temp-file ement-session-file
     (let* ((print-level nil)
            (print-length nil)
-           (print-circle t))            ; Very important!
-      (prin1 session (current-buffer))))
+           ;; Very important to use `print-circle', although it doesn't
+           ;; solve everything.  Writing/reading Lisp data can be tricky...
+           (print-circle t)
+           ;; We only want to write certain slots of the session to disk for now (because of problems
+           ;; reading certain data back, the solving of which will probably require descending into
+           ;; various rabbit holes), so we write a copy of the session with other slots cleared.
+           (saved-session (copy-ement-session session)))
+      ;; NOTE: If slots are added to the session struct, they may need to be cleared here.
+      (setf (ement-session-rooms saved-session) nil
+            (ement-session-next-batch saved-session) nil
+            (ement-session-has-synced-p saved-session) nil)
+      (prin1 saved-session (current-buffer))))
   ;; Ensure permissions are safe.
   (chmod ement-session-file #o600))
 
