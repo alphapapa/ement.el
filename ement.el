@@ -167,11 +167,12 @@ be read, but other commands in them won't work."
     (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
-  "Record DATA from logging in to SESSION."
+  "Record DATA from logging in to SESSION and do initial sync."
   (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
     (setf ement-sessions (list session)
 	  (ement-session-token session) token
-          (ement-session-device-id session) device-id)))
+          (ement-session-device-id session) device-id))
+  (ement--sync (car ement-sessions)))
 
 ;; FIXME: Make a room-buffer-name function or something.
 (defvar ement-room-buffer-name-prefix)
