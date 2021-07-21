@@ -532,7 +532,10 @@ function to `ement-room-event-fns', which see."
                                   (string-join
                                    (cl-loop for id across user-ids
                                             for user = (gethash id ement-users)
-                                            collect (ement-room--user-display-name user ement-room)) ", "))
+                                            if user
+                                            collect (ement-room--user-display-name user ement-room)
+                                            else do (message "Ement: Typing event can't find user struct for ID: %s" id))
+                                   ", "))
                           'face 'font-lock-comment-face))))
     (ewoc-set-hf ement-ewoc "" footer)))
 
