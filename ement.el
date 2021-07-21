@@ -362,7 +362,7 @@ Runs `ement-sync-callback-hook' with SESSION."
     (ement--sync session)))
 
 (defun ement--update-room-buffers (session)
-  "Insert new events into rooms which have buffers.
+  "Insert new events into SESSION's rooms which have buffers.
 To be called in `ement-sync-callback-hook'."
   ;; For now, we primitively iterate over the buffer list to find ones
   ;; whose mode is `ement-room-mode'.

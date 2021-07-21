@@ -557,9 +557,9 @@ buffer should be a room's buffer."
            finally return node))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
-  "Insert timestamp headers into current buffer's `ement-ewoc' between START-NODE and END-NODE.
-START-NODE and END-NODE default to the first and last nodes in
-the buffer."
+  "Insert timestamp headers into current buffer's `ement-ewoc'.
+Inserts headers between START-NODE and END-NODE, which default to
+the first and last nodes in the buffer, respectively."
   (let* ((ewoc ement-ewoc)
          (end-pos (ewoc-location (or end-node
                                      (ewoc-nth ewoc -1))))
