@@ -496,6 +496,56 @@ data slot."
            return data
            do (setf node (ewoc-prev ement-ewoc node))))
 
+;;;;; Events
+
+;; Functions to handle types of events.
+
+;; NOTE: At the moment, this only handles "m.typing" ephemeral events.  Message
+;; events are handled elsewhere.  A better framework should be designed...
+;; TODO: Define other handlers this way.
+
+;; MAYBE: Should we intern these functions?  That means every event
+;; handled has to concat and intern.  Should we use lambdas in an
+;; alist or hash-table instead?  For now let's use an alist.
+
+(defvar ement-users)
+
+(defvar ement-room-event-fns nil
+  "Alist mapping event types to functions which process an event of each type in the room's buffer.")
+
+(defmacro ement-room-defevent (type &rest body)
+  "Define an event handling function for events of TYPE.
+Around the BODY, the variable `event' is bound to the event being
+processed.  The function is called in the room's buffer.  Adds
+function to `ement-room-event-fns', which see."
+  (declare (indent defun))
+  `(setf (alist-get ,type ement-room-event-fns nil nil #'string=)
+         (lambda (event)
+           ,@body)))
+
+(ement-room-defevent "m.typing"
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map ('user_ids user-ids)) content)
+               (footer (if (zerop (length user-ids))
+                           ""
+                         (propertize
+                          (concat "Typing: "
+                                  (string-join
+                                   (cl-loop for id across user-ids
+                                            for user = (gethash id ement-users)
+                                            collect (ement-room--user-display-name user ement-room)) ", "))
+                          'face 'font-lock-comment-face))))
+    (ewoc-set-hf ement-ewoc "" footer)))
+
+(defun ement-room--process-events (events)
+  "Process EVENTS in current buffer.
+Uses handlers defined in `ement-room-event-fns'.  The current
+buffer should be a room's buffer."
+  (cl-loop for event in events
+           for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'string=)
+           when handler
+           do (funcall handler event)))
+
 ;;;;; EWOC
 
 (defun ement-room--ewoc-next-matching (ewoc node pred)

@@ -372,6 +372,9 @@ To be called in `ement-sync-callback-hook'."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
+        (when (ement-room-ephemeral ement-room)
+          (ement-room--process-events (ement-room-ephemeral ement-room))
+          (setf (ement-room-ephemeral ement-room) nil))
         (when (ement-room-timeline* ement-room)
           (ement-room--insert-events (ement-room-timeline* ement-room))
           ;; Move new events.
@@ -417,6 +420,12 @@ To be called in `ement-sync-callback-hook'."
 		      ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
 		      ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
 		      ts)))
+      (when (map-elt (ement-room-local room) 'buffer)
+        ;; Only use ephemeral events if the room has a buffer, and don't use the
+        ;; `push-events' macro because we don't use these events' timestamps.
+        (cl-loop for event across (alist-get 'events ephemeral)
+                 for event-struct = (ement--make-event event)
+                 do (push event-struct (ement-room-ephemeral room))))
       (setf latest-timestamp
 	    (max (push-events state ement-room-state)
 		 (push-events timeline ement-room-timeline*)))
