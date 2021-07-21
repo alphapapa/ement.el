@@ -258,6 +258,34 @@ See Info node `(elisp)Specified Space'."
                 (signal 'error (format "Ement: loading earlier messages failed (%S)" args))))
       (setf ement-room-retro-loading t))))
 
+(defun ement-room--insert-events (events &optional retro)
+  "Insert EVENTS into current buffer.
+Calls `ement-room--insert-event' for each event and inserts
+timestamp headers into appropriate places while maintaining
+point's position.  If RETRO is non-nil, assume EVENTS are earlier
+than any existing events, and only insert timestamp headers up to
+the previously oldest event."
+  (let (window point-node orig-first-node)
+    (when retro
+      (setf window (get-buffer-window (current-buffer))
+            point-node (with-selected-window window
+                         (ewoc-locate ement-ewoc (window-start)))
+            orig-first-node (ewoc-nth ement-ewoc 0)))
+    (mapc #'ement-room--insert-event events)
+    ;; Since events can be received in any order, we have to check the whole buffer
+    ;; for where to insert new timestamp headers.  (Avoiding that would require
+    ;; getting a list of newly inserted nodes and checking each one instead of every
+    ;; node in the buffer.  Doing that now would probably be premature optimization,
+    ;; though it will likely be necessary if users keep buffers open for busy rooms
+    ;; for a long time, as the time to do this in each buffer will increase with the
+    ;; number of events.  At least we only do it once per batch of events.)
+    (ement-room--insert-ts-headers nil (when retro orig-first-node))
+    (when (and window retro)
+      (with-selected-window window
+        (set-window-start nil (ewoc-location point-node))
+        ;; TODO: Experiment with this.
+        (forward-line -1)))))
+
 (declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
@@ -276,19 +304,7 @@ See Info node `(elisp)Specified Space'."
 	     (push event (ement-room-timeline room)))
     (when buffer
       (with-current-buffer buffer
-        (setf window (get-buffer-window buffer)
-              point-node (when window
-                           (with-selected-window window
-                             (ewoc-locate ement-ewoc (window-start))))
-              orig-first-node (ewoc-nth ement-ewoc 0))
-	(cl-loop for event across chunk
-                 do (ement-room--insert-event event))
-        ;; Insert timestamp headers up to the original first node.
-        (ement-room--insert-ts-headers nil orig-first-node)
-        (with-selected-window (get-buffer-window buffer)
-          (set-window-start nil (ewoc-location point-node))
-          ;; FIXME: Experiment with this.
-          (forward-line -1))
+        (ement-room--insert-events chunk 'retro)
         (setf (ement-room-prev-batch room) end
               ement-room-retro-loading nil)))))
 
@@ -359,13 +375,14 @@ and erases the buffer."
         (visual-line-mode 1)
         (setf ement-session session
               ement-room room)
+        ;; We don't use `ement-room--insert-events' to avoid extra
+        ;; calls to `ement-room--insert-ts-headers'.
         (mapc #'ement-room--insert-event (ement-room-timeline room))
         (mapc #'ement-room--insert-event (ement-room-timeline* room))
+        (ement-room--insert-ts-headers)
         ;; Move new events to main list.
         (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
               (ement-room-timeline* room) nil)
-        ;; Insert timestamp headers.
-        (ement-room--insert-ts-headers)
         ;; Return the buffer!
         (current-buffer))))
 

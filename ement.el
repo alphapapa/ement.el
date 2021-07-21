@@ -351,7 +351,7 @@ Runs `ement-sync-callback-hook' with SESSION."
     (ement--sync session)))
 
 (defun ement--update-room-buffers (&rest _)
-  "Add new events to Ement rooms which have buffers.
+  "Insert new events into rooms which have buffers.
 To be called in `ement-sync-callback-hook'."
   ;; For now, we primitively iterate over the buffer list to find ones
   ;; whose mode is `ement-room-mode'.
@@ -361,11 +361,12 @@ To be called in `ement-sync-callback-hook'."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
-        (mapc #'ement-room--insert-event (ement-room-timeline* ement-room))
-        ;; Move new events.
-        (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
-                                                       (ement-room-timeline ement-room))
-              (ement-room-timeline* ement-room) nil)))))
+        (when (ement-room-timeline* ement-room)
+          (ement-room--insert-events (ement-room-timeline* ement-room))
+          ;; Move new events.
+          (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
+                                                         (ement-room-timeline ement-room))
+                (ement-room-timeline* ement-room) nil))))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
