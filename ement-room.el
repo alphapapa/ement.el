@@ -836,9 +836,24 @@ HTML is rendered to Emacs text using `shr-insert-document'."
   (with-temp-buffer
     (insert string)
     (save-excursion
-      (cl-letf (((symbol-function 'shr-fill-line) #'ignore))
-        (shr-insert-document
-         (libxml-parse-html-region (point-min) (point-max)))))
+      ;; NOTE: We workaround `shr`'s not indenting the blockquote properly (it
+      ;; doesn't seem to compensate for the margin).  I don't know exactly how
+      ;; `shr-tag-blockquote' and `shr-mark-fill' and `shr-fill-line' and
+      ;; `shr-indentation' work together, but through trial-and-error, this
+      ;; seems to work.  It even seems to work properly when a window is
+      ;; resized (i.e. the wrapping is adjusted automatically by redisplay
+      ;; rather than requiring the message to be re-rendered to HTML).
+      (let ((old-fn (symbol-function 'shr-tag-blockquote))) ;; Bind to a var to avoid unknown-function linting errors.
+        (cl-letf (((symbol-function 'shr-fill-line) #'ignore)
+                  ((symbol-function 'shr-tag-blockquote)
+                   (lambda (dom)
+                     (let ((beg (point-marker)))
+                       (funcall old-fn dom)
+                       (add-text-properties beg (point-max)
+                                            '(wrap-prefix "    "
+                                                          line-prefix "    "))))))
+          (shr-insert-document
+           (libxml-parse-html-region (point-min) (point-max))))))
     (string-trim (buffer-substring (point) (point-max)))))
 
 (cl-defun ement-room--format-user (user &optional (room ement-room))
