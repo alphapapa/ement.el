@@ -430,7 +430,7 @@ the buffer."
         (when (and (>= diff-seconds ement-room-timestamp-header-delta)
                    (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
                           (pcase (ewoc-data node-after-a)
-                            (`(ts) t)))))
+                            (`(ts . ,_) t)))))
           (unless (equal (time-to-days a-ts) (time-to-days b-ts))
             ;; Different date: bind format to print date.
             (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
