@@ -342,7 +342,8 @@ Runs `ement-sync-callback-hook' with SESSION."
                (num-events (cl-loop for (_id . room) in joined-rooms
                                     sum (length (map-nested-elt room '(state events)))
                                     sum (length (map-nested-elt room '(timeline events)))))
-               (ement-progress-reporter (make-progress-reporter "Ement: Reading events..." 0 num-events))
+               (ement-progress-reporter (when (ement--sync-messages-p session)
+                                          (make-progress-reporter "Ement: Reading events..." 0 num-events)))
                (ement-progress-value 0))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (setf (ement-session-next-batch session) next-batch)
@@ -408,7 +409,8 @@ To be called in `ement-sync-callback-hook'."
 		      (cl-loop for event across (alist-get 'events ,type)
                                for event-struct = (ement--make-event event)
                                do (push event-struct (,accessor room))
-                               (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value))
+                               (when (ement--sync-messages-p session)
+                                 (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
                                (when (> (ement-event-origin-server-ts event-struct) ts)
                                  (setf ts (ement-event-origin-server-ts event-struct))))
 		      ;; One would think that one should use `maximizing' here, but, completely
