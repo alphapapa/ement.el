@@ -472,17 +472,18 @@ data slot."
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-user>.
-  (if-let ((member-state-event (cl-loop for event in (ement-room-state room)
-                                        when (and (equal "m.room.member" (ement-event-type event))
-                                                  (equal user (ement-event-sender event)))
-                                        return event)))
-      (or (alist-get 'displayname (ement-event-content member-state-event))
-          ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
-          ;; No displayname given: use raw user ID.
-          (ement-user-id user))
-    ;; No membership state event: use pre-calculated displayname or ID.
-    (or (ement-user-displayname user)
-        (ement-user-id user))))
+  ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
+  (if-let ((cached-name (gethash room (ement-user-room-display-names user))))
+      cached-name
+    (if-let* ((member-state-event (cl-loop for event in (ement-room-state room)
+                                           when (and (equal "m.room.member" (ement-event-type event))
+                                                     (equal user (ement-event-sender event)))
+                                           return event))
+              (calculated-name (alist-get 'displayname (ement-event-content member-state-event))))
+        (puthash room calculated-name (ement-user-room-display-names user))
+      ;; No membership state event: use pre-calculated displayname or ID.
+      (or (ement-user-displayname user)
+          (ement-user-id user)))))
 
 (defun ement-room--event-data (id)
   "Return event struct for event ID in current buffer."
@@ -877,10 +878,8 @@ ROOM defaults to the value of `ement-room'."
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents
     ;; the display name from being used if the state event arrives later.
-    (propertize (or (gethash room (ement-user-room-display-names user))
-                    (puthash room (ement-room--user-display-name user room)
-                             (ement-user-room-display-names user)))
-		'face face
+    (propertize (ement-room--user-display-name user room)
+                'face face
                 'help-echo #'ement-room--user-help-echo)))
 
 (defun ement-room--user-help-echo (window _object pos)
