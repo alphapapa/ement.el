@@ -465,8 +465,7 @@ data slot."
                     (lambda ()
                       (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
                     nil 'local))
-        (setf (map-elt (ement-room-local room) 'buffer) new-buffer)
-        ;; Return the buffer! (in case a map-elt issue doesn't return the value from setf, I think a bug was filed about it...)
+        ;; Return the buffer!
         new-buffer)))
 
 (defun ement-room--user-display-name (user room)
