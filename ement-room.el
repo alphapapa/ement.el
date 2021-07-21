@@ -58,6 +58,13 @@
   "Non-nil when earlier messages are being loaded.
 Used to avoid overlapping requests.")
 
+(defvar-local ement-room-replying-to nil
+  "When non-nil, the user is replying to this message ID.
+Used by `ement-room-send-message'.")
+
+(defvar-local ement-room-replying-to-overlay nil
+  "Used by ement-room-send-reply.")
+
 (declare-function ement-view-room "ement.el")
 (declare-function ement-list-rooms "ement.el")
 (defvar ement-room-mode-map
@@ -68,6 +75,7 @@ Used to avoid overlapping requests.")
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
+    (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "TAB") #'ement-room-goto-next)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
@@ -332,23 +340,88 @@ the previously oldest event."
       (view-mode)
       (pop-to-buffer (current-buffer)))))
 
-(defun ement-room-send-message ()
+(cl-defun ement-room-send-message (&key (prompt "Send message: "))
   "Send message in current buffer's room."
   (interactive)
   (cl-assert ement-room) (cl-assert ement-session)
-  (let ((body (read-string "Send message: ")))
+  (let ((body (read-string prompt)))
     (unless (string-empty-p body)
       (pcase-let* (((cl-struct ement-session server token) ement-session)
                    ((cl-struct ement-room id) ement-room)
                    (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
 				     "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-		   (json-string (json-encode (ement-alist "msgtype" "m.text"
-							  "body" body))))
+                   (data (ement-alist "msgtype" "m.text"
+                                      "body" body)))
+        (when ement-room-replying-to
+          (setf data (ement-room--add-reply data ement-room-replying-to)))
         (ement-api server token endpoint
           (lambda (&rest args)
             (message "SEND MESSAGE CALLBACK: %S" args))
-	  :data json-string
+	  :data (json-encode data)
           :method 'put)))))
+
+(defun ement-room-send-reply ()
+  "Send a reply to event at point."
+  (interactive)
+  (let* ((node (ewoc-locate ement-ewoc))
+         (event (ewoc-data node)))
+    (unless (and (ement-event-p event)
+                 (ement-event-id event))
+      (user-error "No event at point"))
+    (unwind-protect
+        (progn
+          (setf ement-room-replying-to (ement-event-id event)
+                ement-room-replying-to-overlay
+                (make-overlay (ewoc-location node)
+                              ;; NOTE: It doesn't seem possible to get the end position of
+                              ;; a node, so if there is no next node, we use point-max.
+                              ;; But this might break if we were to use an EWOC footer.
+                              (if (ewoc-next ement-ewoc node)
+                                  (ewoc-location (ewoc-next ement-ewoc node))
+                                (point-max))))
+          (overlay-put ement-room-replying-to-overlay 'face 'highlight)
+          (ement-room-send-message :prompt "Send reply: "))
+      (when ement-room-replying-to-overlay
+        (delete-overlay ement-room-replying-to-overlay))
+      (setf ement-room-replying-to nil
+            ement-room-replying-to-overlay nil))))
+
+(defun ement-room--add-reply (data event-id)
+  "Return DATA adding reply data for EVENT-ID in current buffer's room.
+DATA is an unsent message event's data alist."
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id351> "13.2.2.6.1  Rich replies"
+  ;; FIXME: Rename DATA.
+  (pcase-let* (((cl-struct ement-event content sender) (ement-room--event-data event-id))
+               ((cl-struct ement-user (id sender-id)) sender)
+               ((map ('body reply-body) ('formatted_body reply-formatted-body)) content)
+               (sender-name (ement-room--user-display-name sender ement-room))
+               (quote-string (format "> <%s> %s\n\n" sender-name reply-body))
+               (old-body (alist-get "body" data nil nil #'string=))
+               (new-body (concat quote-string old-body))
+               (formatted-body
+                (format "<mx-reply>
+  <blockquote>
+    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
+    <a href=\"https://matrix.to/#/%s\">%s</a>
+    <br />
+    %s
+  </blockquote>
+</mx-reply>
+%s"
+                        (ement-room-id ement-room) event-id sender-id sender-name
+                        ;; TODO: Encode HTML special characters.  Not as straightforward in Emacs as one
+                        ;; might hope: there's `web-mode-html-entities' and `org-entities'.  See also
+                        ;; <https://emacs.stackexchange.com/questions/8166/encode-non-html-characters-to-html-equivalent>.
+                        (or reply-formatted-body reply-body)
+                        old-body)))
+    ;; NOTE: map-elt doesn't work with string keys, so we use `alist-get'.
+    (setf (alist-get "body" data nil nil #'string=) new-body
+          (alist-get "formatted_body" data nil nil #'string=) formatted-body
+          data (append (ement-alist "m.relates_to" (ement-alist "m.in_reply_to"
+                                                                (ement-alist "event_id" event-id))
+                                    "format" "org.matrix.custom.html")
+                       data))
+    data))
 
 ;;;; Functions
 
@@ -400,6 +473,17 @@ and erases the buffer."
     ;; No membership state event: use pre-calculated displayname or ID.
     (or (ement-user-displayname user)
         (ement-user-id user))))
+
+(defun ement-room--event-data (id)
+  "Return event struct for event ID in current buffer."
+  ;; Search from bottom, most likely to be faster.
+  (cl-loop with node = (ewoc-nth ement-ewoc -1)
+           while node
+           for data = (ewoc-data node)
+           when (and (ement-event-p data)
+                     (equal id (ement-event-id data)))
+           return data
+           do (setf node (ewoc-prev ement-ewoc node))))
 
 ;;;;; EWOC
 

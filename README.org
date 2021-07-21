@@ -90,6 +90,7 @@ If you want to install it manually, it's simple enough, but you should know what
 In a room buffer:
 
 -  ~RET~ sends a message.
+-  ~S-RET~ sends a reply to the message at point.
 -  ~TAB~ / ~<backtab>~ moves between messages.
 -  ~M-v~ at the top of the buffer loads older messages.
 -  ~v~ views an event's source.
