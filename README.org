@@ -106,11 +106,11 @@ In a room buffer:
 -  ~RET~ sends a message.
 -  ~S-RET~ sends a reply to the message at point.
 -  ~TAB~ / ~<backtab>~ moves between messages.
--  ~M-v~ at the top of the buffer loads older messages.
 -  ~v~ views an event's source.
 -  ~g~ syncs new messages (not necessary if auto sync is enabled; see below).
 -  ~r~ selects another room.
 -  ~R~ shows the room list.
+-  ~M-v~ or using the scroll wheel at the top of the buffer loads older messages.
 
 ** Tips
 
