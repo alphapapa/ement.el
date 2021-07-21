@@ -221,6 +221,12 @@ call `pop-to-buffer'."
 
 ;;;; Functions
 
+(defun ement--sync-messages-p (session)
+  "Return non-nil if sync-related messages should be shown for SESSION."
+  ;; For now, this seems like the best way.
+  (or (not (ement-session-has-synced-p session))
+      (not ement-auto-sync)))
+
 (defun ement--hostname-uri (hostname)
   "Return the \".well-known\" URI for server HOSTNAME.
 If no URI is found, prompt the user for the hostname."
@@ -310,17 +316,18 @@ a filter ID).  When unspecified, the value of
                                     (_ (ement-api-error plz-error))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
-                                          (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
-                                                   (- (time-to-seconds) sync-start-time)
-                                                   (file-size-human-readable (buffer-size)))
+                                          (when (ement--sync-messages-p session)
+                                            (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
+                                                     (- (time-to-seconds) sync-start-time)
+                                                     (file-size-human-readable (buffer-size))))
                                           (let ((start-time (time-to-seconds)))
                                             (prog1 (json-read)
-                                              (message "Ement: Reading JSON took %.2f seconds"
-                                                       (- (time-to-seconds) start-time))))))))
+                                              (when (ement--sync-messages-p session)
+                                                (message "Ement: Reading JSON took %.2f seconds"
+                                                         (- (time-to-seconds) start-time)))))))))
     (when process
       (setf (map-elt ement-syncs session) process)
-      (when (or (not (ement-session-has-synced-p session))
-                (not ement-auto-sync)) ;; If auto sync is enabled, don't spam these messages.
+      (when (ement--sync-messages-p session)
         (message "Ement: Sync request sent, waiting for response...")))))
 
 (defun ement--sync-callback (session data)
@@ -340,8 +347,7 @@ Runs `ement-sync-callback-hook' with SESSION."
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
-    (when (or (not (ement-session-has-synced-p session))
-              (not ement-auto-sync)) ;; If auto sync is enabled, don't spam these messages.
+    (when (ement--sync-messages-p session)
       (message (concat "Ement: Sync done."
                        (unless (ement-session-has-synced-p session)
                          (run-hook-with-args 'ement-after-initial-sync-hook session)
