@@ -319,7 +319,9 @@ a filter ID).  When unspecified, the value of
                                                        (- (time-to-seconds) start-time))))))))
     (when process
       (setf (map-elt ement-syncs session) process)
-      (message "Ement: Sync request sent, waiting for response..."))))
+      (when (or (not (ement-session-has-synced-p session))
+                (not ement-auto-sync)) ;; If auto sync is enabled, don't spam these messages.
+        (message "Ement: Sync request sent, waiting for response...")))))
 
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.
@@ -338,12 +340,14 @@ Runs `ement-sync-callback-hook' with SESSION."
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
-    (message (concat "Ement: Sync done."
-                     (unless (ement-session-has-synced-p session)
-                       (run-hook-with-args 'ement-after-initial-sync-hook session)
-                       ;; Show tip after initial sync.
-                       (setf (ement-session-has-synced-p session) t)
-                       "  Use commands `ement-list-rooms' or `ement-view-room' to view a room.")))))
+    (when (or (not (ement-session-has-synced-p session))
+              (not ement-auto-sync)) ;; If auto sync is enabled, don't spam these messages.
+      (message (concat "Ement: Sync done."
+                       (unless (ement-session-has-synced-p session)
+                         (run-hook-with-args 'ement-after-initial-sync-hook session)
+                         ;; Show tip after initial sync.
+                         (setf (ement-session-has-synced-p session) t)
+                         "  Use commands `ement-list-rooms' or `ement-view-room' to view a room."))))))
 
 (defun ement--auto-sync (session)
   "If `ement-auto-sync' is non-nil, sync SESSION again."
