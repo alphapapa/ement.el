@@ -361,14 +361,14 @@ Runs `ement-sync-callback-hook' with SESSION."
   (when ement-auto-sync
     (ement--sync session)))
 
-(defun ement--update-room-buffers (&rest _)
+(defun ement--update-room-buffers (session)
   "Insert new events into rooms which have buffers.
 To be called in `ement-sync-callback-hook'."
   ;; For now, we primitively iterate over the buffer list to find ones
   ;; whose mode is `ement-room-mode'.
-  (let* ((buffers (cl-loop for buffer being the buffers
-                           when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
-                           collect buffer)))
+  (let* ((buffers (cl-loop for room in (ement-session-rooms session)
+                           when (map-elt (ement-room-local room) 'buffer)
+                           collect it)))
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)

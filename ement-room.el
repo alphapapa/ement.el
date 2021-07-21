@@ -440,27 +440,34 @@ and erases the buffer."
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 
 (defun ement-room--buffer (session room name)
-  "Return a buffer named NAME showing ROOM's events on SESSION."
-  (let ((existing-buffer (get-buffer name)))
-    (if (and existing-buffer
-             (eq room (buffer-local-value 'ement-room existing-buffer)))
-        existing-buffer
-      (with-current-buffer (get-buffer-create name)
-        (ement-room-mode)
-        ;; FIXME: Move visual-line-mode to a hook.
-        (visual-line-mode 1)
-        (setf ement-session session
-              ement-room room)
-        ;; We don't use `ement-room--insert-events' to avoid extra
-        ;; calls to `ement-room--insert-ts-headers'.
-        (mapc #'ement-room--insert-event (ement-room-timeline room))
-        (mapc #'ement-room--insert-event (ement-room-timeline* room))
-        (ement-room--insert-ts-headers)
-        ;; Move new events to main list.
-        (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
-              (ement-room-timeline* room) nil)
-        ;; Return the buffer!
-        (current-buffer)))))
+  "Return buffer named NAME showing ROOM's events on SESSION.
+If ROOM has no buffer, one is made and stored in the room's local
+data slot."
+  (or (map-elt (ement-room-local room) 'buffer)
+      (let ((new-buffer (get-buffer-create name)))
+        (with-current-buffer new-buffer
+          (ement-room-mode)
+          ;; FIXME: Move visual-line-mode to a hook.
+          (visual-line-mode 1)
+          (setf ement-session session
+                ement-room room)
+          ;; We don't use `ement-room--insert-events' to avoid extra
+          ;; calls to `ement-room--insert-ts-headers'.
+          (mapc #'ement-room--insert-event (ement-room-timeline room))
+          (mapc #'ement-room--insert-event (ement-room-timeline* room))
+          (ement-room--insert-ts-headers)
+          ;; Move new events to main list.
+          (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
+                (ement-room-timeline* room) nil)
+          ;; Track buffer in room's slot.
+          (setf (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
+          (add-hook 'kill-buffer-hook
+                    (lambda ()
+                      (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
+                    nil 'local))
+        (setf (map-elt (ement-room-local room) 'buffer) new-buffer)
+        ;; Return the buffer! (in case a map-elt issue doesn't return the value from setf, I think a bug was filed about it...)
+        new-buffer)))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."

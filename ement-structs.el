@@ -53,7 +53,9 @@
 (cl-defstruct ement-room
   id display-name prev-batch
   summary state timeline timeline* ephemeral account-data unread-notifications
-  latest-ts topic canonical-alias)
+  latest-ts topic canonical-alias
+  ;; The local slot is an alist used by the local client only.
+  local)
 
 ;;;; Variables
 
