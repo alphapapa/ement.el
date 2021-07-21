@@ -441,7 +441,10 @@ and erases the buffer."
 
 (defun ement-room--buffer (session room name)
   "Return a buffer named NAME showing ROOM's events on SESSION."
-  (or (get-buffer name)
+  (let ((existing-buffer (get-buffer name)))
+    (if (and existing-buffer
+             (eq room (buffer-local-value 'ement-room existing-buffer)))
+        existing-buffer
       (with-current-buffer (get-buffer-create name)
         (ement-room-mode)
         ;; FIXME: Move visual-line-mode to a hook.
@@ -457,7 +460,7 @@ and erases the buffer."
         (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
               (ement-room-timeline* room) nil)
         ;; Return the buffer!
-        (current-buffer))))
+        (current-buffer)))))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
