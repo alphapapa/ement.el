@@ -264,9 +264,8 @@ See Info node `(elisp)Specified Space'."
   (pcase-let* (((cl-struct ement-room) room)
 	       ((map _start end chunk state) data)
 	       (buffer (cl-loop for buffer in (buffer-list)
-				when (equal room (buffer-local-value 'ement-room buffer))
-				return buffer))
-               (window) (point-node) (orig-first-node))
+				when (eq room (buffer-local-value 'ement-room buffer))
+				return buffer)))
     ;; FIXME: These are pushed onto the front of the lists.  Doesn't
     ;; really matter, but maybe better to put them at the other end.
     (cl-loop for event across state
