@@ -372,15 +372,22 @@ To be called in `ement-sync-callback-hook'."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
+        ;; Add the new events to the main timeline slot first, because some events can
+        ;; refer to other events, and we want them to be found in the timeline slot.
+        (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
+                                                       (ement-room-timeline ement-room)))
         (when (ement-room-ephemeral ement-room)
           (ement-room--process-events (ement-room-ephemeral ement-room))
           (setf (ement-room-ephemeral ement-room) nil))
         (when (ement-room-timeline* ement-room)
           (ement-room--insert-events (ement-room-timeline* ement-room))
-          ;; Move new events.
-          (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
-                                                         (ement-room-timeline ement-room))
-                (ement-room-timeline* ement-room) nil))))))
+          ;; For now, we also call `--process-events' for ones that are defined with `ement-room-defevent'.
+          ;; FIXME: Unify this.
+          ;; HACK: Process these events in reverse order, so that later events
+          ;; (like reactions) which refer to earlier events can find them.
+          (ement-room--process-events (reverse (ement-room-timeline* ement-room)))
+          ;; Clear new events slot.
+          (setf (ement-room-timeline* ement-room) nil))))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."

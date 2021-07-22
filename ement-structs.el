@@ -41,7 +41,9 @@
   color)
 
 (cl-defstruct ement-event
-  id sender content origin-server-ts type unsigned)
+  id sender content origin-server-ts type unsigned
+  ;; The local slot is an alist used by the local client only.
+  local)
 
 (cl-defstruct ement-server
   name port uri-prefix)

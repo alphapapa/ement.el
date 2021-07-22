@@ -117,6 +117,15 @@ In a room buffer:
 +  You can customize settings in the ~ement~ group.
      -  Set ~ement-auto-sync~ to sync new messages automatically.
 
+*** Displaying symbols and emojis
+
+Emacs may not display certain symbols and emojis well by default.  Based on [[https://emacs.stackexchange.com/questions/62049/override-the-default-font-for-emoji-characters][this question and answer]], you may find that the simplest way to fix this is to install an appropriate font, like [[https://www.google.com/get/noto/#emoji-zsye][Noto Emoji]], and then use this Elisp code:
+
+#+BEGIN_SRC elisp
+  (setf use-default-font-for-symbols nil)
+  (set-fontset-font t 'unicode "Noto Emoji" nil 'append)
+#+END_SRC
+
 * Changelog
 :PROPERTIES:
 :TOC:      :depth 0

@@ -97,7 +97,7 @@ Used by `ement-room-send-message'.")
   "Suffix for Ement room buffer names."
   :type 'string)
 
-(defcustom ement-room-message-format-spec "%B%R%t"
+(defcustom ement-room-message-format-spec "%B%r%R%t"
   "Format messages according to this spec.
 It may contain these specifiers:
 
@@ -107,6 +107,7 @@ It may contain these specifiers:
   %b  Message body (plain-text)
   %B  Message body (formatted if available)
   %i  Event ID
+  %r  Reactions
   %s  Sender ID
   %S  Sender display name
   %t  Event timestamp, formatted according to
@@ -189,6 +190,17 @@ See Info node `(elisp)Specified Space'."
 (defface ement-room-membership
   '((t (:inherit font-lock-comment-face)))
   "Membership events (join/part).")
+
+(defface ement-room-reactions
+  '((t (:inherit font-lock-comment-face :height 0.9)))
+  "Reactions to messages (including the user count).")
+
+(defface ement-room-reactions-key
+  '((t (:inherit ement-room-reactions :height 1.5)))
+  "Reactions to messages (the key, i.e. the emoji part).
+Uses a separate face to allow the key to be shown at a different
+size, because in some fonts, emojis are too small relative to
+normal text.")
 
 (defface ement-room-timestamp
   '((t (:inherit font-lock-comment-face)))
@@ -279,7 +291,13 @@ the previously oldest event."
             point-node (with-selected-window window
                          (ewoc-locate ement-ewoc (window-start)))
             orig-first-node (ewoc-nth ement-ewoc 0)))
-    (mapc #'ement-room--insert-event events)
+    ;; HACK: Only insert certain types of events.
+    ;; TODO: This should be done in a unified interface.
+    (cl-loop for event being the elements of events
+             when (pcase (ement-event-type event)
+                    ("m.reaction" nil)
+                    (_ t))
+             do (ement-room--insert-event event))
     ;; Since events can be received in any order, we have to check the whole buffer
     ;; for where to insert new timestamp headers.  (Avoiding that would require
     ;; getting a list of newly inserted nodes and checking each one instead of every
@@ -313,6 +331,7 @@ the previously oldest event."
     (when buffer
       (with-current-buffer buffer
         (ement-room--insert-events chunk 'retro)
+        (ement-room--process-events chunk)
         (setf (ement-room-prev-batch room) end
               ement-room-retro-loading nil)))))
 
@@ -451,14 +470,18 @@ data slot."
           (visual-line-mode 1)
           (setf ement-session session
                 ement-room room)
+          ;; TODO: Some code is duplicated here and in `ement--update-room-buffers'.
+          ;; Move new events to the main timeline slot first, because some events can
+          ;; refer to other events, and we want them to be found in the timeline slot.
+          (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
+                                                         (ement-room-timeline ement-room))
+                (ement-room-timeline* room) nil)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
+          ;; TODO: Unify these event-insertion calls.  Probably use `ement-room--insert-events' here.
           (mapc #'ement-room--insert-event (ement-room-timeline room))
-          (mapc #'ement-room--insert-event (ement-room-timeline* room))
+          (ement-room--process-events (ement-room-timeline room))
           (ement-room--insert-ts-headers)
-          ;; Move new events to main list.
-          (setf (ement-room-timeline room) (append (ement-room-timeline* room) (ement-room-timeline room))
-                (ement-room-timeline* room) nil)
           ;; Track buffer in room's slot.
           (setf (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
           (add-hook 'kill-buffer-hook
@@ -520,7 +543,32 @@ function to `ement-room-event-fns', which see."
   (declare (indent defun))
   `(setf (alist-get ,type ement-room-event-fns nil nil #'string=)
          (lambda (event)
+           ,(concat "`ement-room' handler function for " type " events.")
            ,@body)))
+
+(ement-room-defevent "m.reaction"
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map ('m.relates_to relates-to)) content)
+               ((map ('event_id related-id) ('rel_type rel-type) _key) relates-to))
+    ;; TODO: Handle other rel_types?
+    (pcase rel-type
+      ("m.annotation"
+       ;; Look for related event in timeline.
+       (if-let ((related-event (cl-loop for event in (ement-room-timeline ement-room)
+                                        when (equal related-id (ement-event-id event))
+                                        return event)))
+           ;; Found related event: add reaction to local slot and invalidate node.
+           (progn
+             ;; Every time a room buffer is made, these reaction events are processed again, so we use pushnew to
+             ;; avoid duplicates.  (In the future, as event-processing is refactored, this may not be necessary.)
+             (cl-pushnew event (map-elt (ement-event-local related-event) 'reactions))
+             (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching
+                                          (lambda (data)
+                                            (and (ement-event-p data)
+                                                 (equal related-id (ement-event-id data)))))))
+         ;; No known related event: discard.
+         ;; TODO: Is this the correct thing to do?
+         nil)))))
 
 (ement-room-defevent "m.typing"
   (pcase-let* (((cl-struct ement-event content) event)
@@ -543,7 +591,7 @@ function to `ement-room-event-fns', which see."
   "Process EVENTS in current buffer.
 Uses handlers defined in `ement-room-event-fns'.  The current
 buffer should be a room's buffer."
-  (cl-loop for event in events
+  (cl-loop for event being the elements of events  ;; EVENTS may be a list or array.
            for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'string=)
            when handler
            do (funcall handler event)))
@@ -557,6 +605,17 @@ buffer should be a room's buffer."
            until (or (null node)
                      (funcall pred (ewoc-data node)))
            finally return node))
+
+(defun ement-room--ewoc-last-matching (predicate)
+  "Return the last node in current buffer's EWOC matching PREDICATE.
+PREDICATE is called with node's data.  Searches backward from
+last node."
+  ;; Intended to be like `ewoc-collect', but returning as soon as a match is found.
+  (cl-loop with node = (ewoc-nth ement-ewoc -1)
+           while node
+           when (funcall predicate (ewoc-data node))
+           return node
+           do (setf node (ewoc-prev ement-ewoc node))))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
   "Insert timestamp headers into current buffer's `ement-ewoc'.
@@ -764,12 +823,42 @@ seconds."
                             :button-face 'ement-room-membership
                             :value event)
              "")
+            ("m.reaction"
+             ;; Handled by defevent-based handler.
+             "")
             (_ (propertize (format "[sender:%s type:%s]"
                                    (ement-user-id (ement-event-sender event))
                                    (ement-event-type event))
                            'help-echo (format "%S" event))))
           (propertize " "
                       'display ement-room-event-separator-display-property)))
+
+
+
+(defun ement-room--format-reactions (event)
+  "Return formatted reactions to EVENT."
+  ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
+  (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
+      (cl-labels ((format-reaction
+                   (ks) (pcase-let* ((`(,key . ,senders) ks)
+                                     (key (propertize key 'face 'ement-room-reactions-key))
+                                     (count (propertize (format "(%s)" (length senders))
+                                                        'face 'ement-room-reactions)))
+                          (propertize (concat key " " count)
+                                      'help-echo (lambda (_window buffer _pos)
+                                                   (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                  (senders-names
+                   (senders room) (cl-loop for sender in senders
+                                           collect (ement-room--user-display-name sender room)
+                                           into names
+                                           finally return (string-join names ", "))))
+        (cl-loop with keys-senders
+                 for reaction in reactions
+                 for key = (map-nested-elt (ement-event-content reaction) '(m.relates_to key))
+                 for sender = (ement-event-sender reaction)
+                 do (push sender (alist-get key keys-senders nil nil #'string=))
+                 finally return (concat "\n  " (string-join (mapcar #'format-reaction keys-senders) "  "))))
+    ""))
 
 (cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
   "Return EVENT formatted according to FORMAT.
@@ -819,6 +908,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                     (?s (propertize (ement-user-id (ement-event-sender event))
                                     'face 'ement-room-user))
                     (?S (ement-room--format-user (ement-event-sender event) ement-room))
+                    (?r (ement-room--format-reactions event))
                     (?t (propertize (format-time-string ement-room-timestamp-format
                                                         ;; Timestamps are in milliseconds.
                                                         (/ (ement-event-origin-server-ts event) 1000))
