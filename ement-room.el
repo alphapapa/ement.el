@@ -87,6 +87,12 @@ Used by `ement-room-send-message'.")
   "Non-nil when sender is displayed in the left margin.
 In that case, sender names are aligned to the margin edge.")
 
+(defvar ement-room-messages-filter
+  '((lazy_load_members . t))
+  ;; NOTE: The confusing differences between what /sync and /messages
+  ;; expect.  See <https://github.com/matrix-org/matrix-doc/issues/706>.
+  "Default RoomEventFilter for /messages requests.")
+
 ;; Variables from other files.
 (defvar ement-sessions)
 
@@ -320,7 +326,8 @@ normal text.")
         :timeout 5
         :params (list (list "from" prev-batch)
                       (list "dir" "b")
-                      (list "limit" (number-to-string number)))
+                      (list "limit" (number-to-string number))
+                      (list "filter" (json-encode ement-room-messages-filter)))
         :else (lambda (&rest args)
                 (when buffer
                   (with-current-buffer buffer
@@ -371,14 +378,23 @@ the previously oldest event."
 	       (buffer (cl-loop for buffer in (buffer-list)
 				when (eq room (buffer-local-value 'ement-room buffer))
 				return buffer)))
-    ;; FIXME: These are pushed onto the front of the lists.  Doesn't
-    ;; really matter, but maybe better to put them at the other end.
-    (cl-loop for event across state
-	     ;; FIXME: Need to use make-event
-	     do (push event (ement-room-state room)))
+    ;; Put the newly retrieved events at the end of the slots, because they should be
+    ;; older events.  But reverse them first, because we're using "dir=b", which the
+    ;; spec says causes the events to be returned in reverse-chronological order, and we
+    ;; want to process them oldest-first (important because a membership event having a
+    ;; user's displayname should be older than a message event sent by the user).
+    ;; NOTE: The CHUNK is a vector!  And state should be too, right...?
+    (setf chunk (nreverse chunk)
+          state (nreverse state))
+    (cl-loop for event across-ref state
+	     do (setf event (ement--make-event event))
+             finally do (setf (ement-room-state room)
+                              (append (ement-room-state room) (append state nil))))
     (cl-loop for event across-ref chunk
 	     do (setf event (ement--make-event event))
-	     (push event (ement-room-timeline room)))
+             finally do (setf (ement-room-timeline room)
+                              ;; Convert chunk to a list before appending to slot.
+                              (append (ement-room-timeline room) (append chunk nil))))
     (when buffer
       (with-current-buffer buffer
         (ement-room--insert-events chunk 'retro)
@@ -546,13 +562,23 @@ data slot."
   "Return the displayname for USER in ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-user>.
   ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
+
+  ;; NOTE: Both state and timeline events must be searched.  (A helpful user
+  ;; in #matrix-dev:matrix.org, Michael (t3chguy), clarified this for me).
   (if-let ((cached-name (gethash room (ement-user-room-display-names user))))
       cached-name
-    (if-let* ((member-state-event (cl-loop for event in (ement-room-state room)
-                                           when (and (equal "m.room.member" (ement-event-type event))
-                                                     (equal user (ement-event-sender event)))
-                                           return event))
-              (calculated-name (alist-get 'displayname (ement-event-content member-state-event))))
+    ;; Put timeline events before state events, because IIUC they should be more recent.
+    (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
+                                        when (and (equal "m.room.member" (ement-event-type event))
+                                                  (equal user (ement-event-sender event))
+                                                  (alist-get 'displayname (ement-event-content event)))
+                                        return (alist-get 'displayname (ement-event-content event)))
+                               (cl-loop for event in (ement-room-state room)
+                                        when (and (equal "m.room.member" (ement-event-type event))
+                                                  (equal user (ement-event-sender event))
+                                                  (alist-get 'displayname (ement-event-content event)))
+                                        return (alist-get 'displayname (ement-event-content event)))))
+              (calculated-name displayname))
         (puthash room calculated-name (ement-user-room-display-names user))
       ;; No membership state event: use pre-calculated displayname or ID.
       (or (ement-user-displayname user)
