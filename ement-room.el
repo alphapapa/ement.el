@@ -367,6 +367,7 @@ the previously oldest event."
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room) room)
 	       ((map _start end chunk state) data)
+               ;; FIXME: Use buffer slot in struct.
 	       (buffer (cl-loop for buffer in (buffer-list)
 				when (eq room (buffer-local-value 'ement-room buffer))
 				return buffer)))
