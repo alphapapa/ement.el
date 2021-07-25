@@ -102,6 +102,18 @@ In that case, sender names are aligned to the margin edge.")
   "Options for room buffers."
   :group 'ement)
 
+(defcustom ement-room-header-line-format
+  ;; TODO: Show in new screenshots.
+  '(:eval (concat " " (propertize (ement-room-display-name ement-room)
+                                  'face 'ement-room-name)
+                  ": " (propertize (ement-room-topic ement-room)
+                                   ;; Also set help-echo in case the topic is too wide to fit.
+                                   'help-echo (ement-room-topic ement-room))))
+  "Header line format for room buffers.
+See Info node `(elisp)Header lines'."
+  :type 'sexp)
+(put 'ement-room-header-line-format 'risky-local-variable t)
+
 (defcustom ement-room-buffer-name-prefix "*Ement Room: "
   "Prefix for Ement room buffer names."
   :type 'string)
@@ -242,6 +254,10 @@ See Info node `(elisp)Specified Space'."
   :type 'integer)
 
 ;;;;; Faces
+
+(defface ement-room-name
+  '((t (:inherit font-lock-function-name-face)))
+  "Room name shown in header line.")
 
 (defface ement-room-membership
   '((t (:inherit font-lock-comment-face)))
@@ -535,6 +551,7 @@ data slot."
       (let ((new-buffer (get-buffer-create name)))
         (with-current-buffer new-buffer
           (ement-room-mode)
+          (setf header-line-format 'ement-room-header-line-format)
           ;; FIXME: Move visual-line-mode to a hook.
           (visual-line-mode 1)
           (setf ement-session session
