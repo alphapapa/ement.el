@@ -243,7 +243,10 @@ Note that margin sizes must be set manually with
            ;; is required to avoid compilation warnings).
            (message "Ement: Kill and reopen room buffers to display in new format")))
   :set-after '(ement-room-left-margin-width ement-room-right-margin-width
-                                            ement-room-sender-headers))
+                                            ement-room-sender-headers)
+  ;; This file must be loaded before calling the setter to define the
+  ;; `ement-room-user' face used in it.
+  :require 'ement-room)
 
 (defcustom ement-room-retro-messages-number 30
   "Number of messages to retrieve when loading earlier messages."
