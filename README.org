@@ -10,13 +10,13 @@ Ement.el is a new Matrix client for Emacs.  It's basic at the moment, but it can
 
 * Screenshots
 
-The message formatting is customizeable (e.g. the timestamp can be displayed in the left or right margin).
+The message formatting is customizeable (e.g. the timestamp can be displayed in the left or right margin):
 
 [[images/screenshot2.png]]
 
-Timestamp headers are displayed where a certain amount of time passes between events.
+An IRC-like formatting style is easily selectable in the option ~ement-room-message-format-spec~, and timestamp headers are displayed where a certain amount of time passes between events:
 
-[[images/screenshot3.png]]
+[[images/screenshot4.png]]
 
 * Contents                                                         :noexport:
 :PROPERTIES:
