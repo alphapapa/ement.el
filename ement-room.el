@@ -83,6 +83,13 @@ Used by `ement-room-send-message'.")
     map)
   "Keymap for Ement room buffers.")
 
+(defvar ement-room-sender-in-left-margin nil
+  "Non-nil when sender is displayed in the left margin.
+In that case, sender names are aligned to the margin edge.")
+
+;; Variables from other files.
+(defvar ement-sessions)
+
 ;;;; Customization
 
 (defgroup ement-room nil
@@ -96,6 +103,27 @@ Used by `ement-room-send-message'.")
 (defcustom ement-room-buffer-name-suffix "*"
   "Suffix for Ement room buffer names."
   :type 'string)
+
+(defcustom ement-room-timestamp-format "%H:%M:%S"
+  "Format string for event timestamps.
+See function `format-time-string'."
+  :type '(choice (const "%H:%M:%S")
+                 (const "%Y-%m-%d %H:%M:%S")
+                 string))
+
+(defcustom ement-room-left-margin-width 0
+  "Width of left margin in room buffers."
+  :type 'integer)
+
+(defcustom ement-room-right-margin-width (length ement-room-timestamp-format)
+  "Width of right margin in room buffers."
+  :type 'integer)
+
+(defcustom ement-room-sender-headers t
+  "Show sender headers.
+Automatically set by setting `ement-room-message-format-spec',
+but may be overridden manually."
+  :type 'boolean)
 
 (defcustom ement-room-message-format-spec "%B%r%R%t"
   "Format messages according to this spec.
@@ -117,18 +145,48 @@ It may contain these specifiers:
 Note that margin sizes must be set manually with
 `ement-room-left-margin-width' and
 `ement-room-right-margin-width'."
-  :type 'string)
+  :type '(choice (const :tag "Elemental" "%B%r%R%t")
+                 (const :tag "IRCy" "%S%L%B%r%R%t")
+                 (string :tag "Custom format"))
+  :set (lambda (option value)
+         (set-default option value)
+         (pcase value
+           ;; Try to set the margin widths smartly.
+           ("%B%r%R%t"
+            (setf ement-room-left-margin-width 0
+                  ement-room-right-margin-width 8
+                  ement-room-sender-headers t))
+           ("%S%L%B%r%R%t"
+            (setf ement-room-left-margin-width 12
+                  ement-room-right-margin-width 8
+                  ement-room-sender-headers nil
+                  ement-room-sender-in-left-margin t))
+           (_ (setf ement-room-left-margin-width
+                    (if (string-match-p "%L" value)
+                        12 0)
+                    ement-room-right-margin-width
+                    (if (string-match-p "%R" value)
+                        8 0)
+                    ement-room-sender-headers
+                    (if (string-match-p "%S" value)
+                        nil t)
+                    ement-room-sender-in-left-margin
+                    (if (string-match-p (rx (1+ anything) "%S" (1+ anything) "%L") value)
+                        nil t))
+              (message "Ement: When using custom message format, setting margin widths may be necessary")))
+         (when ement-room-sender-in-left-margin
+           ;; HACK: Disable overline on sender face.
+           (set-face-attribute 'ement-room-user nil :overline nil))
+         (when (and (bound-and-true-p ement-sessions) (car ement-sessions))
+           ;; Only display when a session is connected (not sure why `bound-and-true-p'
+           ;; is required to avoid compilation warnings).
+           (message "Ement: Kill and reopen room buffers to display in new format")))
+  :set-after '(ement-room-left-margin-width ement-room-right-margin-width
+                                            ement-room-sender-headers))
 
 (defcustom ement-room-retro-messages-number 30
   "Number of messages to retrieve when loading earlier messages."
   :type 'integer)
-
-(defcustom ement-room-timestamp-format "%H:%M:%S"
-  "Format string for event timestamps.
-See function `format-time-string'."
-  :type '(choice (const "%H:%M:%S")
-                 (const "%Y-%m-%d %H:%M:%S")
-                 string))
 
 (defcustom ement-room-timestamp-header-format " %H:%M "
   "Format string for timestamp headers where date is unchanged.
@@ -147,14 +205,6 @@ newline, its background color will extend to the end of the
 line."
   :type '(choice (const " %Y-%m-%d (%A) %H:%M\n")
                  string))
-
-(defcustom ement-room-left-margin-width 0
-  "Width of left margin in room buffers."
-  :type 'integer)
-
-(defcustom ement-room-right-margin-width (length ement-room-timestamp-format)
-  "Width of right margin in room buffers."
-  :type 'integer)
 
 (defcustom ement-room-prism 'name
   "Display users' names and messages in unique colors."
@@ -694,33 +744,35 @@ the first and last nodes in the buffer, respectively."
                          (setf node-before next-node)))
                      (ewoc-enter-after ewoc node-before event)))
     ;; Insert sender where necessary.
-    (if (not node-before)
-        (progn
-          (ement-debug "No event before: Add sender before new node.")
-          (ewoc-enter-before ewoc new-node (ement-event-sender event)))
-      (ement-debug "Event before: compare sender.")
-      (if (equal (ement-event-sender event)
-                 (pcase-exhaustive (ewoc-data node-before)
-                   ((pred ement-event-p)
-                    (ement-event-sender (ewoc-data node-before)))
-                   ((pred ement-user-p)
-                    (ewoc-data node-before))
-                   (`(ts ,(pred numberp))
-                    ;; Timestamp header.
-                    (when-let ((node-before-ts (ewoc-prev ewoc node-before)))
-                      ;; FIXME: Well this is ugly.  Make a filter predicate or something.
-                      (pcase-exhaustive (ewoc-data node-before-ts)
-                        ((pred ement-event-p)
-                         (ement-event-sender (ewoc-data node-before)))
-                        ((pred ement-user-p)
-                         (ewoc-data node-before)))))))
-          (ement-debug "Same sender.")
-        (ement-debug "Different sender: insert new sender node.")
-        (ewoc-enter-before ewoc new-node (ement-event-sender event))
-        (when-let* ((next-node (ewoc-next ewoc new-node)))
-          (when (ement-event-p (ewoc-data next-node))
-            (ement-debug "Event after from different sender: insert its sender before it.")
-            (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node)))))))))
+    (when ement-room-sender-headers
+      ;; TODO: Do this more flexibly.
+      (if (not node-before)
+          (progn
+            (ement-debug "No event before: Add sender before new node.")
+            (ewoc-enter-before ewoc new-node (ement-event-sender event)))
+        (ement-debug "Event before: compare sender.")
+        (if (equal (ement-event-sender event)
+                   (pcase-exhaustive (ewoc-data node-before)
+                     ((pred ement-event-p)
+                      (ement-event-sender (ewoc-data node-before)))
+                     ((pred ement-user-p)
+                      (ewoc-data node-before))
+                     (`(ts ,(pred numberp))
+                      ;; Timestamp header.
+                      (when-let ((node-before-ts (ewoc-prev ewoc node-before)))
+                        ;; FIXME: Well this is ugly.  Make a filter predicate or something.
+                        (pcase-exhaustive (ewoc-data node-before-ts)
+                          ((pred ement-event-p)
+                           (ement-event-sender (ewoc-data node-before)))
+                          ((pred ement-user-p)
+                           (ewoc-data node-before)))))))
+            (ement-debug "Same sender.")
+          (ement-debug "Different sender: insert new sender node.")
+          (ewoc-enter-before ewoc new-node (ement-event-sender event))
+          (when-let* ((next-node (ewoc-next ewoc new-node)))
+            (when (ement-event-p (ewoc-data next-node))
+              (ement-debug "Event after from different sender: insert its sender before it.")
+              (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node))))))))))
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
@@ -907,7 +959,15 @@ Format defaults to `ement-room-message-format-spec', which see."
                     (?i (ement-event-id event))
                     (?s (propertize (ement-user-id (ement-event-sender event))
                                     'face 'ement-room-user))
-                    (?S (ement-room--format-user (ement-event-sender event) ement-room))
+                    (?S (let ((sender (ement-room--format-user (ement-event-sender event) ement-room)))
+                          (when (and ement-room-sender-in-left-margin
+                                     (< (string-width sender) ement-room-left-margin-width))
+                            ;; Using :align-to or :width space display properties doesn't
+                            ;; seem to have any effect in the margin, so we make a string.
+                            (setf sender (concat (make-string (- ement-room-left-margin-width (string-width sender))
+                                                              ? )
+                                                 sender)))
+                          sender))
                     (?r (ement-room--format-reactions event))
                     (?t (propertize (format-time-string ement-room-timestamp-format
                                                         ;; Timestamps are in milliseconds.
