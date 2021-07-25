@@ -102,6 +102,49 @@ In that case, sender names are aligned to the margin edge.")
   "Options for room buffers."
   :group 'ement)
 
+;;;;; Faces
+
+(defface ement-room-name
+  '((t (:inherit font-lock-function-name-face)))
+  "Room name shown in header line.")
+
+(defface ement-room-membership
+  '((t (:inherit font-lock-comment-face)))
+  "Membership events (join/part).")
+
+(defface ement-room-reactions
+  '((t (:inherit font-lock-comment-face :height 0.9)))
+  "Reactions to messages (including the user count).")
+
+(defface ement-room-reactions-key
+  '((t (:inherit ement-room-reactions :height 1.5)))
+  "Reactions to messages (the key, i.e. the emoji part).
+Uses a separate face to allow the key to be shown at a different
+size, because in some fonts, emojis are too small relative to
+normal text.")
+
+(defface ement-room-timestamp
+  '((t (:inherit font-lock-comment-face)))
+  "Event timestamps.")
+
+(defface ement-room-user
+  '((t (:inherit font-lock-function-name-face :weight bold :overline t)))
+  "Usernames.")
+
+(defface ement-room-self
+  '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
+  "Own username.")
+
+(defface ement-room-self-message
+  '((t (:inherit font-lock-variable-name-face)))
+  "Own messages.")
+
+(defface ement-room-timestamp-header
+  '((t (:inherit header-line :weight bold :height 1.1)))
+  "Timestamp headers.")
+
+;;;;; Options
+
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
   '(:eval (concat " " (propertize (ement-room-display-name ement-room)
@@ -252,47 +295,6 @@ See Info node `(elisp)Specified Space'."
 (defcustom ement-room-timestamp-header-delta 600
   "Show timestamp header where events are at least this many seconds apart."
   :type 'integer)
-
-;;;;; Faces
-
-(defface ement-room-name
-  '((t (:inherit font-lock-function-name-face)))
-  "Room name shown in header line.")
-
-(defface ement-room-membership
-  '((t (:inherit font-lock-comment-face)))
-  "Membership events (join/part).")
-
-(defface ement-room-reactions
-  '((t (:inherit font-lock-comment-face :height 0.9)))
-  "Reactions to messages (including the user count).")
-
-(defface ement-room-reactions-key
-  '((t (:inherit ement-room-reactions :height 1.5)))
-  "Reactions to messages (the key, i.e. the emoji part).
-Uses a separate face to allow the key to be shown at a different
-size, because in some fonts, emojis are too small relative to
-normal text.")
-
-(defface ement-room-timestamp
-  '((t (:inherit font-lock-comment-face)))
-  "Event timestamps.")
-
-(defface ement-room-user
-  '((t (:inherit font-lock-function-name-face :weight bold :overline t)))
-  "Usernames.")
-
-(defface ement-room-self
-  '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
-  "Own username.")
-
-(defface ement-room-self-message
-  '((t (:inherit font-lock-variable-name-face)))
-  "Own messages.")
-
-(defface ement-room-timestamp-header
-  '((t (:inherit header-line :weight bold :height 1.1)))
-  "Timestamp headers.")
 
 ;;;; Commands
 
