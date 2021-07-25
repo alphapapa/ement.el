@@ -58,8 +58,8 @@
   "Non-nil when earlier messages are being loaded.
 Used to avoid overlapping requests.")
 
-(defvar-local ement-room-replying-to nil
-  "When non-nil, the user is replying to this message ID.
+(defvar-local ement-room-replying-to-event nil
+  "When non-nil, the user is replying to this event.
 Used by `ement-room-send-message'.")
 
 (defvar-local ement-room-replying-to-overlay nil
@@ -438,8 +438,8 @@ the previously oldest event."
 				     "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
                    (data (ement-alist "msgtype" "m.text"
                                       "body" body)))
-        (when ement-room-replying-to
-          (setf data (ement-room--add-reply data ement-room-replying-to)))
+        (when ement-room-replying-to-event
+          (setf data (ement-room--add-reply data ement-room-replying-to-event)))
         (ement-api server token endpoint
           (lambda (&rest args)
             (message "SEND MESSAGE CALLBACK: %S" args))
@@ -456,7 +456,7 @@ the previously oldest event."
       (user-error "No event at point"))
     (unwind-protect
         (progn
-          (setf ement-room-replying-to (ement-event-id event)
+          (setf ement-room-replying-to-event event
                 ement-room-replying-to-overlay
                 (make-overlay (ewoc-location node)
                               ;; NOTE: It doesn't seem possible to get the end position of
@@ -469,22 +469,24 @@ the previously oldest event."
           (ement-room-send-message :prompt "Send reply: "))
       (when ement-room-replying-to-overlay
         (delete-overlay ement-room-replying-to-overlay))
-      (setf ement-room-replying-to nil
+      (setf ement-room-replying-to-event nil
             ement-room-replying-to-overlay nil))))
 
-(defun ement-room--add-reply (data event-id)
-  "Return DATA adding reply data for EVENT-ID in current buffer's room.
+(defun ement-room--add-reply (data replying-to-event)
+  "Return DATA adding reply data for EVENT in current buffer's room.
 DATA is an unsent message event's data alist."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id351> "13.2.2.6.1  Rich replies"
   ;; FIXME: Rename DATA.
-  (pcase-let* (((cl-struct ement-event content sender) (ement-room--event-data event-id))
-               ((cl-struct ement-user (id sender-id)) sender)
-               ((map ('body reply-body) ('formatted_body reply-formatted-body)) content)
-               (sender-name (ement-room--user-display-name sender ement-room))
-               (quote-string (format "> <%s> %s\n\n" sender-name reply-body))
-               (old-body (alist-get "body" data nil nil #'string=))
-               (new-body (concat quote-string old-body))
-               (formatted-body
+  (pcase-let* (((cl-struct ement-event (id replying-to-event-id)
+                           content (sender replying-to-sender))
+                replying-to-event)
+               ((cl-struct ement-user (id replying-to-sender-id)) replying-to-sender)
+               ((map ('body replying-to-body) ('formatted_body replying-to-formatted-body)) content)
+               (replying-to-sender-name (ement-room--user-display-name replying-to-sender ement-room))
+               (quote-string (format "> <%s> %s\n\n" replying-to-sender-name replying-to-body))
+               (reply-body (alist-get "body" data nil nil #'string=))
+               (reply-body-with-quote (concat quote-string reply-body))
+               (reply-formatted-body-with-quote
                 (format "<mx-reply>
   <blockquote>
     <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
@@ -494,17 +496,17 @@ DATA is an unsent message event's data alist."
   </blockquote>
 </mx-reply>
 %s"
-                        (ement-room-id ement-room) event-id sender-id sender-name
+                        (ement-room-id ement-room) replying-to-event-id replying-to-sender-id replying-to-sender-name
                         ;; TODO: Encode HTML special characters.  Not as straightforward in Emacs as one
                         ;; might hope: there's `web-mode-html-entities' and `org-entities'.  See also
                         ;; <https://emacs.stackexchange.com/questions/8166/encode-non-html-characters-to-html-equivalent>.
-                        (or reply-formatted-body reply-body)
-                        old-body)))
+                        (or replying-to-formatted-body replying-to-body)
+                        reply-body)))
     ;; NOTE: map-elt doesn't work with string keys, so we use `alist-get'.
-    (setf (alist-get "body" data nil nil #'string=) new-body
-          (alist-get "formatted_body" data nil nil #'string=) formatted-body
+    (setf (alist-get "body" data nil nil #'string=) reply-body-with-quote
+          (alist-get "formatted_body" data nil nil #'string=) reply-formatted-body-with-quote
           data (append (ement-alist "m.relates_to" (ement-alist "m.in_reply_to"
-                                                                (ement-alist "event_id" event-id))
+                                                                (ement-alist "event_id" replying-to-event-id))
                                     "format" "org.matrix.custom.html")
                        data))
     data))
