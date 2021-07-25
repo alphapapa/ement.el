@@ -1175,8 +1175,13 @@ For use as a `help-echo' function on `ement-user' headings."
   ;; hierarchy (using `widget-forward' says "No buttons or fields found"), so we use 'help-echo on the string for now.
   ;;  :help-echo #'ement-room--membership-help-echo
   :value-create (lambda (widget)
-                  (insert (propertize (alist-get 'membership (ement-event-content (widget-value widget)))
-                                      'help-echo #'ement-room--membership-help-echo))))
+                  (pcase-let* ((event (widget-value widget))
+                               ((cl-struct ement-event sender content) event)
+                               ((map membership) content)
+                               (displayname (ement-room--user-display-name sender ement-room))
+                               (string (concat membership " (" displayname ")")))
+                    (insert (propertize string
+                                        'help-echo #'ement-room--membership-help-echo)))))
 
 ;;;; Footer
 
