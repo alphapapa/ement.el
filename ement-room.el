@@ -950,8 +950,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                                    (ement-user-id (ement-session-user ement-session)))
                             'ement-room-self-message)
                            ((eq 'both ement-room-prism)
-                            (list :inherit 'default
-                                  :foreground (or (ement-user-color sender)
+                            (list :foreground (or (ement-user-color sender)
                                                   (setf (ement-user-color sender)
                                                         (ement-room--user-color sender)))))
                            (t 'default))))
@@ -965,23 +964,21 @@ Format defaults to `ement-room-message-format-spec', which see."
                     ;; HACK: Reads `ement-session' from current buffer.
                     (?b (pcase-let*
                             (((cl-struct ement-event content sender) event)
-                             ((map body) content)
-                             (body-face (body-face)))
-                          (add-face-text-property 0 (length body) body-face 'append body)
-                          body))
+                             ((map body) content))
+                          (propertize body 'face (body-face))))
                     (?B (pcase-let*
                             (((cl-struct ement-event content sender) event)
                              ((map body ('format content-format) ('formatted_body formatted-body)) content)
-                             (body-face (body-face))
                              (body (if (not formatted-body)
-                                       body
+                                       ;; Copy the string so as not to add face properties to the one in the struct.
+                                       (copy-sequence body)
                                      (pcase content-format
                                        ("org.matrix.custom.html"
                                         (save-match-data
                                           (ement-room--render-html formatted-body)))
                                        (_ (format "[unknown body format: %s] %s"
                                                   content-format body))))))
-                          (add-face-text-property 0 (length body) body-face 'append body)
+                          (add-face-text-property 0 (length body) (body-face) 'append body)
                           body))
                     (?i (ement-event-id event))
                     (?s (propertize (ement-user-id (ement-event-sender event))
