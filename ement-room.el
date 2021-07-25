@@ -390,12 +390,9 @@ the previously oldest event."
 (declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
-  (pcase-let* (((cl-struct ement-room) room)
+  (pcase-let* (((cl-struct ement-room local) room)
 	       ((map _start end chunk state) data)
-               ;; FIXME: Use buffer slot in struct.
-	       (buffer (cl-loop for buffer in (buffer-list)
-				when (eq room (buffer-local-value 'ement-room buffer))
-				return buffer)))
+               ((map buffer) local))
     ;; Put the newly retrieved events at the end of the slots, because they should be
     ;; older events.  But reverse them first, because we're using "dir=b", which the
     ;; spec says causes the events to be returned in reverse-chronological order, and we
