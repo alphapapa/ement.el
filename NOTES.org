@@ -10,11 +10,13 @@ CLOSED: [2020-12-05 Sat 00:13]
 
 Which breaks loading of older messages and causes dupes in the list as attempts are made to load older messages.
 
-** PROJECT [#B] Some displaynames not shown when loading earlier events :bug:
+** DONE [#B] Some displaynames not shown when loading earlier events   :bug:
+CLOSED: [2021-07-25 Sun 15:45]
 :PROPERTIES:
 :ID:       5ec9ae28-b44b-4d95-b0f9-50abeac0dfb2
 :END:
 :LOGBOOK:
+-  State "DONE"       from "PROJECT"    [2021-07-25 Sun 15:45]
 -  State "PROJECT"    from              [2020-12-05 Sat 00:14]
 :END:
 
@@ -155,6 +157,8 @@ Anyway, here's what I currently understand to be the case:
 +  I don't know how the JS SDK handles getting displaynames for senders that were not in the initial sync.  Does it work around the fact that the server appears to violate the spec?  (The JS code is very complicated, and the codebase is labyrinthine, so I have little enthusiasm for digging deeper into it.)
 
 So as best I can tell, the server is violating the spec.
+
+[2021-07-25 Sun 14:12]  After carefully digging into the raw events, reviewing these notes, and talking with Michael (t3chguy) in =#matrix-dev:matrix.org=, I found that I was sending =/messages= the kind of filter that =/sync= expects, rather than the =RoomEventFilter= that is called for. (Actually, I wasn't sending =/messages= any filter before now, and then today I started by sending it the wrong kind.) After fixing that, finally, loading earlier messages gets the membership events for newly seen users, and the displaynames are seen!  Finally this can be put to rest.
 
 ** PROJECT [#A] Apply new room state events                            :bug:
 :LOGBOOK:
