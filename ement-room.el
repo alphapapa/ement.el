@@ -968,6 +968,8 @@ Format defaults to `ement-room-message-format-spec', which see."
                             (setf sender (concat (make-string (- ement-room-left-margin-width (string-width sender))
                                                               ? )
                                                  sender)))
+                          ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
+                          ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
                           sender))
                     (?r (ement-room--format-reactions event))
                     (?t (propertize (format-time-string ement-room-timestamp-format
