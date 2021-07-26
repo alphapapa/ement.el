@@ -299,6 +299,37 @@ See Info node `(elisp)Specified Space'."
   "Show timestamp header where events are at least this many seconds apart."
   :type 'integer)
 
+;;;; Bookmark support
+
+;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
+
+(require 'bookmark)
+
+(defun ement-room-bookmark-make-record ()
+  "Return a bookmark record for the current `ement-room' buffer."
+  (pcase-let* (((cl-struct ement-room (id room-id) canonical-alias display-name) ement-room)
+               ((cl-struct ement-session user) ement-session)
+               ((cl-struct ement-user (id session-id)) user))
+    ;; MAYBE: Support bookmarking specific events in a room.
+    (list (concat "Ement room: " display-name " (" canonical-alias ")")
+          (cons 'session-id session-id)
+          (cons 'room-id room-id)
+          (cons 'handler #'ement-room-bookmark-handler))))
+
+(defun ement-room-bookmark-handler (bookmark)
+  "Show Ement room buffer for BOOKMARK."
+  (pcase-let* ((`(,_name . ,(map session-id room-id)) bookmark))
+    (unless (cl-loop for session in ement-sessions
+                     thereis (equal session-id (ement-user-id (ement-session-user session))))
+      ;; MAYBE: Automatically connect.
+      (user-error "Session %s not connected: call `ement-connect' first" session-id))
+    ;; FIXME: Support multiple sessions.
+    (let ((room (cl-loop for room in (ement-session-rooms (car ement-sessions))
+                         when (equal room-id (ement-room-id room))
+                         return room)))
+      (cl-assert room)
+      (ement-view-room (car ement-sessions) room))))
+
 ;;;; Commands
 
 (defun ement-room-goto-prev (num)
@@ -581,6 +612,7 @@ data slot."
                     (lambda ()
                       (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
                     nil 'local)
+          (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
           ;; TODO: Some code is duplicated here and in `ement--update-room-buffers'.
           ;; Move new events to the main timeline slot first, because some events can
           ;; refer to other events, and we want them to be found in the timeline slot.

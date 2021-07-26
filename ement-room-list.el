@@ -56,6 +56,30 @@
 
 ;;;; Customization
 
+;;;; Bookmark support
+
+;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
+
+(require 'bookmark)
+
+(defun ement-room-list-bookmark-make-record ()
+  "Return a bookmark record for the `ement-room-list' buffer."
+  (pcase-let* (((cl-struct ement-session user) ement-session)
+               ((cl-struct ement-user (id session-id)) user))
+    ;; MAYBE: Support bookmarking specific events in a room.
+    (list (concat "Ement room list (" session-id ")")
+          (cons 'session-id session-id)
+          (cons 'handler #'ement-room-list-bookmark-handler))))
+
+(defun ement-room-list-bookmark-handler (bookmark)
+  "Show Ement room list buffer for BOOKMARK."
+  (pcase-let* (((map session-id) bookmark))
+    (unless (cl-loop for session in ement-sessions
+                     thereis (equal session-id (ement-user-id (ement-session-user session))))
+      ;; MAYBE: Automatically connect.
+      (user-error "Session %s not connected: call `ement-connect' first" session-id))
+    ;; FIXME: Support multiple sessions.
+    (ement-room-list)))
 
 ;;;; Commands
 
@@ -67,6 +91,7 @@ call `pop-to-buffer'."
   (interactive)
   (with-current-buffer (get-buffer-create "*Ement Rooms*")
     (ement-room-list-mode)
+    (setq-local bookmark-make-record-function #'ement-room-list-bookmark-make-record)
     ;; FIXME: There must be a better way to handle this.
     (funcall (if current-prefix-arg
                  #'pop-to-buffer #'pop-to-buffer-same-window)
