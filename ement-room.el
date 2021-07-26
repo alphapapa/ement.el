@@ -1066,6 +1066,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                                                  sender)))
                           ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
                           ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
+                          ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
                           sender))
                     (?r (ement-room--format-reactions event))
                     (?t (propertize (format-time-string ement-room-timestamp-format
@@ -1181,13 +1182,22 @@ ROOM defaults to the value of `ement-room'."
     ;; the display name from being used if the state event arrives later.
     (propertize (ement-room--user-display-name user room)
                 'face face
-                'help-echo #'ement-room--user-help-echo)))
+                'help-echo (ement-user-id user))))
 
-(defun ement-room--user-help-echo (window _object pos)
-  "Return user ID string for POS in WINDOW.
-For use as a `help-echo' function on `ement-user' headings."
-  (with-selected-window window
-    (ement-user-id (ewoc-data (ewoc-locate ement-ewoc pos)))))
+;; NOTE: This function is not useful when displaynames are shown in the margin, because
+;; margins are not mouse-interactive in Emacs, therefore the help-echo function is called
+;; with the string and the position in the string, which leaves the buffer position
+;; unknown.  So we have to set the help-echo to a string rather than a function.  But the
+;; function may be useful in the future, so leaving it commented for now.
+
+;; (defun ement-room--user-help-echo (window _object pos)
+;;   "Return user ID string for POS in WINDOW.
+;; For use as a `help-echo' function on `ement-user' headings."
+;;   (let ((data (with-selected-window window
+;;                 (ewoc-data (ewoc-locate ement-ewoc pos)))))
+;;     (cl-typecase data
+;;       (ement-event (ement-user-id (ement-event-sender data)))
+;;       (ement-user (ement-user-id data)))))
 
 (defun ement-room--user-color (user)
   "Return a color in which to display USER's messages."
