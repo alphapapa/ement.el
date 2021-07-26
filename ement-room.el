@@ -135,9 +135,13 @@ normal text.")
   '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
   "Own username.")
 
+(defface ement-room-message
+  '((t (:inherit default)))
+  "Message bodies.")
+
 (defface ement-room-self-message
-  '((t (:inherit font-lock-variable-name-face)))
-  "Own messages.")
+  '((t (:inherit (font-lock-variable-name-face ement-room-message))))
+  "Oneself's message bodies.")
 
 (defface ement-room-timestamp-header
   '((t (:inherit header-line :weight bold :height 1.1)))
@@ -1020,10 +1024,11 @@ Format defaults to `ement-room-message-format-spec', which see."
                                    (ement-user-id (ement-session-user ement-session)))
                             'ement-room-self-message)
                            ((eq 'both ement-room-prism)
-                            (list :foreground (or (ement-user-color sender)
+                            (list :inherit 'ement-room-message
+                                  :foreground (or (ement-user-color sender)
                                                   (setf (ement-user-color sender)
                                                         (ement-room--user-color sender)))))
-                           (t 'default))))
+                           (t 'ement-room-message))))
     (let* ((room-buffer (current-buffer))
            (margin-p)
            (specs (defspecs
