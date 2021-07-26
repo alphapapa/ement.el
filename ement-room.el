@@ -724,18 +724,16 @@ function to `ement-room-event-fns', which see."
 (ement-room-defevent "m.typing"
   (pcase-let* (((cl-struct ement-event content) event)
                ((map ('user_ids user-ids)) content)
-               (footer (if (zerop (length user-ids))
-                           ""
-                         (propertize
-                          (concat "Typing: "
-                                  (string-join
-                                   (cl-loop for id across user-ids
-                                            for user = (gethash id ement-users)
-                                            if user
-                                            collect (ement-room--user-display-name user ement-room)
-                                            else do (message "Ement: Typing event can't find user struct for ID: %s" id))
-                                   ", "))
-                          'face 'font-lock-comment-face))))
+               (usernames) (footer))
+    (if (zerop (length user-ids))
+        (setf footer "")
+      (setf usernames (cl-loop for id across user-ids
+                               for user = (gethash id ement-users)
+                               if user
+                               collect (ement-room--user-display-name user ement-room)
+                               else collect id)
+            footer (propertize (concat "Typing: " (string-join usernames ", "))
+                               'face 'font-lock-comment-face)))
     (ewoc-set-hf ement-ewoc "" footer)))
 
 (defun ement-room--process-events (events)
