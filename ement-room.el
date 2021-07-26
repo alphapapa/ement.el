@@ -398,49 +398,42 @@ timestamp headers into appropriate places while maintaining
 point's position.  If RETRO is non-nil, assume EVENTS are earlier
 than any existing events, and only insert timestamp headers up to
 the previously oldest event."
-  (save-excursion
-    (let (window window-point point-node orig-first-node)
-      (when (get-buffer-window (current-buffer))
-        ;; HACK: See below.
-        (setf window (get-buffer-window (current-buffer))
-              window-point (window-point window)))
-      (when (and window retro)
-        (setf point-node (with-selected-window window
-                           (ewoc-locate ement-ewoc (window-start)))
-              orig-first-node (ewoc-nth ement-ewoc 0)))
-      ;; HACK: Move points (including window point) to the end before inserting.  This attempts
-      ;; to work around a very strange bug in which replies to replies (and only replies to
-      ;; replies), once received, are inserted at point, partially overwriting the message
-      ;; being replied to, rather than being inserted at the end of the buffer as a new event
-      ;; (however, upon killing and remaking the room buffer, they're displayed properly).  It
-      ;; may be possible to fix this by carefully reading every debug message in the insertion
-      ;; functions, but that will take much longer than this quick workaround.
-      (goto-char (point-max))
-      (when (and window-point (not retro))
-        (set-window-point window (point-max)))
-      ;; HACK: Only insert certain types of events.
-      ;; TODO: This should be done in a unified interface.
+  (let (buffer-window point-node orig-first-node)
+    (when (get-buffer-window (current-buffer))
+      ;; HACK: See below.
+      (setf buffer-window (get-buffer-window (current-buffer))))
+    (when (and buffer-window retro)
+      (setf point-node (ewoc-locate ement-ewoc (window-start buffer-window))
+            orig-first-node (ewoc-nth ement-ewoc 0)))
+    (save-window-excursion
+      ;; NOTE: When inserting some events, seemingly only replies, if a different buffer's
+      ;; window is selected, and this buffer's window-point is at the bottom, the formatted
+      ;; events may be inserted into the wrong place in the buffer, even though they are
+      ;; inserted into the EWOC at the right place.  We work around this by selecting the
+      ;; buffer's window while inserting events, if it has one.  (I don't know if this is a bug
+      ;; in EWOC or in this file somewhere.  But this has been particularly nasty to debug.)
+      (when buffer-window
+        (select-window buffer-window))
       (cl-loop for event being the elements of events
+               ;; TODO: This should be done in a unified interface.
+               ;; HACK: Only insert certain types of events.
                when (pcase (ement-event-type event)
                       ("m.reaction" nil)
                       (_ t))
-               do (ement-room--insert-event event))
-      ;; Since events can be received in any order, we have to check the whole buffer
-      ;; for where to insert new timestamp headers.  (Avoiding that would require
-      ;; getting a list of newly inserted nodes and checking each one instead of every
-      ;; node in the buffer.  Doing that now would probably be premature optimization,
-      ;; though it will likely be necessary if users keep buffers open for busy rooms
-      ;; for a long time, as the time to do this in each buffer will increase with the
-      ;; number of events.  At least we only do it once per batch of events.)
-      (ement-room--insert-ts-headers nil (when retro orig-first-node))
-      (when (and window-point (not retro))
-        ;; HACK: See above.
-        (set-window-point window window-point))
-      (when (and window retro)
-        (with-selected-window window
-          (set-window-start nil (ewoc-location point-node))
-          ;; TODO: Experiment with this.
-          (forward-line -1))))))
+               do (ement-room--insert-event event)))
+    ;; Since events can be received in any order, we have to check the whole buffer
+    ;; for where to insert new timestamp headers.  (Avoiding that would require
+    ;; getting a list of newly inserted nodes and checking each one instead of every
+    ;; node in the buffer.  Doing that now would probably be premature optimization,
+    ;; though it will likely be necessary if users keep buffers open for busy rooms
+    ;; for a long time, as the time to do this in each buffer will increase with the
+    ;; number of events.  At least we only do it once per batch of events.)
+    (ement-room--insert-ts-headers nil (when retro orig-first-node))
+    (when (and buffer-window retro)
+      (with-selected-window buffer-window
+        (set-window-start nil (ewoc-location point-node))
+        ;; TODO: Experiment with this.
+        (forward-line -1)))))
 
 (declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
