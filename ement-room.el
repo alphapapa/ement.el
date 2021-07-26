@@ -93,6 +93,9 @@ In that case, sender names are aligned to the margin edge.")
   ;; expect.  See <https://github.com/matrix-org/matrix-doc/issues/706>.
   "Default RoomEventFilter for /messages requests.")
 
+(defvar ement-room-typing-timer nil
+  "Timer used to send notifications while typing.")
+
 ;; Variables from other files.
 (defvar ement-sessions)
 
@@ -307,6 +310,10 @@ See Info node `(elisp)Specified Space'."
   "Show timestamp header where events are at least this many seconds apart."
   :type 'integer)
 
+(defcustom ement-room-send-typing t
+  "Send typing notifications to the server while typing a message."
+  :type 'boolean)
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -497,21 +504,45 @@ the previously oldest event."
   "Send message in current buffer's room."
   (interactive)
   (cl-assert ement-room) (cl-assert ement-session)
-  (let ((body (read-string prompt)))
-    (unless (string-empty-p body)
-      (pcase-let* (((cl-struct ement-session server token) ement-session)
-                   ((cl-struct ement-room id) ement-room)
-                   (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
-				     "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                   (data (ement-alist "msgtype" "m.text"
-                                      "body" body)))
-        (when ement-room-replying-to-event
-          (setf data (ement-room--add-reply data ement-room-replying-to-event)))
-        (ement-api server token endpoint
-          (lambda (&rest args)
-            (message "SEND MESSAGE CALLBACK: %S" args))
-	  :data (json-encode data)
-          :method 'put)))))
+  (unwind-protect
+      (progn
+        (when ement-room-send-typing
+          (setf ement-room-typing-timer (run-at-time nil 20 #'ement-room--send-typing ement-session ement-room)))
+        (let ((body (read-string prompt)))
+          (unless (string-empty-p body)
+            (pcase-let* (((cl-struct ement-session server token) ement-session)
+                         ((cl-struct ement-room id) ement-room)
+                         (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
+                                           "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
+                         (data (ement-alist "msgtype" "m.text"
+                                            "body" body)))
+              (when ement-room-replying-to-event
+                (setf data (ement-room--add-reply data ement-room-replying-to-event)))
+              (ement-api server token endpoint
+                (lambda (&rest args)
+                  (message "SEND MESSAGE CALLBACK: %S" args))
+                :data (json-encode data)
+                :method 'put)))))
+    (when ement-room-send-typing
+      (when ement-room-typing-timer
+        (cancel-timer ement-room-typing-timer)
+        (setf ement-room-typing-timer nil))
+      ;; Cancel typing notifications after sending a message.  (The
+      ;; spec doesn't say whether this is needed, but it seems to be.)
+      (ement-room--send-typing ement-session ement-room :typing nil))))
+
+(cl-defun ement-room--send-typing (session room &key (typing t))
+  "Send a typing notification for ROOM on SESSION."
+  (pcase-let* (((cl-struct ement-session server token user) session)
+               ((cl-struct ement-user (id user-id)) user)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/typing/%s"
+                                 (url-hexify-string room-id) (url-hexify-string user-id)))
+               (data (ement-alist "typing" typing "timeout" 15000)))
+    (ement-api server token endpoint
+      #'ignore ;; We don't really care about the response, I think.
+      :data (json-encode data)
+      :method 'put)))
 
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
@@ -719,9 +750,12 @@ function to `ement-room-event-fns', which see."
          nil)))))
 
 (ement-room-defevent "m.typing"
-  (pcase-let* (((cl-struct ement-event content) event)
+  (pcase-let* (((cl-struct ement-session user) ement-session)
+               ((cl-struct ement-user (id local-user-id)) user)
+               ((cl-struct ement-event content) event)
                ((map ('user_ids user-ids)) content)
                (usernames) (footer))
+    (setf user-ids (delete local-user-id user-ids))
     (if (zerop (length user-ids))
         (setf footer "")
       (setf usernames (cl-loop for id across user-ids
