@@ -206,18 +206,18 @@ It may contain these specifiers:
 Note that margin sizes must be set manually with
 `ement-room-left-margin-width' and
 `ement-room-right-margin-width'."
-  :type '(choice (const :tag "Elemental" "%B%r%R%t")
-                 (const :tag "IRCy" "%S%L%B%r%R%t")
+  :type '(choice (const :tag "IRCy" "%S%L%B%r%R%t")
+                 (const :tag "Elemental" "%B%r%R%t")
                  (string :tag "Custom format"))
   :set (lambda (option value)
          (set-default option value)
          (pcase value
            ;; Try to set the margin widths smartly.
-           ("%B%r%R%t"
+           ("%B%r%R%t" ;; "Elemental"
             (setf ement-room-left-margin-width 0
                   ement-room-right-margin-width 8
                   ement-room-sender-headers t))
-           ("%S%L%B%r%R%t"
+           ("%S%L%B%r%R%t" ;; "IRCy"
             (setf ement-room-left-margin-width 12
                   ement-room-right-margin-width 8
                   ement-room-sender-headers nil
