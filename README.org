@@ -1,0 +1,50 @@
+#+TITLE: Matrix Spec in Org format
+
+This orphan branch has a version of the Matrix client-server spec in Org format.  It was produced by this Pandoc command:
+
+#+BEGIN_SRC sh
+  pandoc -f html-empty_paragraphs-native_divs-native_spans -t org --strip-comments --wrap=none Client-Server\ API.html >matrix-spec.or
+g
+#+END_SRC
+
+Then various cleanups were done, some of which are included below:
+
+* Cleanups
+
+** Reindent source blocks
+
+#+BEGIN_SRC elisp
+  (defun ap/org-in-block-p ()
+    "Non-nil when point belongs to a block.
+
+  Return first block name matched, or nil.  Beware that in case of
+  nested blocks, the returned name may not belong to the closest
+  block from point."
+    (save-match-data
+      (let ((case-fold-search t)
+            (lim-up (save-excursion (outline-previous-heading)))
+            (lim-down (save-excursion (outline-next-heading))))
+        (org-between-regexps-p "^[ \t]*#\\+begin_" "^[ \t]*#\\+end_"
+                               lim-up lim-down))))
+
+  (defun ap/indent-whole-buffer ()
+    "Indent whole buffer."
+    (interactive)
+    (delete-trailing-whitespace)
+    (indent-region (point-min) (point-max) nil))
+
+  (defun ap/org-indent-src-block ()
+    (interactive)
+    (when (ap/org-in-block-p)
+      (org-edit-src-code)
+      (insert (replace-regexp-in-string
+               " +" " " (delete-and-extract-region (point-min) (point-max))))
+      (ap/indent-whole-buffer)
+      (whitespace-cleanup)
+      (org-edit-src-exit)))
+
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward (rx "#+BEGIN_EXAMPLE") nil t)
+      (ap/org-indent-src-block)))
+#+END_SRC
