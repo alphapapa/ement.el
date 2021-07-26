@@ -10,13 +10,17 @@ Ement.el is a new Matrix client for Emacs.  It's basic at the moment, but it can
 
 * Screenshots
 
-The message formatting is customizeable (e.g. the timestamp can be displayed in the left or right margin):
+The default style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user):
+
+[[images/screenshot5.png]]
+
+Note that the colored message text is off by default, enabled by customizing =M-x customize-option RET ement-room-prism=.
+
+An alternative style, with usernames displayed above groups of messages, is easily selectable in the option ~ement-room-message-format-spec~:
 
 [[images/screenshot2.png]]
 
-An IRC-like formatting style is easily selectable in the option ~ement-room-message-format-spec~, and timestamp headers are displayed where a certain amount of time passes between events:
-
-[[images/screenshot4.png]]
+The message formatting is highly customizeable (e.g. the timestamp can be displayed in the left or right margin), and timestamp headers are displayed where a certain amount of time passes between events.
 
 * Contents                                                         :noexport:
 :PROPERTIES:
