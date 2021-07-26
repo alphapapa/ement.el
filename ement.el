@@ -141,14 +141,15 @@ session and log in again."
         (let ((ement-save-session nil))
           (call-interactively #'ement-connect)))
     ;; Log in to new session.
-    (unless (string-match (rx bos "@" (1+ (not (any ":"))) ; Username (actually unused)
+    (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
                               ":" (group (optional (1+ (not (any blank)))))) ; Server name
                           user-id)
       (user-error "Invalid user ID format: use @USERNAME:SERVER"))
-    (let* ((server-name (match-string 1 user-id))
+    (let* ((username (match-string 1 user-id))
+           (server-name (match-string 2 user-id))
            ;; TODO: Also return port, and actually use that port elsewhere.
            (uri-prefix (ement--hostname-uri server-name))
-           (user (make-ement-user :id user-id))
+           (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
            ;; FIXME: Dynamic port.
            (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
            ;; A new session with a new token should be able to start over with a transaction ID of 0.
@@ -509,11 +510,13 @@ Adds sender to `ement-users' when necessary."
     (condition-case err
         ;; In case the saved session struct ever changes format, or something causes Emacs
         ;; to fail to read the saved structs, we handle any errors by logging in again.
-        (prog1 (let ((read-circle t))
-                 (read (with-temp-buffer
-                         (insert-file-contents ement-session-file)
-                         (buffer-substring-no-properties (point-min) (point-max)))))
-          (message "Ement: Read session."))
+        (let* ((read-circle t)
+               (read-session (read (with-temp-buffer
+                                     (insert-file-contents ement-session-file)
+                                     (buffer-substring-no-properties (point-min) (point-max))))))
+          (setf (ement-user-room-display-names (ement-session-user read-session)) (make-hash-table))
+          (message "Ement: Read session.")
+          read-session)
       (error (display-warning 'ement (format "Unable to read session from disk (%s).  Prompting to log in again.  Please report this error at https://github.com/alphapapa/ement.el"
                                              (error-message-string err)))))))
 
@@ -536,7 +539,8 @@ Adds sender to `ement-users' when necessary."
       ;; NOTE: If slots are added to the session struct, they may need to be cleared here.
       (setf (ement-session-rooms saved-session) nil
             (ement-session-next-batch saved-session) nil
-            (ement-session-has-synced-p saved-session) nil)
+            (ement-session-has-synced-p saved-session) nil
+            (ement-user-room-display-names (ement-session-user saved-session)) nil)
       (prin1 saved-session (current-buffer))))
   ;; Ensure permissions are safe.
   (chmod ement-session-file #o600))

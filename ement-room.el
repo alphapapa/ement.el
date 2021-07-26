@@ -147,6 +147,10 @@ normal text.")
   '((t (:inherit header-line :weight bold :height 1.1)))
   "Timestamp headers.")
 
+(defface ement-room-mention
+  '((t (:inherit highlight)))
+  "Messages that mention the local user.")
+
 ;;;;; Options
 
 (defcustom ement-room-header-line-format
@@ -1026,11 +1030,15 @@ Format defaults to `ement-room-message-format-spec', which see."
                                    (ement-user-id (ement-session-user ement-session)))
                             'ement-room-self-message)
                            ((eq 'both ement-room-prism)
-                            (list :inherit 'ement-room-message
+                            (list :inherit (if (ement-room--event-mentions-user event (ement-session-user ement-session))
+                                               'ement-room-mention
+                                             'ement-room-message)
                                   :foreground (or (ement-user-color sender)
                                                   (setf (ement-user-color sender)
                                                         (ement-room--user-color sender)))))
-                           (t 'ement-room-message))))
+                           (t (if (ement-room--event-mentions-user event (ement-session-user ement-session))
+                                  'ement-room-mention
+                                'ement-room-message)))))
     (let* ((room-buffer (current-buffer))
            (margin-p)
            (specs (defspecs
@@ -1187,6 +1195,21 @@ ROOM defaults to the value of `ement-room'."
     (propertize (ement-room--user-display-name user room)
                 'face face
                 'help-echo (ement-user-id user))))
+
+(defun ement-room--event-mentions-user (event user)
+  "Return non-nil if EVENT mentions USER."
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map body formatted_body) content)
+               (body (or formatted_body body)))
+    ;; FIXME: `ement-room--user-display-name' may not be returning the
+    ;; right result for the local user, so test the displayname slot too.
+    ;; HACK: So we use the username slot, which was created just for this, for now.
+    (or (string-match-p (regexp-quote (ement-user-username user))
+                        body)
+        (string-match-p (regexp-quote (ement-room--user-display-name user ement-room))
+                        body)
+        (string-match-p (regexp-quote (ement-user-id user))
+                        body))))
 
 ;; NOTE: This function is not useful when displaynames are shown in the margin, because
 ;; margins are not mouse-interactive in Emacs, therefore the help-echo function is called
