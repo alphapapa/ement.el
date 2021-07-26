@@ -292,7 +292,8 @@ a filter ID).  When unspecified, the value of
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Use a filter ID for default filter.
-  (cl-assert (not (map-elt ement-syncs session)))
+  (when (map-elt ement-syncs session)
+    (user-error "Ement: Already syncing this session"))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
                (params (remove
                         nil (list (list "full_state" (if next-batch "false" "true"))
