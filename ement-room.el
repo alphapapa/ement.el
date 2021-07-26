@@ -38,6 +38,7 @@
 (require 'ewoc)
 (require 'shr)
 (require 'subr-x)
+(require 'mwheel)
 
 (require 'ement-api)
 (require 'ement-macros)
