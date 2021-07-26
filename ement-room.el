@@ -810,68 +810,79 @@ the first and last nodes in the buffer, respectively."
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
-  (let* ((ewoc ement-ewoc)
-         (event< (lambda (a b)
-                   "Return non-nil if event A's timestamp is before B's."
-                   (< (ement-event-origin-server-ts a)
-                      (ement-event-origin-server-ts b))))
-         (node-before (ement-room--ewoc-node-before ewoc event event< :pred #'ement-event-p))
-         new-node)
-    (setf new-node (if (not node-before)
-                       (progn
-                         (ement-debug "No event before it: add first.")
-                         (if-let ((first-node (ewoc-nth ewoc 0)))
-                             (progn
-                               (ement-debug "EWOC not empty.")
-                               (if (and (ement-user-p (ewoc-data first-node))
-                                        (equal (ement-event-sender event)
-                                               (ewoc-data first-node)))
-                                   (progn
-                                     (ement-debug "First node is header for this sender: insert after it, instead.")
-                                     (setf node-before first-node)
-                                     (ewoc-enter-after ewoc first-node event))
-                                 (ement-debug "First node is not header for this sender: insert first.")
-                                 (ewoc-enter-first ewoc event)))
-                           (ement-debug "EWOC empty: add first.")
-                           (ewoc-enter-first ewoc event)))
-                     (ement-debug "Found event before new event: insert after it.")
-                     (when-let ((next-node (ewoc-next ewoc node-before)))
-                       (when (and (ement-user-p (ewoc-data next-node))
-                                  (equal (ement-event-sender event)
-                                         (ewoc-data next-node)))
-                         (ement-debug "Next node is header for this sender: insert after it, instead.")
-                         (setf node-before next-node)))
-                     (ewoc-enter-after ewoc node-before event)))
-    ;; Insert sender where necessary.
-    (when ement-room-sender-headers
-      ;; TODO: Do this more flexibly.
-      (if (not node-before)
-          (progn
-            (ement-debug "No event before: Add sender before new node.")
-            (ewoc-enter-before ewoc new-node (ement-event-sender event)))
-        (ement-debug "Event before: compare sender.")
-        (if (equal (ement-event-sender event)
-                   (pcase-exhaustive (ewoc-data node-before)
-                     ((pred ement-event-p)
-                      (ement-event-sender (ewoc-data node-before)))
-                     ((pred ement-user-p)
-                      (ewoc-data node-before))
-                     (`(ts ,(pred numberp))
-                      ;; Timestamp header.
-                      (when-let ((node-before-ts (ewoc-prev ewoc node-before)))
-                        ;; FIXME: Well this is ugly.  Make a filter predicate or something.
-                        (pcase-exhaustive (ewoc-data node-before-ts)
-                          ((pred ement-event-p)
-                           (ement-event-sender (ewoc-data node-before)))
-                          ((pred ement-user-p)
-                           (ewoc-data node-before)))))))
-            (ement-debug "Same sender.")
-          (ement-debug "Different sender: insert new sender node.")
-          (ewoc-enter-before ewoc new-node (ement-event-sender event))
-          (when-let* ((next-node (ewoc-next ewoc new-node)))
-            (when (ement-event-p (ewoc-data next-node))
-              (ement-debug "Event after from different sender: insert its sender before it.")
-              (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node))))))))))
+  (cl-labels ((format-event
+               (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
+                               (/ (ement-event-origin-server-ts event) 1000)
+                               (format-time-string "%Y-%m-%d %H:%M:%S"
+                                                   (/ (ement-event-origin-server-ts event) 1000))
+                               (ement-user-id (ement-event-sender event))
+                               (when (alist-get 'body (ement-event-content event))
+                                 (substring-no-properties
+                                  (truncate-string-to-width (alist-get 'body (ement-event-content event)) 20))))))
+    (ement-debug "INSERTING NEW EVENT: " (format-event event))
+    (let* ((ewoc ement-ewoc)
+           (event< (lambda (a b)
+                     "Return non-nil if event A's timestamp is before B's."
+                     (< (ement-event-origin-server-ts a)
+                        (ement-event-origin-server-ts b))))
+           (node-before (ement-room--ewoc-node-before ewoc event event< :pred #'ement-event-p))
+           new-node)
+      (setf new-node (if (not node-before)
+                         (progn
+                           (ement-debug "No event before it: add first.")
+                           (if-let ((first-node (ewoc-nth ewoc 0)))
+                               (progn
+                                 (ement-debug "EWOC not empty.")
+                                 (if (and (ement-user-p (ewoc-data first-node))
+                                          (equal (ement-event-sender event)
+                                                 (ewoc-data first-node)))
+                                     (progn
+                                       (ement-debug "First node is header for this sender: insert after it, instead.")
+                                       (setf node-before first-node)
+                                       (ewoc-enter-after ewoc first-node event))
+                                   (ement-debug "First node is not header for this sender: insert first.")
+                                   (ewoc-enter-first ewoc event)))
+                             (ement-debug "EWOC empty: add first.")
+                             (ewoc-enter-first ewoc event)))
+                       (ement-debug "Found event before new event: insert after it.")
+                       (when-let ((next-node (ewoc-next ewoc node-before)))
+                         (when (and (ement-user-p (ewoc-data next-node))
+                                    (equal (ement-event-sender event)
+                                           (ewoc-data next-node)))
+                           (ement-debug "Next node is header for this sender: insert after it, instead.")
+                           (setf node-before next-node)))
+                       (ement-debug "Inserting after event: " (format-event (ewoc-data node-before)))
+                       (ewoc-enter-after ewoc node-before event)))
+      ;; Insert sender where necessary.
+      (when ement-room-sender-headers
+        ;; TODO: Do this more flexibly.
+        (if (not node-before)
+            (progn
+              (ement-debug "No event before: Add sender before new node.")
+              (ewoc-enter-before ewoc new-node (ement-event-sender event)))
+          (ement-debug "Event before: compare sender.")
+          (if (equal (ement-event-sender event)
+                     (pcase-exhaustive (ewoc-data node-before)
+                       ((pred ement-event-p)
+                        (ement-event-sender (ewoc-data node-before)))
+                       ((pred ement-user-p)
+                        (ewoc-data node-before))
+                       (`(ts ,(pred numberp))
+                        ;; Timestamp header.
+                        (when-let ((node-before-ts (ewoc-prev ewoc node-before)))
+                          ;; FIXME: Well this is ugly.  Make a filter predicate or something.
+                          (pcase-exhaustive (ewoc-data node-before-ts)
+                            ((pred ement-event-p)
+                             (ement-event-sender (ewoc-data node-before)))
+                            ((pred ement-user-p)
+                             (ewoc-data node-before)))))))
+              (ement-debug "Same sender.")
+            (ement-debug "Different sender: insert new sender node.")
+            (ewoc-enter-before ewoc new-node (ement-event-sender event))
+            (when-let* ((next-node (ewoc-next ewoc new-node)))
+              (when (ement-event-p (ewoc-data next-node))
+                (ement-debug "Event after from different sender: insert its sender before it.")
+                (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node)))))))))))
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
