@@ -1,4 +1,4 @@
-#+TITLE: ement.el
+#+TITLE: ement [[images/logo64.png]]
 
 #+PROPERTY: LOGGING nil
 
