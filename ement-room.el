@@ -198,7 +198,7 @@ Automatically set by setting `ement-room-message-format-spec',
 but may be overridden manually."
   :type 'boolean)
 
-(defcustom ement-room-message-format-spec "%B%r%R%t"
+(defcustom ement-room-message-format-spec "%S%L%B%r%R%t"
   "Format messages according to this spec.
 It may contain these specifiers:
 
