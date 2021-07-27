@@ -410,10 +410,11 @@ timestamp headers into appropriate places while maintaining
 point's position.  If RETRO is non-nil, assume EVENTS are earlier
 than any existing events, and only insert timestamp headers up to
 the previously oldest event."
-  (let (buffer-window point-node orig-first-node)
+  (let (buffer-window point-node orig-first-node point-max-p)
     (when (get-buffer-window (current-buffer))
       ;; HACK: See below.
-      (setf buffer-window (get-buffer-window (current-buffer))))
+      (setf buffer-window (get-buffer-window (current-buffer))
+            point-max-p (= (point) (point-max))))
     (when (and buffer-window retro)
       (setf point-node (ewoc-locate ement-ewoc (window-start buffer-window))
             orig-first-node (ewoc-nth ement-ewoc 0)))
@@ -441,11 +442,12 @@ the previously oldest event."
     ;; for a long time, as the time to do this in each buffer will increase with the
     ;; number of events.  At least we only do it once per batch of events.)
     (ement-room--insert-ts-headers nil (when retro orig-first-node))
-    (when (and buffer-window retro)
-      (with-selected-window buffer-window
-        (set-window-start nil (ewoc-location point-node))
-        ;; TODO: Experiment with this.
-        (forward-line -1)))))
+    (when buffer-window
+      (cond (retro (with-selected-window buffer-window
+                     (set-window-start buffer-window (ewoc-location point-node))
+                     ;; TODO: Experiment with this.
+                     (forward-line -1)))
+            (point-max-p (set-window-point buffer-window (point-max)))))))
 
 (declare-function ement--make-event "ement.el")
 (defun ement-room-retro-callback (room data)
