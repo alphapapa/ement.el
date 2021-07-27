@@ -742,10 +742,10 @@ function to `ement-room-event-fns', which see."
              ;; Every time a room buffer is made, these reaction events are processed again, so we use pushnew to
              ;; avoid duplicates.  (In the future, as event-processing is refactored, this may not be necessary.)
              (cl-pushnew event (map-elt (ement-event-local related-event) 'reactions))
-             (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching
-                                          (lambda (data)
-                                            (and (ement-event-p data)
-                                                 (equal related-id (ement-event-id data)))))))
+             (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
+                                           (lambda (data)
+                                             (and (ement-event-p data)
+                                                  (equal related-id (ement-event-id data)))))))
          ;; No known related event: discard.
          ;; TODO: Is this the correct thing to do?
          nil)))))
@@ -787,16 +787,17 @@ buffer should be a room's buffer."
                      (funcall pred (ewoc-data node)))
            finally return node))
 
-(defun ement-room--ewoc-last-matching (predicate)
-  "Return the last node in current buffer's EWOC matching PREDICATE.
+(defun ement-room--ewoc-last-matching (ewoc predicate)
+  "Return the last node in EWOC matching PREDICATE.
 PREDICATE is called with node's data.  Searches backward from
 last node."
+  (declare (indent defun))
   ;; Intended to be like `ewoc-collect', but returning as soon as a match is found.
-  (cl-loop with node = (ewoc-nth ement-ewoc -1)
+  (cl-loop with node = (ewoc-nth ewoc -1)
            while node
            when (funcall predicate (ewoc-data node))
            return node
-           do (setf node (ewoc-prev ement-ewoc node))))
+           do (setf node (ewoc-prev ewoc node))))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
   "Insert timestamp headers into current buffer's `ement-ewoc'.
