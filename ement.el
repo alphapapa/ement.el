@@ -54,6 +54,7 @@
 (require 'ement-macros)
 (require 'ement-structs)
 (require 'ement-room)
+(require 'ement-notify)
 
 ;;;; Variables
 
@@ -112,6 +113,13 @@ Writes the session file when Emacs is killed."
 (defcustom ement-after-initial-sync-hook '(ement-list-rooms)
   "Hook run after initial sync.
 Run with one argument, the session synced."
+  :type 'hook)
+
+(defcustom ement-event-hook
+  '(ement-notify)
+  "Hook called for events.
+Each function is called with three arguments: the event, the
+room, and the session."
   :type 'hook)
 
 ;;;; Commands
@@ -418,13 +426,15 @@ To be called in `ement-sync-callback-hook'."
                    (type accessor)
                    ;; Push new events of TYPE to room's slot of ACCESSOR, and return the latest timestamp pushed.
 		   `(let ((ts 0))
-		      (cl-loop for event across (alist-get 'events ,type)
-                               for event-struct = (ement--make-event event)
-                               do (push event-struct (,accessor room))
+                      ;; NOTE: We replace each event in the vector with the
+                      ;; struct, which is used when calling hooks later.
+		      (cl-loop for event across-ref (alist-get 'events ,type)
+                               do (setf event (ement--make-event event))
+                               do (push event (,accessor room))
                                (when (ement--sync-messages-p session)
                                  (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
-                               (when (> (ement-event-origin-server-ts event-struct) ts)
-                                 (setf ts (ement-event-origin-server-ts event-struct))))
+                               (when (> (ement-event-origin-server-ts event) ts)
+                                 (setf ts (ement-event-origin-server-ts event))))
 		      ;; One would think that one should use `maximizing' here, but, completely
 		      ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
 		      ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
@@ -443,7 +453,11 @@ To be called in `ement-sync-callback-hook'."
       (unless (ement-session-has-synced-p session)
         ;; Only set this token on initial sync, otherwise it would
         ;; overwrite earlier tokens from loading earlier messages.
-        (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))))
+        (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline)))
+      (when (ement-session-has-synced-p session)
+        ;; Run event hooks (not on initial sync).
+        (cl-loop for event across (alist-get 'events timeline)
+                 do (run-hook-with-args 'ement-event-hook event room session))))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.

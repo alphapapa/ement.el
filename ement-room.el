@@ -1249,7 +1249,7 @@ ROOM defaults to the value of `ement-room'."
                 'face face
                 'help-echo (ement-user-id user))))
 
-(defun ement-room--event-mentions-user (event user)
+(cl-defun ement-room--event-mentions-user (event user &optional (room ement-room))
   "Return non-nil if EVENT mentions USER."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body formatted_body) content)
@@ -1257,12 +1257,13 @@ ROOM defaults to the value of `ement-room'."
     ;; FIXME: `ement-room--user-display-name' may not be returning the
     ;; right result for the local user, so test the displayname slot too.
     ;; HACK: So we use the username slot, which was created just for this, for now.
-    (or (string-match-p (regexp-quote (ement-user-username user))
-                        body)
-        (string-match-p (regexp-quote (ement-room--user-display-name user ement-room))
-                        body)
-        (string-match-p (regexp-quote (ement-user-id user))
-                        body))))
+    (when body
+      (cl-macrolet ((matches-body-p
+                     (form) `(when-let ((string ,form))
+                               (string-match-p (regexp-quote string) body))))
+        (or (matches-body-p (ement-user-username user))
+            (matches-body-p (ement-room--user-display-name user room))
+            (matches-body-p (ement-user-id user)))))))
 
 ;; NOTE: This function is not useful when displaynames are shown in the margin, because
 ;; margins are not mouse-interactive in Emacs, therefore the help-echo function is called
