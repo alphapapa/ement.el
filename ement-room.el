@@ -1101,8 +1101,11 @@ Format defaults to `ement-room-message-format-spec', which see."
                           (add-face-text-property 0 (length body) (body-face) 'append body)
                           body))
                     (?i (ement-event-id event))
-                    (?s (propertize (ement-user-id (ement-event-sender event))
-                                    'face 'ement-room-user))
+                    ;; Add unit separators to prevent, e.g. dabbrev-expand
+                    ;; from reading displaynames with the next field.
+                    (?s (concat (propertize (ement-user-id (ement-event-sender event))
+                                            'face 'ement-room-user)
+                                "​"))
                     (?S (let ((sender (ement-room--format-user (ement-event-sender event) ement-room)))
                           (when (and ement-room-sender-in-left-margin
                                      (< (string-width sender) ement-room-left-margin-width))
@@ -1114,7 +1117,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                           ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
                           ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
                           ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
-                          sender))
+                          (concat sender "​")))
                     (?r (ement-room--format-reactions event))
                     (?t (propertize (format-time-string ement-room-timestamp-format
                                                         ;; Timestamps are in milliseconds.
