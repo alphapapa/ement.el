@@ -1062,6 +1062,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                   `(list ,@(cl-loop for (char form) in specs
                                     collect `(cons ,char (lambda (event) ,form)))))
                 (body-face
+                 ;; HACK: Reads `ement-session' from current buffer.
                  () `(cond ((equal (ement-user-id sender)
                                    (ement-user-id (ement-session-user ement-session)))
                             'ement-room-self-message)
@@ -1082,23 +1083,14 @@ Format defaults to `ement-room-message-format-spec', which see."
                     ;; for `ement-room-message-format-spec'.
                     (?L (progn (ignore event) (setf margin-p t) (propertize " " 'left-margin-end t)))
                     (?R (progn (ignore event) (setf margin-p t) (propertize " " 'right-margin-start t)))
-                    ;; HACK: Reads `ement-session' from current buffer.
-                    (?b (pcase-let*
-                            (((cl-struct ement-event content sender) event)
-                             ((map body) content))
+                    ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
+                    (?b (pcase-let* (((cl-struct ement-event sender) event)
+                                     (body (save-match-data
+                                             (ement-room--format-message-body event :formatted-p nil))))
                           (propertize body 'face (body-face))))
-                    (?B (pcase-let*
-                            (((cl-struct ement-event content sender) event)
-                             ((map body ('format content-format) ('formatted_body formatted-body)) content)
-                             (body (if (not formatted-body)
-                                       ;; Copy the string so as not to add face properties to the one in the struct.
-                                       (copy-sequence body)
-                                     (pcase content-format
-                                       ("org.matrix.custom.html"
-                                        (save-match-data
-                                          (ement-room--render-html formatted-body)))
-                                       (_ (format "[unknown body format: %s] %s"
-                                                  content-format body))))))
+                    (?B (pcase-let* (((cl-struct ement-event sender) event)
+                                     (body (save-match-data
+                                             (ement-room--format-message-body event))))
                           (add-face-text-property 0 (length body) (body-face) 'append body)
                           body))
                     (?i (ement-event-id event))
@@ -1190,6 +1182,28 @@ Format defaults to `ement-room-message-format-spec', which see."
                (propertize " "
                            'display `((margin right-margin) ,string))))))
         (buffer-string)))))
+
+(cl-defun ement-room--format-message-body (event &key (formatted-p t))
+  "Return formatted body of \"m.room.message\" EVENT.
+If FORMATTED-P, return the formatted body content, when available."
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map body msgtype ('format content-format) ('formatted_body formatted-body))
+                content)
+               (body (if (or (not formatted-p) (not formatted-body))
+                         ;; Copy the string so as not to add face properties to the one in the struct.
+                         (copy-sequence body)
+                       (pcase content-format
+                         ("org.matrix.custom.html"
+                          (save-match-data
+                            (ement-room--render-html formatted-body)))
+                         (_ (format "[unknown body format: %s] %s"
+                                    content-format body)))))
+               (appendix (pcase msgtype
+                           ("m.image" (ement-room--format-m.image event))
+                           (_ nil))))
+    (when appendix
+      (setf body (concat body " " appendix)))
+    body))
 
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
@@ -1331,6 +1345,134 @@ For use as a `help-echo' function on `ement-user' headings."
                                (string (concat membership " (" displayname ")")))
                     (insert (propertize string
                                         'help-echo #'ement-room--membership-help-echo)))))
+
+;;;;; Images
+
+;; Downloading and displaying images in messages, room/user avatars, etc.
+
+(require 'image)
+
+(defvar ement-room-image-keymap
+  (let ((map (make-sparse-keymap)))
+    ;; TODO: Make RET work for showing images too.
+    ;; (define-key map (kbd "RET") #'ement-room-image-show)
+    (define-key map [mouse-1] #'ement-room-image-scale-mouse)
+    (define-key map [double-mouse-1] #'ement-room-image-show)
+    map)
+  "Keymap for images in room buffers.")
+
+(defcustom ement-room-images t
+  "Download and show images in messages, avatars, etc."
+  :type 'boolean
+  :set (lambda (option value)
+         (if (fboundp 'imagemagick-types)
+             (set-default option value)
+           (set-default option nil)
+           (when value
+             (display-warning 'ement "This Emacs was not built with ImageMagick support, so images can't be displayed in Ement")))))
+
+(defun ement-room-image-scale-mouse (event)
+  "Scale image at mouse click to fit in window."
+  (interactive "e")
+  (pcase-let* ((`(,_type ,position ,_count) event)
+               (window (posn-window position))
+               (pos (event-start position)))
+    (with-selected-window window
+      (pcase-let* ((image (get-text-property pos 'display))
+                   (width (window-body-width nil t))
+                   (height (window-body-height nil t)))
+        (setf (image-property image :type) 'imagemagick
+              (image-property image :max-width) width
+              (image-property image :max-height) height)))))
+
+(defun ement-room-image-show (event)
+  "Show image at click in a new buffer."
+  (interactive "e")
+  (pcase-let* ((`(,_type ,position ,_count) event)
+               (window (posn-window position)))
+    (with-current-buffer (window-buffer window)
+      (pcase-let* ((pos (event-start position))
+                   (image (copy-sequence (get-text-property pos 'display)))
+                   (ement-event (ewoc-data (ewoc-locate ement-ewoc pos)))
+                   ((cl-struct ement-event id) ement-event)
+                   (buffer-name (format "*Ement image: %s*" id))
+                   (show-buffer (get-buffer-create buffer-name)))
+        (setf (image-property image :type) 'imagemagick
+              (image-property image :scale) 1.0
+              (image-property image :max-width) nil
+              (image-property image :max-height) nil)
+        (with-current-buffer show-buffer
+          (erase-buffer)
+          (insert-image image))
+        (pop-to-buffer show-buffer '((display-buffer-pop-up-frame)))
+        (set-frame-parameter nil 'fullscreen 'maximized)))))
+
+(declare-function ement--mxc-to-url "ement.el")
+(defun ement-room--format-m.image (event)
+  "Return \"m.image\" EVENT formatted as a string.
+When `ement-room-images' is non-nil, also download it and then
+show it in the buffer."
+  (pcase-let* (((cl-struct ement-event content (local event-local)) event)
+               ;; HACK: Get the room's buffer from the variable (the current buffer
+               ;; will be a temp formatting buffer when this is called, but it still
+               ;; inherits the `ement-room' variable from the room buffer, thankfully).
+               ((cl-struct ement-room local) ement-room)
+               ((map buffer) local)
+               ;; TODO: Thumbnail support.
+               ((map url info ;; (thumbnail_url thumbnail-url)
+                     ) content)
+               ((map thumbnail_info) info)
+               ((map ('h _thumbnail-height) ('w _thumbnail-width)) thumbnail_info)
+               ((map image) event-local)
+               (url (ement--mxc-to-url url ement-session))
+               ;; (thumbnail-url (ement--mxc-to-url thumbnail-url ement-session))
+               )
+    (if (and ement-room-images image)
+        ;; Images enabled and image downloaded: create image and
+        ;; return it in a string.
+        (let ((image (create-image image nil 'data-p :ascent 'center))
+              (buffer-window (when buffer
+                               (get-buffer-window buffer)))
+              max-height max-width)
+          ;; Calculate max image display size.
+          (cond (buffer-window
+                 ;; Buffer displayed: use window size.
+                 (setf max-height (window-body-height buffer-window t)
+                       max-width (window-body-width buffer-window t)))
+                (t
+                 ;; Buffer not displayed: use frame size.
+                 (setf max-height (frame-pixel-height)
+                       max-width (frame-pixel-width))))
+          (setf (image-property image :type) 'imagemagick
+                (image-property image :max-width) max-width
+                (image-property image :max-height) max-height)
+          (concat "\n"
+                  (propertize " " 'display image
+                              'keymap ement-room-image-keymap)))
+      ;; Image not downloaded: insert URL as button, and download if enabled.
+      (prog1
+          (with-temp-buffer
+            (insert-text-button url
+                                'face 'link
+                                'follow-link t)
+            (buffer-string))
+        (when ement-room-images
+          ;; Images enabled: download it.
+          (plz 'get url :as 'binary
+            :then (apply-partially #'ement-room--m.image-callback event ement-room)
+            :noquery t))))))
+
+(defun ement-room--m.image-callback (event room data)
+  "Add downloaded image from DATA to EVENT in ROOM.
+Then invalidate EVENT's node to show the image."
+  (pcase-let* (((cl-struct ement-room (local room-local)) room)
+               ((map buffer) room-local))
+    (setf (map-elt (ement-event-local event) 'image) data)
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
+                                      (lambda (node-data)
+                                        (eq node-data event))))))))
 
 ;;;; Footer
 

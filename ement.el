@@ -555,6 +555,18 @@ Writes Ement session to disk when enabled."
                (car ement-sessions))
       (ement--write-session (car ement-sessions)))))
 
+(defun ement--mxc-to-url (uri session)
+  "Return HTTPS URL for MXC URI accessed through SESSION."
+  (pcase-let* (((cl-struct ement-session server) session)
+               ((cl-struct ement-server uri-prefix) server)
+               (server-name) (media-id))
+    (string-match (rx "mxc://" (group (1+ (not (any "/"))))
+                      "/" (group (1+ anything))) uri)
+    (setf server-name (match-string 1 uri)
+          media-id (match-string 2 uri))
+    (format "%s/_matrix/media/r0/download/%s/%s"
+            uri-prefix server-name media-id)))
+
 ;;;; Footer
 
 (provide 'ement)

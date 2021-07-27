@@ -117,6 +117,8 @@ In a room buffer:
 -  ~r~ selects another room.
 -  ~R~ shows the room list.
 -  ~M-v~ or using the scroll wheel at the top of the buffer loads older messages.
+-  Click an image to resize it to the window.
+-  Double-click an image to show it in a new buffer at full size.
 
 ** Tips
 
