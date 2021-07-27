@@ -185,7 +185,10 @@ See function `format-time-string'."
                  string))
 
 (defcustom ement-room-left-margin-width 0
-  "Width of left margin in room buffers."
+  "Width of left margin in room buffers.
+When using a non-graphical display, this should be set slightly
+wider than when using a graphical display, to prevent sender
+display names from colliding with event text."
   :type 'integer)
 
 (defcustom ement-room-right-margin-width (length ement-room-timestamp-format)
