@@ -676,21 +676,22 @@ data slot."
   (if-let ((cached-name (gethash room (ement-user-room-display-names user))))
       cached-name
     ;; Put timeline events before state events, because IIUC they should be more recent.
-    (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
-                                        when (and (equal "m.room.member" (ement-event-type event))
-                                                  (equal user (ement-event-sender event))
-                                                  (alist-get 'displayname (ement-event-content event)))
-                                        return (alist-get 'displayname (ement-event-content event)))
-                               (cl-loop for event in (ement-room-state room)
-                                        when (and (equal "m.room.member" (ement-event-type event))
-                                                  (equal user (ement-event-sender event))
-                                                  (alist-get 'displayname (ement-event-content event)))
-                                        return (alist-get 'displayname (ement-event-content event)))))
-              (calculated-name displayname))
-        (puthash room calculated-name (ement-user-room-display-names user))
-      ;; No membership state event: use pre-calculated displayname or ID.
-      (or (ement-user-displayname user)
-          (ement-user-id user)))))
+    (cl-labels ((join-displayname-event-p
+                 (event) (and (equal "m.room.member" (ement-event-type event))
+                              (equal "join" (alist-get 'membership (ement-event-content event)))
+                              (equal user (ement-event-sender event))
+                              (alist-get 'displayname (ement-event-content event)))))
+      (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
+                                          when (join-displayname-event-p event)
+                                          return (alist-get 'displayname (ement-event-content event)))
+                                 (cl-loop for event in (ement-room-state room)
+                                          when (join-displayname-event-p event)
+                                          return (alist-get 'displayname (ement-event-content event)))))
+                (calculated-name displayname))
+          (puthash room calculated-name (ement-user-room-display-names user))
+        ;; No membership state event: use pre-calculated displayname or ID.
+        (or (ement-user-displayname user)
+            (ement-user-id user))))))
 
 (defun ement-room--event-data (id)
   "Return event struct for event ID in current buffer."
