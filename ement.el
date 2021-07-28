@@ -251,8 +251,10 @@ If no URI is found, prompt the user for the hostname."
                          (map-nested-elt object '(m.homeserver base_url))
                        ;; Parsing error: FAIL_PROMPT.
                        (fail-prompt))))
-    (let ((response (plz-get-sync (concat "https://" hostname "/.well-known/matrix/client")
-                      :as 'response)))
+    (let ((response (condition-case err
+                        (plz-get-sync (concat "https://" hostname "/.well-known/matrix/client")
+                          :as 'response)
+                      (plz-http-error (plz-error-response (cdr err))))))
       (pcase (plz-response-status response)
         (404 (fail-prompt))
         (200 (parse (plz-response-body response)))
