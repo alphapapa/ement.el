@@ -480,6 +480,8 @@ Adds sender to `ement-users' when necessary."
   "Return the displayname for ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
 
+  ;; TODO: Implement step 3 from the spec, using room members to compose name.
+
   ;; NOTE: That spec says "state event," but in practice some rooms have these events only in
   ;; their "timeline" events, so these functions need to check both.  Which should take
   ;; priority?  I don't know.  Since some don't have, e.g. "m.room.name" events in their state
