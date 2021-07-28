@@ -1403,15 +1403,15 @@ For use as a `help-echo' function on `ement-user' headings."
                    (ement-event (ewoc-data (ewoc-locate ement-ewoc pos)))
                    ((cl-struct ement-event id) ement-event)
                    (buffer-name (format "*Ement image: %s*" id))
-                   (show-buffer (get-buffer-create buffer-name)))
+                   (new-buffer (get-buffer-create buffer-name)))
         (setf (image-property image :type) 'imagemagick
               (image-property image :scale) 1.0
               (image-property image :max-width) nil
               (image-property image :max-height) nil)
-        (with-current-buffer show-buffer
+        (with-current-buffer new-buffer
           (erase-buffer)
           (insert-image image))
-        (pop-to-buffer show-buffer '((display-buffer-pop-up-frame)))
+        (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
         (set-frame-parameter nil 'fullscreen 'maximized)))))
 
 (declare-function ement--mxc-to-url "ement.el")
