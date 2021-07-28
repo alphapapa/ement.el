@@ -601,7 +601,7 @@ the previously oldest event."
   (unwind-protect
       (progn
         (when ement-room-send-typing
-          (setf ement-room-typing-timer (run-at-time nil 20 #'ement-room--send-typing ement-session ement-room)))
+          (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
         (let ((body (read-string prompt)))
           (unless (string-empty-p body)
             (pcase-let* (((cl-struct ement-session server token) ement-session)
@@ -632,7 +632,7 @@ the previously oldest event."
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/typing/%s"
                                  (url-hexify-string room-id) (url-hexify-string user-id)))
-               (data (ement-alist "typing" typing "timeout" 15000)))
+               (data (ement-alist "typing" typing "timeout" 20000)))
     (ement-api server token endpoint
       #'ignore ;; We don't really care about the response, I think.
       :data (json-encode data)
