@@ -49,8 +49,17 @@
   "Display notification if any of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
 room, and the session (each the respective struct)."
-  :type 'hook
-  :options '(ement-notify--event-mentions-session-user-p))
+  :type '(repeat (choice (function-item ement-notify--event-mentions-session-user-p)
+                         (function-item ement-notify--room-buffer-live-p)
+                         (function :tag "Custom predicate"))))
+
+(defcustom ement-notify-filters
+  '(ement-notify--event-message-p)
+  "Display notification if all of these return non-nil for an event.
+Each predicate is called with three arguments: the event, the
+room, and the session (each the respective struct)."
+  :type '(repeat (choice (function-item ement-notify--event-message-p)
+                         (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
   '(ement-notify--notify)
@@ -78,8 +87,10 @@ the session (each the respective struct)."
   "Send notifications for EVENT in ROOM on SESSION.
 Calls functions in `ement-notify-functions' if any of
 `ement-notify-predicates' return non-nil."
-  (when (cl-loop for pred in ement-notify-predicates
-                 thereis (funcall pred event room session))
+  (when (and (cl-loop for pred in ement-notify-predicates
+                      thereis (funcall pred event room session))
+             (cl-loop for pred in ement-notify-functions
+                      always (funcall pred event room session)))
     (run-hook-with-args 'ement-notify-functions event room session)))
 
 (defun ement-notify--notify (event room _session)
@@ -114,6 +125,14 @@ If EVENT's sender is SESSION's user, returns nil."
                ((cl-struct ement-event sender) event))
     (unless (equal (ement-user-id user) (ement-user-id sender))
       (ement-room--event-mentions-user event user room))))
+
+(defun ement-notify--room-buffer-live-p (_event room _session)
+  "Return non-nil if ROOM has a live buffer."
+  (buffer-live-p (alist-get 'buffer (ement-room-local room))))
+
+(defun ement-notify--event-message-p (event _room _session)
+  "Return non-nil if EVENT is an \"m.room.message\" event."
+  (equal "m.room.message" (ement-event-type event)))
 
 ;;;; Footer
 
