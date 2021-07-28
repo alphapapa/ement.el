@@ -577,7 +577,7 @@ the previously oldest event."
             ement-room-replying-to-overlay nil))))
 
 (defun ement-room--add-reply (data replying-to-event)
-  "Return DATA adding reply data for EVENT in current buffer's room.
+  "Return DATA adding reply data for REPLYING-TO-EVENT in current buffer's room.
 DATA is an unsent message event's data alist."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id351> "13.2.2.6.1  Rich replies"
   ;; FIXME: Rename DATA.
@@ -786,7 +786,7 @@ buffer should be a room's buffer."
 ;;;;; EWOC
 
 (defun ement-room--ewoc-next-matching (ewoc node pred)
-  "Return the next node in EWOC after NODE that matches PRED."
+  "Return the next node in EWOC after NODE that PRED is true of."
   ;; MAYBE: Make the next/prev fn an arg.
   (cl-loop do (setf node (ewoc-next ewoc node))
            until (or (null node)
@@ -1379,7 +1379,7 @@ For use as a `help-echo' function on `ement-user' headings."
              (display-warning 'ement "This Emacs was not built with ImageMagick support, so images can't be displayed in Ement")))))
 
 (defun ement-room-image-scale-mouse (event)
-  "Scale image at mouse click to fit in window."
+  "Scale image at mouse EVENT to fit in window."
   (interactive "e")
   (pcase-let* ((`(,_type ,position ,_count) event)
                (window (posn-window position))
@@ -1393,7 +1393,7 @@ For use as a `help-echo' function on `ement-user' headings."
               (image-property image :max-height) height)))))
 
 (defun ement-room-image-show (event)
-  "Show image at click in a new buffer."
+  "Show image at mouse EVENT in a new buffer."
   (interactive "e")
   (pcase-let* ((`(,_type ,position ,_count) event)
                (window (posn-window position)))

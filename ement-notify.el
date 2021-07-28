@@ -46,7 +46,7 @@
 
 (defcustom ement-notify-predicates
   '(ement-notify--event-mentions-session-user-p)
-  "Notification is displayed if any of these predicates return non-nil for an event.
+  "Display notification if any of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
 room, and the session (each the respective struct)."
   :type 'hook
@@ -108,7 +108,7 @@ Calls functions in `ement-notify-functions' if any of
                           )))
 
 (defun ement-notify--event-mentions-session-user-p (event room session)
-  "Return non-nil if EVENT mentions SESSION's user.
+  "Return non-nil if EVENT in ROOM mentions SESSION's user.
 If EVENT's sender is SESSION's user, returns nil."
   (pcase-let* (((cl-struct ement-session user) session)
                ((cl-struct ement-event sender) event))
