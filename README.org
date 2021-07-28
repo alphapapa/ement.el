@@ -104,8 +104,10 @@ If you want to install it manually, it's simple enough, but you should know what
 1.  Call command ~ement-connect~ to connect.
 2.  Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
 3.  Use these commands:
-      -  ~ement-view-room~ to select a room buffer to view, with completion.
       -  ~ement-list-rooms~ to view the list of joined rooms.
+      -  ~ement-view-room~ to view a room's buffer, selected with completion.
+      -  ~ement-join-room~ to join a room.
+      -  ~ement-leave-room~ to leave a room.
 
 In a room buffer:
 

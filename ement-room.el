@@ -318,6 +318,16 @@ See Info node `(elisp)Specified Space'."
   "Send typing notifications to the server while typing a message."
   :type 'boolean)
 
+(defcustom ement-room-join-view-buffer t
+  "View room buffer when joining a room."
+  :type 'boolean)
+
+(defcustom ement-room-leave-kill-buffer t
+  "Kill room buffer when leaving a room.
+When disabled, the room's buffer will remain open, but
+Matrix-related commands in it will fail."
+  :type 'boolean)
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -350,6 +360,84 @@ See Info node `(elisp)Specified Space'."
       (ement-view-room (car ement-sessions) room))))
 
 ;;;; Commands
+
+(defun ement-room-join (id-or-alias session)
+  "Join room by ID-OR-ALIAS on SESSION."
+  (interactive (list (read-string "Join room (ID or alias): ")
+                     ement-session))
+  (cl-assert id-or-alias) (cl-assert session)
+  (pcase-let* (((cl-struct ement-session server token) session)
+               (endpoint (format "join/%s" (url-hexify-string id-or-alias))))
+    (ement-api server token endpoint
+      (lambda (data)
+        ;; NOTE: This generates a symbol and sets its function value to a lambda
+        ;; which removes the symbol from the hook, removing itself from the hook.
+        ;; TODO: When requiring Emacs 27, use `letrec'.
+        (pcase-let* (((map ('room_id room-id)) data)
+                     (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
+                     (join-fn (lambda (session)
+                                (remove-hook 'ement-sync-callback-hook join-fn-symbol)
+                                (let ((room (cl-loop for room in (ement-session-rooms session)
+                                                     when (equal room-id (ement-room-id room))
+                                                     return room)))
+                                  (ement-view-room session room)))))
+          (setf (symbol-function join-fn-symbol) join-fn)
+          (when ement-room-join-view-buffer
+            (add-hook 'ement-sync-callback-hook join-fn-symbol))
+          (message "Joined room: %s" room-id)))
+      :method 'post :data ""
+      :else (lambda (plz-error)
+              (pcase-let* (((cl-struct plz-error response) plz-error)
+                           ((cl-struct plz-response status body) response)
+                           ((map error) (json-read-from-string body)))
+                (pcase status
+                  ((or 403 429) (error "Unable to join room %s: %s" id-or-alias error))
+                  (_ (error "Unable to join room %s: %s %S" id-or-alias status plz-error))))))))
+(defalias 'ement-join-room #'ement-room-join)
+
+(defun ement-room-leave (id-or-alias session)
+  "Leave room by ID-OR-ALIAS on SESSION."
+  (interactive (list (completing-read "Leave room (ID or alias): "
+                                      (cl-loop for room in (ement-session-rooms ement-session)
+                                               append (delq nil (list (ement-room-id room)
+                                                                      (ement-room-canonical-alias room))))
+                                      nil t nil nil (when ement-room
+                                                      (or (ement-room-canonical-alias ement-room)
+                                                          (ement-room-id ement-room))))
+                     ement-session))
+  (cl-assert id-or-alias) (cl-assert session)
+  (when (yes-or-no-p (format "Really leave room %s?" id-or-alias))
+    (pcase-let* ((room (cl-loop for room in (ement-session-rooms session)
+                                when (or (equal id-or-alias (ement-room-id room))
+                                         (equal id-or-alias (ement-room-canonical-alias room)))
+                                return room))
+                 ((cl-struct ement-room id) room)
+                 ((cl-struct ement-session server token) session)
+                 (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
+      (ement-api server token endpoint
+        (lambda (_data)
+          ;; NOTE: This generates a symbol and sets its function value to a lambda
+          ;; which removes the symbol from the hook, removing itself from the hook.
+          ;; TODO: When requiring Emacs 27, use `letrec'.
+          (pcase-let* ((leave-fn-symbol (gensym (format "ement-leave-%s" id-or-alias)))
+                       (leave-fn (lambda (_session)
+                                   (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                                   (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
+                                     (when (buffer-live-p buffer)
+                                       (kill-buffer buffer))))))
+            (setf (symbol-function leave-fn-symbol) leave-fn)
+            (when ement-room-leave-kill-buffer
+              (add-hook 'ement-sync-callback-hook leave-fn-symbol))
+            (message "Left room: %s" id-or-alias)))
+        :method 'post :data ""
+        :else (lambda (plz-error)
+                (pcase-let* (((cl-struct plz-error response) plz-error)
+                             ((cl-struct plz-response status body) response)
+                             ((map error) (json-read-from-string body)))
+                  (pcase status
+                    (429 (error "Unable to leave room %s: %s" id-or-alias error))
+                    (_ (error "Unable to leave room %s: %s %S" id-or-alias status plz-error)))))))))
+(defalias 'ement-leave-room #'ement-room-leave)
 
 (defun ement-room-goto-prev (num)
   "Goto the NUM'th previous message in buffer."
