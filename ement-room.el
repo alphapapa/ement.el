@@ -67,12 +67,12 @@ Used by `ement-room-send-message'.")
   "Used by ement-room-send-reply.")
 
 (declare-function ement-view-room "ement.el")
-(declare-function ement-list-rooms "ement.el")
+(declare-function ement-room-list "ement-room-list.el")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "r") #'ement-view-room)
-    (define-key map (kbd "R") #'ement-list-rooms)
+    (define-key map (kbd "R") #'ement-room-list)
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
@@ -482,8 +482,8 @@ the previously oldest event."
         (setf (ement-room-prev-batch room) end
               ement-room-retro-loading nil)))))
 
-;; FIXME: What is the best way to do this, with ement--sync being in another file?
-(declare-function ement--sync "ement.el")
+;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
+(declare-function ement--sync "ement.el" t t)
 (defun ement-room-sync (session)
   "Sync SESSION (interactively, current buffer's)."
   (interactive (list ement-session))
