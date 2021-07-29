@@ -379,6 +379,7 @@ Runs `ement-sync-callback-hook' with SESSION."
 (defun ement--update-room-buffers (session)
   "Insert new events into SESSION's rooms which have buffers.
 To be called in `ement-sync-callback-hook'."
+  ;; TODO: Move this to ement-room.el, probably.
   ;; For now, we primitively iterate over the buffer list to find ones
   ;; whose mode is `ement-room-mode'.
   (let* ((buffers (cl-loop for room in (ement-session-rooms session)
@@ -425,14 +426,11 @@ To be called in `ement-sync-callback-hook'."
     ;; recent room name event.  However, chronological order is not guaranteed, e.g. after
     ;; loading older messages (the "retro" function; this behavior is in development).
 
-    ;; FIXME: Further mapping instead of alist-get.
-
     ;; Save room summary.
     (dolist (parameter '(m.heroes m.joined_member_count m.invited_member_count))
       (when (alist-get parameter summary)
         ;; These fields are only included when they change.
         (setf (alist-get parameter (ement-room-summary room)) (alist-get parameter summary))))
-
     ;; Save state and timeline events.
     (cl-macrolet ((push-events
                    (type accessor)
@@ -457,6 +455,7 @@ To be called in `ement-sync-callback-hook'."
         (cl-loop for event across (alist-get 'events ephemeral)
                  for event-struct = (ement--make-event event)
                  do (push event-struct (ement-room-ephemeral room))))
+      ;; FIXME: This is a bit convoluted and hacky now.  Refactor it.
       (setf latest-timestamp
 	    (max (push-events state ement-room-state)
 		 (push-events timeline ement-room-timeline*)))

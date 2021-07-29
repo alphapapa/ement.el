@@ -778,8 +778,8 @@ data slot."
                 (ement-room-timeline* room) nil)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
-          ;; TODO: Unify these event-insertion calls.  Probably use `ement-room--insert-events' here.
           (ement-room--process-events (ement-room-state room))
+          ;; TODO: Move event insertion to defevent handlers.
           (mapc #'ement-room--insert-event (ement-room-timeline room))
           (ement-room--process-events (ement-room-timeline room))
           (ement-room--insert-ts-headers))
