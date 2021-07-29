@@ -711,6 +711,12 @@ DATA is an unsent message event's data alist."
                 replying-to-event)
                ((cl-struct ement-user (id replying-to-sender-id)) replying-to-sender)
                ((map ('body replying-to-body) ('formatted_body replying-to-formatted-body)) content)
+               (replying-to-body (if (use-region-p)
+                                     (buffer-substring-no-properties (region-beginning) (region-end))
+                                   replying-to-body))
+               (replying-to-formatted-body (if (use-region-p)
+                                               replying-to-body
+                                             replying-to-formatted-body))
                (replying-to-sender-name (ement-room--user-display-name replying-to-sender ement-room))
                (quote-string (format "> <%s> %s\n\n" replying-to-sender-name replying-to-body))
                (reply-body (alist-get "body" data nil nil #'string=))
@@ -731,6 +737,8 @@ DATA is an unsent message event's data alist."
                         ;; <https://emacs.stackexchange.com/questions/8166/encode-non-html-characters-to-html-equivalent>.
                         (or replying-to-formatted-body replying-to-body)
                         reply-body)))
+    (when (use-region-p)
+      (deactivate-mark))
     ;; NOTE: map-elt doesn't work with string keys, so we use `alist-get'.
     (setf (alist-get "body" data nil nil #'string=) reply-body-with-quote
           (alist-get "formatted_body" data nil nil #'string=) reply-formatted-body-with-quote

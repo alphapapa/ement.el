@@ -96,7 +96,7 @@ In a room buffer:
 
 -  ~RET~ to write a new message.
 -  ~SPC~ scrolls down; when at the end of a room, the buffer is marked as read and buried.
--  ~S-RET~ writes a reply to the message at point.
+-  ~S-RET~ writes a reply to the message at point (if the region is active, only marked text is included in the reply).
 -  ~TAB~ / ~<backtab>~ moves between messages.
 -  ~v~ views an event's source.
 -  ~g~ syncs new messages (not necessary if auto sync is enabled; see below).
