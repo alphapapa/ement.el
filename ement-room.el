@@ -749,6 +749,7 @@ and erases the buffer."
         right-margin-width ement-room-right-margin-width
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
+(add-hook 'ement-room-mode-hook 'visual-line-mode)
 
 (defun ement-room--buffer (session room name)
   "Return buffer named NAME showing ROOM's events on SESSION.
@@ -759,8 +760,6 @@ data slot."
         (with-current-buffer new-buffer
           (ement-room-mode)
           (setf header-line-format 'ement-room-header-line-format)
-          ;; FIXME: Move visual-line-mode to a hook.
-          (visual-line-mode 1)
           (setf ement-session session
                 ement-room room)
           ;; Track buffer in room's slot.
