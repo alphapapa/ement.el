@@ -10541,7 +10541,7 @@ Clients may wish to show a human-readable name for a room. There are a number of
 3. If none of the above conditions are met, a name should be composed based on the members of the room. Clients should consider [[#m-room-member][m.room.member]] events for users other than the logged-in user, as defined below.
 
    1. If the number of =m.heroes= for the room are greater or equal to =m.joined_member_count + m.invited_member_count - 1=, then use the membership events for the heroes to calculate display names for the users ([[#calculating-the-display-name-for-a-user][disambiguating them if required]]) and concatenating them. For example, the client may choose to show "Alice, Bob, and Charlie (@charlie:example.org)" as the room name. The client may optionally limit the number of users it uses to generate a room name.
-   2. If there are fewer heroes than =m.joined_member_count + m.invited_member_count                                                             - 1=, and =m.joined_member_count + m.invited_member_count= is greater than 1, the client should use the heroes to calculate display names for the users ([[#calculating-the-display-name-for-a-user][disambiguating them if required]]) and concatenating them alongside a count of the remaining users. For example, "Alice, Bob, and 1234 others".
+   2. If there are fewer heroes than =m.joined_member_count + m.invited_member_count - 1=, and =m.joined_member_count + m.invited_member_count= is greater than 1, the client should use the heroes to calculate display names for the users ([[#calculating-the-display-name-for-a-user][disambiguating them if required]]) and concatenating them alongside a count of the remaining users. For example, "Alice, Bob, and 1234 others".
    3. If =m.joined_member_count + m.invited_member_count= is less than or equal to 1 (indicating the member is alone), the client should use the rules above to indicate that the room was empty. For example, "Empty Room (was Alice)", "Empty Room (was Alice and 1234 others)", or "Empty Room" if there are no heroes.
 
 Clients SHOULD internationalise the room name to the user's language when using the =m.heroes= to calculate the name. Clients SHOULD use minimum 5 heroes to calculate room names where possible, but may use more or less to fit better with their user experience.
@@ -19819,23 +19819,23 @@ A state event signifying that a room has been upgraded to a different room versi
 
 Example:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   {
-  "content": {
-  "body": "This room has been replaced",
-  "replacement_room": "!newroom:example.org"
-  },
-  "event_id": "$143273582443PhrSn:example.org",
-  "origin_server_ts": 1432735824653,
-  "room_id": "!jEsUZKDJdhlrceRyVU:example.org",
-  "sender": "@example:example.org",
-  "state_key": "",
-  "type": "m.room.tombstone",
-  "unsigned": {
-  "age": 1234
+      "content": {
+          "body": "This room has been replaced",
+          "replacement_room": "!newroom:example.org"
+      },
+      "event_id": "$143273582443PhrSn:example.org",
+      "origin_server_ts": 1432735824653,
+      "room_id": "!jEsUZKDJdhlrceRyVU:example.org",
+      "sender": "@example:example.org",
+      "state_key": "",
+      "type": "m.room.tombstone",
+      "unsigned": {
+          "age": 1234
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 *** [[#id614][13.31.2   Client behaviour]]
 :PROPERTIES:
