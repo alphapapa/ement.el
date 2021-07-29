@@ -604,15 +604,18 @@ the previously oldest event."
       (view-mode)
       (pop-to-buffer (current-buffer)))))
 
-(cl-defun ement-room-send-message (&key (prompt "Send message: "))
-  "Send message in current buffer's room."
+(cl-defun ement-room-send-message (&key (prompt "Send message"))
+  "Send message in current buffer's room.
+PROMPT should not end in a colon or space, as these will be
+automatically added after the room ID."
   (interactive)
   (cl-assert ement-room) (cl-assert ement-session)
   (unwind-protect
       (progn
         (when ement-room-send-typing
           (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
-        (let ((body (read-string prompt)))
+        (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
+               (body (read-string prompt)))
           (unless (string-empty-p body)
             (pcase-let* (((cl-struct ement-session server token) ement-session)
                          ((cl-struct ement-room id) ement-room)
@@ -668,7 +671,7 @@ the previously oldest event."
                                   (ewoc-location (ewoc-next ement-ewoc node))
                                 (point-max))))
           (overlay-put ement-room-replying-to-overlay 'face 'highlight)
-          (ement-room-send-message :prompt "Send reply: "))
+          (ement-room-send-message :prompt "Send reply"))
       (when ement-room-replying-to-overlay
         (delete-overlay ement-room-replying-to-overlay))
       (setf ement-room-replying-to-event nil
