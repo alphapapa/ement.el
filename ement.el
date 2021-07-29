@@ -509,15 +509,6 @@ Adds sender to `ement-users' when necessary."
                when (equal "m.room.canonical_alias" (ement-event-type event))
                return (alist-get 'alias (ement-event-content event)))))
 
-(defun ement--room-topic (room)
-  "Return latest m.room.topic event in ROOM."
-  (or (cl-loop for event in (ement-room-timeline room)
-               when (equal "m.room.topic" (ement-event-type event))
-               return (alist-get 'topic (ement-event-content event)))
-      (cl-loop for event in (ement-room-state room)
-               when (equal "m.room.topic" (ement-event-type event))
-               return (alist-get 'topic (ement-event-content event)))))
-
 (defun ement--read-session ()
   "Return saved session from file."
   (when (file-exists-p ement-session-file)
@@ -608,12 +599,21 @@ and `session' to the session.  Adds function to
            ,(concat "`ement-' handler function for " type " events.")
            ,@body)))
 
+;; I love how Lisp macros make it so easy and concise to define these
+;; event handlers!
+
 (ement-defevent "m.room.name"
   (ignore session)
   (pcase-let* (((cl-struct ement-event (content (map name))) event))
     (when name
       ;; Recalculate room name and cache in slot.
       (setf (ement-room-display-name room) (ement-room--room-display-name room)))))
+
+(ement-defevent "m.room.topic"
+  (ignore session)
+  (pcase-let* (((cl-struct ement-event (content (map topic))) event))
+    (when topic
+      (setf (ement-room-topic room) topic))))
 
 ;;;; Footer
 

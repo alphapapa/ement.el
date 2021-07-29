@@ -216,8 +216,6 @@ To be called in `ement-sync-callback-hook'."
                             (setf (ement-room-canonical-alias room)
                                   (ement--room-alias room))
                             id))
-               (topic (or topic
-                          (setf (ement-room-topic room) (ement--room-topic room))))
                ;; FIXME: Figure out how to track unread status cleanly.
                (e-unread (if (and buffer (buffer-modified-p buffer))
                              "U" ""))
