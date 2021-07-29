@@ -486,17 +486,53 @@ Adds sender to `ement-users' when necessary."
 (defun ement--room-display-name (room)
   "Return the displayname for ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
-
-  ;; TODO: Implement step 3 from the spec, using room members to compose name.
-
-  ;; NOTE: That spec says "state event," but in practice some rooms have these events only in
-  ;; their "timeline" events, so these functions need to check both.  Which should take
-  ;; priority?  I don't know.  Since some don't have, e.g. "m.room.name" events in their state
-  ;; events, I'll assume that the timeline events take priority and should be checked first.
-  (or (ement--room-name room)
-      (ement--room-alias room)
-      ;; FIXME: Steps 3, etc.
-      (ement-room-id room)))
+  (cl-labels ((latest-event (type content-field)
+                            (or (cl-loop for event in (ement-room-timeline room)
+                                         when (and (equal type (ement-event-type event))
+                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                                         return (alist-get content-field (ement-event-content event)))
+                                (cl-loop for event in (ement-room-state room)
+                                         when (and (equal type (ement-event-type event))
+                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                                         return (alist-get content-field (ement-event-content event)))))
+              (heroes-name
+               () (pcase-let* (((cl-struct ement-room summary) room)
+                               ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
+                                     ('m.invited_member_count invited-count))
+                                summary))
+                    ;; TODO: Disambiguate hero display names.
+                    (when hero-ids
+                      (cond ((>= (length hero-ids) (1- (+ joined-count invited-count)))
+                             ;; Members == heroes.
+                             (hero-names hero-ids))
+                            ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
+                                  (> (+ joined-count invited-count) 1))
+                             ;; More members than heroes.
+                             (heroes-and-others hero-ids joined-count))
+                            ((<= (+ joined-count invited-count) 1)
+                             ;; Empty room.
+                             (empty-room hero-ids joined-count))))))
+              (hero-names
+               (heroes) (string-join (mapcar #'hero-name heroes) ", "))
+              (hero-name
+               (id) (if-let ((user (gethash id ement-users)))
+                        (ement-room--user-display-name user room)
+                      id))
+              (heroes-and-others
+               (heroes joined)
+               (format "%s, and %s others" (hero-names heroes)
+                       (- joined (length heroes))))
+              (empty-room
+               (heroes joined) (cl-etypecase (length heroes)
+                                 ((satisfies zerop) "Empty room")
+                                 ((number 1 5) (format "Empty room (was %s)"
+                                                       (hero-names heroes)))
+                                 (t (format "Empty room (was %s)"
+                                            (heroes-and-others heroes joined))))))
+    (or (latest-event "m.room.name" 'name)
+        (latest-event "m.room.canonical_alias" 'alias)
+        (heroes-name)
+        (ement-room-id room))))
 
 ;; FIXME: These functions probably need to compare timestamps to
 ;; ensure that older events that are inserted at the head of the
