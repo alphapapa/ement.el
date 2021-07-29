@@ -303,6 +303,7 @@ a filter ID).  When unspecified, the value of
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id257>.
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Use a filter ID for default filter.
+  ;; TODO: Optionally, automatically sync again when HTTP request fails.
   (when (map-elt ement-syncs session)
     (user-error "Ement: Already syncing this session"))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
