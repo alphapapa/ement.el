@@ -1705,25 +1705,27 @@ show it in the buffer."
     (if (and ement-room-images image)
         ;; Images enabled and image downloaded: create image and
         ;; return it in a string.
-        (let ((image (create-image image nil 'data-p :ascent 'center))
-              (buffer-window (when buffer
-                               (get-buffer-window buffer)))
-              max-height max-width)
-          ;; Calculate max image display size.
-          (cond (buffer-window
-                 ;; Buffer displayed: use window size.
-                 (setf max-height (window-body-height buffer-window t)
-                       max-width (window-body-width buffer-window t)))
-                (t
-                 ;; Buffer not displayed: use frame size.
-                 (setf max-height (frame-pixel-height)
-                       max-width (frame-pixel-width))))
-          (setf (image-property image :type) 'imagemagick
-                (image-property image :max-width) max-width
-                (image-property image :max-height) max-height)
-          (concat "\n"
-                  (propertize " " 'display image
-                              'keymap ement-room-image-keymap)))
+        (condition-case err
+            (let ((image (create-image image nil 'data-p :ascent 'center))
+                  (buffer-window (when buffer
+                                   (get-buffer-window buffer)))
+                  max-height max-width)
+              ;; Calculate max image display size.
+              (cond (buffer-window
+                     ;; Buffer displayed: use window size.
+                     (setf max-height (window-body-height buffer-window t)
+                           max-width (window-body-width buffer-window t)))
+                    (t
+                     ;; Buffer not displayed: use frame size.
+                     (setf max-height (frame-pixel-height)
+                           max-width (frame-pixel-width))))
+              (setf (image-property image :type) 'imagemagick
+                    (image-property image :max-width) max-width
+                    (image-property image :max-height) max-height)
+              (concat "\n"
+                      (propertize " " 'display image
+                                  'keymap ement-room-image-keymap)))
+          (error (format "\n [error inserting image: %s]" (error-message-string err))))
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
           (with-temp-buffer
