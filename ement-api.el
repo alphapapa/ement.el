@@ -55,13 +55,16 @@
 (cl-defun ement-api (server token endpoint then
                             &key timeout data params
                             (content-type "application/json")
+                            (data-type 'text)
                             (else #'ement-api-error) (method 'get)
+                            ;; FIXME: What's the right term for the URL part after "/_matrix/"?
+                            (endpoint-category "client")
                             (json-read-fn #'json-read))
   "FIXME: Docstring."
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-server uri-prefix port) server)
                ((cl-struct url type host) (url-generic-parse-url uri-prefix))
-               (path (concat "/_matrix/client/r0/" endpoint))
+               (path (format "/_matrix/%s/r0/%s" endpoint-category endpoint))
 	       (query (url-build-query-string params))
 	       (filename (concat path "?" query))
                (url (url-recreate-url
@@ -72,7 +75,8 @@
     ;; function on the session object, which may be very large, it
     ;; will take a very long time to print into the warnings buffer.
     ;;  (ement-debug (current-time) method url headers)
-    (plz method url :headers headers :body data :as json-read-fn :then then :else else
+    (plz method url :headers headers :body data :body-type data-type
+      :as json-read-fn :then then :else else
       ;; FIXME: Timeout is not necessarily the same as connect-timeout, or shouldn't be.
       :connect-timeout timeout :noquery t)))
 
