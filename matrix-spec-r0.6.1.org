@@ -18700,17 +18700,17 @@ A map of which rooms are considered 'direct' rooms for specific users is kept in
 
 Example:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   {
-  "content": {
-  "@bob:example.com": [
-  "!abcdefgh:example.com",
-  "!hgfedcba:example.com"
-  ]
-  },
-  "type": "m.direct"
+      "content": {
+          "@bob:example.com": [
+              "!abcdefgh:example.com",
+              "!hgfedcba:example.com"
+          ]
+      },
+      "type": "m.direct"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 *** [[#id579][13.23.2   Client behaviour]]
 :PROPERTIES:
