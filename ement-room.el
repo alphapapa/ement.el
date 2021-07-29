@@ -940,7 +940,8 @@ function to `ement-room-event-fns', which see."
                                else collect id)
             footer (propertize (concat "Typing: " (string-join usernames ", "))
                                'face 'font-lock-comment-face)))
-    (ewoc-set-hf ement-ewoc "" footer)))
+    (with-silent-modifications
+      (ewoc-set-hf ement-ewoc "" footer))))
 
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
