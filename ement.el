@@ -475,7 +475,6 @@ To be called in `ement-sync-callback-hook'."
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
 Adds sender to `ement-users' when necessary."
-  ;; FIXME: Can this work for state events, or only for timeline events?
   (pcase-let* (((map content type unsigned
                      ('event_id id) ('origin_server_ts ts)
                      ('sender sender-id) ('state_key _state-key))
