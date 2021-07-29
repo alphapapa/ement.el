@@ -86,8 +86,10 @@ the session (each the respective struct)."
 (defun ement-notify (event room session)
   "Send notifications for EVENT in ROOM on SESSION.
 Calls functions in `ement-notify-functions' if any of
-`ement-notify-predicates' return non-nil."
-  (when (and (cl-loop for pred in ement-notify-predicates
+`ement-notify-predicates' return non-nil.  Does not do anything
+if session hasn't finished initial sync."
+  (when (and (ement-session-has-synced-p session)
+             (cl-loop for pred in ement-notify-predicates
                       thereis (funcall pred event room session))
              (cl-loop for pred in ement-notify-functions
                       always (funcall pred event room session)))
