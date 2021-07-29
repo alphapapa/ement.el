@@ -76,6 +76,7 @@ Used by `ement-room-send-message'.")
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
+    (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
     (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "TAB") #'ement-room-goto-next)
@@ -370,6 +371,20 @@ Matrix-related commands in it will fail."
 
 ;;;; Commands
 
+(defun ement-room-scroll-up-mark-read ()
+  "Scroll buffer up, marking read and burying when at end."
+  (interactive)
+  (if (= (window-point) (point-max))
+      (progn
+        (set-buffer-modified-p nil)
+        (bury-buffer)
+        (when (equal major-mode 'ement-room-list-mode)
+          ;; Back in the room-list buffer: revert it.
+          (revert-buffer)))
+    (condition-case _err
+        (scroll-up-command)
+      (end-of-buffer (set-window-point nil (point-max))))))
+
 (defun ement-room-join (id-or-alias session)
   "Join room by ID-OR-ALIAS on SESSION."
   (interactive (list (read-string "Join room (ID or alias): ")
@@ -638,6 +653,7 @@ automatically added after the room ID."
                   (message "SEND MESSAGE CALLBACK: %S" args))
                 :data (json-encode data)
                 :method 'put)))))
+    (ement-room-scroll-up-mark-read)
     (when ement-room-send-typing
       (when ement-room-typing-timer
         (cancel-timer ement-room-typing-timer)

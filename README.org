@@ -112,6 +112,7 @@ If you want to install it manually, it's simple enough, but you should know what
 In a room buffer:
 
 -  ~RET~ to write a new message.
+-  ~SPC~ scrolls down; when at the end of a room, the buffer is marked as read and buried.
 -  ~S-RET~ writes a reply to the message at point.
 -  ~TAB~ / ~<backtab>~ moves between messages.
 -  ~v~ views an event's source.
@@ -122,11 +123,15 @@ In a room buffer:
 -  Click an image to resize it to the window.
 -  Double-click an image to show it in a new buffer at full size.
 
+In the room list buffer:
+-  ~SPC~ shows the next room with an unread buffer.
+
 ** Tips
 
 +  You can customize settings in the ~ement~ group.
      -  Set ~ement-auto-sync~ to sync new messages automatically.
 +  Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
++  Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
 
 *** Displaying symbols and emojis
 

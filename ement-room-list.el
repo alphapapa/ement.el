@@ -52,11 +52,13 @@
 
 ;;;; Variables
 
-(defvar ement-room-list-map
+(defvar ement-room-list-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "g") #'tabulated-list-revert)
-    (define-key map (kbd "q") #'bury-buffer)
-    (define-key map (kbd "S") #'tabulated-list-sort)))
+    ;; (define-key map (kbd "g") #'tabulated-list-revert)
+    ;; (define-key map (kbd "q") #'bury-buffer)
+    (define-key map (kbd "SPC") #'ement-room-list-next-unread)
+    ;; (define-key map (kbd "S") #'tabulated-list-sort)
+    map))
 
 (defvar ement-sessions)
 
@@ -89,6 +91,22 @@
 
 ;;;; Commands
 
+(defun ement-room-list-next-unread ()
+  "Show next unread room."
+  (interactive)
+  (unless (button-at (point))
+    (call-interactively #'forward-button))
+  (unless (cl-loop with starting-line = (line-number-at-pos)
+                   if (equal "U" (elt (tabulated-list-get-entry) 0))
+                   do (progn
+                        (goto-char (button-end (button-at (point))))
+                        (push-button (1- (point)))
+                        (cl-return t))
+                   else do (call-interactively #'forward-button)
+                   while (> (line-number-at-pos) starting-line))
+    ;; No more unread rooms: refresh list.
+    (revert-buffer)))
+
 ;;;###autoload
 (defun ement-room-list (&rest _ignore)
   "Show buffer listing joined rooms.
@@ -109,12 +127,13 @@ call `pop-to-buffer'."
 (define-derived-mode ement-room-list-mode tabulated-list-mode
   "Ement room list"
   :group 'ement
-  (setf tabulated-list-format (vector ;; '("U" 1 t) '("🐱" 4 t)
+  (setf tabulated-list-format (vector
+                               '("U" 1 t)
+                               ;; '("U" 1 t) '("🐱" 4 t)
                                '("D" 1 t) ; Direct
                                '("Name" 25 t) '("Topic" 35 t)
                                '("Latest" 20 ement-room-list-latest<)
                                '("Members" 7 ement-room-list-members<)
-
                                ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
         tabulated-list-sort-key '("Latest" . t))
@@ -128,7 +147,7 @@ call `pop-to-buffer'."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
-               (`[,_direct ,_name ,_topic ,_latest ,_members ,user-id]
+               (`[,_unread ,_direct ,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
@@ -172,7 +191,9 @@ call `pop-to-buffer'."
 
 (defun ement-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
-  (pcase-let* (((cl-struct ement-room id canonical-alias display-name topic latest-ts summary) room)
+  (pcase-let* (((cl-struct ement-room id canonical-alias display-name topic latest-ts summary
+                           (local (map buffer)))
+                room)
                ((map ('m.joined_member_count member-count)) summary)
                (e-alias (or canonical-alias
                             (setf (ement-room-canonical-alias room)
@@ -181,7 +202,8 @@ call `pop-to-buffer'."
                (topic (or topic
                           (setf (ement-room-topic room) (ement--room-topic room))))
                ;; FIXME: Figure out how to track unread status cleanly.
-               ;;  (e-unread (if (buffer-modified-p buffer) "U" ""))
+               (e-unread (if (and buffer (buffer-modified-p buffer))
+                             "U" ""))
                ;;  (e-avatar (if avatar (ement-resize-avatar avatar) ""))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
@@ -209,28 +231,28 @@ call `pop-to-buffer'."
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
                (e-members (number-to-string member-count)))
-    (list room (vector ;; e-unread
-                e-direct-p
-                e-name e-topic e-latest e-members
-                ;; e-priority e-tags
-                e-session
-                ;; e-avatar
-                ))))
+    (list room (vector e-unread
+                       e-direct-p
+                       e-name e-topic e-latest e-members
+                       ;; e-priority e-tags
+                       e-session
+                       ;; e-avatar
+                       ))))
 
 ;; TODO: Define sorters with a macro?  This gets repetitive and hard to update.
 
 (defun ement-room-list-members< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_direct ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
-               (`(,_room [,_direct ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
+  (pcase-let* ((`(,_room [,_unread ,_direct ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
+               (`(,_room [,_unread ,_direct ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
     (< (string-to-number a-members) (string-to-number b-members))))
 
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room-a [,_direct ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
-               (`(,_room-b [,_direct ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
+  (pcase-let* ((`(,_room-a [,_unread ,_direct ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
+               (`(,_room-b [,_unread ,_direct ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
     (< (get-text-property 0 'value a-latest)
        (get-text-property 0 'value b-latest))))
 
