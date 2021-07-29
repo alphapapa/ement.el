@@ -228,6 +228,19 @@ call `pop-to-buffer'."
            (ement-room--buffer session room (ement--room-buffer-name room)))
   (goto-char (point-max)))
 
+(cl-defun ement-upload (session &key data filename then else
+                                (content-type "application/octet-stream"))
+  "Upload DATA with FILENAME to content repository on SESSION.
+THEN and ELSE are passed to `ement-api', which see."
+  (declare (indent defun))
+  (pcase-let* (((cl-struct ement-session server token) session)
+               (endpoint (if filename
+                             (format "upload?filename=%s" (url-hexify-string filename))
+                           "upload")))
+    (ement-api server token endpoint then :else else
+      :method 'post :endpoint-category "media"
+      :content-type content-type :data data :data-type 'binary)))
+
 ;;;; Functions
 
 (defun ement--sync-messages-p (session)

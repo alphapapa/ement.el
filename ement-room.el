@@ -36,6 +36,7 @@
 
 (require 'color)
 (require 'ewoc)
+(require 'mailcap)
 (require 'shr)
 (require 'subr-x)
 (require 'mwheel)
@@ -370,6 +371,46 @@ Matrix-related commands in it will fail."
       (ement-view-room (car ement-sessions) room))))
 
 ;;;; Commands
+
+(declare-function ement-upload "ement" t t)
+(defun ement-room-send-image (file body room session)
+  "Send image FILE to ROOM on SESSION, using message BODY."
+  ;; TODO: Support URLs to remote files.
+  (interactive (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
+                                            nil nil 'confirm))
+                      (body (read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                         file)))
+                 (list file body ement-room ement-session)))
+  (when (yes-or-no-p (format "Upload file %S to room %S? "
+                             file (ement-room-display-name room)))
+    (pcase-let* ((extension (file-name-extension file))
+                 (mime-type (mailcap-extension-to-mime extension))
+                 (data (with-temp-buffer
+                         ;; NOTE: Using (set-buffer-multibyte nil) doesn't
+                         ;; seem to be necessary, but I don't know why not.
+                         (insert-file-contents file)
+                         (buffer-string)))
+                 (size (length data)))
+      ;; MAYBE: Send typing notification (maybe make an ement-room-with-typing macro).
+      (ement-upload session :data data :content-type mime-type
+        :then (lambda (data)
+                (message "Uploaded file %S.  Sending message..." file)
+                (pcase-let* (((map ('content_uri content-uri)) data)
+                             ((cl-struct ement-session server token) session)
+                             ((cl-struct ement-room (id room-id)) room)
+                             (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                               "m.room.message" (cl-incf (ement-session-transaction-id session))))
+                             ;; TODO: Image height/width (maybe not easy to get in Emacs).
+                             (data (ement-alist "msgtype" "m.image"
+                                                "url" content-uri
+                                                "body" body
+                                                "info" (ement-alist "mimetype" mime-type
+                                                                    "size" size))))
+                  (ement-api server token endpoint
+                    (lambda (&rest args)
+                      (message "SEND MESSAGE CALLBACK: %S" args))
+                    :data (json-encode data)
+                    :method 'put)))))))
 
 (defun ement-room-scroll-up-mark-read ()
   "Scroll buffer up, marking read and burying when at end."
