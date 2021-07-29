@@ -525,82 +525,6 @@ Matrix-related commands in it will fail."
                 (signal 'error (format "Ement: loading earlier messages failed (%S)" args))))
       (setf ement-room-retro-loading t))))
 
-(defun ement-room--insert-events (events &optional retro)
-  "Insert EVENTS into current buffer.
-Calls `ement-room--insert-event' for each event and inserts
-timestamp headers into appropriate places while maintaining
-point's position.  If RETRO is non-nil, assume EVENTS are earlier
-than any existing events, and only insert timestamp headers up to
-the previously oldest event."
-  (let (buffer-window point-node orig-first-node point-max-p)
-    (when (get-buffer-window (current-buffer))
-      ;; HACK: See below.
-      (setf buffer-window (get-buffer-window (current-buffer))
-            point-max-p (= (point) (point-max))))
-    (when (and buffer-window retro)
-      (setf point-node (ewoc-locate ement-ewoc (window-start buffer-window))
-            orig-first-node (ewoc-nth ement-ewoc 0)))
-    (save-window-excursion
-      ;; NOTE: When inserting some events, seemingly only replies, if a different buffer's
-      ;; window is selected, and this buffer's window-point is at the bottom, the formatted
-      ;; events may be inserted into the wrong place in the buffer, even though they are
-      ;; inserted into the EWOC at the right place.  We work around this by selecting the
-      ;; buffer's window while inserting events, if it has one.  (I don't know if this is a bug
-      ;; in EWOC or in this file somewhere.  But this has been particularly nasty to debug.)
-      (when buffer-window
-        (select-window buffer-window))
-      (cl-loop for event being the elements of events
-               ;; TODO: This should be done in a unified interface.
-               ;; HACK: Only insert certain types of events.
-               when (pcase (ement-event-type event)
-                      ("m.reaction" nil)
-                      (_ t))
-               do (ement-room--insert-event event)))
-    ;; Since events can be received in any order, we have to check the whole buffer
-    ;; for where to insert new timestamp headers.  (Avoiding that would require
-    ;; getting a list of newly inserted nodes and checking each one instead of every
-    ;; node in the buffer.  Doing that now would probably be premature optimization,
-    ;; though it will likely be necessary if users keep buffers open for busy rooms
-    ;; for a long time, as the time to do this in each buffer will increase with the
-    ;; number of events.  At least we only do it once per batch of events.)
-    (ement-room--insert-ts-headers nil (when retro orig-first-node))
-    (when buffer-window
-      (cond (retro (with-selected-window buffer-window
-                     (set-window-start buffer-window (ewoc-location point-node))
-                     ;; TODO: Experiment with this.
-                     (forward-line -1)))
-            (point-max-p (set-window-point buffer-window (point-max)))))))
-
-(declare-function ement--make-event "ement.el")
-(defun ement-room-retro-callback (room data)
-  "Push new DATA to ROOM on SESSION and add events to room buffer."
-  (pcase-let* (((cl-struct ement-room local) room)
-	       ((map _start end chunk state) data)
-               ((map buffer) local))
-    ;; Put the newly retrieved events at the end of the slots, because they should be
-    ;; older events.  But reverse them first, because we're using "dir=b", which the
-    ;; spec says causes the events to be returned in reverse-chronological order, and we
-    ;; want to process them oldest-first (important because a membership event having a
-    ;; user's displayname should be older than a message event sent by the user).
-    ;; NOTE: The CHUNK is a vector!  And state should be too, right...?
-    (setf chunk (nreverse chunk)
-          state (nreverse state))
-    (cl-loop for event across-ref state
-	     do (setf event (ement--make-event event))
-             finally do (setf (ement-room-state room)
-                              (append (ement-room-state room) (append state nil))))
-    (cl-loop for event across-ref chunk
-	     do (setf event (ement--make-event event))
-             finally do (setf (ement-room-timeline room)
-                              ;; Convert chunk to a list before appending to slot.
-                              (append (ement-room-timeline room) (append chunk nil))))
-    (when buffer
-      (with-current-buffer buffer
-        (ement-room--insert-events chunk 'retro)
-        (ement-room--process-events chunk)
-        (setf (ement-room-prev-batch room) end
-              ement-room-retro-loading nil)))))
-
 ;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
 (declare-function ement--sync "ement.el" t t)
 (defun ement-room-sync (session &optional force)
@@ -705,20 +629,7 @@ The message must be one sent by the local user."
             (setf ement-room-typing-timer nil))
           ;; Cancel typing notifications after sending a message.  (The
           ;; spec doesn't say whether this is needed, but it seems to be.)
-          (ement-room--send-typing ement-session ement-room :typing nil)))))  )
-
-(cl-defun ement-room--send-typing (session room &key (typing t))
-  "Send a typing notification for ROOM on SESSION."
-  (pcase-let* (((cl-struct ement-session server token user) session)
-               ((cl-struct ement-user (id user-id)) user)
-               ((cl-struct ement-room (id room-id)) room)
-               (endpoint (format "rooms/%s/typing/%s"
-                                 (url-hexify-string room-id) (url-hexify-string user-id)))
-               (data (ement-alist "typing" typing "timeout" 20000)))
-    (ement-api server token endpoint
-      #'ignore ;; We don't really care about the response, I think.
-      :data (json-encode data)
-      :method 'put)))
+          (ement-room--send-typing ement-session ement-room :typing nil))))))
 
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
@@ -745,6 +656,84 @@ The message must be one sent by the local user."
         (delete-overlay ement-room-replying-to-overlay))
       (setf ement-room-replying-to-event nil
             ement-room-replying-to-overlay nil))))
+
+;;;; Functions
+
+(declare-function ement--make-event "ement.el")
+(defun ement-room-retro-callback (room data)
+  "Push new DATA to ROOM on SESSION and add events to room buffer."
+  (pcase-let* (((cl-struct ement-room local) room)
+	       ((map _start end chunk state) data)
+               ((map buffer) local))
+    ;; Put the newly retrieved events at the end of the slots, because they should be
+    ;; older events.  But reverse them first, because we're using "dir=b", which the
+    ;; spec says causes the events to be returned in reverse-chronological order, and we
+    ;; want to process them oldest-first (important because a membership event having a
+    ;; user's displayname should be older than a message event sent by the user).
+    ;; NOTE: The CHUNK is a vector!  And state should be too, right...?
+    (setf chunk (nreverse chunk)
+          state (nreverse state))
+    (cl-loop for event across-ref state
+	     do (setf event (ement--make-event event))
+             finally do (setf (ement-room-state room)
+                              (append (ement-room-state room) (append state nil))))
+    (cl-loop for event across-ref chunk
+	     do (setf event (ement--make-event event))
+             finally do (setf (ement-room-timeline room)
+                              ;; Convert chunk to a list before appending to slot.
+                              (append (ement-room-timeline room) (append chunk nil))))
+    (when buffer
+      (with-current-buffer buffer
+        (ement-room--insert-events chunk 'retro)
+        (ement-room--process-events chunk)
+        (setf (ement-room-prev-batch room) end
+              ement-room-retro-loading nil)))))
+
+(defun ement-room--insert-events (events &optional retro)
+  "Insert EVENTS into current buffer.
+Calls `ement-room--insert-event' for each event and inserts
+timestamp headers into appropriate places while maintaining
+point's position.  If RETRO is non-nil, assume EVENTS are earlier
+than any existing events, and only insert timestamp headers up to
+the previously oldest event."
+  (let (buffer-window point-node orig-first-node point-max-p)
+    (when (get-buffer-window (current-buffer))
+      ;; HACK: See below.
+      (setf buffer-window (get-buffer-window (current-buffer))
+            point-max-p (= (point) (point-max))))
+    (when (and buffer-window retro)
+      (setf point-node (ewoc-locate ement-ewoc (window-start buffer-window))
+            orig-first-node (ewoc-nth ement-ewoc 0)))
+    (save-window-excursion
+      ;; NOTE: When inserting some events, seemingly only replies, if a different buffer's
+      ;; window is selected, and this buffer's window-point is at the bottom, the formatted
+      ;; events may be inserted into the wrong place in the buffer, even though they are
+      ;; inserted into the EWOC at the right place.  We work around this by selecting the
+      ;; buffer's window while inserting events, if it has one.  (I don't know if this is a bug
+      ;; in EWOC or in this file somewhere.  But this has been particularly nasty to debug.)
+      (when buffer-window
+        (select-window buffer-window))
+      (cl-loop for event being the elements of events
+               ;; TODO: This should be done in a unified interface.
+               ;; HACK: Only insert certain types of events.
+               when (pcase (ement-event-type event)
+                      ("m.reaction" nil)
+                      (_ t))
+               do (ement-room--insert-event event)))
+    ;; Since events can be received in any order, we have to check the whole buffer
+    ;; for where to insert new timestamp headers.  (Avoiding that would require
+    ;; getting a list of newly inserted nodes and checking each one instead of every
+    ;; node in the buffer.  Doing that now would probably be premature optimization,
+    ;; though it will likely be necessary if users keep buffers open for busy rooms
+    ;; for a long time, as the time to do this in each buffer will increase with the
+    ;; number of events.  At least we only do it once per batch of events.)
+    (ement-room--insert-ts-headers nil (when retro orig-first-node))
+    (when buffer-window
+      (cond (retro (with-selected-window buffer-window
+                     (set-window-start buffer-window (ewoc-location point-node))
+                     ;; TODO: Experiment with this.
+                     (forward-line -1)))
+            (point-max-p (set-window-point buffer-window (point-max)))))))
 
 (defun ement-room--add-reply (data replying-to-event)
   "Return DATA adding reply data for REPLYING-TO-EVENT in current buffer's room.
@@ -793,7 +782,18 @@ DATA is an unsent message event's data alist."
                        data))
     data))
 
-;;;; Functions
+(cl-defun ement-room--send-typing (session room &key (typing t))
+  "Send a typing notification for ROOM on SESSION."
+  (pcase-let* (((cl-struct ement-session server token user) session)
+               ((cl-struct ement-user (id user-id)) user)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/typing/%s"
+                                 (url-hexify-string room-id) (url-hexify-string user-id)))
+               (data (ement-alist "typing" typing "timeout" 20000)))
+    (ement-api server token endpoint
+      #'ignore ;; We don't really care about the response, I think.
+      :data (json-encode data)
+      :method 'put)))
 
 (defun ement-room--direct-p (room session)
   "Return non-nil if ROOM on SESSION is a direct chat."
