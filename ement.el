@@ -491,14 +491,7 @@ Adds sender to `ement-users' when necessary."
 ;; ensure that older events that are inserted at the head of the
 ;; events lists aren't used instead of newer ones.
 
-(defun ement--room-name (room)
-  "Return latest m.room.name event in ROOM."
-  (or (cl-loop for event in (ement-room-timeline room)
-               when (equal "m.room.name" (ement-event-type event))
-               return (alist-get 'name (ement-event-content event)))
-      (cl-loop for event in (ement-room-state room)
-               when (equal "m.room.name" (ement-event-type event))
-               return (alist-get 'name (ement-event-content event)))))
+;; TODO: These two functions should be folded into event handlers.
 
 (defun ement--room-alias (room)
   "Return latest m.room.canonical_alias event in ROOM."
