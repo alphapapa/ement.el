@@ -110,10 +110,12 @@ call `pop-to-buffer'."
   "Ement room list"
   :group 'ement
   (setf tabulated-list-format (vector ;; '("U" 1 t) '("🐱" 4 t)
+                               '("D" 1 t) ; Direct
                                '("Name" 25 t) '("Topic" 35 t)
                                '("Latest" 20 ement-room-list-latest<)
                                '("Members" 7 ement-room-list-members<)
-                               ;; '("D" 1 t) '("P" 1 t) '("Tags" 15 t)
+
+                               ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
         tabulated-list-sort-key '("Latest" . t))
   (add-hook 'tabulated-list-revert-hook #'ement-room-list--set-entries nil 'local)
@@ -126,7 +128,7 @@ call `pop-to-buffer'."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
-               (`[,_name ,_topic ,_latest ,_members ,user-id]
+               (`[,_direct ,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
@@ -196,14 +198,17 @@ call `pop-to-buffer'."
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
                ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
-               ;;  (e-direct-p (if (matrix-room-direct-p id session) "D" ""))
+               (e-direct-p (if (ement-room--direct-p room session)
+                               (propertize "D" 'help-echo "Direct room")
+                             ""))
                ;; (e-priority (cond (favorite-p "F")
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
                (e-members (number-to-string member-count)))
-    (list room (vector                   ;; e-unread
+    (list room (vector ;; e-unread
+                e-direct-p
                 e-name e-topic e-latest e-members
-                ;; e-direct-p e-priority e-tags
+                ;; e-priority e-tags
                 e-session
                 ;; e-avatar
                 ))))
@@ -213,15 +218,15 @@ call `pop-to-buffer'."
 (defun ement-room-list-members< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
-               (`(,_room [,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
+  (pcase-let* ((`(,_room [,_direct ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
+               (`(,_room [,_direct ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
     (< (string-to-number a-members) (string-to-number b-members))))
 
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
-               (`(,_room [,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
+  (pcase-let* ((`(,_room-a [,_direct ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
+               (`(,_room-b [,_direct ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
     (< (get-text-property 0 'value a-latest)
        (get-text-property 0 'value b-latest))))
 

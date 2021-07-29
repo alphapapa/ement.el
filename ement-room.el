@@ -718,6 +718,18 @@ DATA is an unsent message event's data alist."
 
 ;;;; Functions
 
+(defun ement-room--direct-p (room session)
+  "Return non-nil if ROOM on SESSION is a direct chat."
+  (cl-labels ((content-contains-room-id
+               (content room-id) (cl-loop for (_user-id . room-ids) in content
+                                          ;; NOTE: room-ids is a vector.
+                                          thereis (seq-contains room-ids room-id))))
+    (pcase-let* (((cl-struct ement-session account-data) session)
+                 ((cl-struct ement-room id) room))
+      (cl-loop for event in account-data
+               when (equal "m.direct" (alist-get 'type event))
+               thereis (content-contains-room-id (alist-get 'content event) id)))))
+
 (define-derived-mode ement-room-mode fundamental-mode "Ement Room"
   "Major mode for Ement room buffers.
 This mode initializes a buffer to be used for showing events in
