@@ -235,8 +235,7 @@ To be called in `ement-sync-callback-hook'."
                                                               t))
                (e-latest (progn
                            (when (string-empty-p formatted-timestamp)
-                             (display-warning 'ement-room-list--entry
-                                              (format "Room's formatted latest timestamp is empty: %s (%s)" id display-name))
+                             (message "(ement-room-list) Room's formatted latest timestamp is empty: %s (%s)" id display-name)
                              (setf formatted-timestamp "[empty latest timestamp?]"))
                            (propertize formatted-timestamp 'value latest-ts)))
                (e-session (propertize (ement-user-id (ement-session-user session))
