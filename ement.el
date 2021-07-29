@@ -579,6 +579,40 @@ Writes Ement session to disk when enabled."
     (format "%s/_matrix/media/r0/download/%s/%s"
             uri-prefix server-name media-id)))
 
+;;;;; Event handlers
+
+(defvar ement-event-handlers nil
+  "Alist mapping event types to functions which process an event of each type.
+Each function is called with three arguments: the event, the
+room, and the session.  These handlers are run regardless of
+whether a room has a live buffer.")
+
+(defun ement--process-event (event room session)
+  "Process EVENT for ROOM in SESSION.
+Uses handlers defined in `ement-event-handlers'.  If no handler
+is defined for EVENT's type, does nothing and returns nil."
+  (when-let ((handler (alist-get (ement-event-type event) ement-event-handlers nil nil #'string=)))
+    (funcall handler event room session)))
+
+(defmacro ement-defevent (type &rest body)
+  "Define an event handling function for events of TYPE, a string.
+Around the BODY, the variable `event' is bound to the event being
+processed, `room' to the room struct in which the event occurred,
+and `session' to the session.  Adds function to
+`ement-event-handlers', which see."
+  (declare (indent defun))
+  `(setf (alist-get ,type ement-event-handlers nil nil #'string=)
+         (lambda (event room session)
+           ,(concat "`ement-' handler function for " type " events.")
+           ,@body)))
+
+(ement-defevent "m.room.name"
+  (ignore session)
+  (pcase-let* (((cl-struct ement-event (content (map name))) event))
+    (when name
+      ;; Recalculate room name and cache in slot.
+      (setf (ement-room-display-name room) (ement-room--room-display-name room)))))
+
 ;;;; Footer
 
 (provide 'ement)
