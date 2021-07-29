@@ -221,7 +221,8 @@ It may contain these specifiers:
 Note that margin sizes must be set manually with
 `ement-room-left-margin-width' and
 `ement-room-right-margin-width'."
-  :type '(choice (const :tag "IRCy" "%S%L%B%r%R%t")
+  :type '(choice (const :tag "IRC-style using margins" "%S%L%B%r%R%t")
+                 (const :tag "IRC-style without margins" "[%t] %S> %B%r")
                  (const :tag "Elemental" "%B%r%R%t")
                  (string :tag "Custom format"))
   :set (lambda (option value)
@@ -232,11 +233,16 @@ Note that margin sizes must be set manually with
             (setf ement-room-left-margin-width 0
                   ement-room-right-margin-width 8
                   ement-room-sender-headers t))
-           ("%S%L%B%r%R%t" ;; "IRCy"
+           ("%S%L%B%r%R%t" ;; "IRC-style using margins"
             (setf ement-room-left-margin-width 12
                   ement-room-right-margin-width 8
                   ement-room-sender-headers nil
                   ement-room-sender-in-left-margin t))
+           ("[%t] %S> %B%r" ;; "IRC-style without margins"
+            (setf ement-room-left-margin-width 0
+                  ement-room-right-margin-width 0
+                  ement-room-sender-headers nil
+                  ement-room-sender-in-left-margin nil))
            (_ (setf ement-room-left-margin-width
                     (if (string-match-p "%L" value)
                         12 0)
