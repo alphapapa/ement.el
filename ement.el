@@ -80,6 +80,12 @@
 Hooks are called with one argument, the session that was
 synced.")
 
+(defvar ement-event-hook
+  '(ement-notify ement--process-event)
+  "Hook called for events.
+Each function is called with three arguments: the event, the
+room, and the session.")
+
 (defvar ement-default-sync-filter
   '((room (state (lazy_load_members . t))
           (timeline (lazy_load_members . t))))
@@ -113,13 +119,6 @@ Writes the session file when Emacs is killed."
 (defcustom ement-after-initial-sync-hook '(ement-list-rooms)
   "Hook run after initial sync.
 Run with one argument, the session synced."
-  :type 'hook)
-
-(defcustom ement-event-hook
-  '(ement-notify)
-  "Hook called for events.
-Each function is called with three arguments: the event, the
-room, and the session."
   :type 'hook)
 
 ;;;; Commands
