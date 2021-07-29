@@ -662,6 +662,51 @@ automatically added after the room ID."
       ;; spec doesn't say whether this is needed, but it seems to be.)
       (ement-room--send-typing ement-session ement-room :typing nil))))
 
+(defun ement-room-edit-message ()
+  "Edit message at point.
+The message must be one sent by the local user."
+  (interactive)
+  (cl-assert ement-room) (cl-assert ement-session)
+  (when-let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+    (pcase-let* (((cl-struct ement-session user) ement-session)
+                 ((cl-struct ement-event (id event-id) sender (content (map body ('m.relates_to relates-to)))) event))
+      (unless (equal (ement-user-id sender) (ement-user-id user))
+        (user-error "You may only edit your own messages"))
+      (when relates-to
+        ;; TODO: When we show edits by replacing the original event, this will need to be changed.
+        (user-error "Only original messages may be edited, not the edit events themselves"))
+      (unwind-protect
+          (progn
+            (when ement-room-send-typing
+              (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
+            (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
+                   (body (read-string prompt body)))
+              (unless (string-empty-p body)
+                (when (yes-or-no-p (format "Edit message to: %S? " body))
+                  (pcase-let* (((cl-struct ement-session server token) ement-session)
+                               ((cl-struct ement-room (id room-id)) ement-room)
+                               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                                 "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
+                               (data (ement-alist "msgtype" "m.text"
+                                                  "body" (concat "* " body)
+                                                  "m.new_content" (ement-alist "body" body
+                                                                               "msgtype" "m.text")
+                                                  "m.relates_to" (ement-alist "rel_type" "m.replace"
+                                                                              "event_id" event-id))))
+                    (ement-api server token endpoint
+                      (lambda (&rest args)
+                        (message "SEND MESSAGE CALLBACK: %S" args))
+                      :data (json-encode data)
+                      :method 'put))))))
+        (ement-room-scroll-up-mark-read)
+        (when ement-room-send-typing
+          (when ement-room-typing-timer
+            (cancel-timer ement-room-typing-timer)
+            (setf ement-room-typing-timer nil))
+          ;; Cancel typing notifications after sending a message.  (The
+          ;; spec doesn't say whether this is needed, but it seems to be.)
+          (ement-room--send-typing ement-session ement-room :typing nil)))))  )
+
 (cl-defun ement-room--send-typing (session room &key (typing t))
   "Send a typing notification for ROOM on SESSION."
   (pcase-let* (((cl-struct ement-session server token user) session)

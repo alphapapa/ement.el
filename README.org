@@ -91,6 +91,7 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-view-room~ to view a room's buffer, selected with completion.
       -  ~ement-join-room~ to join a room.
       -  ~ement-leave-room~ to leave a room.
+      -  ~ement-room-edit-message~ to edit a message at point.
 
 In a room buffer:
 
