@@ -32,6 +32,12 @@
 
 ;; TODO: (Or maybe there is, see m.joined_member_count).
 
+;; NOTE: The tabulated-list API is awkward here.  When the
+;; `tabulated-list-format' is changed, we have to make the change in 4
+;; or 5 other places, and if one forgets to, bugs with non-obvious
+;; causes happen.  I think library using EIEIO or structs would be
+;; very helpful.
+
 ;;; Code:
 
 ;;;; Requirements
@@ -105,8 +111,8 @@ call `pop-to-buffer'."
   :group 'ement
   (setf tabulated-list-format (vector ;; '("U" 1 t) '("🐱" 4 t)
                                '("Name" 25 t) '("Topic" 35 t)
-                               ;;  '("Members" 7 ement-room-list-members<)
                                '("Latest" 20 ement-room-list-latest<)
+                               '("Members" 7 ement-room-list-members<)
                                ;; '("D" 1 t) '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
         tabulated-list-sort-key '("Latest" . t))
@@ -120,7 +126,7 @@ call `pop-to-buffer'."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
-               (`[,_name ,_topic ,_latest ,user-id]
+               (`[,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
@@ -164,7 +170,8 @@ call `pop-to-buffer'."
 
 (defun ement-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
-  (pcase-let* (((cl-struct ement-room id canonical-alias display-name topic latest-ts) room)
+  (pcase-let* (((cl-struct ement-room id canonical-alias display-name topic latest-ts summary) room)
+               ((map ('m.joined_member_count member-count)) summary)
                (e-alias (or canonical-alias
                             (setf (ement-room-canonical-alias room)
                                   (ement--room-alias room))
@@ -193,29 +200,28 @@ call `pop-to-buffer'."
                ;; (e-priority (cond (favorite-p "F")
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
-               ;; (e-members (format "%s" (length members)))
-               )
+               (e-members (number-to-string member-count)))
     (list room (vector                   ;; e-unread
-                e-name e-topic ;; e-members
+                e-name e-topic e-latest e-members
                 ;; e-direct-p e-priority e-tags
-                e-latest e-session
+                e-session
                 ;; e-avatar
                 ))))
 
 ;; TODO: Define sorters with a macro?  This gets repetitive and hard to update.
 
-;; (defun ement-room-list-members< (a b)
-;;   "Return non-nil if entry A has fewer members than room B.
-;; A and B should be entries from `tabulated-list-mode'."
-;;   (pcase-let* ((`(,_room [,_name-for-list ,_topic ,a-members ,_latest ,_session]) a)
-;;                (`(,_room [,_name-for-list ,_topic ,b-members ,_latest ,_session]) b))
-;;     (< (string-to-number a-members) (string-to-number b-members))))
+(defun ement-room-list-members< (a b)
+  "Return non-nil if entry A has fewer members than room B.
+A and B should be entries from `tabulated-list-mode'."
+  (pcase-let* ((`(,_room [,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
+               (`(,_room [,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
+    (< (string-to-number a-members) (string-to-number b-members))))
 
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_name-for-list ,_topic ,a-latest ,_session]) a)
-               (`(,_room [,_name-for-list ,_topic ,b-latest ,_session]) b))
+  (pcase-let* ((`(,_room [,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
+               (`(,_room [,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
     (< (get-text-property 0 'value a-latest)
        (get-text-property 0 'value b-latest))))
 
