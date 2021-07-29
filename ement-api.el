@@ -76,9 +76,11 @@
       ;; FIXME: Timeout is not necessarily the same as connect-timeout, or shouldn't be.
       :connect-timeout timeout :noquery t)))
 
+(define-error 'ement-api-error "Ement API error" 'error)
+
 (defun ement-api-error (&rest args)
   "Signal an error about ARGS."
-  (error "Ement API error: %S" args))
+  (signal 'ement-api-error args))
 
 ;;;; Footer
 

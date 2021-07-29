@@ -291,9 +291,10 @@ If no URI is found, prompt the user for the hostname."
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room nil nil #'string=)))
 
-(cl-defun ement--sync (session &key (filter ement-default-sync-filter))
+(cl-defun ement--sync (session &key (filter ement-default-sync-filter) force)
   "Send sync request for SESSION.
-If SESSION has a `next-batch' token, it's used.
+If SESSION has a `next-batch' token, it's used.  If FORCE, first
+delete any outstanding sync processes.
 
 FILTER may be an alist representing a raw event filter (i.e. not
 a filter ID).  When unspecified, the value of
@@ -304,7 +305,13 @@ a filter ID).  When unspecified, the value of
   ;; TODO: Use a filter ID for default filter.
   ;; TODO: Optionally, automatically sync again when HTTP request fails.
   (when (map-elt ement-syncs session)
-    (user-error "Ement: Already syncing this session"))
+    (if force
+        (condition-case err
+            (delete-process (map-elt ement-syncs session))
+          ;; Ensure the only error is the expected one from deleting the process.
+          (ement-api-error (cl-assert (equal "curl process killed" (plz-error-message (cl-third err))))
+                           (message "Ement: Forcing new sync")))
+      (user-error "Ement: Already syncing this session")))
   (pcase-let* (((cl-struct ement-session server token next-batch) session)
                (params (remove
                         nil (list (list "full_state" (if next-batch "false" "true"))
@@ -325,7 +332,7 @@ a filter ID).  When unspecified, the value of
                                     (`(28 . ,_) ; Timeout: sync again if enabled.
                                      (display-warning 'ement "Sync timed out" :warning)
                                      (ement--auto-sync session))
-                                    (_ (ement-api-error plz-error))))
+                                    (_ (signal 'ement-api-error (list "Unrecognized error" plz-error)))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
                                           (when (ement--sync-messages-p session)

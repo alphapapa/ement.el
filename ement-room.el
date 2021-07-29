@@ -588,10 +588,12 @@ the previously oldest event."
 
 ;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
 (declare-function ement--sync "ement.el" t t)
-(defun ement-room-sync (session)
-  "Sync SESSION (interactively, current buffer's)."
-  (interactive (list ement-session))
-  (ement--sync session))
+(defun ement-room-sync (session &optional force)
+  "Sync SESSION (interactively, current buffer's).
+If FORCE (interactively, with prefix), cancel any outstanding
+sync requests."
+  (interactive (list ement-session current-prefix-arg))
+  (ement--sync session :force force))
 
 (defun ement-room-view-event (event)
   "Pop up buffer showing details of EVENT (interactively, the one at point)."
