@@ -48,3 +48,16 @@ Then various cleanups were done, some of which are included below:
     (while (re-search-forward (rx "#+BEGIN_EXAMPLE") nil t)
       (ap/org-indent-src-block)))
 #+END_SRC
+
+** Unescape underscores
+
+Some content keys have backslashes before underscores, for some reason.  Let's remove those and realign their tables.
+
+#+BEGIN_SRC elisp
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward (rx "\\_") nil t)
+      (replace-match "_" t t)
+      (when (org-at-table-p)
+        (org-table-align))))
+#+END_SRC
