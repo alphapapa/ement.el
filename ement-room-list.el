@@ -184,8 +184,7 @@ call `pop-to-buffer'."
                ;;  (e-unread (if (buffer-modified-p buffer) "U" ""))
                ;;  (e-avatar (if avatar (ement-resize-avatar avatar) ""))
                (e-name (list (propertize (or display-name
-                                             (setf (ement-room-display-name room)
-                                                   (ement-room--room-display-name room)))
+                                             (ement-room--room-display-name room))
                                          'help-echo e-alias)
                              'action #'ement-room-list-action))
                (e-topic (if topic

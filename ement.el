@@ -388,22 +388,18 @@ To be called in `ement-sync-callback-hook'."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
-        ;; Add the new events to the main timeline slot first, because some events can
-        ;; refer to other events, and we want them to be found in the timeline slot.
-        (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
-                                                       (ement-room-timeline ement-room)))
         (when (ement-room-ephemeral ement-room)
           (ement-room--process-events (ement-room-ephemeral ement-room))
           (setf (ement-room-ephemeral ement-room) nil))
-        (when (ement-room-timeline* ement-room)
-          (ement-room--insert-events (ement-room-timeline* ement-room))
+        (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
+          (ement-room--insert-events new-events)
           ;; For now, we also call `--process-events' for ones that are defined with `ement-room-defevent'.
           ;; FIXME: Unify this.
-          ;; HACK: Process these events in reverse order, so that later events
-          ;; (like reactions) which refer to earlier events can find them.
-          (ement-room--process-events (reverse (ement-room-timeline* ement-room)))
+          ;; HACK: Process these events in reverse order, so that later events (like reactions)
+          ;; which refer to earlier events can find them.  (Not sure if still necessary.)
+          (ement-room--process-events (reverse new-events))
           ;; Clear new events slot.
-          (setf (ement-room-timeline* ement-room) nil))))))
+          (setf (alist-get 'new-events (ement-room-local ement-room)) nil))))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
@@ -458,17 +454,23 @@ To be called in `ement-sync-callback-hook'."
       ;; FIXME: This is a bit convoluted and hacky now.  Refactor it.
       (setf latest-timestamp
 	    (max (push-events state ement-room-state)
-		 (push-events timeline ement-room-timeline*)))
+		 (push-events timeline ement-room-timeline)))
+      ;; NOTE: We also append the new events to the new-events list in the room's local
+      ;; slot, which is used by `ement--update-room-buffers' to insert only new events.
+      (cl-callf2 append (cl-coerce (alist-get 'events timeline) 'list)
+                 (alist-get 'new-events (ement-room-local room)))
+      ;; Update room's latest-timestamp slot.
       (when (> latest-timestamp (or (ement-room-latest-ts room) 0))
 	(setf (ement-room-latest-ts room) latest-timestamp))
       (unless (ement-session-has-synced-p session)
         ;; Only set this token on initial sync, otherwise it would
         ;; overwrite earlier tokens from loading earlier messages.
-        (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline)))
-      (when (ement-session-has-synced-p session)
-        ;; Run event hooks (not on initial sync).
-        (cl-loop for event across (alist-get 'events timeline)
-                 do (run-hook-with-args 'ement-event-hook event room session))))))
+        (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))
+    ;; Run event hook for state and timeline events.
+    (cl-loop for event across (alist-get 'events state)
+             do (run-hook-with-args 'ement-event-hook event room session))
+    (cl-loop for event across (alist-get 'events timeline)
+             do (run-hook-with-args 'ement-event-hook event room session))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.

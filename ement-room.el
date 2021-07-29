@@ -769,12 +769,8 @@ data slot."
                       (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
                     nil 'local)
           (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
-          ;; TODO: Some code is duplicated here and in `ement--update-room-buffers'.
-          ;; Move new events to the main timeline slot first, because some events can
-          ;; refer to other events, and we want them to be found in the timeline slot.
-          (setf (ement-room-timeline ement-room) (append (ement-room-timeline* ement-room)
-                                                         (ement-room-timeline ement-room))
-                (ement-room-timeline* room) nil)
+          ;; Clear new-events, because those only matter when a buffer is already open.
+          (setf (alist-get 'new-events (ement-room-local room)) nil)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
           (ement-room--process-events (ement-room-state room))
