@@ -359,6 +359,7 @@ Runs `ement-sync-callback-hook' with SESSION."
                                           (make-progress-reporter "Ement: Reading events..." 0 num-events)))
                (ement-progress-value 0))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
+    ;; TODO: Process "left" rooms (remove room structs, etc).
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
     (when (ement--sync-messages-p session)
