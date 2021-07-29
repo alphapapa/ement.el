@@ -1159,6 +1159,7 @@ To be used as the pretty-printer for `ewoc-create'.  THING may be
 an `ement-event' or `ement-user' struct, or a list like `(ts
 TIMESTAMP)', where TIMESTAMP is a Unix timestamp number of
 seconds."
+  ;; TODO: Use handlers to insert so e.g. membership events can be inserted silently.
   (pcase-exhaustive thing
     ((pred ement-event-p)
      (insert "" (ement-room--format-event thing)))
