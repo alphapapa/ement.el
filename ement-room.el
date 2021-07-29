@@ -1385,7 +1385,9 @@ If FORMATTED-P, return the formatted body content, when available."
                (appendix (pcase msgtype
                            ("m.image" (ement-room--format-m.image event))
                            (_ nil))))
-    (setf body (ement-room--linkify-urls body))
+    (when body
+      ;; HACK: Once I got an error when body was nil, so let's avoid that.
+      (setf body (ement-room--linkify-urls body)))
     (when appendix
       (setf body (concat body " " appendix)))
     body))
