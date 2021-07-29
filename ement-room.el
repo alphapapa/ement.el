@@ -759,11 +759,11 @@ data slot."
       (let ((new-buffer (get-buffer-create name)))
         (with-current-buffer new-buffer
           (ement-room-mode)
-          (setf header-line-format 'ement-room-header-line-format)
-          (setf ement-session session
-                ement-room room)
-          ;; Track buffer in room's slot.
-          (setf (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
+          (setf header-line-format 'ement-room-header-line-format
+                ement-session session
+                ement-room room
+                ;; Track buffer in room's slot.
+                (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
           (add-hook 'kill-buffer-hook
                     (lambda ()
                       (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
