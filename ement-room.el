@@ -382,10 +382,12 @@ Matrix-related commands in it will fail."
         (pcase-let* (((map ('room_id room-id)) data)
                      (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
                      (join-fn (lambda (session)
-                                (remove-hook 'ement-sync-callback-hook join-fn-symbol)
-                                (let ((room (cl-loop for room in (ement-session-rooms session)
-                                                     when (equal room-id (ement-room-id room))
-                                                     return room)))
+                                (when-let ((room (cl-loop for room in (ement-session-rooms session)
+                                                          when (equal room-id (ement-room-id room))
+                                                          return room)))
+                                  ;; In case the join event is not in this next sync response, make sure
+                                  ;; the room is found before removing the function and joining the room.
+                                  (remove-hook 'ement-sync-callback-hook join-fn-symbol)
                                   (ement-view-room session room)))))
           (setf (symbol-function join-fn-symbol) join-fn)
           (when ement-room-join-view-buffer
