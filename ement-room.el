@@ -99,6 +99,7 @@ In that case, sender names are aligned to the margin edge.")
 
 ;; Variables from other files.
 (defvar ement-sessions)
+(defvar ement-users)
 
 ;;;; Customization
 
@@ -779,6 +780,57 @@ data slot."
           (ement-room--insert-ts-headers))
         ;; Return the buffer!
         new-buffer)))
+
+(defun ement-room--room-display-name (room)
+  "Return the displayname for ROOM."
+  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
+  (cl-labels ((latest-event (type content-field)
+                            (or (cl-loop for event in (ement-room-timeline room)
+                                         when (and (equal type (ement-event-type event))
+                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                                         return (alist-get content-field (ement-event-content event)))
+                                (cl-loop for event in (ement-room-state room)
+                                         when (and (equal type (ement-event-type event))
+                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                                         return (alist-get content-field (ement-event-content event)))))
+              (heroes-name
+               () (pcase-let* (((cl-struct ement-room summary) room)
+                               ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
+                                     ('m.invited_member_count invited-count))
+                                summary))
+                    ;; TODO: Disambiguate hero display names.
+                    (when hero-ids
+                      (cond ((>= (length hero-ids) (1- (+ joined-count invited-count)))
+                             ;; Members == heroes.
+                             (hero-names hero-ids))
+                            ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
+                                  (> (+ joined-count invited-count) 1))
+                             ;; More members than heroes.
+                             (heroes-and-others hero-ids joined-count))
+                            ((<= (+ joined-count invited-count) 1)
+                             ;; Empty room.
+                             (empty-room hero-ids joined-count))))))
+              (hero-names
+               (heroes) (string-join (mapcar #'hero-name heroes) ", "))
+              (hero-name
+               (id) (if-let ((user (gethash id ement-users)))
+                        (ement-room--user-display-name user room)
+                      id))
+              (heroes-and-others
+               (heroes joined)
+               (format "%s, and %s others" (hero-names heroes)
+                       (- joined (length heroes))))
+              (empty-room
+               (heroes joined) (cl-etypecase (length heroes)
+                                 ((satisfies zerop) "Empty room")
+                                 ((number 1 5) (format "Empty room (was %s)"
+                                                       (hero-names heroes)))
+                                 (t (format "Empty room (was %s)"
+                                            (heroes-and-others heroes joined))))))
+    (or (latest-event "m.room.name" 'name)
+        (latest-event "m.room.canonical_alias" 'alias)
+        (heroes-name)
+        (ement-room-id room))))
 
 (defun ement-room--user-display-name (user room)
   "Return the displayname for USER in ROOM."
