@@ -408,13 +408,18 @@ Matrix-related commands in it will fail."
 
 (defun ement-room-leave (id-or-alias session)
   "Leave room by ID-OR-ALIAS on SESSION."
-  (interactive (list (completing-read "Leave room (ID or alias): "
-                                      (cl-loop for room in (ement-session-rooms ement-session)
-                                               append (delq nil (list (ement-room-id room)
-                                                                      (ement-room-canonical-alias room))))
-                                      nil t nil nil (when ement-room
-                                                      (or (ement-room-canonical-alias ement-room)
-                                                          (ement-room-id ement-room))))
+  (interactive (list (cl-labels ((format-room
+                                  (room) (format "%s (%s)"
+                                                 (ement-room--room-display-name room)
+                                                 (or (ement-room-canonical-alias room)
+                                                     (ement-room-id room)))))
+                       (let* ((rooms-alist (cl-loop for room in (ement-session-rooms ement-session)
+                                                    collect (cons (format-room room) (ement-room-id room))))
+                              (selected-room-string (completing-read "Leave room (ID or alias): "
+                                                                     rooms-alist
+                                                                     nil t nil nil (when ement-room
+                                                                                     (format-room ement-room)))))
+                         (alist-get selected-room-string rooms-alist nil nil #'string=)))
                      ement-session))
   (cl-assert id-or-alias) (cl-assert session)
   (when (yes-or-no-p (format "Leave room %s? " id-or-alias))
