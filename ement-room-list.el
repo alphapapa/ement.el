@@ -192,9 +192,14 @@ call `pop-to-buffer'."
                             ;; Remove newlines from topic.  Yes, this can happen.
                             (replace-regexp-in-string "\n" "" topic t t)
                           ""))
-               (e-latest (propertize (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
-                                                               t)
-                                     'value latest-ts))
+               (formatted-timestamp (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
+                                                              t))
+               (e-latest (progn
+                           (when (string-empty-p formatted-timestamp)
+                             (display-warning 'ement-room-list--entry
+                                              (format "Room's formatted latest timestamp is empty: %s (%s)" id display-name))
+                             (setf formatted-timestamp "[empty latest timestamp?]"))
+                           (propertize formatted-timestamp 'value latest-ts)))
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
                ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
