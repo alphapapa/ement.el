@@ -424,6 +424,13 @@ To be called in `ement-sync-callback-hook'."
 
     ;; FIXME: Further mapping instead of alist-get.
 
+    ;; Save room summary.
+    (dolist (parameter '(m.heroes m.joined_member_count m.invited_member_count))
+      (when (alist-get parameter summary)
+        ;; These fields are only included when they change.
+        (setf (alist-get parameter (ement-room-summary room)) (alist-get parameter summary))))
+
+    ;; Save state and timeline events.
     (cl-macrolet ((push-events
                    (type accessor)
                    ;; Push new events of TYPE to room's slot of ACCESSOR, and return the latest timestamp pushed.
