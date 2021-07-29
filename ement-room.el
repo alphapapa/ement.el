@@ -1295,6 +1295,7 @@ If FORMATTED-P, return the formatted body content, when available."
                (appendix (pcase msgtype
                            ("m.image" (ement-room--format-m.image event))
                            (_ nil))))
+    (setf body (ement-room--linkify-urls body))
     (when appendix
       (setf body (concat body " " appendix)))
     body))
@@ -1358,6 +1359,22 @@ ROOM defaults to the value of `ement-room'."
         (or (matches-body-p (ement-user-username user))
             (matches-body-p (ement-room--user-display-name user room))
             (matches-body-p (ement-user-id user)))))))
+
+(defun ement-room--linkify-urls (string)
+  "Return STRING with URLs in it made clickable."
+  ;; Is there an existing Emacs function to do this?  I couldn't find one.
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (cl-loop while (re-search-forward (rx bow "http" (optional "s") "://" (1+ (not space)))
+                                      nil 'noerror)
+             do (make-text-button (match-beginning 0) (match-end 0)
+                                  'mouse-face 'highlight
+                                  'face 'link
+                                  'help-echo (match-string 0)
+                                  'action #'browse-url-at-mouse
+                                  'follow-link t))
+    (buffer-string)))
 
 ;; NOTE: This function is not useful when displaynames are shown in the margin, because
 ;; margins are not mouse-interactive in Emacs, therefore the help-echo function is called
