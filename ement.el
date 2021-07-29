@@ -602,6 +602,7 @@ Adds sender to `ement-users' when necessary."
            ;; various rabbit holes), so we write a copy of the session with other slots cleared.
            (saved-session (copy-ement-session session)))
       ;; NOTE: If slots are added to the session struct, they may need to be cleared here.
+      ;; TODO: Make a new struct and only write certain slots.
       (setf (ement-session-rooms saved-session) nil
             (ement-session-next-batch saved-session) nil
             (ement-session-has-synced-p saved-session) nil
