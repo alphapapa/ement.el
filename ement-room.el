@@ -412,7 +412,7 @@ Matrix-related commands in it will fail."
                                                           (ement-room-id ement-room))))
                      ement-session))
   (cl-assert id-or-alias) (cl-assert session)
-  (when (yes-or-no-p (format "Really leave room %s?" id-or-alias))
+  (when (yes-or-no-p (format "Leave room %s? " id-or-alias))
     (pcase-let* ((room (cl-loop for room in (ement-session-rooms session)
                                 when (or (equal id-or-alias (ement-room-id room))
                                          (equal id-or-alias (ement-room-canonical-alias room)))
