@@ -756,6 +756,7 @@ data slot."
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
           ;; TODO: Unify these event-insertion calls.  Probably use `ement-room--insert-events' here.
+          (ement-room--process-events (ement-room-state room))
           (mapc #'ement-room--insert-event (ement-room-timeline room))
           (ement-room--process-events (ement-room-timeline room))
           (ement-room--insert-ts-headers))
@@ -868,6 +869,16 @@ function to `ement-room-event-fns', which see."
                                else collect id)
             footer (propertize (concat "Typing: " (string-join usernames ", "))
                                'face 'font-lock-comment-face)))
+    (ewoc-set-hf ement-ewoc "" footer)))
+
+(ement-room-defevent "m.room.tombstone"
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map body replacement_room) content)
+               (footer (propertize (format "%s (new room: %s)" body replacement_room)
+                                   'face 'font-lock-warning-face)))
+    ;; NOTE: We assume that no more typing events will be received,
+    ;; which would replace the footer.
+    (ement-room--insert-event event)
     (ewoc-set-hf ement-ewoc "" footer)))
 
 (defun ement-room--process-events (events)
