@@ -52,7 +52,8 @@
 
 (cl-defstruct ement-session
   user server token transaction-id rooms next-batch
-  device-id initial-device-display-name has-synced-p)
+  device-id initial-device-display-name has-synced-p
+  account-data)
 
 (cl-defstruct ement-room
   id display-name prev-batch

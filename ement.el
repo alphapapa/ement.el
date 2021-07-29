@@ -349,7 +349,8 @@ Runs `ement-sync-callback-hook' with SESSION."
   ;; Remove the sync first.  We already have the data from it, and the
   ;; process has exited, so it's safe to run another one.
   (setf (map-elt ement-syncs session) nil)
-  (pcase-let* (((map rooms ('next_batch next-batch)) data)
+  (pcase-let* (((map rooms ('next_batch next-batch) ('account_data (map ('events account-data-events))))
+                data)
                ((map ('join joined-rooms)) rooms)
                ;; FIXME: Only counts events in joined-rooms list.
                (num-events (cl-loop for (_id . room) in joined-rooms
@@ -358,6 +359,7 @@ Runs `ement-sync-callback-hook' with SESSION."
                (ement-progress-reporter (when (ement--sync-messages-p session)
                                           (make-progress-reporter "Ement: Reading events..." 0 num-events)))
                (ement-progress-value 0))
+    (cl-callf2 append (cl-coerce account-data-events 'list) (ement-session-account-data session))
     (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
     ;; TODO: Process "left" rooms (remove room structs, etc).
     (setf (ement-session-next-batch session) next-batch)
