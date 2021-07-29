@@ -75,7 +75,8 @@
 (defvar ement-progress-value nil
   "Used to report progress while processing sync events.")
 
-(defvar ement-sync-callback-hook '(ement--update-room-buffers ement--auto-sync)
+(defvar ement-sync-callback-hook
+  '(ement--update-room-buffers ement--auto-sync ement-room-list-auto-update)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
 synced.")

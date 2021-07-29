@@ -64,6 +64,14 @@
 
 ;;;; Customization
 
+(defgroup ement-room-list nil
+  "Options for the room list buffer."
+  :group 'ement)
+
+(defcustom ement-room-list-auto-update t
+  "Automatically update the room list buffer."
+  :type 'boolean)
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -156,6 +164,15 @@ call `pop-to-buffer'."
      (ement-room--buffer session room (ement--room-buffer-name room)))))
 
 ;;;; Functions
+
+(defun ement-room-list-auto-update (_session)
+  "Automatically update the room list buffer.
+Does so when variable `ement-room-list-auto-update' is non-nil.
+To be called in `ement-sync-callback-hook'."
+  (when (and ement-room-list-auto-update
+             (buffer-live-p (get-buffer "*Ement Rooms*")))
+    (with-current-buffer (get-buffer "*Ement Rooms*")
+      (revert-buffer))))
 
 (defun ement-room-list--set-entries ()
   "Set `tabulated-list-entries'."
