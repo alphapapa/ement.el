@@ -588,8 +588,10 @@ Adds sender to `ement-users' when necessary."
 (defun ement--write-session (session)
   "Write SESSION to disk."
   ;; FIXME: This does not work with multiple sessions.
-  ;; TODO: Check if file exists; if so, ensure it has a proper header so we know it's ours.
-  ;; FIXME: Limit the amount of session data saved (e.g. room history could grow forever on-disk, which probably isn't what we want).
+  ;; NOTE: If we ever persist more session data (like room data, so we
+  ;; could avoid doing an initial sync next time), we should limit the
+  ;; amount of session data saved (e.g. room history could grow
+  ;; forever on-disk, which probably isn't what we want).
   (message "Ement: Writing session...")
   (with-temp-file ement-session-file
     (let* ((print-level nil)
@@ -599,14 +601,11 @@ Adds sender to `ement-users' when necessary."
            (print-circle t)
            ;; We only want to write certain slots of the session to disk for now (because of problems
            ;; reading certain data back, the solving of which will probably require descending into
-           ;; various rabbit holes), so we write a copy of the session with other slots cleared.
-           (saved-session (copy-ement-session session)))
-      ;; NOTE: If slots are added to the session struct, they may need to be cleared here.
-      ;; TODO: Make a new struct and only write certain slots.
-      (setf (ement-session-rooms saved-session) nil
-            (ement-session-next-batch saved-session) nil
-            (ement-session-has-synced-p saved-session) nil
-            (ement-user-room-display-names (ement-session-user saved-session)) nil)
+           ;; various rabbit holes), so we write a new session with only certain slots.
+           (saved-session (make-ement-session :user (ement-session-user session)
+                                              :server (ement-session-server session)
+                                              :token (ement-session-token session)
+                                              :transaction-id (ement-session-transaction-id session))))
       (prin1 saved-session (current-buffer))))
   ;; Ensure permissions are safe.
   (chmod ement-session-file #o600))
