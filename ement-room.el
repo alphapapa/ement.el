@@ -159,9 +159,11 @@ normal text.")
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
-  '(:eval (concat " " (propertize (ement-room-display-name ement-room)
+  '(:eval (concat " " (propertize (or (ement-room-display-name ement-room)
+                                      "[no room name]")
                                   'face 'ement-room-name)
-                  ": " (propertize (ement-room-topic ement-room)
+                  ": " (propertize (or (ement-room-topic ement-room)
+                                       "[no topic]")
                                    ;; Also set help-echo in case the topic is too wide to fit.
                                    'help-echo (ement-room-topic ement-room))))
   "Header line format for room buffers.
