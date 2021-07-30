@@ -901,6 +901,8 @@ data slot."
           (setf header-line-format 'ement-room-header-line-format
                 ement-session session
                 ement-room room
+                list-buffers-directory (or (ement-room-canonical-alias room)
+                                           (ement-room-id room))
                 ;; Track buffer in room's slot.
                 (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
           (add-hook 'kill-buffer-hook
