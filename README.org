@@ -29,6 +29,7 @@ The message formatting is highly customizeable (e.g. the timestamp can be displa
 :CONTENTS:
 - [[#installation][Installation]]
 - [[#usage][Usage]]
+  - [[#bindings][Bindings]]
   - [[#tips][Tips]]
 - [[#rationale][Rationale]]
 - [[#changelog][Changelog]]
@@ -94,30 +95,44 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
 
-In a room buffer:
+** Bindings
 
--  ~RET~ to write a new message.
--  ~SPC~ scrolls down; when at the end of a room, the buffer is marked as read and buried.
--  ~S-RET~ writes a reply to the message at point (if the region is active, only marked text is included in the reply).
--  ~TAB~ / ~<backtab>~ moves between messages.
--  ~a~ sends a reaction (a type of annotation).
--  ~v~ views an event's source.
--  ~g~ syncs new messages (not necessary if auto sync is enabled; see below).
--  ~r~ selects another room.
--  ~R~ shows the room list.
--  ~M-v~ or using the scroll wheel at the top of the buffer loads older messages.
--  Click an image to resize it to the window.
--  Double-click an image to show it in a new buffer at full size.
+*** Room buffers
 
-In the room list buffer:
--  ~SPC~ shows the next room with an unread buffer.
+*Sending messages*
+
++  Write new message: ~RET~
++  Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
++  Send reaction (a type of annotation) to event at point: ~a~
+
+*Viewing rooms*
+
++  Move between events: ~TAB~ / ~<backtab>~
++  Scroll down (at the end of a room buffer, mark it as read and bury it): ~SPC~
++  Load older messages: at top of buffer, ~M-v~ or ~mwheel-scroll~
++  Show another room: ~r~
++  Show room list buffer: ~R~
++  Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
++  Show source of event at point: ~v~
+
+*Viewing images*
+
++  Resize image to window: ~mouse-1~
++  Show image in new buffer at full size: ~double-mouse-1~
+
+*** Room list buffer
+
++  Show buffer of room at point: ~RET~
++  Show buffer of next unread room: ~SPC~
++  Move between room names: ~TAB~ / ~<backtab>~
 
 ** Tips
 
-+  You can customize settings in the ~ement~ group.
-     -  *Note:* ~setq~ should not be used for certain options, because it will not call the associated setter function.  Users who have an aversion to the customization system might avail themselves of ~use-package~'s ~:custom~ keyword to set such options.
++  Desktop notifications are enabled by default for events that mention the local user.  They can also be shown for all events in rooms with open buffers.
 +  Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
 +  Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
++  You can customize settings in the ~ement~ group.
+     -  *Note:* ~setq~ should not be used for certain options, because it will not call the associated setter function.  Users who have an aversion to the customization system may experience problems.
 
 *** Displaying symbols and emojis
 
