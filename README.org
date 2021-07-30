@@ -22,6 +22,10 @@ An alternative style, with usernames displayed above groups of messages, is easi
 
 The message formatting is highly customizeable (e.g. the timestamp can be displayed in the left or right margin), and timestamp headers are displayed where a certain amount of time passes between events.
 
+With [[#displaying-symbols-and-emojis][proper configuration]], Emacs can even display color emojis:
+
+[[images/reactions.png]]
+
 * Contents                                                         :noexport:
 :PROPERTIES:
 :TOC:      :include siblings
