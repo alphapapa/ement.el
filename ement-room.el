@@ -339,6 +339,28 @@ When disabled, the room's buffer will remain open, but
 Matrix-related commands in it will fail."
   :type 'boolean)
 
+;;;; Macros
+
+(defmacro ement-room-with-typing (&rest body)
+  "Send typing notifications around BODY.
+When `ement-room-send-typing' is enabled, typing notifications
+are sent while BODY is executing.  BODY is wrapped in an
+`unwind-protect' form that cancels `ement-room-typing-timer' and
+sends a not-typing notification."
+  (declare (indent defun))
+  `(unwind-protect
+       (progn
+         (when ement-room-send-typing
+           (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
+         ,@body)
+     (when ement-room-send-typing
+       (when ement-room-typing-timer
+         (cancel-timer ement-room-typing-timer)
+         (setf ement-room-typing-timer nil))
+       ;; Cancel typing notifications after sending a message.  (The
+       ;; spec doesn't say whether this is needed, but it seems to be.)
+       (ement-room--send-typing ement-session ement-room :typing nil))))
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -376,11 +398,14 @@ Matrix-related commands in it will fail."
 (defun ement-room-send-image (file body room session)
   "Send image FILE to ROOM on SESSION, using message BODY."
   ;; TODO: Support URLs to remote files.
-  (interactive (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
-                                            nil nil 'confirm))
-                      (body (read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                         file)))
-                 (list file body ement-room ement-session)))
+  (interactive (ement-room-with-typing
+                 (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
+                                              nil nil 'confirm))
+                        (body (read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                           file)))
+                   (list file body ement-room ement-session))))
+  ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
+  ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
   (when (yes-or-no-p (format "Upload file %S to room %S? "
                              file (ement-room-display-name room)))
     (pcase-let* ((extension (file-name-extension file))
@@ -391,7 +416,6 @@ Matrix-related commands in it will fail."
                          (insert-file-contents file)
                          (buffer-string)))
                  (size (length data)))
-      ;; MAYBE: Send typing notification (maybe make an ement-room-with-typing macro).
       (ement-upload session :data data :content-type mime-type
         :then (lambda (data)
                 (message "Uploaded file %S.  Sending message..." file)
@@ -598,34 +622,24 @@ PROMPT should not end in a colon or space, as these will be
 automatically added after the room ID."
   (interactive)
   (cl-assert ement-room) (cl-assert ement-session)
-  (unwind-protect
-      (progn
-        (when ement-room-send-typing
-          (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
-        (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
-               (body (read-string prompt)))
-          (unless (string-empty-p body)
-            (pcase-let* (((cl-struct ement-session server token) ement-session)
-                         ((cl-struct ement-room id) ement-room)
-                         (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
-                                           "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                         (data (ement-alist "msgtype" "m.text"
-                                            "body" body)))
-              (when ement-room-replying-to-event
-                (setf data (ement-room--add-reply data ement-room-replying-to-event)))
-              (ement-api server token endpoint
-                (lambda (&rest args)
-                  (message "SEND MESSAGE CALLBACK: %S" args))
-                :data (json-encode data)
-                :method 'put)))))
-    (ement-room-scroll-up-mark-read)
-    (when ement-room-send-typing
-      (when ement-room-typing-timer
-        (cancel-timer ement-room-typing-timer)
-        (setf ement-room-typing-timer nil))
-      ;; Cancel typing notifications after sending a message.  (The
-      ;; spec doesn't say whether this is needed, but it seems to be.)
-      (ement-room--send-typing ement-session ement-room :typing nil))))
+  (ement-room-with-typing
+    (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
+           (body (read-string prompt)))
+      (unless (string-empty-p body)
+        (pcase-let* (((cl-struct ement-session server token) ement-session)
+                     ((cl-struct ement-room id) ement-room)
+                     (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
+                                       "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
+                     (data (ement-alist "msgtype" "m.text"
+                                        "body" body)))
+          (when ement-room-replying-to-event
+            (setf data (ement-room--add-reply data ement-room-replying-to-event)))
+          (ement-api server token endpoint
+            (lambda (&rest args)
+              (message "SEND MESSAGE CALLBACK: %S" args))
+            :data (json-encode data)
+            :method 'put)))))
+  (ement-room-scroll-up-mark-read))
 
 (defun ement-room-edit-message ()
   "Edit message at point.
@@ -640,37 +654,27 @@ The message must be one sent by the local user."
       (when relates-to
         ;; TODO: When we show edits by replacing the original event, this will need to be changed.
         (user-error "Only original messages may be edited, not the edit events themselves"))
-      (unwind-protect
-          (progn
-            (when ement-room-send-typing
-              (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
-            (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
-                   (body (read-string prompt body)))
-              (unless (string-empty-p body)
-                (when (yes-or-no-p (format "Edit message to: %S? " body))
-                  (pcase-let* (((cl-struct ement-session server token) ement-session)
-                               ((cl-struct ement-room (id room-id)) ement-room)
-                               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                                 "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                               (data (ement-alist "msgtype" "m.text"
-                                                  "body" (concat "* " body)
-                                                  "m.new_content" (ement-alist "body" body
-                                                                               "msgtype" "m.text")
-                                                  "m.relates_to" (ement-alist "rel_type" "m.replace"
-                                                                              "event_id" event-id))))
-                    (ement-api server token endpoint
-                      (lambda (&rest args)
-                        (message "SEND MESSAGE CALLBACK: %S" args))
-                      :data (json-encode data)
-                      :method 'put))))))
-        (ement-room-scroll-up-mark-read)
-        (when ement-room-send-typing
-          (when ement-room-typing-timer
-            (cancel-timer ement-room-typing-timer)
-            (setf ement-room-typing-timer nil))
-          ;; Cancel typing notifications after sending a message.  (The
-          ;; spec doesn't say whether this is needed, but it seems to be.)
-          (ement-room--send-typing ement-session ement-room :typing nil))))))
+      (ement-room-with-typing
+        (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
+               (body (read-string prompt body)))
+          (unless (string-empty-p body)
+            (when (yes-or-no-p (format "Edit message to: %S? " body))
+              (pcase-let* (((cl-struct ement-session server token) ement-session)
+                           ((cl-struct ement-room (id room-id)) ement-room)
+                           (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                             "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
+                           (data (ement-alist "msgtype" "m.text"
+                                              "body" (concat "* " body)
+                                              "m.new_content" (ement-alist "body" body
+                                                                           "msgtype" "m.text")
+                                              "m.relates_to" (ement-alist "rel_type" "m.replace"
+                                                                          "event_id" event-id))))
+                (ement-api server token endpoint
+                  (lambda (&rest args)
+                    (message "SEND MESSAGE CALLBACK: %S" args))
+                  :data (json-encode data)
+                  :method 'put))))))
+      (ement-room-scroll-up-mark-read))))
 
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
