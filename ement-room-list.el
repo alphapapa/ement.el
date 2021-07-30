@@ -218,8 +218,8 @@ To be called in `ement-sync-callback-hook'."
                             id))
                ;; FIXME: Figure out how to track unread status cleanly.
                (e-unread (if (and buffer (buffer-modified-p buffer))
-                             "U" ""))
-               (e-buffer (if buffer "B" ""))
+                             (propertize "U" 'help-echo "Unread") ""))
+               (e-buffer (if buffer (propertize "B" 'help-echo "Room has buffer") ""))
                ;;  (e-avatar (if avatar (ement-resize-avatar avatar) ""))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
