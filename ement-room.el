@@ -71,6 +71,7 @@ Used by `ement-room-send-message'.")
 (declare-function ement-room-list "ement-room-list.el")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'ement-room-send-reaction)
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "r") #'ement-view-room)
     (define-key map (kbd "R") #'ement-room-list)
@@ -701,6 +702,28 @@ The message must be one sent by the local user."
         (delete-overlay ement-room-replying-to-overlay))
       (setf ement-room-replying-to-event nil
             ement-room-replying-to-overlay nil))))
+
+(defun ement-room-send-reaction ()
+  "Send reaction to event at point."
+  ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
+  (interactive)
+  (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc))
+                          (user-error "No event at point")))
+               (key (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+               ((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-session server token) ement-session)
+               ((cl-struct ement-room (id room-id)) ement-room)
+               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                 "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
+               (data (ement-alist "m.relates_to"
+                                  (ement-alist "rel_type" "m.annotation"
+                                               "event_id" event-id
+                                               "key" key))))
+    (ement-api server token endpoint
+      (lambda (&rest args)
+        (message "SEND MESSAGE CALLBACK: %S" args))
+      :data (json-encode data)
+      :method 'put)))
 
 ;;;; Functions
 
