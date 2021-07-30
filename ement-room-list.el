@@ -165,6 +165,7 @@ call `pop-to-buffer'."
 
 ;;;; Functions
 
+;;;###autoload
 (defun ement-room-list-auto-update (_session)
   "Automatically update the room list buffer.
 Does so when variable `ement-room-list-auto-update' is non-nil.
