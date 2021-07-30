@@ -233,8 +233,10 @@ To be called in `ement-sync-callback-hook'."
                                                               t))
                (e-latest (progn
                            (when (string-empty-p formatted-timestamp)
-                             (message "(ement-room-list) Room's formatted latest timestamp is empty: %s (%s)" id display-name)
-                             (setf formatted-timestamp "[empty latest timestamp?]"))
+                             ;; FIXME: Remove this check when ts-0.3 is released
+                             ;; (with the fix also included in ts-0.2.1).
+                             (message "Ement: Please upgrade the `ts' library to fix a bug")
+                             (setf formatted-timestamp "0s"))
                            (propertize formatted-timestamp 'value latest-ts)))
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
