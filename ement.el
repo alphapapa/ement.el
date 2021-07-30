@@ -546,6 +546,7 @@ Adds sender to `ement-users' when necessary."
   ;; amount of session data saved (e.g. room history could grow
   ;; forever on-disk, which probably isn't what we want).
   (message "Ement: Writing session...")
+  ;; TODO: Write a plist and make the new session struct in the reader (preventing any future problems).
   (with-temp-file ement-session-file
     (let* ((print-level nil)
            (print-length nil)
