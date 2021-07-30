@@ -114,10 +114,10 @@ If you want to install it manually, it's simple enough, but you should know what
 +  Move between events: ~TAB~ / ~<backtab>~
 +  Scroll down (at the end of a room buffer, mark it as read and bury it): ~SPC~
 +  Load older messages: at top of buffer, ~M-v~ or ~mwheel-scroll~
++  Show source of event at point: ~v~
 +  Show another room: ~r~
 +  Show room list buffer: ~R~
 +  Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
-+  Show source of event at point: ~v~
 
 *Viewing images*
 
