@@ -895,7 +895,7 @@ and erases the buffer."
 If ROOM has no buffer, one is made and stored in the room's local
 data slot."
   (or (map-elt (ement-room-local room) 'buffer)
-      (let ((new-buffer (get-buffer-create name)))
+      (let ((new-buffer (generate-new-buffer name)))
         (with-current-buffer new-buffer
           (ement-room-mode)
           (setf header-line-format 'ement-room-header-line-format
