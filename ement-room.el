@@ -1718,6 +1718,13 @@ For use as a `help-echo' function on `ement-user' headings."
            (when value
              (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
+(defcustom ement-room-image-initial-height 0.2
+  "Limit images' initial display height.
+If a number, it should be no larger than 1 (because Emacs can't
+display images larger than the window body height)."
+  :type '(choice (const :tag "Use full window width" nil)
+                 (number :tag "Limit to this multiple of the window body height")))
+
 (defun ement-room-image-scale-mouse (event)
   "Toggle scale of image at mouse EVENT.
 Scale image to fit within the window's body.  If image is already
@@ -1795,7 +1802,14 @@ show it in the buffer."
                                    (get-buffer-window buffer)))
                   max-height max-width)
               ;; Calculate max image display size.
-              (cond (buffer-window
+              (cond (ement-room-image-initial-height
+                     ;; Use configured value.
+                     (setf max-height (truncate
+                                       ;; Emacs doesn't like floats as the max-height.
+                                       (* (window-body-height buffer-window t)
+                                          ement-room-image-initial-height))
+                           max-width (window-body-width buffer-window t)))
+                    (buffer-window
                      ;; Buffer displayed: use window size.
                      (setf max-height (window-body-height buffer-window t)
                            max-width (window-body-width buffer-window t)))
