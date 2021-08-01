@@ -159,9 +159,11 @@ call `pop-to-buffer'."
                 (tabulated-list-get-entry))
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
-                                 return session)))
-    (pop-to-buffer-same-window
-     (ement-room--buffer session room (ement--room-buffer-name room)))))
+                                 return session))
+               ((cl-struct ement-room (local (map buffer))) room))
+    (unless buffer
+      (setf buffer (ement-room--buffer session room (ement--room-buffer-name room))))
+    (pop-to-buffer-same-window buffer)))
 
 ;;;; Functions
 
