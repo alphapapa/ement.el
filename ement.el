@@ -405,8 +405,9 @@ To be called in `ement-sync-callback-hook'."
   ;; For now, we primitively iterate over the buffer list to find ones
   ;; whose mode is `ement-room-mode'.
   (let* ((buffers (cl-loop for room in (ement-session-rooms session)
-                           when (map-elt (ement-room-local room) 'buffer)
-                           collect it)))
+                           for buffer = (map-elt (ement-room-local room) 'buffer)
+                           when (buffer-live-p buffer)
+                           collect buffer)))
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (cl-assert ement-room)
