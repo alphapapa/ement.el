@@ -82,9 +82,27 @@
 
 (define-error 'ement-api-error "Ement API error" 'error)
 
-(defun ement-api-error (&rest args)
-  "Signal an error about ARGS."
-  (signal 'ement-api-error args))
+(defun ement-api-error (plz-error)
+  "Signal an Ement API error for PLZ-ERROR."
+  ;; This feels a little messy, but it seems to be reasonable.
+  (pcase-let* (((cl-struct plz-error response
+                           (message plz-message) (curl-error `(,curl-exit-code . ,curl-message)))
+                plz-error)
+               (status (when (plz-response-p response)
+                         (plz-response-status response)))
+               (body (when (plz-response-p response)
+                       (plz-response-body response)))
+               (json-object (when body
+                              (ignore-errors
+                                (json-read-from-string body))))
+               (error-message (format "%S: %s"
+                                      (or curl-exit-code status)
+                                      (or (when json-object
+                                            (alist-get 'error json-object))
+                                          curl-message
+                                          plz-message))))
+
+    (signal 'ement-api-error (list error-message))))
 
 ;;;; Footer
 
