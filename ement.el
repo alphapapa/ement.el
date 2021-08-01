@@ -82,10 +82,11 @@ Hooks are called with one argument, the session that was
 synced.")
 
 (defvar ement-event-hook
-  '(ement-notify ement--process-event)
+  '(ement-notify ement--process-event ement--put-event)
   "Hook called for events.
 Each function is called with three arguments: the event, the
-room, and the session.")
+room, and the session.  This hook isn't intended to be modified
+by users; ones who do so should know what they're doing.")
 
 (defvar ement-default-sync-filter
   '((room (state (lazy_load_members . t))
@@ -162,7 +163,8 @@ session and log in again."
            (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
            ;; A new session with a new token should be able to start over with a transaction ID of 0.
            (transaction-id 0)
-           (session (make-ement-session :user user :server server :transaction-id transaction-id)))
+           (session (make-ement-session :user user :server server :transaction-id transaction-id
+                                        :events (make-hash-table :test #'equal))))
       (cl-labels ((flows-callback
                    (data) (if (cl-loop for flow across (map-elt data 'flows)
                                        thereis (equal (map-elt flow 'type) "m.login.password"))
@@ -513,6 +515,10 @@ Adds sender to `ement-users' when necessary."
     (make-ement-event :id id :sender sender :type type :content content
                       :origin-server-ts ts :unsigned unsigned)))
 
+(defun ement--put-event (event _room session)
+  "Put EVENT on SESSION's events table."
+  (puthash (ement-event-id event) event (ement-session-events session)))
+
 ;; FIXME: These functions probably need to compare timestamps to
 ;; ensure that older events that are inserted at the head of the
 ;; events lists aren't used instead of newer ones.
@@ -540,7 +546,8 @@ Returns nil if unable to read `ement-session-file'."
                                      (insert-file-contents ement-session-file)
                                      (read (current-buffer))))
                      (session (apply #'make-ement-session session-data)))
-          (setf (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
+          (setf (ement-session-events session) (make-hash-table :test #'equal)
+                (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
           (message "Ement: Read session.")
           session)
       (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."

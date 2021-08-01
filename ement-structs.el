@@ -53,7 +53,9 @@
 (cl-defstruct ement-session
   user server token transaction-id rooms next-batch
   device-id initial-device-display-name has-synced-p
-  account-data)
+  account-data
+  ;; Hash table of all seen events, keyed on event ID.
+  events)
 
 (cl-defstruct ement-room
   id display-name prev-batch
