@@ -732,7 +732,15 @@ The message must be one sent by the local user."
   (interactive)
   (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc))
                           (user-error "No event at point")))
-               (key (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+               ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
+               ;; hl-line-mode is enabled, it only returns the hl-line face.
+               (face-at-point (get-text-property (point) 'face))
+               ;; FIXME: Doesn't seem that `cl-typecase' can handle this, but maybe `pcase' in Emacs 27/28?
+               (key (if (or (eq 'ement-room-reactions-key face-at-point)
+                            (and (listp face-at-point)
+                                 (member 'ement-room-reactions-key face-at-point)))
+                        (char-to-string (char-after (point)))
+                      (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
                ((cl-struct ement-event (id event-id)) event)
                ((cl-struct ement-session server token) ement-session)
                ((cl-struct ement-room (id room-id)) ement-room)

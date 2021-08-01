@@ -107,7 +107,7 @@ If you want to install it manually, it's simple enough, but you should know what
 
 +  Write new message: ~RET~
 +  Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
-+  Send reaction (a type of annotation) to event at point: ~a~
++  Send reaction (a type of annotation) to event at point, or send same reaction at point: ~a~
 
 *Viewing rooms*
 
