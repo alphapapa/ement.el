@@ -121,7 +121,7 @@ If you want to install it manually, it's simple enough, but you should know what
 
 *Viewing images*
 
-+  Resize image to window: ~mouse-1~
++  Toggle scale of image at point (between fit-to-window and thumbnail): ~mouse-1~
 +  Show image in new buffer at full size: ~double-mouse-1~
 
 *** Room list buffer

@@ -1719,21 +1719,27 @@ For use as a `help-echo' function on `ement-user' headings."
              (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
 (defun ement-room-image-scale-mouse (event)
-  "Scale image at mouse EVENT to fit in window."
+  "Toggle scale of image at mouse EVENT.
+Scale image to fit within the window's body.  If image is already
+fit to the window, reduce its max-height to 10% of the window's
+height."
   (interactive "e")
   (pcase-let* ((`(,_type ,position ,_count) event)
                (window (posn-window position))
                (pos (event-start position)))
     (with-selected-window window
       (pcase-let* ((image (get-text-property pos 'display))
-                   (width (window-body-width nil t))
-                   (height (window-body-height nil t)))
+                   (window-width (window-body-width nil t))
+                   (window-height (window-body-height nil t))
+                   (new-height (if (= window-height (image-property image :max-height))
+                                   (/ window-height 10)
+                                 window-height)))
         (when (fboundp 'imagemagick-types)
           ;; Only do this when ImageMagick is supported.
           ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
           (setf (image-property image :type) 'imagemagick))
-        (setf (image-property image :max-width) width
-              (image-property image :max-height) height)))))
+        (setf (image-property image :max-width) window-width
+              (image-property image :max-height) new-height)))))
 
 (defun ement-room-image-show (event)
   "Show image at mouse EVENT in a new buffer."
