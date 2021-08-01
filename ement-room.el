@@ -426,15 +426,15 @@ sends a not-typing notification."
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                                "m.room.message" (cl-incf (ement-session-transaction-id session))))
                              ;; TODO: Image height/width (maybe not easy to get in Emacs).
-                             (data (ement-alist "msgtype" "m.image"
-                                                "url" content-uri
-                                                "body" body
-                                                "info" (ement-alist "mimetype" mime-type
-                                                                    "size" size))))
+                             (content (ement-alist "msgtype" "m.image"
+                                                   "url" content-uri
+                                                   "body" body
+                                                   "info" (ement-alist "mimetype" mime-type
+                                                                       "size" size))))
                   (ement-api server token endpoint
-                    (lambda (&rest args)
-                      (message "SEND MESSAGE CALLBACK: %S" args))
-                    :data (json-encode data)
+                    (apply-partially #'ement-room-send-event-callback :room room :session session
+                                     :content content :data)
+                    :data (json-encode content)
                     :method 'put)))))))
 
 (defun ement-room-scroll-up-mark-read ()
@@ -631,14 +631,14 @@ automatically added after the room ID."
                      ((cl-struct ement-room id) ement-room)
                      (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
                                        "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                     (data (ement-alist "msgtype" "m.text"
-                                        "body" body)))
+                     (content (ement-alist "msgtype" "m.text"
+                                           "body" body)))
           (when ement-room-replying-to-event
-            (setf data (ement-room--add-reply data ement-room-replying-to-event)))
+            (setf content (ement-room--add-reply content ement-room-replying-to-event)))
           (ement-api server token endpoint
-            (lambda (&rest args)
-              (message "SEND MESSAGE CALLBACK: %S" args))
-            :data (json-encode data)
+            (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                             :content content :data) ; data added when calling back.
+            :data (json-encode content)
             :method 'put)))))
   ;; NOTE: This assumes that the selected window is the buffer's window.  For now
   ;; this is almost surely the case, but in the future, we might let the function
@@ -649,6 +649,21 @@ automatically added after the room ID."
     ;; the user might have point on that event for a reason, but I think in most
     ;; cases, it will be what's expected and most helpful.)
     (setf (window-point) (point-max))))
+
+(cl-defun ement-room-send-event-callback (&key data room session content)
+  "Callback for event-sending functions.
+DATA is the parsed JSON object.  If DATA's event ID is already
+present in SESSION's events table, show an appropriate warning
+mentioning the ROOM and CONTENT."
+  (pcase-let* (((map ('event_id event-id)) data))
+    (if (gethash event-id (ement-session-events session))
+        (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which likely means that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-session-file', and connect again to start a new session."
+                               event-id (ement-user-id (ement-session-user session)) (ement-room-display-name room))))
+          (when content
+            (setf message (concat message (format " Event content: %S" content))))
+          (display-warning 'ement-room-send-event-callback message))
+      (message "Message sent to room %S: %S"
+               (ement-room-display-name room) (alist-get "body" content nil nil #'equal)))))
 
 (defun ement-room-edit-message ()
   "Edit message at point.
@@ -672,16 +687,16 @@ The message must be one sent by the local user."
                            ((cl-struct ement-room (id room-id)) ement-room)
                            (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                              "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                           (data (ement-alist "msgtype" "m.text"
-                                              "body" (concat "* " body)
-                                              "m.new_content" (ement-alist "body" body
-                                                                           "msgtype" "m.text")
-                                              "m.relates_to" (ement-alist "rel_type" "m.replace"
-                                                                          "event_id" event-id))))
+                           (content (ement-alist "msgtype" "m.text"
+                                                 "body" (concat "* " body)
+                                                 "m.new_content" (ement-alist "body" body
+                                                                              "msgtype" "m.text")
+                                                 "m.relates_to" (ement-alist "rel_type" "m.replace"
+                                                                             "event_id" event-id))))
                 (ement-api server token endpoint
-                  (lambda (&rest args)
-                    (message "SEND MESSAGE CALLBACK: %S" args))
-                  :data (json-encode data)
+                  (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                                   :content content :data)
+                  :data (json-encode content)
                   :method 'put))))))
       (ement-room-scroll-up-mark-read))))
 
@@ -723,14 +738,14 @@ The message must be one sent by the local user."
                ((cl-struct ement-room (id room-id)) ement-room)
                (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                  "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
-               (data (ement-alist "m.relates_to"
-                                  (ement-alist "rel_type" "m.annotation"
-                                               "event_id" event-id
-                                               "key" key))))
+               (content (ement-alist "m.relates_to"
+                                     (ement-alist "rel_type" "m.annotation"
+                                                  "event_id" event-id
+                                                  "key" key))))
     (ement-api server token endpoint
-      (lambda (&rest args)
-        (message "SEND MESSAGE CALLBACK: %S" args))
-      :data (json-encode data)
+      (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                       :content content :data)
+      :data (json-encode content)
       :method 'put)))
 
 ;;;; Functions
