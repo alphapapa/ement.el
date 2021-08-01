@@ -640,7 +640,15 @@ automatically added after the room ID."
               (message "SEND MESSAGE CALLBACK: %S" args))
             :data (json-encode data)
             :method 'put)))))
-  (ement-room-scroll-up-mark-read))
+  ;; NOTE: This assumes that the selected window is the buffer's window.  For now
+  ;; this is almost surely the case, but in the future, we might let the function
+  ;; send messages to other rooms more easily, so this assumption might not hold.
+  (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
+    ;; Point is on last event: advance it to eob so that when the event is received
+    ;; back, the window will scroll.  (This might not always be desirable, because
+    ;; the user might have point on that event for a reason, but I think in most
+    ;; cases, it will be what's expected and most helpful.)
+    (setf (window-point) (point-max))))
 
 (defun ement-room-edit-message ()
   "Edit message at point.
