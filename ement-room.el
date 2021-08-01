@@ -904,10 +904,10 @@ data slot."
                 list-buffers-directory (or (ement-room-canonical-alias room)
                                            (ement-room-id room))
                 ;; Track buffer in room's slot.
-                (map-elt (ement-room-local ement-room) 'buffer) (current-buffer))
+                (map-elt (ement-room-local room) 'buffer) (current-buffer))
           (add-hook 'kill-buffer-hook
                     (lambda ()
-                      (setf (map-elt (ement-room-local ement-room) 'buffer) nil))
+                      (setf (map-elt (ement-room-local room) 'buffer) nil))
                     nil 'local)
           (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
           ;; Clear new-events, because those only matter when a buffer is already open.
