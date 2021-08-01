@@ -1710,11 +1710,13 @@ For use as a `help-echo' function on `ement-user' headings."
   "Download and show images in messages, avatars, etc."
   :type 'boolean
   :set (lambda (option value)
-         (if (fboundp 'imagemagick-types)
+         (if (or (fboundp 'imagemagick-types)
+                 (when (fboundp 'image-transforms-p)
+                   (image-transforms-p)))
              (set-default option value)
            (set-default option nil)
            (when value
-             (display-warning 'ement "This Emacs was not built with ImageMagick support, so images can't be displayed in Ement")))))
+             (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
 (defun ement-room-image-scale-mouse (event)
   "Scale image at mouse EVENT to fit in window."
@@ -1726,8 +1728,11 @@ For use as a `help-echo' function on `ement-user' headings."
       (pcase-let* ((image (get-text-property pos 'display))
                    (width (window-body-width nil t))
                    (height (window-body-height nil t)))
-        (setf (image-property image :type) 'imagemagick
-              (image-property image :max-width) width
+        (when (fboundp 'imagemagick-types)
+          ;; Only do this when ImageMagick is supported.
+          ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+          (setf (image-property image :type) 'imagemagick))
+        (setf (image-property image :max-width) width
               (image-property image :max-height) height)))))
 
 (defun ement-room-image-show (event)
@@ -1742,8 +1747,11 @@ For use as a `help-echo' function on `ement-user' headings."
                    ((cl-struct ement-event id) ement-event)
                    (buffer-name (format "*Ement image: %s*" id))
                    (new-buffer (get-buffer-create buffer-name)))
-        (setf (image-property image :type) 'imagemagick
-              (image-property image :scale) 1.0
+        (when (fboundp 'imagemagick-types)
+          ;; Only do this when ImageMagick is supported.
+          ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+          (setf (image-property image :type) 'imagemagick))
+        (setf (image-property image :scale) 1.0
               (image-property image :max-width) nil
               (image-property image :max-height) nil)
         (with-current-buffer new-buffer
@@ -1789,8 +1797,11 @@ show it in the buffer."
                      ;; Buffer not displayed: use frame size.
                      (setf max-height (frame-pixel-height)
                            max-width (frame-pixel-width))))
-              (setf (image-property image :type) 'imagemagick
-                    (image-property image :max-width) max-width
+              (when (fboundp 'imagemagick-types)
+                ;; Only do this when ImageMagick is supported.
+                ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+                (setf (image-property image :type) 'imagemagick))
+              (setf (image-property image :max-width) max-width
                     (image-property image :max-height) max-height)
               (concat "\n"
                       (propertize " " 'display image
