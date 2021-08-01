@@ -222,11 +222,15 @@ Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
   (interactive (list (car ement-sessions)
                      (ement-complete-room (car ement-sessions))))
-  ;; FIXME: There must be a better way to handle this.
-  (funcall (if current-prefix-arg
-               #'pop-to-buffer #'pop-to-buffer-same-window)
-           (ement-room--buffer session room (ement--room-buffer-name room)))
-  (goto-char (point-max)))
+  (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
+    (unless (buffer-live-p buffer)
+      (setf (alist-get 'buffer (ement-room-local room))
+            (ement-room--buffer session room (ement--room-buffer-name room))
+            buffer (alist-get 'buffer (ement-room-local room))))
+    ;; FIXME: There must be a better way to handle this.
+    (funcall (if current-prefix-arg
+                 #'pop-to-buffer #'pop-to-buffer-same-window)
+             buffer)))
 
 (cl-defun ement-upload (session &key data filename then else
                                 (content-type "application/octet-stream"))
