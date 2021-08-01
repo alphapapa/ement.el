@@ -529,20 +529,24 @@ Adds sender to `ement-users' when necessary."
                return (alist-get 'alias (ement-event-content event)))))
 
 (defun ement--read-session ()
-  "Return saved session from file."
+  "Return saved session from file.
+Returns nil if unable to read `ement-session-file'."
   (when (file-exists-p ement-session-file)
     (condition-case err
-        ;; In case the saved session struct ever changes format, or something causes Emacs
-        ;; to fail to read the saved structs, we handle any errors by logging in again.
-        (let* ((read-circle t)
-               (read-session (read (with-temp-buffer
+        ;; In case something causes Emacs to fail to read the saved session data, we handle
+        ;; any errors by returning nil, which means the calling function should log in again.
+        (pcase-let* ((read-circle t)
+                     (session-data (with-temp-buffer
                                      (insert-file-contents ement-session-file)
-                                     (buffer-substring-no-properties (point-min) (point-max))))))
-          (setf (ement-user-room-display-names (ement-session-user read-session)) (make-hash-table))
+                                     (read (current-buffer))))
+                     (session (apply #'make-ement-session session-data)))
+          (setf (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
           (message "Ement: Read session.")
-          read-session)
-      (error (display-warning 'ement (format "Unable to read session from disk (%s).  Prompting to log in again.  Please report this error at https://github.com/alphapapa/ement.el"
-                                             (error-message-string err)))))))
+          session)
+      (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."
+                                             (error-message-string err)))
+             ;; `display-warning' seems to return non-nil.
+             nil))))
 
 (defun ement--write-session (session)
   "Write SESSION to disk."
@@ -552,21 +556,19 @@ Adds sender to `ement-users' when necessary."
   ;; amount of session data saved (e.g. room history could grow
   ;; forever on-disk, which probably isn't what we want).
   (message "Ement: Writing session...")
-  ;; TODO: Write a plist and make the new session struct in the reader (preventing any future problems).
   (with-temp-file ement-session-file
     (let* ((print-level nil)
            (print-length nil)
            ;; Very important to use `print-circle', although it doesn't
            ;; solve everything.  Writing/reading Lisp data can be tricky...
            (print-circle t)
-           ;; We only want to write certain slots of the session to disk for now (because of problems
-           ;; reading certain data back, the solving of which will probably require descending into
-           ;; various rabbit holes), so we write a new session with only certain slots.
-           (saved-session (make-ement-session :user (ement-session-user session)
-                                              :server (ement-session-server session)
-                                              :token (ement-session-token session)
-                                              :transaction-id (ement-session-transaction-id session))))
-      (prin1 saved-session (current-buffer))))
+           ;; We only record the slots we need.  We record them as a plist
+           ;; so that changes to the struct definition don't matter.
+           (session-data (list :user (ement-session-user session)
+                               :server (ement-session-server session)
+                               :token (ement-session-token session)
+                               :transaction-id (ement-session-transaction-id session))))
+      (prin1 session-data (current-buffer))))
   ;; Ensure permissions are safe.
   (chmod ement-session-file #o600))
 
