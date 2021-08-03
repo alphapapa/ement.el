@@ -205,6 +205,13 @@ if session hasn't finished initial sync."
                                   'room room
                                   'event event)
                       "\n"))
+            ;; HACK: Limit room name width.
+            (when ement-notify-limit-room-name-width
+              (save-excursion
+                (let ((room-name-width (- (next-single-property-change (point) 'face) (point))))
+                  (when (> room-name-width ement-notify-limit-room-name-width)
+                    (forward-char ement-notify-limit-room-name-width)
+                    (delete-region (point) (next-single-property-change (point) 'face))))))
             ;; HACK: Try to remove `button' face property from new text.  (It works!)
             (cl-loop for next-face-change-pos = (next-single-property-change (point) 'face)
                      for face-at = (get-text-property (point) 'face)
