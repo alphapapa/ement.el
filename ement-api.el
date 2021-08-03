@@ -96,7 +96,7 @@
                (json-object (when body
                               (ignore-errors
                                 (json-read-from-string body))))
-               (error-message (format "%S: %s"
+               (error-message (format "Ement API error: %S: %s"
                                       (or curl-exit-code status)
                                       (or (when json-object
                                             (alist-get 'error json-object))
