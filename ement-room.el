@@ -1412,7 +1412,7 @@ seconds."
             (_ (propertize (format "[sender:%s type:%s]"
                                    (ement-user-id (ement-event-sender event))
                                    (ement-event-type event))
-                           'help-echo (format "%S" event))))
+                           'help-echo (format "%S" (ement-event-content event)))))
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
