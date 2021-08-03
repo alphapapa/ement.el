@@ -103,7 +103,14 @@ if session hasn't finished initial sync."
                (sender-name (ement-room--user-display-name sender room))
                (title (format "%s in %s" sender-name room-name))
                ;; TODO: Encode HTML entities.
-               (body (truncate-string-to-width body 60)))
+               (body (if (stringp body)
+                         (truncate-string-to-width body 60)
+                       (progn
+                         (display-warning 'ement-notify--notify
+                                          (format "Event has no body.  Please report this bug.  ID:%S  ROOM:%S  TYPE:%S"
+                                                  (ement-event-id room)
+                                                  room-name (ement-event-type event)))
+                         ""))))
     (notifications-notify :title title :body body
                           :app-name "Ement.el"
                           :category "im.received"
