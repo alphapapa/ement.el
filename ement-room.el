@@ -307,12 +307,12 @@ line."
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
   :type '(choice (list :tag "Raise" (const raise :tag "Raise") (number :tag "Factor"))
-		 (list :tag "Height" (const height)
-		       (choice (list :tag "Larger" (const + :tag "Larger") (number :tag "Steps"))
-			       (list :tag "Smaller" (const - :tag "Smaller") (number :tag "Steps"))
-			       (number :tag "Factor")
-			       (function :tag "Function")
-			       (sexp :tag "Form"))) ))
+                 (list :tag "Height" (const height)
+                       (choice (list :tag "Larger" (const + :tag "Larger") (number :tag "Steps"))
+                               (list :tag "Smaller" (const - :tag "Smaller") (number :tag "Steps"))
+                               (number :tag "Factor")
+                               (function :tag "Function")
+                               (sexp :tag "Form"))) ))
 
 (defcustom ement-room-event-separator-display-property '(space :ascent 50)
   "Display property applied to invisible space string after events.
@@ -766,7 +766,7 @@ The message must be one sent by the local user."
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room local) room)
-	       ((map _start end chunk state) data)
+               ((map _start end chunk state) data)
                ((map buffer) local))
     ;; Put the newly retrieved events at the end of the slots, because they should be
     ;; older events.  But reverse them first, because we're using "dir=b", which the
@@ -777,11 +777,11 @@ The message must be one sent by the local user."
     (setf chunk (nreverse chunk)
           state (nreverse state))
     (cl-loop for event across-ref state
-	     do (setf event (ement--make-event event))
+             do (setf event (ement--make-event event))
              finally do (setf (ement-room-state room)
                               (append (ement-room-state room) (append state nil))))
     (cl-loop for event across-ref chunk
-	     do (setf event (ement--make-event event))
+             do (setf event (ement--make-event event))
              finally do (setf (ement-room-timeline room)
                               ;; Convert chunk to a list before appending to slot.
                               (append (ement-room-timeline room) (append chunk nil))))
@@ -1353,7 +1353,7 @@ seconds."
 ;;                             ("m.room.member" 'ement-room-membership)
 ;;                             (_ (if (equal (ement-user-id sender)
 ;;                                           (ement-user-id (ement-session-user ement-session)))
-;; 				   'ement-room-self-message 'default))))
+;;                                 'ement-room-self-message 'default))))
 ;;                (string (pcase type
 ;;                          ("m.room.message" body)
 ;;                          ("m.room.member" "")
@@ -1366,7 +1366,7 @@ seconds."
 ;;       (pcase type
 ;;         ("m.room.member"
 ;;          (widget-create 'ement-room-membership
-;; 			:button-face 'ement-room-membership
+;;                      :button-face 'ement-room-membership
 ;;                         :value (list (alist-get 'membership content))))))))
 
 (defun ement-room--format-event (event)

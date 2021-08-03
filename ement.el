@@ -211,7 +211,7 @@ commands in them won't work."
   "Record DATA from logging in to SESSION and do initial sync."
   (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
     (setf ement-sessions (list session)
-	  (ement-session-token session) token
+          (ement-session-token session) token
           (ement-session-device-id session) device-id))
   (ement--sync (car ement-sessions)))
 
@@ -337,7 +337,7 @@ a filter ID).  When unspecified, the value of
                (params (remove
                         nil (list (list "full_state" (if next-batch "false" "true"))
                                   (when filter
-				    ;; TODO: Document filter arg.
+                                    ;; TODO: Document filter arg.
                                     (list "filter" (json-encode filter)))
                                   (when next-batch
                                     (list "since" next-batch))
@@ -460,20 +460,20 @@ To be called in `ement-sync-callback-hook'."
     (cl-macrolet ((push-events
                    (type accessor)
                    ;; Push new events of TYPE to room's slot of ACCESSOR, and return the latest timestamp pushed.
-		   `(let ((ts 0))
+                   `(let ((ts 0))
                       ;; NOTE: We replace each event in the vector with the
                       ;; struct, which is used when calling hooks later.
-		      (cl-loop for event across-ref (alist-get 'events ,type)
+                      (cl-loop for event across-ref (alist-get 'events ,type)
                                do (setf event (ement--make-event event))
                                do (push event (,accessor room))
                                (when (ement--sync-messages-p session)
                                  (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
                                (when (> (ement-event-origin-server-ts event) ts)
                                  (setf ts (ement-event-origin-server-ts event))))
-		      ;; One would think that one should use `maximizing' here, but, completely
-		      ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
-		      ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
-		      ts)))
+                      ;; One would think that one should use `maximizing' here, but, completely
+                      ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
+                      ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
+                      ts)))
       (when (map-elt (ement-room-local room) 'buffer)
         ;; Only use ephemeral events if the room has a buffer, and don't use the
         ;; `push-events' macro because we don't use these events' timestamps.
@@ -482,15 +482,15 @@ To be called in `ement-sync-callback-hook'."
                  do (push event-struct (ement-room-ephemeral room))))
       ;; FIXME: This is a bit convoluted and hacky now.  Refactor it.
       (setf latest-timestamp
-	    (max (push-events state ement-room-state)
-		 (push-events timeline ement-room-timeline)))
+            (max (push-events state ement-room-state)
+                 (push-events timeline ement-room-timeline)))
       ;; NOTE: We also append the new events to the new-events list in the room's local
       ;; slot, which is used by `ement--update-room-buffers' to insert only new events.
       (cl-callf2 append (cl-coerce (alist-get 'events timeline) 'list)
                  (alist-get 'new-events (ement-room-local room)))
       ;; Update room's latest-timestamp slot.
       (when (> latest-timestamp (or (ement-room-latest-ts room) 0))
-	(setf (ement-room-latest-ts room) latest-timestamp))
+        (setf (ement-room-latest-ts room) latest-timestamp))
       (unless (ement-session-has-synced-p session)
         ;; Only set this token on initial sync, otherwise it would
         ;; overwrite earlier tokens from loading earlier messages.
