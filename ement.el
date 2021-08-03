@@ -551,7 +551,13 @@ Returns nil if unable to read `ement-session-file'."
                      (session-data (with-temp-buffer
                                      (insert-file-contents ement-session-file)
                                      (read (current-buffer))))
-                     (session (apply #'make-ement-session session-data)))
+                     ((map (:user user-data)
+                           (:server server-data)
+                           (:token token) (:transaction-id transaction-id))
+                      session-data)
+                     (user (apply #'make-ement-user user-data))
+                     (server (apply #'make-ement-server server-data))
+                     (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
           (setf (ement-session-events session) (make-hash-table :test #'equal)
                 (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
           (message "Ement: Read session.")
@@ -570,17 +576,22 @@ Returns nil if unable to read `ement-session-file'."
   ;; forever on-disk, which probably isn't what we want).
   (message "Ement: Writing session...")
   (with-temp-file ement-session-file
-    (let* ((print-level nil)
-           (print-length nil)
-           ;; Very important to use `print-circle', although it doesn't
-           ;; solve everything.  Writing/reading Lisp data can be tricky...
-           (print-circle t)
-           ;; We only record the slots we need.  We record them as a plist
-           ;; so that changes to the struct definition don't matter.
-           (session-data (list :user (ement-session-user session)
-                               :server (ement-session-server session)
-                               :token (ement-session-token session)
-                               :transaction-id (ement-session-transaction-id session))))
+    (pcase-let* ((print-level nil)
+                 (print-length nil)
+                 ;; Very important to use `print-circle', although it doesn't
+                 ;; solve everything.  Writing/reading Lisp data can be tricky...
+                 (print-circle t)
+                 ;; We only record the slots we need.  We record them as a plist
+                 ;; so that changes to the struct definition don't matter.
+                 ((cl-struct ement-session user server token transaction-id) session)
+                 ((cl-struct ement-user (id user-id) username) user)
+                 ((cl-struct ement-server (name server-name) uri-prefix) server)
+                 (session-data (list :user (list :id user-id
+                                                 :username username)
+                                     :server (list :name server-name
+                                                   :uri-prefix uri-prefix)
+                                     :token token
+                                     :transaction-id transaction-id)))
       (prin1 session-data (current-buffer))))
   ;; Ensure permissions are safe.
   (chmod ement-session-file #o600))
