@@ -98,6 +98,9 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-leave-room~ to leave a room.
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
+4.  Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
+      -  See all new events that mention you in the =*Ement Mentions*= buffer.
+      -  See all new events in rooms that have open buffers in the =*Ement Notifications*= buffer.
 
 ** Bindings
 
@@ -129,6 +132,12 @@ If you want to install it manually, it's simple enough, but you should know what
 +  Show buffer of room at point: ~RET~
 +  Show buffer of next unread room: ~SPC~
 +  Move between room names: ~TAB~ / ~<backtab>~
+
+*** Mentions/notifications buffers
+
++  Move between events: ~TAB~ / ~<backtab>~
++  Go to event at point in its room buffer: ~RET~
++  Write reply to event at point (shows the event in its room while writing) : ~S-RET~
 
 ** Tips
 

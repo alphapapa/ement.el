@@ -37,6 +37,11 @@
 
 ;;;; Variables
 
+(defvar ement-notify-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "S-<return>") #'ement-notify-reply)
+    (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
+  "Map for Ement notification buffers.")
 
 ;;;; Customization
 
@@ -45,7 +50,7 @@
   :group 'ement)
 
 (defcustom ement-notify-predicates
-  '(ement-notify--event-mentions-session-user-p)
+  '(ement-notify--event-mentions-session-user-p ement-notify--room-buffer-live-p)
   "Display notification if any of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
 room, and the session (each the respective struct)."
@@ -62,14 +67,14 @@ room, and the session (each the respective struct)."
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
-  '(ement-notify--notify ement-notify--log-mentions)
+  '(ement-notify--notify ement-notify--log-mention ement-notify--log-buffer)
   "Call these functions to send notifications for events.
 These functions are called when the `ement-notify-predicates'
 have already indicated that a notification should be sent.  Each
 function is called with three arguments: the event, the room, and
 the session (each the respective struct)."
   :type 'hook
-  :options '(ement-notify--notify ement-notify--log-mentions))
+  :options '(ement-notify--notify ement-notify--log-mention ement-notify--log-buffer))
 
 (defcustom ement-notify-sound nil
   "Sound to play for notifications."
@@ -80,6 +85,24 @@ the session (each the respective struct)."
 
 ;;;; Commands
 
+(declare-function ement-view-room "ement")
+(defun ement-notify-button-action (button)
+  "Show BUTTON's event in its room buffer."
+  ;; TODO: Is `interactive' necessary here?
+  (interactive)
+  (let* ((session (button-get button 'session))
+         (room (button-get button 'room))
+         (event (button-get button 'event)))
+    (ement-view-room session room)
+    (ement-room-goto-event event)))
+
+(defun ement-notify-reply ()
+  "Send a reply to event at point."
+  (interactive)
+  (save-window-excursion
+    ;; Not sure why `call-interactively' doesn't work for `push-button' but oh well.
+    (push-button)
+    (call-interactively #'ement-room-send-reply)))
 
 ;;;; Functions
 
@@ -127,30 +150,73 @@ if session hasn't finished initial sync."
                           ;; :on-action #'ement-notify-show
                           )))
 
-(defun ement-notify--log-mentions (event room session)
+;; FIXME: We duplicate some of the tests in these two functions.  Should redesign this.
+
+(defun ement-notify--log-mention (event room session)
   "Log EVENT in ROOM to \"*Ement Mentions*\" buffer if it mentions SESSION's user."
   (when (ement-notify--event-mentions-session-user-p event room session)
-    ;; HACK: For now, we call `ement-room--format-message' in a buffer
-    ;; that pretends to be the room's buffer.
+    (ement-notify--log-event event room session :buffer-name "*Ement Mentions*")))
+
+(defun ement-notify--log-buffer (event room session)
+  "Log EVENT in ROOM on SESSION to \"*Ement Notifications*\" buffer if ROOM has a buffer."
+  (when (ement-notify--room-buffer-live-p event room session)
+    (ement-notify--log-event event room session)))
+
+(cl-defun ement-notify--log-event (event room session &key (buffer-name "*Ement Notifications*"))
+  "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
+  ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary since we
+  ;; have `ement-notify--event-message-p' in `ement-notify-predicates', but just to be safe...
+  (when (equal "m.room.message" (ement-event-type event))
+    ;; HACK: For now, we call `ement-room--format-message' in a buffer that pretends to be
+    ;; the room's buffer.  We have to do this, because the room might not have a buffer yet.
     (with-temp-buffer
       ;; Set these buffer-local variables, which `ement-room--format-message' uses.
       (setf ement-session session
             ement-room room)
-      (let* ((new-left-margin-width (+ (string-width (ement-room-display-name room))
-                                       (string-width (ement-room--user-display-name (ement-event-sender event) room))
-                                       2))
-             ;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
+      (let* (;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
              (ement-room-sender-in-left-margin nil)
-             (message (ement-room--format-message event "%O %S%L%B%r%R%t"))
-             (buffer (or (get-buffer "*Ement Mentions*")
-                         (with-current-buffer (get-buffer-create "*Ement Mentions*")
-                           (setf left-margin-width 30
+             (ement-room-message-format-spec "%O %S%L%B%R%t")
+             (message (ement-room--format-event event))
+             (buffer (or (get-buffer buffer-name)
+                         (with-current-buffer (get-buffer-create buffer-name)
+                           (view-mode)
+                           (visual-line-mode)
+                           (use-local-map ement-notify-map)
+                           (setf left-margin-width ement-room-left-margin-width
                                  right-margin-width 8)
-                           (current-buffer)))))
+                           (current-buffer))))
+             (new-left-margin-width
+              (max (buffer-local-value 'left-margin-width buffer)
+                   (+ (string-width (ement-room-display-name room))
+                      (string-width (ement-room--user-display-name (ement-event-sender event) room))
+                      2)))
+             (inhibit-read-only t))
         (with-current-buffer buffer
           (save-excursion
             (goto-char (point-max))
-            (insert message "\n"))
+            ;; We make the button manually to avoid overriding the message faces.
+            ;; TODO: Define our own button type?  Maybe integrating the hack below...
+            (save-excursion
+              (insert (propertize message
+                                  'button '(t)
+                                  'category 'default-button
+                                  'action #'ement-notify-button-action
+                                  'session session
+                                  'room room
+                                  'event event)
+                      "\n"))
+            ;; HACK: Try to remove `button' face property from new text.  (It works!)
+            (cl-loop for next-face-change-pos = (next-single-property-change (point) 'face)
+                     for face-at = (get-text-property (point) 'face)
+                     when (pcase face-at
+                            ('button t)
+                            ((pred listp) (member 'button face-at)))
+                     do (put-text-property (point) (or next-face-change-pos (point-max))
+                                           'face (pcase face-at
+                                                   ('button nil)
+                                                   ((pred listp) (delete 'button face-at))))
+                     while next-face-change-pos
+                     do (goto-char next-face-change-pos)))
           (setf left-margin-width new-left-margin-width)
           (when-let (window (get-buffer-window buffer))
             (set-window-margins window new-left-margin-width right-margin-width)))))))
