@@ -404,7 +404,7 @@ sends a not-typing notification."
                  (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
                                               nil nil 'confirm))
                         (body (read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                           file)))
+                                           file nil nil 'inherit-input-method)))
                    (list file body ement-room ement-session))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
@@ -626,7 +626,7 @@ automatically added after the room ID."
   (cl-assert ement-room) (cl-assert ement-session)
   (ement-room-with-typing
     (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
-           (body (read-string prompt)))
+           (body (read-string prompt nil nil nil 'inherit-input-method)))
       (unless (string-empty-p body)
         (pcase-let* (((cl-struct ement-session server token) ement-session)
                      ((cl-struct ement-room id) ement-room)
@@ -685,7 +685,7 @@ The message must be one sent by the local user."
         (user-error "Only original messages may be edited, not the edit events themselves"))
       (ement-room-with-typing
         (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
-               (body (read-string prompt body)))
+               (body (read-string prompt body nil nil 'inherit-input-method)))
           (unless (string-empty-p body)
             (when (yes-or-no-p (format "Edit message to: %S? " body))
               (pcase-let* (((cl-struct ement-session server token) ement-session)
