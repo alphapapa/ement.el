@@ -49,16 +49,7 @@
   "Notification options."
   :group 'ement)
 
-(defcustom ement-notify-predicates
-  '(ement-notify--event-mentions-session-user-p ement-notify--room-buffer-live-p)
-  "Display notification if any of these return non-nil for an event.
-Each predicate is called with three arguments: the event, the
-room, and the session (each the respective struct)."
-  :type '(repeat (choice (function-item ement-notify--event-mentions-session-user-p)
-                         (function-item ement-notify--room-buffer-live-p)
-                         (function :tag "Custom predicate"))))
-
-(defcustom ement-notify-filters
+(defcustom ement-notify-ignore-predicates
   '(ement-notify--event-message-p)
   "Display notification if all of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
@@ -67,14 +58,14 @@ room, and the session (each the respective struct)."
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
-  '(ement-notify--notify ement-notify--log-mention ement-notify--log-buffer)
+  '(ement-notify--notifications-notify ement-notify--log-if-mention ement-notify--log-if-buffer)
   "Call these functions to send notifications for events.
 These functions are called when the `ement-notify-predicates'
 have already indicated that a notification should be sent.  Each
 function is called with three arguments: the event, the room, and
 the session (each the respective struct)."
   :type 'hook
-  :options '(ement-notify--notify ement-notify--log-mention ement-notify--log-buffer))
+  :options '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer))
 
 (defcustom ement-notify-sound nil
   "Sound to play for notifications."
@@ -82,6 +73,12 @@ the session (each the respective struct)."
                  (string :tag "XDG sound name")
                  (const :tag "Default XDG message sound" "message-new-instant")
                  (const :tag "Don't play a sound" nil)))
+
+(defcustom ement-notify-limit-room-name-width 10
+  "Limit the width of room display names in mentions and notifications buffers.
+This prevents the margin from being made excessively wide."
+  :type '(choice (integer :tag "Maximum width")
+                 (const :tag "Unlimited width" nil)))
 
 ;;;; Commands
 
@@ -108,17 +105,21 @@ the session (each the respective struct)."
 
 (defun ement-notify (event room session)
   "Send notifications for EVENT in ROOM on SESSION.
-Calls functions in `ement-notify-functions' if any of
-`ement-notify-predicates' return non-nil.  Does not do anything
-if session hasn't finished initial sync."
+Calls functions in `ement-notify-functions' if all of
+`ement-notify-ignore-predicates' return nil.  Does not do
+anything if session hasn't finished initial sync."
   (when (and (ement-session-has-synced-p session)
-             (cl-loop for pred in ement-notify-predicates
-                      thereis (funcall pred event room session))
-             (cl-loop for pred in ement-notify-filters
+             (cl-loop for pred in ement-notify-ignore-predicates
                       always (funcall pred event room session)))
     (run-hook-with-args 'ement-notify-functions event room session)))
 
-(defun ement-notify--notify (event room _session)
+(defun ement-notify--notify-if-mention (event room session)
+  "Send desktop notification if EVENT in ROOM mention's SESSION's user.
+Calls `ement-notify--notifications-notify'."
+  (when (ement-notify--event-mentions-session-user-p event room session)
+    (ement-notify--notifications-notify event room session)))
+
+(defun ement-notify--notifications-notify (event room _session)
   "Call `notifications-notify' for EVENT in ROOM on SESSION."
   (pcase-let* (((cl-struct ement-event sender content) event)
                ((map body) content)
@@ -129,7 +130,7 @@ if session hasn't finished initial sync."
                (body (if (stringp body)
                          (truncate-string-to-width body 60)
                        (progn
-                         (display-warning 'ement-notify--notify
+                         (display-warning 'ement-notify--notifications-notify
                                           (format "Event has no body.  Please report this bug.  ID:%S  ROOM:%S  TYPE:%S"
                                                   (ement-event-id room)
                                                   room-name (ement-event-type event)))
@@ -150,19 +151,17 @@ if session hasn't finished initial sync."
                           ;; :on-action #'ement-notify-show
                           )))
 
-;; FIXME: We duplicate some of the tests in these two functions.  Should redesign this.
-
-(defun ement-notify--log-mention (event room session)
+(defun ement-notify--log-if-mention (event room session)
   "Log EVENT in ROOM to \"*Ement Mentions*\" buffer if it mentions SESSION's user."
   (when (ement-notify--event-mentions-session-user-p event room session)
-    (ement-notify--log-event event room session :buffer-name "*Ement Mentions*")))
+    (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*")))
 
-(defun ement-notify--log-buffer (event room session)
+(defun ement-notify--log-if-buffer (event room session)
   "Log EVENT in ROOM on SESSION to \"*Ement Notifications*\" buffer if ROOM has a buffer."
   (when (ement-notify--room-buffer-live-p event room session)
-    (ement-notify--log-event event room session)))
+    (ement-notify--log-to-buffer event room session)))
 
-(cl-defun ement-notify--log-event (event room session &key (buffer-name "*Ement Notifications*"))
+(cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
   ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary since we
   ;; have `ement-notify--event-message-p' in `ement-notify-predicates', but just to be safe...
