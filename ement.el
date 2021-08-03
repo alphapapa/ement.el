@@ -249,7 +249,7 @@ THEN and ELSE are passed to `ement-api', which see."
 
 ;;;; Functions
 
-(defun ement--sync-messages-p (session)
+(defsubst ement--sync-messages-p (session)
   "Return non-nil if sync-related messages should be shown for SESSION."
   ;; For now, this seems like the best way.
   (or (not (ement-session-has-synced-p session))
