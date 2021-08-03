@@ -396,6 +396,22 @@ sends a not-typing notification."
 
 ;;;; Commands
 
+(defun ement-room-set-topic (session room topic)
+  "Set ROOM's TOPIC on SESSION.
+Interactively, set the current buffer's ROOM's TOPIC."
+  (interactive (list ement-session ement-room
+                     (read-string (format "New topic (%s): "
+                                          (ement-room-display-name ement-room))
+                                  nil nil (ement-room-topic ement-room) 'inherit-input-method)))
+  (pcase-let* (((cl-struct ement-session server token) session)
+               ((cl-struct ement-room (id room-id) display-name) room)
+               (endpoint (format "rooms/%s/state/m.room.topic" (url-hexify-string room-id)))
+               (data (ement-alist "topic" topic)))
+    (ement-api server token endpoint
+      (lambda (_data)
+        (message "Topic set (%s): %s" display-name topic))
+      :method 'put :data (json-encode data))))
+
 (declare-function ement-upload "ement" t t)
 (defun ement-room-send-image (file body room session)
   "Send image FILE to ROOM on SESSION, using message BODY."
