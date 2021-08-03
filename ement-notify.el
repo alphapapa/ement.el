@@ -80,6 +80,12 @@ This prevents the margin from being made excessively wide."
   :type '(choice (integer :tag "Maximum width")
                  (const :tag "Unlimited width" nil)))
 
+(defcustom ement-notify-prism-background nil
+  "Add distinct background color by room to messages in notification buffers.
+The color is specific to each room, generated automatically, and
+can help distinguish messages by room."
+  :type 'boolean)
+
 ;;;; Commands
 
 (declare-function ement-view-room "ement")
@@ -194,6 +200,9 @@ Calls `ement-notify--notifications-notify'."
                       (string-width (ement-room--user-display-name (ement-event-sender event) room))
                       2)))
              (inhibit-read-only t))
+        (when ement-notify-prism-background
+          (add-face-text-property 0 (length message) (list :background (ement-notify--room-background-color room))
+                                  nil message))
         (with-current-buffer buffer
           (save-excursion
             (goto-char (point-max))
@@ -223,6 +232,43 @@ Calls `ement-notify--notifications-notify'."
           (setf left-margin-width new-left-margin-width)
           (when-let (window (get-buffer-window buffer))
             (set-window-margins window new-left-margin-width right-margin-width)))))))
+
+(defun ement-notify--room-background-color (room)
+  "Return a background color on which to display ROOM's messages."
+  ;; Based on `ement-room--user-color', hacked up a bit (adjusting
+  ;; some of the numbers feels a little like magic).
+  (cl-labels ((relative-luminance
+               ;; Copy of `modus-themes-wcag-formula', an elegant
+               ;; implementation by Protesilaos Stavrou.  Also see
+               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
+                              for x in rgb
+                              sum (* k (if (<= x 0.03928)
+                                           (/ x 12.92)
+                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
+              (contrast-ratio
+               ;; Copy of `modus-themes-contrast'; see above.
+               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
+                                  (+ (relative-luminance b) 0.05))))
+                       (max ct (/ ct)))))
+    (let* ((id (ement-room-display-name room))
+           (id-hash (float (abs (sxhash id))))
+	   (ratio (/ id-hash (float (expt 2 24))))
+           (color-num (round (* (* 255 255 255) ratio)))
+           (color-rgb (list (/ (float (logand color-num 255)) 255)
+                            (/ (float (lsh (logand color-num 65280) -8)) 255)
+                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
+           (background-rgb (color-name-to-rgb (face-background 'default))))
+      (if (> (contrast-ratio color-rgb background-rgb) 2)
+          (progn
+            ;; Contrast ratio too high: I don't know the best way to fix this, but we
+            ;; use a color from a gradient between the computed color and the default
+            ;; background color, which seems to blend decently with the background.
+            (apply #'color-rgb-to-hex
+                   (append (nth 3 (color-gradient background-rgb color-rgb 20))
+                           (list 2))))
+        (apply #'color-rgb-to-hex (append color-rgb (list 2)))))))
 
 ;;;;; Predicates
 
