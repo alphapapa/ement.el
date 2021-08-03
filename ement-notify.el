@@ -58,7 +58,7 @@ room, and the session (each the respective struct)."
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
-  '(ement-notify--notifications-notify ement-notify--log-if-mention ement-notify--log-if-buffer)
+  '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer)
   "Call these functions to send notifications for events.
 These functions are called when the `ement-notify-predicates'
 have already indicated that a notification should be sent.  Each
