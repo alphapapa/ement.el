@@ -62,14 +62,14 @@ room, and the session (each the respective struct)."
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
-  '(ement-notify--notify)
+  '(ement-notify--notify ement-notify--log-mentions)
   "Call these functions to send notifications for events.
 These functions are called when the `ement-notify-predicates'
 have already indicated that a notification should be sent.  Each
 function is called with three arguments: the event, the room, and
 the session (each the respective struct)."
   :type 'hook
-  :options '(ement-notify--notify))
+  :options '(ement-notify--notify ement-notify--log-mentions))
 
 (defcustom ement-notify-sound nil
   "Sound to play for notifications."
@@ -119,6 +119,34 @@ if session hasn't finished initial sync."
                           ;; :actions '("default" "Show")
                           ;; :on-action #'ement-notify-show
                           )))
+
+(defun ement-notify--log-mentions (event room session)
+  "Log EVENT in ROOM to \"*Ement Mentions*\" buffer if it mentions SESSION's user."
+  (when (ement-notify--event-mentions-session-user-p event room session)
+    ;; HACK: For now, we call `ement-room--format-message' in a buffer
+    ;; that pretends to be the room's buffer.
+    (with-temp-buffer
+      ;; Set these buffer-local variables, which `ement-room--format-message' uses.
+      (setf ement-session session
+            ement-room room)
+      (let* ((new-left-margin-width (+ (string-width (ement-room-display-name room))
+                                       (string-width (ement-room--user-display-name (ement-event-sender event) room))
+                                       2))
+             ;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
+             (ement-room-sender-in-left-margin nil)
+             (message (ement-room--format-message event "%O %S%L%B%r%R%t"))
+             (buffer (or (get-buffer "*Ement Mentions*")
+                         (with-current-buffer (get-buffer-create "*Ement Mentions*")
+                           (setf left-margin-width 30
+                                 right-margin-width 8)
+                           (current-buffer)))))
+        (with-current-buffer buffer
+          (save-excursion
+            (goto-char (point-max))
+            (insert message "\n"))
+          (setf left-margin-width new-left-margin-width)
+          (when-let (window (get-buffer-window buffer))
+            (set-window-margins window new-left-margin-width right-margin-width)))))))
 
 ;;;;; Predicates
 
