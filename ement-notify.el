@@ -50,11 +50,11 @@
   :group 'ement)
 
 (defcustom ement-notify-ignore-predicates
-  '(ement-notify--event-message-p)
-  "Display notification if all of these return non-nil for an event.
+  '(ement-notify--event-not-message-p)
+  "Display notification if none of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
 room, and the session (each the respective struct)."
-  :type '(repeat (choice (function-item ement-notify--event-message-p)
+  :type '(repeat (choice (function-item ement-notify--event-not-message-p)
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
@@ -110,7 +110,7 @@ Calls functions in `ement-notify-functions' if all of
 anything if session hasn't finished initial sync."
   (when (and (ement-session-has-synced-p session)
              (cl-loop for pred in ement-notify-ignore-predicates
-                      always (funcall pred event room session)))
+                      never (funcall pred event room session)))
     (run-hook-with-args 'ement-notify-functions event room session)))
 
 (defun ement-notify--notify-if-mention (event room session)
@@ -244,6 +244,10 @@ If EVENT's sender is SESSION's user, returns nil."
 (defun ement-notify--event-message-p (event _room _session)
   "Return non-nil if EVENT is an \"m.room.message\" event."
   (equal "m.room.message" (ement-event-type event)))
+
+(defun ement-notify--event-not-message-p (event _room _session)
+  "Return non-nil if EVENT is not an \"m.room.message\" event."
+  (not (equal "m.room.message" (ement-event-type event))))
 
 ;;;; Footer
 
