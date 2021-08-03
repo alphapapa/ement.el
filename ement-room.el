@@ -1416,8 +1416,6 @@ seconds."
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
-
-
 (defun ement-room--format-reactions (event)
   "Return formatted reactions to EVENT."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
