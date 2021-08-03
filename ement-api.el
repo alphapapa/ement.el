@@ -61,6 +61,7 @@
                             (endpoint-category "client")
                             (json-read-fn #'json-read))
   "FIXME: Docstring."
+  ;; TODO: Remind users to json-encode data when needed.
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-server uri-prefix) server)
                ((cl-struct url type host portspec) (url-generic-parse-url uri-prefix))
