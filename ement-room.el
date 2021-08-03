@@ -217,6 +217,7 @@ It may contain these specifiers:
   %b  Message body (plain-text)
   %B  Message body (formatted if available)
   %i  Event ID
+  %O  Room display name (used for mentions buffer)
   %r  Reactions
   %s  Sender ID
   %S  Sender display name
@@ -1475,6 +1476,13 @@ Format defaults to `ement-room-message-format-spec', which see."
                     (?i (ement-event-id event))
                     ;; Add unit separators to prevent, e.g. dabbrev-expand
                     ;; from reading displaynames with the next field.
+                    (?O (progn
+                          (ignore event)
+                          (propertize (or (ement-room-display-name ement-room)
+                                          (ement-room--room-display-name ement-room))
+                                      'face 'ement-room-name
+                                      'help-echo (or (ement-room-canonical-alias ement-room)
+                                                     (ement-room-id ement-room)))))
                     (?s (concat (propertize (ement-user-id (ement-event-sender event))
                                             'face 'ement-room-user)
                                 "​"))
