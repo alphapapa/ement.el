@@ -103,6 +103,7 @@ In that case, sender names are aligned to the margin edge.")
 ;; Variables from other files.
 (defvar ement-sessions)
 (defvar ement-users)
+(defvar ement-notify-limit-room-name-width)
 
 ;;;; Customization
 
@@ -162,6 +163,10 @@ normal text.")
   "Messages that mention the local user.")
 
 ;;;;; Options
+
+(defcustom ement-room-ellipsis "⋮"
+  "String used when abbreviating certain strings."
+  :type 'string)
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
@@ -1498,15 +1503,19 @@ Format defaults to `ement-room-message-format-spec', which see."
                           (add-face-text-property 0 (length body) (body-face) 'append body)
                           body))
                     (?i (ement-event-id event))
+                    (?O (let ((room-name (propertize (or (ement-room-display-name ement-room)
+                                                         (ement-room--room-display-name ement-room))
+                                                     'face 'ement-room-name
+                                                     'help-echo (or (ement-room-canonical-alias ement-room)
+                                                                    (ement-room-id ement-room)))))
+                          (ignore event)
+                          ;; HACK: This will probably only be used in the notifications buffers, anyway.
+                          (when ement-notify-limit-room-name-width
+                            (setf room-name (truncate-string-to-width room-name ement-notify-limit-room-name-width
+                                                                      nil nil ement-room-ellipsis)))
+                          room-name))
                     ;; Add unit separators to prevent, e.g. dabbrev-expand
                     ;; from reading displaynames with the next field.
-                    (?O (progn
-                          (ignore event)
-                          (propertize (or (ement-room-display-name ement-room)
-                                          (ement-room--room-display-name ement-room))
-                                      'face 'ement-room-name
-                                      'help-echo (or (ement-room-canonical-alias ement-room)
-                                                     (ement-room-id ement-room)))))
                     (?s (concat (propertize (ement-user-id (ement-event-sender event))
                                             'face 'ement-room-user)
                                 "​"))

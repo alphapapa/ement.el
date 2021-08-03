@@ -74,7 +74,7 @@ the session (each the respective struct)."
                  (const :tag "Default XDG message sound" "message-new-instant")
                  (const :tag "Don't play a sound" nil)))
 
-(defcustom ement-notify-limit-room-name-width 10
+(defcustom ement-notify-limit-room-name-width 12
   "Limit the width of room display names in mentions and notifications buffers.
 This prevents the margin from being made excessively wide."
   :type '(choice (integer :tag "Maximum width")
@@ -184,9 +184,13 @@ Calls `ement-notify--notifications-notify'."
                            (setf left-margin-width ement-room-left-margin-width
                                  right-margin-width 8)
                            (current-buffer))))
+             (room-name-width (if ement-notify-limit-room-name-width
+                                  (min (string-width (ement-room-display-name room))
+                                       ement-notify-limit-room-name-width)
+                                (string-width (ement-room-display-name room))))
              (new-left-margin-width
               (max (buffer-local-value 'left-margin-width buffer)
-                   (+ (string-width (ement-room-display-name room))
+                   (+ room-name-width
                       (string-width (ement-room--user-display-name (ement-event-sender event) room))
                       2)))
              (inhibit-read-only t))
@@ -204,13 +208,6 @@ Calls `ement-notify--notifications-notify'."
                                   'room room
                                   'event event)
                       "\n"))
-            ;; HACK: Limit room name width.
-            (when ement-notify-limit-room-name-width
-              (save-excursion
-                (let ((room-name-width (- (next-single-property-change (point) 'face) (point))))
-                  (when (> room-name-width ement-notify-limit-room-name-width)
-                    (forward-char ement-notify-limit-room-name-width)
-                    (delete-region (point) (next-single-property-change (point) 'face))))))
             ;; HACK: Try to remove `button' face property from new text.  (It works!)
             (cl-loop for next-face-change-pos = (next-single-property-change (point) 'face)
                      for face-at = (get-text-property (point) 'face)
