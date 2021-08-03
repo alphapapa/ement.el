@@ -258,6 +258,7 @@ THEN and ELSE are passed to `ement-api', which see."
 (defun ement--hostname-uri (hostname)
   "Return the \".well-known\" URI for server HOSTNAME.
 If no URI is found, prompt the user for the hostname."
+  ;; FIXME: When fail-prompting, a URI should be returned, not just a hostname.
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id178> ("4.1   Well-known URI")
   (cl-labels ((fail-prompt
                () (let ((input (read-string "Auto-discovery of server's well-known URI failed.  Input server hostname, or leave blank to use server name: ")))
