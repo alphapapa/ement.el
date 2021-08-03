@@ -1131,8 +1131,8 @@ function to `ement-room-event-fns', which see."
   "Process EVENTS in current buffer.
 Uses handlers defined in `ement-room-event-fns'.  The current
 buffer should be a room's buffer."
-  (cl-loop for event being the elements of events  ;; EVENTS may be a list or array.
-           for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'string=)
+  (cl-loop for event being the elements of events ;; EVENTS may be a list or array.
+           for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)
            when handler
            do (funcall handler event)))
 
