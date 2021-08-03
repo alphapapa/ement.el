@@ -380,14 +380,16 @@ Runs `ement-sync-callback-hook' with SESSION."
                 data)
                ((map ('join joined-rooms)) rooms)
                ;; FIXME: Only counts events in joined-rooms list.
-               (num-events (cl-loop for (_id . room) in joined-rooms
-                                    sum (length (map-nested-elt room '(state events)))
-                                    sum (length (map-nested-elt room '(timeline events)))))
-               (ement-progress-reporter (when (ement--sync-messages-p session)
-                                          (make-progress-reporter "Ement: Reading events..." 0 num-events)))
-               (ement-progress-value 0))
+               ;; HACK: In `ement--push-joined-room-events', we do
+               ;; something with each event 3 times, so we multiply
+               ;; this by 3.
+               (num-events (* 3 (cl-loop for (_id . room) in joined-rooms
+                                         sum (length (map-nested-elt room '(state events)))
+                                         sum (length (map-nested-elt room '(timeline events)))))))
     (cl-callf2 append (cl-coerce account-data-events 'list) (ement-session-account-data session))
-    (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms)
+    (ement-with-progress-reporter (:when (ement--sync-messages-p session)
+                                         :reporter ("Ement: Reading events..." 0 num-events))
+      (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms))
     ;; TODO: Process "left" rooms (remove room structs, etc).
     (setf (ement-session-next-batch session) next-batch)
     (run-hook-with-args 'ement-sync-callback-hook session)
@@ -467,7 +469,7 @@ To be called in `ement-sync-callback-hook'."
                                do (setf event (ement--make-event event))
                                do (push event (,accessor room))
                                (when (ement--sync-messages-p session)
-                                 (progress-reporter-update ement-progress-reporter (cl-incf ement-progress-value)))
+                                 (ement-progress-update))
                                (when (> (ement-event-origin-server-ts event) ts)
                                  (setf ts (ement-event-origin-server-ts event))))
                       ;; One would think that one should use `maximizing' here, but, completely
@@ -497,9 +499,13 @@ To be called in `ement-sync-callback-hook'."
         (setf (ement-room-prev-batch room) (alist-get 'prev_batch timeline))))
     ;; Run event hook for state and timeline events.
     (cl-loop for event across (alist-get 'events state)
-             do (run-hook-with-args 'ement-event-hook event room session))
+             do (run-hook-with-args 'ement-event-hook event room session)
+             (when (ement--sync-messages-p session)
+               (ement-progress-update)))
     (cl-loop for event across (alist-get 'events timeline)
-             do (run-hook-with-args 'ement-event-hook event room session))))
+             do (run-hook-with-args 'ement-event-hook event room session)
+             (when (ement--sync-messages-p session)
+               (ement-progress-update)))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.

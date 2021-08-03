@@ -88,7 +88,59 @@ keywords are supported:
   `(list ,@(cl-loop for (key value) on pairs by #'cddr
                     collect `(cons ,key ,value))))
 
+;;;;; Progress reporters
 
+;; MAYBE: Submit a `with-progress-reporter' macro to Emacs.
+
+(defalias 'ement-progress-update #'ignore
+  "By default, this function does nothing.  But inside
+`ement-with-progress-reporter', it's bound to a function that
+updates the current progress reporter.")
+
+(defmacro ement-with-progress-reporter (args &rest body)
+  "Eval BODY with a progress reporter according to ARGS.
+ARGS is a plist of these values:
+
+  :when  If specified, a form evaluated at runtime to determine
+         whether to make and update a progress reporter.  If not
+         specified, the reporter is always made and updated.
+
+  :reporter  A list of arguments passed to
+             `make-progress-reporter', which see.
+
+Around BODY, the function `ement-progress-update' is set to a
+function that calls `progress-reporter-update' on the progress
+reporter (or if the :when form evaluates to nil, the function is
+set to `ignore').  It optionally takes a VALUE argument, and
+without one, it automatically updates the value from the
+reporter's min-value to its max-value."
+  (declare (indent defun))
+  (pcase-let* ((progress-reporter-sym (gensym))
+               (progress-value-sym (gensym))
+               (start-time-sym (gensym))
+               ((map (:when when-form) (:reporter reporter-args)) args)
+               (`(,_message ,min-value ,_max-value) reporter-args)
+               (update-fn `(cl-function
+                            (lambda (&optional (value (cl-incf ,progress-value-sym)))
+                              (ement-debug "Updating progress reporter to" value)
+                              (progress-reporter-update ,progress-reporter-sym value)))))
+    `(let* ((,start-time-sym (current-time))
+            (,progress-value-sym (or ,min-value 0))
+            (,progress-reporter-sym ,(if when-form
+                                         `(when ,when-form
+                                            (make-progress-reporter ,@reporter-args))
+                                       `(make-progress-reporter ,@reporter-args))))
+       ;; We use `cl-letf' rather than `cl-labels', because labels expand to lambdas and funcalls,
+       ;; so other functions that call `ement-progress-update' wouldn't call this definition.
+       (cl-letf (((symbol-function 'ement-progress-update)
+                  ,(if when-form
+                       `(if ,when-form
+                            ,update-fn
+                          #'ignore)
+                     update-fn)))
+         ,@body
+         (ement-debug (format "Ement: Progress reporter done (took %.2f seconds)"
+                              (float-time (time-subtract (current-time) ,start-time-sym))))))))
 
 ;;;; Variables
 

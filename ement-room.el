@@ -766,31 +766,48 @@ The message must be one sent by the local user."
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room local) room)
-               ((map _start end chunk state) data)
-               ((map buffer) local))
-    ;; Put the newly retrieved events at the end of the slots, because they should be
+	       ((map _start end chunk state) data)
+               ((map buffer) local)
+               (num-events (length chunk))
+               ;; We do 3 things for chunk events, so we count them 3 times when
+               ;; reporting progress.  (We also may receive some state events for
+               ;; these chunk events, but we don't bother to include them in the
+               ;; count, and we don't report progress for them, because they are
+               ;; likely very few compared to the number of timeline events, which is
+               ;; what the user is interested in (e.g. when loading 1000 earlier
+               ;; messages in #emacs:matrix.org, only 31 state events were received).
+               (progress-max-value (* 3 num-events)))
+    ;; NOTE: Put the newly retrieved events at the end of the slots, because they should be
     ;; older events.  But reverse them first, because we're using "dir=b", which the
     ;; spec says causes the events to be returned in reverse-chronological order, and we
     ;; want to process them oldest-first (important because a membership event having a
     ;; user's displayname should be older than a message event sent by the user).
-    ;; NOTE: The CHUNK is a vector!  And state should be too, right...?
+    ;; NOTE: The events in `chunk' and `state' are vectors, so we
+    ;; convert them to a list before appending.
+    (ement-debug num-events progress-max-value)
     (setf chunk (nreverse chunk)
           state (nreverse state))
+    ;; Append state events.
     (cl-loop for event across-ref state
              do (setf event (ement--make-event event))
              finally do (setf (ement-room-state room)
                               (append (ement-room-state room) (append state nil))))
-    (cl-loop for event across-ref chunk
-             do (setf event (ement--make-event event))
-             finally do (setf (ement-room-timeline room)
-                              ;; Convert chunk to a list before appending to slot.
-                              (append (ement-room-timeline room) (append chunk nil))))
-    (when buffer
-      (with-current-buffer buffer
-        (ement-room--insert-events chunk 'retro)
-        (ement-room--process-events chunk)
-        (setf (ement-room-prev-batch room) end
-              ement-room-retro-loading nil)))))
+    (ement-with-progress-reporter (:reporter ("Ement: Processing earlier events..." 0 progress-max-value))
+      ;; Append timeline events (in the "chunk").
+      (cl-loop for event across-ref chunk
+               do (setf event (ement--make-event event))
+               (ement-progress-update)
+               finally do (setf (ement-room-timeline room)
+                                (append (ement-room-timeline room) (append chunk nil))))
+      (when buffer
+        ;; Insert events into the room's buffer.
+        (with-current-buffer buffer
+          ;; FIXME: Unify insert/process-events.
+          (ement-room--insert-events chunk 'retro)
+          (ement-room--process-events chunk)
+          (setf (ement-room-prev-batch room) end
+                ement-room-retro-loading nil))))
+    (message "Ement: Loaded %s earlier events." num-events)))
 
 (defun ement-room--insert-events (events &optional retro)
   "Insert EVENTS into current buffer.
@@ -822,7 +839,8 @@ the previously oldest event."
                when (pcase (ement-event-type event)
                       ("m.reaction" nil)
                       (_ t))
-               do (ement-room--insert-event event)))
+               do (ement-room--insert-event event)
+               do (ement-progress-update)))
     ;; Since events can be received in any order, we have to check the whole buffer
     ;; for where to insert new timestamp headers.  (Avoiding that would require
     ;; getting a list of newly inserted nodes and checking each one instead of every
@@ -1134,7 +1152,8 @@ buffer should be a room's buffer."
   (cl-loop for event being the elements of events ;; EVENTS may be a list or array.
            for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)
            when handler
-           do (funcall handler event)))
+           do (funcall handler event)
+           do (ement-progress-update)))
 
 ;;;;; EWOC
 
