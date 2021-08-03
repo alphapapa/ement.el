@@ -156,7 +156,9 @@ normal text.")
   "Timestamp headers.")
 
 (defface ement-room-mention
-  '((t (:inherit highlight)))
+  (if (version< emacs-version "27.1")
+      '((t (:inherit highlight)))
+    '((t (:inherit highlight :extend t))))
   "Messages that mention the local user.")
 
 ;;;;; Options
