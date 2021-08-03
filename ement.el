@@ -126,68 +126,72 @@ Run with one argument, the session synced."
 ;;;; Commands
 
 ;;;###autoload
-(defun ement-connect (&optional user-id password)
-  "Connect to Matrix with USER-ID and PASSWORD.
-If USER-ID and PASSWORD are nil, and `ement-save-session' is
-non-nil, and the `ement-session-file' is available, use the
-saved session.  Interactively, with prefix, ignore a saved
-session and log in again."
-  (interactive (if (and ement-save-session
-                        (file-readable-p ement-session-file))
+(cl-defun ement-connect (&key user-id password uri-prefix session)
+  "Connect to Matrix with USER-ID and PASSWORD, or using SESSION.
+Interactively, with prefix, ignore a saved session and log in
+again; otherwise, use a saved session if `ement-save-session' is
+enabled and a saved session is available, or prompt to log in if
+not enabled or available.
+
+If URI-PREFIX is specified, it should be the prefix of the
+server's API URI, including protocol, hostname, and optionally
+the port, e.g.
+
+  \"https://matrix-client.matrix.org\"
+  \"http://localhost:8080\""
+  (interactive (if (and (not current-prefix-arg)
+                        ement-save-session
+                        (ignore-errors
+                          (ement--read-session)))
                    ;; Session available: use it.
-                   nil
+                   (list :session (ement--read-session))
                  ;; Read username and password.
-                 (list (read-string "User ID: ")
-                       (read-passwd "Password: "))))
-  (if (not user-id)
-      ;; Use saved session.
-      (if-let ((saved-session (ement--read-session)))
-          (progn
-            ;; FIXME: Overwrites any current session.
-            (setf ement-sessions (list saved-session))
-            (ement--sync (car ement-sessions)))
-        ;; Unable to read session: log in again.
-        (let ((ement-save-session nil))
-          (call-interactively #'ement-connect)))
-    ;; Log in to new session.
-    (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
-                              ":" (group (optional (1+ (not (any blank)))))) ; Server name
-                          user-id)
-      (user-error "Invalid user ID format: use @USERNAME:SERVER"))
-    (let* ((username (match-string 1 user-id))
-           (server-name (match-string 2 user-id))
-           ;; TODO: Also return port, and actually use that port elsewhere.
-           (uri-prefix (ement--hostname-uri server-name))
-           (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
-           ;; FIXME: Dynamic port.
-           (server (make-ement-server :name server-name :port 443 :uri-prefix uri-prefix))
-           ;; A new session with a new token should be able to start over with a transaction ID of 0.
-           (transaction-id 0)
-           (session (make-ement-session :user user :server server :transaction-id transaction-id
-                                        :events (make-hash-table :test #'equal))))
-      (cl-labels ((flows-callback
-                   (data) (if (cl-loop for flow across (map-elt data 'flows)
-                                       thereis (equal (map-elt flow 'type) "m.login.password"))
-                              (progn
-                                (message "Ement: Logging in with password...")
-                                (password-login))
-                            (error "Matrix server doesn't support m.login.password login flow.  Supported flows: %s"
-                                   (cl-loop for flow in (map-elt data 'flows)
-                                            collect (map-elt flow 'type)))))
-                  (password-login
-                   () (pcase-let* (((cl-struct ement-session user token device-id initial-device-display-name) session)
-                                   ((cl-struct ement-user id) user)
-                                   (data (ement-alist "type" "m.login.password"
-                                                      "user" id
-                                                      "password" password
-                                                      "device_id" device-id
-                                                      "initial_device_display_name" initial-device-display-name)))
-                        ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
-                        (ement-api server token "login" (apply-partially #'ement--login-callback session)
-                          :data (json-encode data) :method 'post))))
-        ;; Verify that the m.login.password flow is supported.
-        (when (ement-api server nil "login" #'flows-callback)
-          (message "Ement: Checking server's login flows..."))))))
+                 (list :user-id (read-string "User ID: ")
+                       :password (read-passwd "Password: "))))
+  (cl-labels ((new-session ()
+                           (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
+                                                     ":" (group (optional (1+ (not (any blank)))))) ; Server name
+                                                 user-id)
+                             (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+                           (let* ((username (match-string 1 user-id))
+                                  (server-name (match-string 2 user-id))
+                                  (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
+                                  (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
+                                  (server (make-ement-server :name server-name :uri-prefix uri-prefix))
+                                  ;; A new session with a new token should be able to start over with a transaction ID of 0.
+                                  (transaction-id 0))
+                             (make-ement-session :user user :server server :transaction-id transaction-id
+                                                 :events (make-hash-table :test #'equal))))
+              (password-login
+               () (pcase-let* (((cl-struct ement-session user server token device-id initial-device-display-name) session)
+                               ((cl-struct ement-user id) user)
+                               (data (ement-alist "type" "m.login.password"
+                                                  "user" id
+                                                  "password" password
+                                                  "device_id" device-id
+                                                  "initial_device_display_name" initial-device-display-name)))
+                    ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
+                    (ement-api server token "login" (apply-partially #'ement--login-callback session)
+                      :data (json-encode data) :method 'post)))
+              (flows-callback
+               (data) (if (cl-loop for flow across (map-elt data 'flows)
+                                   thereis (equal (map-elt flow 'type) "m.login.password"))
+                          (progn
+                            (message "Ement: Logging in with password...")
+                            (password-login))
+                        (error "Matrix server doesn't support m.login.password login flow.  Supported flows: %s"
+                               (cl-loop for flow in (map-elt data 'flows)
+                                        collect (map-elt flow 'type))))))
+    (if session
+        ;; Start syncing given session.
+        (progn
+          ;; FIXME: Overwrites any current session.
+          (setf ement-sessions (list session))
+          (ement--sync (car ement-sessions)))
+      ;; Start password login flow.
+      (setf session (new-session))
+      (when (ement-api (ement-session-server session) nil "login" #'flows-callback)
+        (message "Ement: Checking server's login flows...")))))
 
 (defun ement-disconnect (session)
   "Disconnect from SESSION.

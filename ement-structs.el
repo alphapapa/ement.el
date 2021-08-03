@@ -48,7 +48,7 @@
   local)
 
 (cl-defstruct ement-server
-  name port uri-prefix)
+  name uri-prefix)
 
 (cl-defstruct ement-session
   user server token transaction-id rooms next-batch

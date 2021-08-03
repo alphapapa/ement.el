@@ -62,13 +62,13 @@
                             (json-read-fn #'json-read))
   "FIXME: Docstring."
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-server uri-prefix port) server)
-               ((cl-struct url type host) (url-generic-parse-url uri-prefix))
+  (pcase-let* (((cl-struct ement-server uri-prefix) server)
+               ((cl-struct url type host portspec) (url-generic-parse-url uri-prefix))
                (path (format "/_matrix/%s/r0/%s" endpoint-category endpoint))
                (query (url-build-query-string params))
                (filename (concat path "?" query))
                (url (url-recreate-url
-                     (url-parse-make-urlobj type nil nil host port filename nil data t)))
+                     (url-parse-make-urlobj type nil nil host portspec filename nil data t)))
                (headers (ement-alist "Content-Type" content-type
                                      "Authorization" (concat "Bearer " token))))
     ;; Omit `then' from debugging because if it's a partially applied
