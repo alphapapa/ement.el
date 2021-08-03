@@ -91,7 +91,7 @@ if session hasn't finished initial sync."
   (when (and (ement-session-has-synced-p session)
              (cl-loop for pred in ement-notify-predicates
                       thereis (funcall pred event room session))
-             (cl-loop for pred in ement-notify-functions
+             (cl-loop for pred in ement-notify-filters
                       always (funcall pred event room session)))
     (run-hook-with-args 'ement-notify-functions event room session)))
 
