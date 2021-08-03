@@ -120,6 +120,8 @@ if session hasn't finished initial sync."
                           ;; :on-action #'ement-notify-show
                           )))
 
+;;;;; Predicates
+
 (defun ement-notify--event-mentions-session-user-p (event room session)
   "Return non-nil if EVENT in ROOM mentions SESSION's user.
 If EVENT's sender is SESSION's user, returns nil."
