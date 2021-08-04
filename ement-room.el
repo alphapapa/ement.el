@@ -608,11 +608,11 @@ Interactively, set the current buffer's ROOM's TOPIC."
                       (list "dir" "b")
                       (list "limit" (number-to-string number))
                       (list "filter" (json-encode ement-room-messages-filter)))
-        :else (lambda (&rest args)
+        :else (lambda (plz-error)
                 (when buffer
                   (with-current-buffer buffer
                     (setf ement-room-retro-loading nil)))
-                (signal 'error (format "Ement: loading earlier messages failed (%S)" args))))
+                (signal 'ement-api-error (list "Loading earlier messages failed" plz-error))))
       (setf ement-room-retro-loading t))))
 
 ;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
