@@ -52,26 +52,30 @@
 
 ;;;; Functions
 
-(cl-defun ement-api (server token endpoint then
-                            &key timeout data params
-                            (content-type "application/json")
-                            (data-type 'text)
-                            (else #'ement-api-error) (method 'get)
-                            ;; FIXME: What's the right term for the URL part after "/_matrix/"?
-                            (endpoint-category "client")
-                            (json-read-fn #'json-read))
+(cl-defun ement-api (session endpoint
+                             &key then timeout data params
+                             (content-type "application/json")
+                             (data-type 'text)
+                             (else #'ement-api-error) (method 'get)
+                             ;; FIXME: What's the right term for the URL part after "/_matrix/"?
+                             (endpoint-category "client")
+                             (json-read-fn #'json-read))
   "FIXME: Docstring."
   ;; TODO: Remind users to json-encode data when needed.
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-server uri-prefix) server)
+  (pcase-let* (((cl-struct ement-session server token) session)
+               ((cl-struct ement-server uri-prefix) server)
                ((cl-struct url type host portspec) (url-generic-parse-url uri-prefix))
                (path (format "/_matrix/%s/r0/%s" endpoint-category endpoint))
                (query (url-build-query-string params))
                (filename (concat path "?" query))
                (url (url-recreate-url
                      (url-parse-make-urlobj type nil nil host portspec filename nil data t)))
-               (headers (ement-alist "Content-Type" content-type
-                                     "Authorization" (concat "Bearer " token))))
+               (headers (ement-alist "Content-Type" content-type)))
+    (when token
+      ;; Almost every request will require a token (only a few, like checking login flows, don't),
+      ;; so we simplify the API by using the token automatically when the session has one.
+      (push (cons "Authorization" (concat "Bearer " token)) headers))
     ;; Omit `then' from debugging because if it's a partially applied
     ;; function on the session object, which may be very large, it
     ;; will take a very long time to print into the warnings buffer.

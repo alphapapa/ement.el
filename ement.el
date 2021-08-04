@@ -163,7 +163,7 @@ the port, e.g.
                              (make-ement-session :user user :server server :transaction-id transaction-id
                                                  :events (make-hash-table :test #'equal))))
               (password-login
-               () (pcase-let* (((cl-struct ement-session user server token device-id initial-device-display-name) session)
+               () (pcase-let* (((cl-struct ement-session user device-id initial-device-display-name) session)
                                ((cl-struct ement-user id) user)
                                (data (ement-alist "type" "m.login.password"
                                                   "user" id
@@ -171,8 +171,8 @@ the port, e.g.
                                                   "device_id" device-id
                                                   "initial_device_display_name" initial-device-display-name)))
                     ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
-                    (ement-api server token "login" (apply-partially #'ement--login-callback session)
-                      :data (json-encode data) :method 'post)))
+                    (ement-api session "login" :method 'post :data (json-encode data)
+                      :then (apply-partially #'ement--login-callback session))))
               (flows-callback
                (data) (if (cl-loop for flow across (map-elt data 'flows)
                                    thereis (equal (map-elt flow 'type) "m.login.password"))
@@ -190,7 +190,7 @@ the port, e.g.
           (ement--sync (car ement-sessions)))
       ;; Start password login flow.
       (setf session (new-session))
-      (when (ement-api (ement-session-server session) nil "login" #'flows-callback)
+      (when (ement-api session "login" :then #'flows-callback)
         (message "Ement: Checking server's login flows...")))))
 
 (defun ement-disconnect (session)
@@ -243,13 +243,12 @@ call `pop-to-buffer'."
   "Upload DATA with FILENAME to content repository on SESSION.
 THEN and ELSE are passed to `ement-api', which see."
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-session server token) session)
-               (endpoint (if filename
+  (pcase-let* ((endpoint (if filename
                              (format "upload?filename=%s" (url-hexify-string filename))
                            "upload")))
-    (ement-api server token endpoint then :else else
-      :method 'post :endpoint-category "media"
-      :content-type content-type :data data :data-type 'binary)))
+    (ement-api session endpoint :method 'post :endpoint-category "media"
+      :content-type content-type :data data :data-type 'binary
+      :then then :else else)))
 
 ;;;; Functions
 
@@ -338,7 +337,7 @@ a filter ID).  When unspecified, the value of
           (ement-api-error (cl-assert (equal "curl process killed" (plz-error-message (cl-third err))))
                            (message "Ement: Forcing new sync")))
       (user-error "Ement: Already syncing this session")))
-  (pcase-let* (((cl-struct ement-session server token next-batch) session)
+  (pcase-let* (((cl-struct ement-session next-batch) session)
                (params (remove
                         nil (list (list "full_state" (if next-batch "false" "true"))
                                   (when filter
@@ -350,8 +349,8 @@ a filter ID).  When unspecified, the value of
                                     (list "timeout" "30000")))))
                (sync-start-time (time-to-seconds))
                ;; FIXME: Auto-sync again in error handler.
-               (process (ement-api server token "sync" (apply-partially #'ement--sync-callback session)
-                          :params params
+               (process (ement-api session "sync" :params params
+                          :then (apply-partially #'ement--sync-callback session)
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
                                   (pcase (plz-error-curl-error plz-error)

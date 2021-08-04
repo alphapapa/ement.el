@@ -410,14 +410,12 @@ Interactively, set the current buffer's ROOM's TOPIC."
                      (read-string (format "New topic (%s): "
                                           (ement-room-display-name ement-room))
                                   nil nil (ement-room-topic ement-room) 'inherit-input-method)))
-  (pcase-let* (((cl-struct ement-session server token) session)
-               ((cl-struct ement-room (id room-id) display-name) room)
+  (pcase-let* (((cl-struct ement-room (id room-id) display-name) room)
                (endpoint (format "rooms/%s/state/m.room.topic" (url-hexify-string room-id)))
                (data (ement-alist "topic" topic)))
-    (ement-api server token endpoint
-      (lambda (_data)
-        (message "Topic set (%s): %s" display-name topic))
-      :method 'put :data (json-encode data))))
+    (ement-api session endpoint :method 'put :data (json-encode data)
+      :then (lambda (_data)
+              (message "Topic set (%s): %s" display-name topic)))))
 
 (declare-function ement-upload "ement" t t)
 (defun ement-room-send-image (file body room session)
@@ -445,7 +443,6 @@ Interactively, set the current buffer's ROOM's TOPIC."
         :then (lambda (data)
                 (message "Uploaded file %S.  Sending message..." file)
                 (pcase-let* (((map ('content_uri content-uri)) data)
-                             ((cl-struct ement-session server token) session)
                              ((cl-struct ement-room (id room-id)) room)
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                                "m.room.message" (cl-incf (ement-session-transaction-id session))))
@@ -455,11 +452,9 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                                    "body" body
                                                    "info" (ement-alist "mimetype" mime-type
                                                                        "size" size))))
-                  (ement-api server token endpoint
-                    (apply-partially #'ement-room-send-event-callback :room room :session session
-                                     :content content :data)
-                    :data (json-encode content)
-                    :method 'put)))))))
+                  (ement-api session endpoint :method 'put :data (json-encode content)
+                    :then (apply-partially #'ement-room-send-event-callback
+                                           :room room :session session :content content :data))))))))
 
 (defun ement-room-scroll-up-mark-read ()
   "Scroll buffer up, marking read and burying when at end."
@@ -480,28 +475,26 @@ Interactively, set the current buffer's ROOM's TOPIC."
   (interactive (list (read-string "Join room (ID or alias): ")
                      ement-session))
   (cl-assert id-or-alias) (cl-assert session)
-  (pcase-let* (((cl-struct ement-session server token) session)
-               (endpoint (format "join/%s" (url-hexify-string id-or-alias))))
-    (ement-api server token endpoint
-      (lambda (data)
-        ;; NOTE: This generates a symbol and sets its function value to a lambda
-        ;; which removes the symbol from the hook, removing itself from the hook.
-        ;; TODO: When requiring Emacs 27, use `letrec'.
-        (pcase-let* (((map ('room_id room-id)) data)
-                     (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
-                     (join-fn (lambda (session)
-                                (when-let ((room (cl-loop for room in (ement-session-rooms session)
-                                                          when (equal room-id (ement-room-id room))
-                                                          return room)))
-                                  ;; In case the join event is not in this next sync response, make sure
-                                  ;; the room is found before removing the function and joining the room.
-                                  (remove-hook 'ement-sync-callback-hook join-fn-symbol)
-                                  (ement-view-room session room)))))
-          (setf (symbol-function join-fn-symbol) join-fn)
-          (when ement-room-join-view-buffer
-            (add-hook 'ement-sync-callback-hook join-fn-symbol))
-          (message "Joined room: %s" room-id)))
-      :method 'post :data ""
+  (let ((endpoint (format "join/%s" (url-hexify-string id-or-alias))))
+    (ement-api session endpoint :method 'post :data ""
+      :then (lambda (data)
+              ;; NOTE: This generates a symbol and sets its function value to a lambda
+              ;; which removes the symbol from the hook, removing itself from the hook.
+              ;; TODO: When requiring Emacs 27, use `letrec'.
+              (pcase-let* (((map ('room_id room-id)) data)
+                           (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
+                           (join-fn (lambda (session)
+                                      (when-let ((room (cl-loop for room in (ement-session-rooms session)
+                                                                when (equal room-id (ement-room-id room))
+                                                                return room)))
+                                        ;; In case the join event is not in this next sync response, make sure
+                                        ;; the room is found before removing the function and joining the room.
+                                        (remove-hook 'ement-sync-callback-hook join-fn-symbol)
+                                        (ement-view-room session room)))))
+                (setf (symbol-function join-fn-symbol) join-fn)
+                (when ement-room-join-view-buffer
+                  (add-hook 'ement-sync-callback-hook join-fn-symbol))
+                (message "Joined room: %s" room-id)))
       :else (lambda (plz-error)
               (pcase-let* (((cl-struct plz-error response) plz-error)
                            ((cl-struct plz-response status body) response)
@@ -533,24 +526,22 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                          (equal id-or-alias (ement-room-canonical-alias room)))
                                 return room))
                  ((cl-struct ement-room id) room)
-                 ((cl-struct ement-session server token) session)
                  (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
-      (ement-api server token endpoint
-        (lambda (_data)
-          ;; NOTE: This generates a symbol and sets its function value to a lambda
-          ;; which removes the symbol from the hook, removing itself from the hook.
-          ;; TODO: When requiring Emacs 27, use `letrec'.
-          (pcase-let* ((leave-fn-symbol (gensym (format "ement-leave-%s" id-or-alias)))
+      (ement-api session endpoint :method 'post :data ""
+        :then (lambda (_data)
+                ;; NOTE: This generates a symbol and sets its function value to a lambda
+                ;; which removes the symbol from the hook, removing itself from the hook.
+                ;; TODO: When requiring Emacs 27, use `letrec'.
+                (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" id-or-alias)))
                        (leave-fn (lambda (_session)
                                    (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
                                    (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
                                      (when (buffer-live-p buffer)
                                        (kill-buffer buffer))))))
-            (setf (symbol-function leave-fn-symbol) leave-fn)
-            (when ement-room-leave-kill-buffer
-              (add-hook 'ement-sync-callback-hook leave-fn-symbol))
-            (message "Left room: %s" id-or-alias)))
-        :method 'post :data ""
+                  (setf (symbol-function leave-fn-symbol) leave-fn)
+                  (when ement-room-leave-kill-buffer
+                    (add-hook 'ement-sync-callback-hook leave-fn-symbol))
+                  (message "Left room: %s" id-or-alias)))
         :else (lambda (plz-error)
                 (pcase-let* (((cl-struct plz-error response) plz-error)
                              ((cl-struct plz-response status body) response)
@@ -598,16 +589,14 @@ Interactively, set the current buffer's ROOM's TOPIC."
                        ement-room-retro-messages-number)
                      (current-buffer)))
   (unless ement-room-retro-loading
-    (pcase-let* (((cl-struct ement-session server token) session)
-                 ((cl-struct ement-room id prev-batch) room)
+    (pcase-let* (((cl-struct ement-room id prev-batch) room)
                  (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
-      (ement-api server token endpoint
-        (apply-partially #'ement-room-retro-callback room)
-        :timeout 5
+      (ement-api session endpoint :timeout 5
         :params (list (list "from" prev-batch)
                       (list "dir" "b")
                       (list "limit" (number-to-string number))
                       (list "filter" (json-encode ement-room-messages-filter)))
+        :then (apply-partially #'ement-room-retro-callback room)
         :else (lambda (plz-error)
                 (when buffer
                   (with-current-buffer buffer
@@ -651,19 +640,16 @@ automatically added after the room ID."
     (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
            (body (read-string prompt nil nil nil 'inherit-input-method)))
       (unless (string-empty-p body)
-        (pcase-let* (((cl-struct ement-session server token) ement-session)
-                     ((cl-struct ement-room id) ement-room)
+        (pcase-let* (((cl-struct ement-room id) ement-room)
                      (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
                                        "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
                      (content (ement-alist "msgtype" "m.text"
                                            "body" body)))
           (when ement-room-replying-to-event
             (setf content (ement-room--add-reply content ement-room-replying-to-event)))
-          (ement-api server token endpoint
-            (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                             :content content :data) ; data added when calling back.
-            :data (json-encode content)
-            :method 'put)))))
+          (ement-api ement-session endpoint :method 'put :data (json-encode content)
+            :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                                   :content content :data)))))) ;; Data is added when calling back.
   ;; NOTE: This assumes that the selected window is the buffer's window.  For now
   ;; this is almost surely the case, but in the future, we might let the function
   ;; send messages to other rooms more easily, so this assumption might not hold.
@@ -711,8 +697,7 @@ The message must be one sent by the local user."
                (body (read-string prompt body nil nil 'inherit-input-method)))
           (unless (string-empty-p body)
             (when (yes-or-no-p (format "Edit message to: %S? " body))
-              (pcase-let* (((cl-struct ement-session server token) ement-session)
-                           ((cl-struct ement-room (id room-id)) ement-room)
+              (pcase-let* (((cl-struct ement-room (id room-id)) ement-room)
                            (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                              "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
                            (content (ement-alist "msgtype" "m.text"
@@ -721,11 +706,9 @@ The message must be one sent by the local user."
                                                                               "msgtype" "m.text")
                                                  "m.relates_to" (ement-alist "rel_type" "m.replace"
                                                                              "event_id" event-id))))
-                (ement-api server token endpoint
-                  (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                                   :content content :data)
-                  :data (json-encode content)
-                  :method 'put))))))
+                (ement-api ement-session endpoint :method 'put :data (json-encode content)
+                  :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                                         :content content :data)))))))
       (ement-room-scroll-up-mark-read))))
 
 (defun ement-room-send-reply ()
@@ -770,7 +753,6 @@ The message must be one sent by the local user."
                         (char-to-string (char-after (point)))
                       (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
                ((cl-struct ement-event (id event-id)) event)
-               ((cl-struct ement-session server token) ement-session)
                ((cl-struct ement-room (id room-id)) ement-room)
                (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                  "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
@@ -778,11 +760,9 @@ The message must be one sent by the local user."
                                      (ement-alist "rel_type" "m.annotation"
                                                   "event_id" event-id
                                                   "key" key))))
-    (ement-api server token endpoint
-      (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                       :content content :data)
-      :data (json-encode content)
-      :method 'put)))
+    (ement-api ement-session endpoint :method 'put :data (json-encode content)
+      :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                             :content content :data))))
 
 ;;;; Functions
 
@@ -937,16 +917,15 @@ DATA is an unsent message event's data alist."
 
 (cl-defun ement-room--send-typing (session room &key (typing t))
   "Send a typing notification for ROOM on SESSION."
-  (pcase-let* (((cl-struct ement-session server token user) session)
+  (pcase-let* (((cl-struct ement-session user) session)
                ((cl-struct ement-user (id user-id)) user)
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/typing/%s"
                                  (url-hexify-string room-id) (url-hexify-string user-id)))
                (data (ement-alist "typing" typing "timeout" 20000)))
-    (ement-api server token endpoint
-      #'ignore ;; We don't really care about the response, I think.
-      :data (json-encode data)
-      :method 'put)))
+    (ement-api session endpoint :method 'put :data (json-encode data)
+      ;; We don't really care about the response, I think.
+      :then #'ignore)))
 
 (defun ement-room--direct-p (room session)
   "Return non-nil if ROOM on SESSION is a direct chat."
