@@ -470,10 +470,12 @@ Interactively, set the current buffer's ROOM's TOPIC."
         (scroll-up-command)
       (end-of-buffer (set-window-point nil (point-max))))))
 
+(declare-function ement-complete-session "ement")
 (defun ement-room-join (id-or-alias session)
   "Join room by ID-OR-ALIAS on SESSION."
   (interactive (list (read-string "Join room (ID or alias): ")
-                     ement-session))
+                     (or ement-session
+                         (ement-complete-session))))
   (cl-assert id-or-alias) (cl-assert session)
   (let ((endpoint (format "join/%s" (url-hexify-string id-or-alias))))
     (ement-api session endpoint :method 'post :data ""
