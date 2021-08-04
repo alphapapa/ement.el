@@ -219,6 +219,7 @@ Calls `ement-notify--notifications-notify'."
                                   'event event)
                       "\n"))
             ;; HACK: Try to remove `button' face property from new text.  (It works!)
+            ;; TODO: Use new `ement--remove-face-property' function.
             (cl-loop for next-face-change-pos = (next-single-property-change (point) 'face)
                      for face-at = (get-text-property (point) 'face)
                      when (pcase face-at

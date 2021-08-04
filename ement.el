@@ -622,6 +622,23 @@ Writes Ement session to disk when enabled."
     (format "%s/_matrix/media/r0/download/%s/%s"
             uri-prefix server-name media-id)))
 
+(defun ement--remove-face-property (string value)
+  "Remove VALUE from STRING's `face' properties.
+Used to remove the `button' face from buttons, because that face
+can cause undesirable underlining."
+  (let ((pos 0))
+    (cl-loop for next-face-change-pos = (next-single-property-change pos 'face string)
+             for face-at = (get-text-property pos 'face string)
+             when face-at
+             do (put-text-property pos (or next-face-change-pos (length string))
+                                   'face (cl-typecase face-at
+                                           (atom (if (equal value face-at)
+                                                     nil face-at))
+                                           (list (remove value face-at)))
+                                   string)
+             while next-face-change-pos
+             do (setf pos next-face-change-pos))))
+
 ;;;;; Event handlers
 
 (defvar ement-event-handlers nil

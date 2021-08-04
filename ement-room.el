@@ -739,32 +739,54 @@ The message must be one sent by the local user."
       (setf ement-room-replying-to-event nil
             ement-room-replying-to-overlay nil))))
 
-(defun ement-room-send-reaction ()
-  "Send reaction to event at point."
+(defun ement-room-send-reaction (position)
+  "Send reaction to event at POSITION.
+Interactively, send reaction to event at point."
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
-  (interactive)
-  (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc))
-                          (user-error "No event at point")))
-               ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
-               ;; hl-line-mode is enabled, it only returns the hl-line face.
-               (face-at-point (get-text-property (point) 'face))
-               ;; FIXME: Doesn't seem that `cl-typecase' can handle this, but maybe `pcase' in Emacs 27/28?
-               (key (if (or (eq 'ement-room-reactions-key face-at-point)
+  (interactive (list (point)))
+  ;; HACK: We could simplify this by storing the key in a text property...
+  (cl-labels ((face-at-point-p
+               (face) (let ((face-at-point (get-text-property (point) 'face)))
+                        (or (eq face face-at-point)
                             (and (listp face-at-point)
-                                 (member 'ement-room-reactions-key face-at-point)))
-                        (char-to-string (char-after (point)))
-                      (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
-               ((cl-struct ement-event (id event-id)) event)
-               ((cl-struct ement-room (id room-id)) ement-room)
-               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                 "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
-               (content (ement-alist "m.relates_to"
-                                     (ement-alist "rel_type" "m.annotation"
-                                                  "event_id" event-id
-                                                  "key" key))))
-    (ement-api ement-session endpoint :method 'put :data (json-encode content)
-      :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                             :content content :data))))
+                                 (member face face-at-point)))))
+              (buffer-substring-while
+               (beg pred &key (forward-fn #'forward-char))
+               "Return substring of current buffer from BEG while PRED is true."
+               (save-excursion
+                 (goto-char beg)
+                 (cl-loop while (funcall pred)
+                          do (funcall forward-fn)
+                          finally return (buffer-substring-no-properties beg (point)))))
+              (key-at
+               (pos) (cond ((face-at-point-p 'ement-room-reactions-key)
+                            (buffer-substring-while pos (apply-partially #'face-at-point-p 'ement-room-reactions-key)))
+                           ((face-at-point-p 'ement-room-reactions)
+                            ;; Point is in a reaction button but after the key.
+                            (buffer-substring-while (button-start (button-at pos))
+                                                    (apply-partially #'face-at-point-p 'ement-room-reactions-key))))))
+    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+                            (user-error "No event at point")))
+                 ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
+                 ;; hl-line-mode is enabled, it only returns the hl-line face.
+                 (key (or (key-at position)
+                          (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
+                 ((cl-struct ement-event (id event-id)) event)
+                 ((cl-struct ement-room (id room-id)) ement-room)
+                 (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                   "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
+                 (content (ement-alist "m.relates_to"
+                                       (ement-alist "rel_type" "m.annotation"
+                                                    "event_id" event-id
+                                                    "key" key))))
+      (ement-api ement-session endpoint :method 'put :data (json-encode content)
+        :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                               :content content :data)))))
+
+(defun ement-room-reaction-button-action (button)
+  "Push reaction BUTTON at point."
+  ;; TODO: Toggle reactions off with redactions (not in spec yet, but Element does it).
+  (ement-room-send-reaction (button-start button)))
 
 ;;;; Functions
 
@@ -1420,6 +1442,7 @@ seconds."
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
+(declare-function ement--remove-face-property "ement")
 (defun ement-room--format-reactions (event)
   "Return formatted reactions to EVENT."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
@@ -1427,11 +1450,18 @@ seconds."
       (cl-labels ((format-reaction
                    (ks) (pcase-let* ((`(,key . ,senders) ks)
                                      (key (propertize key 'face 'ement-room-reactions-key))
-                                     (count (propertize (format "(%s)" (length senders))
-                                                        'face 'ement-room-reactions)))
-                          (propertize (concat key " " count)
-                                      'help-echo (lambda (_window buffer _pos)
-                                                   (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                                     (count (propertize (format " (%s)" (length senders))
+                                                        'face 'ement-room-reactions))
+                                     (string
+                                      (propertize (concat key count)
+                                                  'button '(t)
+                                                  'category 'default-button
+                                                  'action #'ement-room-reaction-button-action
+                                                  'follow-link t
+                                                  'help-echo (lambda (_window buffer _pos)
+                                                               (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                          (ement--remove-face-property string 'button)
+                          string))
                   (senders-names
                    (senders room) (cl-loop for sender in senders
                                            collect (ement-room--user-display-name sender room)
