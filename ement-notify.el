@@ -89,6 +89,7 @@ can help distinguish messages by room."
 ;;;; Commands
 
 (declare-function ement-view-room "ement")
+(declare-function ement-room-goto-event "ement-room")
 (defun ement-notify-button-action (button)
   "Show BUTTON's event in its room buffer."
   ;; TODO: Is `interactive' necessary here?
