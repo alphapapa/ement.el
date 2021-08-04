@@ -144,12 +144,16 @@ normal text.")
   '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
   "Own username.")
 
-(defface ement-room-message
+(defface ement-room-message-text
   '((t (:inherit default)))
-  "Message bodies.")
+  "Text message bodies.")
+
+(defface ement-room-message-emote
+  '((t (:inherit italic)))
+  "Emote message bodies.")
 
 (defface ement-room-self-message
-  '((t (:inherit (font-lock-variable-name-face ement-room-message))))
+  '((t (:inherit (font-lock-variable-name-face ement-room-message-text))))
   "Oneself's message bodies.")
 
 (defface ement-room-timestamp-header
@@ -1483,19 +1487,24 @@ Format defaults to `ement-room-message-format-spec', which see."
                                     collect `(cons ,char (lambda (event) ,form)))))
                 (body-face
                  ;; HACK: Reads `ement-session' from current buffer.
-                 () `(cond ((equal (ement-user-id sender)
-                                   (ement-user-id (ement-session-user ement-session)))
-                            'ement-room-self-message)
-                           ((eq 'both ement-room-prism)
-                            (list :inherit (if (ement-room--event-mentions-user event (ement-session-user ement-session))
-                                               'ement-room-mention
-                                             'ement-room-message)
-                                  :foreground (or (ement-user-color sender)
-                                                  (setf (ement-user-color sender)
-                                                        (ement-room--user-color sender)))))
-                           (t (if (ement-room--event-mentions-user event (ement-session-user ement-session))
-                                  'ement-room-mention
-                                'ement-room-message)))))
+                 () `(let* ((self-message-p (equal (ement-user-id sender)
+                                                   (ement-user-id (ement-session-user ement-session))))
+                            (type-face (pcase (alist-get 'msgtype (ement-event-content event))
+                                         ("m.emote" 'ement-room-message-emote)
+                                         (_ 'ement-room-message-text)))
+                            (context-face (cond (self-message-p
+                                                 'ement-room-self-message)
+                                                ((ement-room--event-mentions-user event (ement-session-user ement-session))
+                                                 'ement-room-mention)))
+                            (prism-color (unless self-message-p
+                                           (when (eq 'both ement-room-prism)
+                                             (or (ement-user-color sender)
+                                                 (setf (ement-user-color sender)
+                                                       (ement-room--user-color sender))))))
+                            (body-face (list :inherit (delq nil (list context-face type-face)))))
+                       (if prism-color
+                           (plist-put body-face :foreground prism-color)
+                         body-face))))
     (let* ((room-buffer (current-buffer))
            (margin-p)
            (specs (defspecs
