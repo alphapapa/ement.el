@@ -1800,9 +1800,10 @@ For use as a `help-echo' function on `ement-user' headings."
   :value-create (lambda (widget)
                   (pcase-let* ((event (widget-value widget))
                                ((cl-struct ement-event sender content) event)
-                               ((map membership) content)
+                               ((map membership reason) content)
                                (displayname (ement-room--user-display-name sender ement-room))
-                               (string (concat membership " (" displayname ")")))
+                               (reason-string (if reason (concat ": " reason) ""))
+                               (string (format "%s (%s%s)" membership displayname reason-string)))
                     (insert (propertize string
                                         'help-echo #'ement-room--membership-help-echo)))))
 
