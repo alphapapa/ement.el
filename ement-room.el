@@ -364,6 +364,10 @@ sends a not-typing notification."
   `(unwind-protect
        (progn
          (when ement-room-send-typing
+           (when ement-room-typing-timer
+             ;; In case there are any stray ones (e.g. a user typing in
+             ;; more than room at once, which is possible but unlikely).
+             (cancel-timer ement-room-typing-timer))
            (setf ement-room-typing-timer (run-at-time nil 15 #'ement-room--send-typing ement-session ement-room)))
          ,@body)
      (when ement-room-send-typing
