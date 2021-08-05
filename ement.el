@@ -129,15 +129,15 @@ Writes the session file when Emacs is killed."
 Run with one argument, the session synced."
   :type 'hook)
 
+(defvar ement-user-id-history nil
+  "Default variable to store user-id history in.")
 
-
-
-
-
-
-
-
-
+(defcustom ement-keep-user-id-history nil
+  "When set to a variable, keep in it user-ids submitted to ement-connect."
+  :type '(choice (const nil)
+                 (variable-item ement-user-id-history)
+                 variable)
+  :group 'ement)
 
 ;;;; Commands
 
@@ -164,13 +164,10 @@ the port, e.g.
                    ;; Session available: use it.
                    (list :session (ement--read-session))
                  ;; Read username and password.
-                 (list :user-id (read-string "User ID: ")
-                       :password (read-passwd "Password: "))))
+                 (ement--read-user-credentials nil
+                                               ement-keep-user-id-history)))
   (cl-labels ((new-session ()
-                           (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
-                                                     ":" (group (optional (1+ (not (any blank)))))) ; Server name
-                                                 user-id)
-                             (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+                           (ement--parse-user-id user-id)
                            (let* ((username (match-string 1 user-id))
                                   (server-name (match-string 2 user-id))
                                   (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
@@ -753,6 +750,57 @@ and `session' to the session.  Adds function to
   (pcase-let* (((cl-struct ement-event (content (map topic))) event))
     (when topic
       (setf (ement-room-topic room) topic))))
+
+(defun ement--parse-user-id (user-id)
+  "Alters match-data."
+  (string-match
+   (rx bos "@" (group (1+ (not (any ":"))))           ; Username
+       ":" (group (optional (1+ (not (any blank)))))) ; Server name
+   user-id))
+
+(defun ement--read-username-and-server (prompt &optional initial-input history
+                                               default-value
+                                               inherit-input-method)
+  "Read Matrix user ID, submitted in the form \"@username:server\".
+
+Return (user-input . plist) where plist is `auth-source-search'-compatible plist."
+  (cl-loop
+   as user-id = (read-string prompt
+                             initial-input history default-value
+                             inherit-input-method)
+   if (not (ement--parse-user-id user-id))
+   do (minibuffer-message "Invalid user ID format: use @USERNAME:SERVER")
+   else return (cons user-id
+                     (list :user (match-string 1 user-id)
+                           :host (match-string 2 user-id)))))
+
+(defun ement--read-user-credentials (&optional initial-input history
+                                               default-value
+                                               inherit-input-method)
+  "Read Matrix user credentials.  Return plist (&key user-id password).
+
+Optional arguments refer to reading user ID."
+  (cl-destructuring-bind (user-id . plist) (ement--read-username-and-server
+                                            "User ID: "
+                                            initial-input history
+                                            default-value
+                                            inherit-input-method)
+    (list :user-id user-id
+          :password
+          (save-match-data
+            ;; save-match-data is necessary at least when
+            ;; auth-source does not use cache
+            (or (when-let ((auth-source-secret
+                            (when (fboundp 'auth-source-search)
+                              (plist-get (car (apply #'auth-source-search
+                                                     :max 1
+                                                     plist))
+                                         :secret))))
+                  (if (functionp auth-source-secret)
+                      (funcall auth-source-secret)
+                    auth-source-secret))
+                (read-passwd "Password: "))))))
+
 
 ;;;; Footer
 
