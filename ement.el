@@ -93,6 +93,8 @@ by users; ones who do so should know what they're doing.")
           (timeline (lazy_load_members . t))))
   "Default filter for sync requests.")
 
+
+
 ;; From other files.
 (defvar ement-room-avatar-max-width)
 (defvar ement-room-avatar-max-height)
@@ -126,6 +128,16 @@ Writes the session file when Emacs is killed."
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)
+
+
+
+
+
+
+
+
+
+
 
 ;;;; Commands
 
