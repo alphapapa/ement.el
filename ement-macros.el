@@ -105,6 +105,8 @@ keywords are supported:
 ;; on MELPA, not ELPA) has aprog1, but in order to reduce dependencies...
 
 (defmacro ement-afirst (form list)
+  ;; Sometimes checkdoc is really annoying.  If I use "FORM returns" or
+  ;; "FORM evaluates", it complains, so I can't have a clean linting.
   "Return the first element of LIST for which FORM is non-nil.
 In FORM, `it' is bound to the element being tested."
   (declare (indent 1))

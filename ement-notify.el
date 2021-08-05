@@ -109,7 +109,7 @@ margins in Emacs.  But it's useful, anyway."
   (let* ((session (button-get button 'session))
          (room (button-get button 'room))
          (event (button-get button 'event)))
-    (ement-view-room session room)
+    (ement-view-room room session)
     (ement-room-goto-event event)))
 
 (defun ement-notify-reply ()

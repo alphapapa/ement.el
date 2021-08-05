@@ -104,11 +104,9 @@
 (defun ement-room-list-bookmark-handler (bookmark)
   "Show Ement room list buffer for BOOKMARK."
   (pcase-let* (((map session-id) bookmark))
-    (unless (cl-loop for session in ement-sessions
-                     thereis (equal session-id (ement-user-id (ement-session-user session))))
+    (unless (alist-get session-id ement-sessions nil nil #'equal)
       ;; MAYBE: Automatically connect.
       (user-error "Session %s not connected: call `ement-connect' first" session-id))
-    ;; FIXME: Support multiple sessions.
     (ement-room-list)))
 
 ;;;; Commands
@@ -174,10 +172,8 @@ call `pop-to-buffer'."
   (pcase-let* ((room (tabulated-list-get-id))
                (`[,_unread ,_buffer ,_direct ,_avatar ,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
-               (session (cl-loop for session in ement-sessions
-                                 when (equal user-id (ement-user-id (ement-session-user session)))
-                                 return session)))
-    (ement-view-room session room)))
+               (session (alist-get user-id ement-sessions nil nil #'equal)))
+    (ement-view-room room session)))
 
 ;;;; Functions
 
@@ -219,7 +215,7 @@ To be called in `ement-sync-callback-hook'."
   ;;
   ;;   There should be no newlines in any of these strings.
   (setf tabulated-list-entries
-        (cl-loop for session in ement-sessions
+        (cl-loop for (_id . session) in ement-sessions
                  append (mapcar (apply-partially #'ement-room-list--entry session)
                                 (ement-session-rooms session)))))
 

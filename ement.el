@@ -59,7 +59,7 @@
 ;;;; Variables
 
 (defvar ement-sessions nil
-  "List of active `ement-session' sessions.")
+  "Alist of active `ement-session' sessions, keyed by MXID.")
 
 (defvar ement-syncs nil
   "Alist of outstanding sync processes for each session.")
@@ -103,7 +103,7 @@ by users; ones who do so should know what they're doing.")
   "Options for Ement, the Matrix client."
   :group 'comm)
 
-(defcustom ement-save-session nil
+(defcustom ement-save-sessions nil
   "Save session to disk.
 Writes the session file when Emacs is killed."
   :type 'boolean
@@ -113,7 +113,7 @@ Writes the session file when Emacs is killed."
              (add-hook 'kill-emacs-hook #'ement--kill-emacs-hook)
            (remove-hook 'kill-emacs-hook #'ement--kill-emacs-hook))))
 
-(defcustom ement-session-file "~/.cache/ement.el"
+(defcustom ement-sessions-file "~/.cache/ement.el"
   ;; FIXME: Expand correct XDG cache directory (new in Emacs 27).
   "Save username and access token to this file."
   :type 'file)
@@ -133,7 +133,7 @@ Run with one argument, the session synced."
 (cl-defun ement-connect (&key user-id password uri-prefix session)
   "Connect to Matrix with USER-ID and PASSWORD, or using SESSION.
 Interactively, with prefix, ignore a saved session and log in
-again; otherwise, use a saved session if `ement-save-session' is
+again; otherwise, use a saved session if `ement-save-sessions' is
 enabled and a saved session is available, or prompt to log in if
 not enabled or available.
 
@@ -146,15 +146,22 @@ the port, e.g.
 
   \"https://matrix-client.matrix.org\"
   \"http://localhost:8080\""
-  (interactive (if (and (not current-prefix-arg)
-                        ement-save-session
-                        (ignore-errors
-                          (ement--read-session)))
-                   ;; Session available: use it.
-                   (list :session (ement--read-session))
-                 ;; Read username and password.
-                 (list :user-id (read-string "User ID: ")
-                       :password (read-passwd "Password: "))))
+  (interactive (if current-prefix-arg
+                   ;; Force new session.
+                   (list :user-id (read-string "User ID: ")
+                         :password (read-passwd "Password: "))
+                 ;; Use known session.
+                 (unless ement-sessions
+                   ;; Read sessions from disk.
+                   (condition-case err
+                       (setf ement-sessions (ement--read-sessions))
+                     (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."
+                                                            (error-message-string err))))))
+                 (cl-case (length ement-sessions)
+                   (0 (list :user-id (read-string "User ID: ")
+                            :password (read-passwd "Password: ")))
+                   (1 (list :session (cdar ement-sessions)))
+                   (otherwise (list :session (ement-complete-session))))))
   (cl-labels ((new-session ()
                            (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
                                                      ":" (group (optional (1+ (not (any blank)))))) ; Server name
@@ -191,10 +198,10 @@ the port, e.g.
                                         collect (map-elt flow 'type))))))
     (if session
         ;; Start syncing given session.
-        (progn
-          ;; FIXME: Overwrites any current session.
-          (setf ement-sessions (list session))
-          (ement--sync (car ement-sessions)))
+        (let ((user-id (ement-user-id (ement-session-user session))))
+          ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
+          (setf (alist-get user-id ement-sessions nil nil #'equal) session)
+          (ement--sync session))
       ;; Start password login flow.  Prompt for user ID and password
       ;; if not given (i.e. if not called interactively.)
       (unless user-id
@@ -205,51 +212,59 @@ the port, e.g.
       (when (ement-api session "login" :then #'flows-callback)
         (message "Ement: Checking server's login flows...")))))
 
-(defun ement-disconnect (session)
-  "Disconnect from SESSION.
-If `ement-auto-sync' is enabled, stop syncing, and clear the
-session data.  When enabled, write the session to disk.  Any
-existing room buffers are left alive and can be read, but other
-commands in them won't work."
-  (interactive (list (ement-complete-session)))
-  (let ((id (ement-user-id (ement-session-user session))))
-    (when-let ((process (map-elt ement-syncs session)))
-      (ignore-errors
-        (delete-process process)))
-    (when ement-save-session
-      ;; FIXME: Multiple sessions.
-      (ement--write-session session))
-    (setf ement-syncs (map-delete ement-syncs session)
-          ement-sessions (map-delete ement-sessions session))
-    (unless ement-sessions
-      ;; HACK: If no sessions remain, clear the users table.  It might be best
-      ;; to store a per-session users table, but this is probably good enough.
-      (clrhash ement-users))
-    (message "Disconnected %s" id)))
+(defun ement-disconnect (sessions)
+  "Disconnect from SESSIONS.
+Interactively, with prefix, disconnect from all sessions.  If
+`ement-auto-sync' is enabled, stop syncing, and clear the session
+data.  When enabled, write the session to disk.  Any existing
+room buffers are left alive and can be read, but other commands
+in them won't work."
+  (interactive (list (if current-prefix-arg
+                         (mapcar #'cdr ement-sessions)
+                       (list (ement-complete-session)))))
+  (when ement-save-sessions
+    ;; Write sessions before we remove them from the variable.
+    (ement--write-sessions ement-sessions))
+  (dolist (session sessions)
+    (let ((user-id (ement-user-id (ement-session-user session))))
+      (when-let ((process (map-elt ement-syncs session)))
+        (ignore-errors
+          (delete-process process)))
+      ;; NOTE: I'd like to use `map-elt' here, but not until
+      ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=47368> is fixed, I guess.
+      (setf (alist-get session ement-syncs nil nil #'equal) nil
+            (alist-get user-id ement-sessions nil 'remove #'equal) nil)))
+  (unless ement-sessions
+    ;; HACK: If no sessions remain, clear the users table.  It might be best
+    ;; to store a per-session users table, but this is probably good enough.
+    (clrhash ement-users))
+  (message "Ement: Disconnected (%s)"
+           (string-join (cl-loop for session in sessions
+                                 collect (ement-user-id (ement-session-user session)))
+                        ", ")))
 
 (defun ement--login-callback (session data)
   "Record DATA from logging in to SESSION and do initial sync."
-  (pcase-let* (((map ('access_token token) ('device_id device-id)) data))
-    (setf ement-sessions (list session)
-          (ement-session-token session) token
-          (ement-session-device-id session) device-id))
-  (ement--sync (car ement-sessions)))
+  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))) session)
+               ((map ('access_token token) ('device_id device-id)) data))
+    (setf (ement-session-token session) token
+          (ement-session-device-id session) device-id
+          (alist-get user-id ement-sessions nil nil #'equal) session)
+    (ement--sync session)))
 
 ;; FIXME: Make a room-buffer-name function or something.
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
-(defun ement-view-room (session room)
-  ;; TODO: Swap argument order of ement-view-room to be more consistent.
+(defun ement-view-room (room session)
   "Switch to a buffer showing ROOM on SESSION.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
-  (interactive (list (car ement-sessions)
-                     (ement-complete-room (car ement-sessions))))
+  (interactive (ement-complete-room (ement-complete-session)))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
-      (setf (alist-get 'buffer (ement-room-local room))
-            (ement-room--buffer session room (ement--room-buffer-name room))
-            buffer (alist-get 'buffer (ement-room-local room))))
+      (setf buffer (ement-room--buffer session room
+                                       (ement--room-buffer-name room))
+            (alist-get 'buffer (ement-room-local room))  buffer))
     ;; FIXME: There must be a better way to handle this.
     (funcall (if current-prefix-arg
                  #'pop-to-buffer #'pop-to-buffer-same-window)
@@ -310,28 +325,30 @@ If no URI is found, prompt the user for the hostname."
 
 (defun ement-complete-session ()
   "Return an Ement session selected with completion."
-  (pcase-let* ((session-to-id
-                (cl-loop for session in ement-sessions
-                         collect (cons (ement-user-id (ement-session-user session))
-                                       session)))
-               (ids (mapcar #'car session-to-id))
-               (selected-id (completing-read "Session: " ids nil t)))
-    (alist-get selected-id session-to-id nil nil #'string=)))
+  (cl-etypecase (length ement-sessions)
+    ((integer 1 1) (cdar ement-sessions))
+    ((integer 2 *) (let* ((ids (mapcar #'car ement-sessions))
+                          (selected-id (completing-read "Session: " ids nil t)))
+                     (alist-get selected-id ement-sessions nil nil #'equal)))
+    (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
 
-(defun ement-complete-room (session)
-  "Return a room selected from SESSION with completion."
-  (pcase-let* ((name-to-room
-                (cl-loop for room in (ement-session-rooms session)
-                         collect (cons (format "%s (%s)"
-                                               (or (ement-room-display-name room)
-                                                   (setf (ement-room-display-name room)
-                                                         (ement-room--room-display-name room)))
-                                               (or (ement-room-canonical-alias room)
-                                                   (ement-room-id room)))
-                                       room)))
-               (names (mapcar #'car name-to-room))
+(defun ement-complete-room (&optional session)
+  "Return a (room session) list selected from SESSION with completion.
+If SESSION is nil, select from rooms in all of `ement-sessions'."
+  (pcase-let* ((sessions (if session (list session) ement-sessions))
+               (name-to-room-session
+                (cl-loop for session in sessions
+                         append (cl-loop for room in (ement-session-rooms session)
+                                         collect (cons (format "%s (%s)"
+                                                               (or (ement-room-display-name room)
+                                                                   (setf (ement-room-display-name room)
+                                                                         (ement-room--room-display-name room)))
+                                                               (or (ement-room-canonical-alias room)
+                                                                   (ement-room-id room)))
+                                                       (list room session)))))
+               (names (mapcar #'car name-to-room-session))
                (selected-name (completing-read "Room: " names nil t)))
-    (alist-get selected-name name-to-room nil nil #'string=)))
+    (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (cl-defun ement--sync (session &key (filter ement-default-sync-filter) force quiet)
   "Send sync request for SESSION.
@@ -628,72 +645,6 @@ Adds sender to `ement-users' when necessary."
                when (equal "m.room.canonical_alias" (ement-event-type event))
                return (alist-get 'alias (ement-event-content event)))))
 
-(defun ement--read-session ()
-  "Return saved session from file.
-Returns nil if unable to read `ement-session-file'."
-  (when (file-exists-p ement-session-file)
-    (condition-case err
-        ;; In case something causes Emacs to fail to read the saved session data, we handle
-        ;; any errors by returning nil, which means the calling function should log in again.
-        (pcase-let* ((read-circle t)
-                     (session-data (with-temp-buffer
-                                     (insert-file-contents ement-session-file)
-                                     (read (current-buffer))))
-                     ((map (:user user-data)
-                           (:server server-data)
-                           (:token token) (:transaction-id transaction-id))
-                      session-data)
-                     (user (apply #'make-ement-user user-data))
-                     (server (apply #'make-ement-server server-data))
-                     (session (make-ement-session :user user :server server :token token :transaction-id transaction-id)))
-          (setf (ement-session-events session) (make-hash-table :test #'equal)
-                (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
-          (message "Ement: Read session.")
-          session)
-      (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."
-                                             (error-message-string err)))
-             ;; `display-warning' seems to return non-nil.
-             nil))))
-
-(defun ement--write-session (session)
-  "Write SESSION to disk."
-  ;; FIXME: This does not work with multiple sessions.
-  ;; NOTE: If we ever persist more session data (like room data, so we
-  ;; could avoid doing an initial sync next time), we should limit the
-  ;; amount of session data saved (e.g. room history could grow
-  ;; forever on-disk, which probably isn't what we want).
-  (message "Ement: Writing session...")
-  (with-temp-file ement-session-file
-    (pcase-let* ((print-level nil)
-                 (print-length nil)
-                 ;; Very important to use `print-circle', although it doesn't
-                 ;; solve everything.  Writing/reading Lisp data can be tricky...
-                 (print-circle t)
-                 ;; We only record the slots we need.  We record them as a plist
-                 ;; so that changes to the struct definition don't matter.
-                 ((cl-struct ement-session user server token transaction-id) session)
-                 ((cl-struct ement-user (id user-id) username) user)
-                 ((cl-struct ement-server (name server-name) uri-prefix) server)
-                 (session-data (list :user (list :id user-id
-                                                 :username username)
-                                     :server (list :name server-name
-                                                   :uri-prefix uri-prefix)
-                                     :token token
-                                     :transaction-id transaction-id)))
-      (prin1 session-data (current-buffer))))
-  ;; Ensure permissions are safe.
-  (chmod ement-session-file #o600))
-
-(defun ement--kill-emacs-hook ()
-  "Function to be added to `kill-emacs-hook'.
-Writes Ement session to disk when enabled."
-  (ignore-errors
-    ;; To avoid interfering with Emacs' exit, We must be careful that
-    ;; this function handles errors, so just ignore any.
-    (when (and ement-save-session
-               (car ement-sessions))
-      (ement--write-session (car ement-sessions)))))
-
 (defun ement--mxc-to-url (uri session)
   "Return HTTPS URL for MXC URI accessed through SESSION."
   (pcase-let* (((cl-struct ement-session server) session)
@@ -735,6 +686,76 @@ IMAGE should be one as created by, e.g. `create-image'."
     (setf (image-property new-image :max-width) max-width
           (image-property new-image :max-height) max-height)
     new-image))
+
+;;;;; Reading/writing sessions
+
+(defun ement--read-sessions ()
+  "Return saved sessions alist read from disk.
+Returns nil if unable to read `ement-sessions-file'."
+  (cl-labels ((plist-to-session
+               (plist) (pcase-let* (((map (:user user-data) (:server server-data)
+                                          (:token token) (:transaction-id transaction-id))
+                                     plist)
+                                    (user (apply #'make-ement-user user-data))
+                                    (server (apply #'make-ement-server server-data))
+                                    (session (make-ement-session :user user :server server
+                                                                 :token token :transaction-id transaction-id)))
+                         (setf (ement-session-events session) (make-hash-table :test #'equal)
+                               (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
+                         session)))
+    (when (file-exists-p ement-sessions-file)
+      (pcase-let* ((read-circle t)
+                   (sessions (with-temp-buffer
+                               (insert-file-contents ement-sessions-file)
+                               (read (current-buffer)))))
+        (prog1
+            (cl-loop for (id . plist) in sessions
+                     collect (cons id (plist-to-session plist)))
+          (message "Ement: Read sessions."))))))
+
+(defun ement--write-sessions (sessions-alist)
+  "Write SESSIONS-ALIST to disk."
+  ;; We only record the slots we need.  We record them as a plist
+  ;; so that changes to the struct definition don't matter.
+  ;; NOTE: If we ever persist more session data (like room data, so we
+  ;; could avoid doing an initial sync next time), we should limit the
+  ;; amount of session data saved (e.g. room history could grow
+  ;; forever on-disk, which probably isn't what we want).
+
+  ;; NOTE: This writes all current sessions, even if there are multiple active ones and only one
+  ;; is being disconnected.  That's probably okay, but it might be something to keep in mind.
+  (cl-labels ((session-plist
+               (session) (pcase-let* (((cl-struct ement-session user server token transaction-id) session)
+                                      ((cl-struct ement-user (id user-id) username) user)
+                                      ((cl-struct ement-server (name server-name) uri-prefix) server))
+                           (list :user (list :id user-id
+                                             :username username)
+                                 :server (list :name server-name
+                                               :uri-prefix uri-prefix)
+                                 :token token
+                                 :transaction-id transaction-id))))
+    (message "Ement: Writing sessions...")
+    (with-temp-file ement-sessions-file
+      (pcase-let* ((print-level nil)
+                   (print-length nil)
+                   ;; Very important to use `print-circle', although it doesn't
+                   ;; solve everything.  Writing/reading Lisp data can be tricky...
+                   (print-circle t)
+                   (sessions-alist-plist (cl-loop for (id . session) in sessions-alist
+                                                  collect (cons id (session-plist session)))))
+        (prin1 sessions-alist-plist (current-buffer))))
+    ;; Ensure permissions are safe.
+    (chmod ement-sessions-file #o600)))
+
+(defun ement--kill-emacs-hook ()
+  "Function to be added to `kill-emacs-hook'.
+Writes Ement session to disk when enabled."
+  (ignore-errors
+    ;; To avoid interfering with Emacs' exit, We must be careful that
+    ;; this function handles errors, so just ignore any.
+    (when (and ement-save-sessions
+               ement-sessions)
+      (ement--write-sessions ement-sessions))))
 
 ;;;;; Event handlers
 

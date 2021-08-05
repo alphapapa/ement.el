@@ -95,7 +95,7 @@ If you want to install it manually, it's simple enough, but you should know what
 - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
-1.  Call command ~ement-connect~ to connect.
+1.  Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
 2.  Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
 3.  Use these commands:
       -  ~ement-list-rooms~ to view the list of joined rooms.

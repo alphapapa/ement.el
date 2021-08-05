@@ -732,17 +732,17 @@ of the string."
 
 (defun ement-room-bookmark-handler (bookmark)
   "Show Ement room buffer for BOOKMARK."
-  (pcase-let* ((`(,_name . ,(map session-id room-id)) bookmark))
-    (unless (cl-loop for session in ement-sessions
-                     thereis (equal session-id (ement-user-id (ement-session-user session))))
-      ;; MAYBE: Automatically connect.
-      (user-error "Session %s not connected: call `ement-connect' first" session-id))
-    ;; FIXME: Support multiple sessions.
-    (let ((room (cl-loop for room in (ement-session-rooms (car ement-sessions))
-                         when (equal room-id (ement-room-id room))
-                         return room)))
-      (cl-assert room)
-      (ement-view-room (car ement-sessions) room))))
+  (pcase-let* ((`(,_name . ,(map session-id room-id)) bookmark)
+               (session (ement-aprog1
+                            (alist-get session-id ement-sessions nil nil #'equal)
+                          (unless it
+                            ;; MAYBE: Automatically connect.
+                            (user-error "Session %s not connected: call `ement-connect' first" session-id))))
+               (room (ement-aprog1
+                         (ement-afirst (equal room-id (ement-room-id it))
+                           (ement-session-rooms session))
+                       (cl-assert it nil "Room %S not found on session %S" room-id session-id))))
+    (ement-view-room room session)))
 
 ;;;; Commands
 
@@ -865,7 +865,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                         ;; the room is found before removing the function and joining the room.
                                         (remove-hook 'ement-sync-callback-hook join-fn-symbol)
                                         ;; FIXME: Probably need to unintern the symbol.
-                                        (ement-view-room session room)))))
+                                        (ement-view-room room session)))))
                 (setf (symbol-function join-fn-symbol) join-fn)
                 (when ement-room-join-view-buffer
                   (add-hook 'ement-sync-callback-hook join-fn-symbol))
@@ -879,35 +879,31 @@ Interactively, set the current buffer's ROOM's TOPIC."
                   (_ (error "Unable to join room %s: %s %S" id-or-alias status plz-error))))))))
 (defalias 'ement-join-room #'ement-room-join)
 
-(defun ement-room-leave (id-or-alias session)
-  "Leave room by ID-OR-ALIAS on SESSION."
-  (interactive (list (cl-labels ((format-room
-                                  (room) (format "%s (%s)"
-                                                 (ement-room--room-display-name room)
-                                                 (or (ement-room-canonical-alias room)
-                                                     (ement-room-id room)))))
-                       (let* ((rooms-alist (cl-loop for room in (ement-session-rooms ement-session)
-                                                    collect (cons (format-room room) (ement-room-id room))))
-                              (selected-room-string (completing-read "Leave room (ID or alias): "
-                                                                     rooms-alist
-                                                                     nil t nil nil (when ement-room
-                                                                                     (format-room ement-room)))))
-                         (alist-get selected-room-string rooms-alist nil nil #'string=)))
-                     ement-session))
-  (cl-assert id-or-alias) (cl-assert session)
-  (when (yes-or-no-p (format "Leave room %s? " id-or-alias))
-    (pcase-let* ((room (cl-loop for room in (ement-session-rooms session)
-                                when (or (equal id-or-alias (ement-room-id room))
-                                         (equal id-or-alias (ement-room-canonical-alias room)))
-                                return room))
-                 ((cl-struct ement-room id) room)
+(declare-function ement-complete-room "ement")
+(defun ement-room-leave (room session)
+  "Leave ROOM on SESSION.
+ROOM may be an `ement-room' struct, or a room ID or alias
+string."
+  ;; FIXME: Left rooms are not removed from the room list, because the "leave" rooms aren't yet handled in sync responses.
+  (interactive (ement-complete-room (ement-complete-session)))
+  (cl-assert room) (cl-assert session)
+  (cl-etypecase room
+    (ement-room)
+    (string (setf room (ement-afirst (or (equal room (ement-room-canonical-alias it))
+                                         (equal room (ement-room-id it)))
+                         (ement-session-rooms session)))))
+  (when (yes-or-no-p (format "Leave room %S (%s)? "
+                             (ement-room-display-name room)
+                             (or (ement-room-canonical-alias room)
+                                 (ement-room-id room))))
+    (pcase-let* (((cl-struct ement-room id) room)
                  (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
       (ement-api session endpoint :method 'post :data ""
         :then (lambda (_data)
                 ;; NOTE: This generates a symbol and sets its function value to a lambda
                 ;; which removes the symbol from the hook, removing itself from the hook.
                 ;; TODO: When requiring Emacs 27, use `letrec'.
-                (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" id-or-alias)))
+                (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
                        (leave-fn (lambda (_session)
                                    (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
                                    ;; FIXME: Probably need to unintern the symbol.
@@ -917,14 +913,14 @@ Interactively, set the current buffer's ROOM's TOPIC."
                   (setf (symbol-function leave-fn-symbol) leave-fn)
                   (when ement-room-leave-kill-buffer
                     (add-hook 'ement-sync-callback-hook leave-fn-symbol))
-                  (message "Left room: %s" id-or-alias)))
+                  (message "Left room: %s" room)))
         :else (lambda (plz-error)
                 (pcase-let* (((cl-struct plz-error response) plz-error)
                              ((cl-struct plz-response status body) response)
                              ((map error) (json-read-from-string body)))
                   (pcase status
-                    (429 (error "Unable to leave room %s: %s" id-or-alias error))
-                    (_ (error "Unable to leave room %s: %s %S" id-or-alias status plz-error)))))))))
+                    (429 (error "Unable to leave room %s: %s" room error))
+                    (_ (error "Unable to leave room %s: %s %S" room status plz-error)))))))))
 (defalias 'ement-leave-room #'ement-room-leave)
 
 (defun ement-room-goto-prev ()
@@ -2601,7 +2597,7 @@ To be called from an `ement-room-compose' buffer."
         (input-method current-input-method)
         (send-message-filter ement-room-send-message-filter))
     (quit-restore-window nil 'kill)
-    (ement-view-room session room)
+    (ement-view-room room session)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
