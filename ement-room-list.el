@@ -116,8 +116,8 @@
                         (cl-return t))
                    else do (call-interactively #'forward-button)
                    while (> (line-number-at-pos) starting-line))
-    ;; No more unread rooms: refresh list.
-    (revert-buffer)))
+    ;; No more unread rooms.
+    (message "No more unread rooms")))
 
 ;;;###autoload
 (defun ement-room-list (&rest _ignore)
