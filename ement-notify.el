@@ -74,7 +74,7 @@ the session (each the respective struct)."
                  (const :tag "Default XDG message sound" "message-new-instant")
                  (const :tag "Don't play a sound" nil)))
 
-(defcustom ement-notify-limit-room-name-width 12
+(defcustom ement-notify-limit-room-name-width 14
   "Limit the width of room display names in mentions and notifications buffers.
 This prevents the margin from being made excessively wide."
   :type '(choice (integer :tag "Maximum width")
@@ -84,6 +84,14 @@ This prevents the margin from being made excessively wide."
   "Add distinct background color by room to messages in notification buffers.
 The color is specific to each room, generated automatically, and
 can help distinguish messages by room."
+  :type 'boolean)
+
+(defcustom ement-notify-room-avatars t
+  "Show room avatars in the notifications buffers.
+This shows room avatars at the left of the window margin in
+notification buffers.  It's not customizeable beyond that due to
+limitations and complexities of displaying strings and images in
+margins in Emacs.  But it's useful, anyway."
   :type 'boolean)
 
 ;;;; Commands
@@ -181,6 +189,8 @@ Calls `ement-notify--notifications-notify'."
             ement-room room)
       (let* (;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
              (ement-room-sender-in-left-margin nil)
+             ;; NOTE: We hard-code the room and sender name to be in the left
+             ;; margin.  It works well.  See also `room-avatar-string' below.
              (ement-room-message-format-spec "%O %S%L%B%R%t")
              (message (ement-room--format-event event))
              (buffer (or (get-buffer buffer-name)
@@ -191,16 +201,26 @@ Calls `ement-notify--notifications-notify'."
                            (setf left-margin-width ement-room-left-margin-width
                                  right-margin-width 8)
                            (current-buffer))))
+             (avatar-width (if ement-notify-room-avatars 2 0))
              (room-name-width (if ement-notify-limit-room-name-width
-                                  (min (string-width (ement-room-display-name room))
+                                  (min (+ avatar-width (string-width (ement-room-display-name room)))
                                        ement-notify-limit-room-name-width)
-                                (string-width (ement-room-display-name room))))
+                                (+ avatar-width (string-width (ement-room-display-name room)))))
+             (sender-name-width (string-width (ement-room--user-display-name (ement-event-sender event) room)))
              (new-left-margin-width
               (max (buffer-local-value 'left-margin-width buffer)
-                   (+ room-name-width
-                      (string-width (ement-room--user-display-name (ement-event-sender event) room))
-                      2)))
-             (inhibit-read-only t))
+                   (+ room-name-width sender-name-width 2)))
+             (inhibit-read-only t)
+             (room-avatar-string
+              ;; HACK: This is awkward, but displaying images in the margin along with other non-image text
+              ;; requires some hackery due to manipulating and combining the display property.  The root problem is
+              ;; that recursive display specs are not supported by Emacs, so if a string in a display spec has its
+              ;; own display spec that is an image, the image isn't displayed.  So we have to do things like this.
+              (or (when-let* (ement-notify-room-avatars
+                              (room-list-avatar (alist-get 'room-list-avatar (ement-room-local room)))
+                              (avatar-image (get-text-property 0 'display room-list-avatar)))
+                    (propertize " " 'display `((margin left-margin) ,avatar-image)))
+                  "")))
         (when ement-notify-prism-background
           (add-face-text-property 0 (length message) (list :background (ement-notify--room-background-color room))
                                   nil message))
@@ -210,7 +230,8 @@ Calls `ement-notify--notifications-notify'."
             ;; We make the button manually to avoid overriding the message faces.
             ;; TODO: Define our own button type?  Maybe integrating the hack below...
             (save-excursion
-              (insert (propertize message
+              (insert room-avatar-string
+                      (propertize message
                                   'button '(t)
                                   'category 'default-button
                                   'action #'ement-notify-button-action

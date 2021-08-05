@@ -60,7 +60,7 @@
 (cl-defstruct ement-room
   id display-name prev-batch
   summary state timeline ephemeral account-data unread-notifications
-  latest-ts topic canonical-alias
+  latest-ts topic canonical-alias avatar
   ;; The local slot is an alist used by the local client only.
   local)
 

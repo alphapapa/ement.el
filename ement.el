@@ -93,6 +93,10 @@ by users; ones who do so should know what they're doing.")
           (timeline (lazy_load_members . t))))
   "Default filter for sync requests.")
 
+;; From other files.
+(defvar ement-room-avatar-max-width)
+(defvar ement-room-avatar-max-height)
+
 ;;;; Customization
 
 (defgroup ement nil
@@ -639,6 +643,19 @@ can cause undesirable underlining."
              while next-face-change-pos
              do (setf pos next-face-change-pos))))
 
+(defun ement--resize-image (image max-width max-height)
+  "Return a copy of IMAGE set to MAX-WIDTH and MAX-HEIGHT.
+IMAGE should be one as created by, e.g. `create-image'."
+  ;; It would be nice if the image library had some simple functions to do this sort of thing.
+  (let ((new-image (cl-copy-list image)))
+    (when (fboundp 'imagemagick-types)
+      ;; Only do this when ImageMagick is supported.
+      ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+      (setf (image-property new-image :type) 'imagemagick))
+    (setf (image-property new-image :max-width) max-width
+          (image-property new-image :max-height) max-height)
+    new-image))
+
 ;;;;; Event handlers
 
 (defvar ement-event-handlers nil
@@ -668,6 +685,27 @@ and `session' to the session.  Adds function to
 
 ;; I love how Lisp macros make it so easy and concise to define these
 ;; event handlers!
+
+(ement-defevent "m.room.avatar"
+  (pcase-let* (((cl-struct ement-event (content (map url))) event)
+               (url (ement--mxc-to-url url session)))
+    (if url
+        (plz 'get url :as 'binary :noquery t
+          :then (lambda (data)
+                  (let ((image (create-image data nil 'data-p
+                                             :ascent 'center
+                                             :max-width ement-room-avatar-max-width
+                                             :max-height ement-room-avatar-max-height)))
+                    (when (fboundp 'imagemagick-types)
+                      ;; Only do this when ImageMagick is supported.
+                      ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+                      (setf (image-property image :type) 'imagemagick))
+                    ;; We set the room-avatar slot to a propertized string that displays
+                    ;; as the image.  This seems the most convenient thing to do.
+                    (setf (ement-room-avatar room) (propertize " " 'display image)))))
+      ;; Unset avatar.
+      (setf (ement-room-avatar room) nil
+            (alist-get 'room-list-avatar (ement-room-local room)) nil))))
 
 (ement-defevent "m.room.name"
   (ignore session)

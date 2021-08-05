@@ -172,9 +172,25 @@ normal text.")
   "String used when abbreviating certain strings."
   :type 'string)
 
+(defcustom ement-room-avatars t
+  "Show room avatars."
+  :type 'boolean)
+
+(defcustom ement-room-avatar-max-width 32
+  "Maximum width in pixels of room avatars shown in header lines."
+  :type 'integer)
+
+(defcustom ement-room-avatar-max-height 32
+  "Maximum height in pixels of room avatars shown in header lines."
+  :type 'integer)
+
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
-  '(:eval (concat " " (propertize (or (ement-room-display-name ement-room)
+  '(:eval (concat (if ement-room-avatars
+                      (or (ement-room-avatar ement-room)
+                          "")
+                    "")
+                  " " (propertize (or (ement-room-display-name ement-room)
                                       "[no room name]")
                                   'face 'ement-room-name)
                   ": " (propertize (or (ement-room-topic ement-room)

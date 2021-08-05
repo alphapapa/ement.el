@@ -72,6 +72,10 @@
   "Automatically update the room list buffer."
   :type 'boolean)
 
+(defcustom ement-room-list-avatars t
+  "Show room avatars in the room list."
+  :type 'boolean)
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -137,8 +141,11 @@ call `pop-to-buffer'."
   :group 'ement
   (setf tabulated-list-format (vector
                                '("U" 1 t) '("B" 1 t)
-                               ;; '("U" 1 t) '("🐱" 4 t)
+                               ;; '("U" 1 t)
                                '("D" 1 t) ; Direct
+                               (list (propertize "🐱"
+                                                 'help-echo "Avatar")
+                                     4 t) ; Avatar
                                '("Name" 25 t) '("Topic" 35 t)
                                '("Latest" 20 ement-room-list-latest<)
                                '("Members" 7 ement-room-list-members<)
@@ -155,7 +162,7 @@ call `pop-to-buffer'."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
-               (`[,_unread ,_buffer ,_direct ,_name ,_topic ,_latest ,_members ,user-id]
+               (`[,_unread ,_buffer ,_direct ,_avatar ,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
                (session (cl-loop for session in ement-sessions
                                  when (equal user-id (ement-user-id (ement-session-user session)))
@@ -208,8 +215,8 @@ To be called in `ement-sync-callback-hook'."
 
 (defun ement-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
-  (pcase-let* (((cl-struct ement-room id canonical-alias display-name topic latest-ts summary
-                           (local (map buffer)))
+  (pcase-let* (((cl-struct ement-room id canonical-alias display-name avatar topic latest-ts summary
+                           (local (map buffer room-list-avatar)))
                 room)
                ((map ('m.joined_member_count member-count)) summary)
                (e-alias (or canonical-alias
@@ -220,7 +227,16 @@ To be called in `ement-sync-callback-hook'."
                (e-unread (if (and buffer (buffer-modified-p buffer))
                              (propertize "U" 'help-echo "Unread") ""))
                (e-buffer (if buffer (propertize "B" 'help-echo "Room has buffer") ""))
-               ;;  (e-avatar (if avatar (ement-resize-avatar avatar) ""))
+               (e-avatar (if (and ement-room-list-avatars avatar)
+                             (or room-list-avatar
+                                 (let ((new-avatar (propertize " " 'display
+                                                               (ement--resize-image (get-text-property 0 'display avatar)
+                                                                                    nil (frame-char-height)))))
+                                   ;; alist-get doesn't seem to return the new value when used with setf?
+                                   (setf (alist-get 'room-list-avatar (ement-room-local room))
+                                         new-avatar)
+                                   new-avatar))
+                           ""))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
                                          'help-echo e-alias)
@@ -249,7 +265,7 @@ To be called in `ement-sync-callback-hook'."
                ;;                   ("N")))
                (e-members (number-to-string member-count)))
     (list room (vector e-unread e-buffer e-direct-p
-                       e-name e-topic e-latest e-members
+                       e-avatar e-name e-topic e-latest e-members
                        ;; e-priority e-tags
                        e-session
                        ;; e-avatar
@@ -260,15 +276,15 @@ To be called in `ement-sync-callback-hook'."
 (defun ement-room-list-members< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_unread ,_buffer ,_direct ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
-               (`(,_room [,_unread ,_buffer ,_direct ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
+  (pcase-let* ((`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
+               (`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
     (< (string-to-number a-members) (string-to-number b-members))))
 
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room-a [,_unread ,_buffer ,_direct ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
-               (`(,_room-b [,_unread ,_buffer ,_direct ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
+  (pcase-let* ((`(,_room-a [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
+               (`(,_room-b [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
     (< (get-text-property 0 'value a-latest)
        (get-text-property 0 'value b-latest))))
 
