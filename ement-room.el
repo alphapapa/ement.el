@@ -1498,7 +1498,7 @@ Format defaults to `ement-room-message-format-spec', which see."
                                          (_ 'ement-room-message-text)))
                             (context-face (cond (self-message-p
                                                  'ement-room-self-message)
-                                                ((ement-room--event-mentions-user event (ement-session-user ement-session))
+                                                ((ement-room--event-mentions-user-p event (ement-session-user ement-session))
                                                  'ement-room-mention)))
                             (prism-color (unless self-message-p
                                            (when (eq 'both ement-room-prism)
@@ -1696,7 +1696,7 @@ ROOM defaults to the value of `ement-room'."
                 'face face
                 'help-echo (ement-user-id user))))
 
-(cl-defun ement-room--event-mentions-user (event user &optional (room ement-room))
+(cl-defun ement-room--event-mentions-user-p (event user &optional (room ement-room))
   "Return non-nil if EVENT mentions USER."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body formatted_body) content)

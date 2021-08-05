@@ -280,7 +280,7 @@ If EVENT's sender is SESSION's user, returns nil."
   (pcase-let* (((cl-struct ement-session user) session)
                ((cl-struct ement-event sender) event))
     (unless (equal (ement-user-id user) (ement-user-id sender))
-      (ement-room--event-mentions-user event user room))))
+      (ement-room--event-mentions-user-p event user room))))
 
 (defun ement-notify--room-buffer-live-p (_event room _session)
   "Return non-nil if ROOM has a live buffer."
