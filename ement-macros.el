@@ -88,6 +88,27 @@ keywords are supported:
   `(list ,@(cl-loop for (key value) on pairs by #'cddr
                     collect `(cons ,key ,value))))
 
+;;;;; Anaphoric
+
+;; We could just depend on dash.el and use --first, and anaphora.el (only
+;; on MELPA, not ELPA) has aprog1, but in order to reduce dependencies...
+
+(defmacro ement-afirst (form list)
+  "Return the first element of LIST for which FORM is non-nil.
+In FORM, `it' is bound to the element being tested."
+  (declare (indent 1))
+  `(cl-loop for it in ,list
+            ;; Avoid the `when' clause's implicit binding of `it'.
+            do (when ,form
+                 (cl-return it))))
+
+(defmacro ement-aprog1 (first &rest body)
+  "Like `prog1', but FIRST's value is bound to `it' around BODY."
+  (declare (indent 1))
+  `(let ((it ,first))
+     ,@body
+     it))
+
 ;;;;; Progress reporters
 
 ;; MAYBE: Submit a `with-progress-reporter' macro to Emacs.
