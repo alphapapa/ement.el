@@ -1929,9 +1929,11 @@ To be called from an `ement-room-compose' buffer."
   ;; Putting it in the kill ring seems like the best thing to do, to ensure
   ;; it doesn't get lost if the user exits the minibuffer before sending.
   (kill-new (string-trim (buffer-string)))
-  (kill-buffer (current-buffer))
-  ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
-  (ement-view-room ement-session ement-room)
+  (let ((room ement-room)
+        (session ement-session))
+    ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
+    (kill-buffer (current-buffer))
+    (ement-view-room session room))
   (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
          (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
     (ement-room-send-message ement-room ement-session :body body)))
