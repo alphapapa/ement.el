@@ -476,8 +476,8 @@ Interactively, set the current buffer's ROOM's TOPIC."
   (interactive (ement-room-with-typing
                  (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
                                               nil nil 'confirm))
-                        (body (read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                           file nil nil 'inherit-input-method)))
+                        (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                                      file nil nil 'inherit-input-method)))
                    (list file body ement-room ement-session))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
@@ -692,7 +692,7 @@ sync requests."
                         (session ement-session)
                         (prompt (format "Send message (%s): " (ement-room-display-name room)))
                         (body (ement-room-with-typing
-                                (read-string prompt nil nil nil 'inherit-input-method))))
+                                (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
                    (list room session :body body))))
   (cl-assert (not (string-empty-p body)))
   (cl-assert (or (not formatted-body) (not (string-empty-p formatted-body))))
@@ -758,7 +758,7 @@ The message must be one sent by the local user."
                      (user-error "Only original messages may be edited, not the edit events themselves"))
                    (ement-room-with-typing
                      (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
-                            (body (read-string prompt body nil nil 'inherit-input-method)))
+                            (body (ement-room-read-string prompt body nil nil 'inherit-input-method)))
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
@@ -807,7 +807,7 @@ The message must be one sent by the local user."
                  (session ement-session)
                  (prompt (format "Send reply (%s): " (ement-room-display-name room)))
                  (body (ement-room-with-typing
-                         (read-string prompt nil nil nil 'inherit-input-method))))
+                         (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
       (ement-room-send-message room session :body body :replying-to-event event))))
 
 (defun ement-room-send-reaction (position)
@@ -1049,6 +1049,21 @@ and erases the buffer."
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
+
+(defun ement-room-read-string (&rest args)
+  "Call `read-string' with ARGS, binding variables and keys for Ement."
+  (let ((room ement-room)
+        (session ement-session))
+    (minibuffer-with-setup-hook
+        (lambda ()
+          "Bind keys and variables locally (to be called in minibuffer)."
+          (setq-local ement-room room) (setq-local ement-session session)
+          ;; HACK: This probably isn't the best way to do this.
+          (let ((map (make-sparse-keymap)))
+            (set-keymap-parent map minibuffer-local-map)
+            (define-key map (kbd "C-c '") #'ement-room-compose-from-minibuffer)
+            (use-local-map map)))
+      (apply #'read-string args))))
 
 (defun ement-room--buffer (session room name)
   "Return buffer named NAME showing ROOM's events on SESSION.
@@ -1843,6 +1858,76 @@ ROOM defaults to the value of `ement-room'."
                                                     (append color-rgb (list 2))))
                            (list 2))))
         (apply #'color-rgb-to-hex (append color-rgb (list 2)))))))
+
+;;;;; Compose buffer
+
+;; Compose messages in a separate buffer, like `org-edit-special'.
+
+(cl-defun ement-room-compose-message (room session &key body)
+  "Compose a message to ROOM on SESSION.
+Interactively, compose to the current buffer's room.  With BODY,
+use it as the initial message contents."
+  (interactive (progn
+                 (cl-assert ement-room) (cl-assert ement-session)
+                 (list ement-room ement-session)))
+  (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room)))))
+    (with-current-buffer compose-buffer
+      (setq-local ement-room room) (setq-local ement-session session)
+      ;; TODO: Make mode configurable.
+      ;; FIXME: Compose with local map?
+      (use-local-map (if (current-local-map)
+                         (copy-keymap (current-local-map))
+                       (make-sparse-keymap)))
+      (local-set-key [remap save-buffer] #'ement-room-compose-send)
+      (when body
+        (insert body))
+      (setq header-line-format (substitute-command-keys
+                                (format " Press \\[save-buffer] to send message to room (%s)"
+                                        (ement-room-display-name room)))))
+    (pop-to-buffer compose-buffer)))
+
+(declare-function minibuffer-keyboard-quit "delsel")
+(defun ement-room-compose-from-minibuffer ()
+  "Edit the current message in a compose buffer.
+To be called from a minibuffer opened from
+`ement-room-read-string'."
+  (interactive)
+  (cl-assert (minibufferp)) (cl-assert ement-room) (cl-assert ement-session)
+  ;; TODO: When requiring Emacs 27, use `letrec'.
+  ;; HACK: I can't seem to find a better way to do this, to exit the minibuffer without exiting this command too.
+  (let* ((body (minibuffer-contents))
+         (compose-fn-symbol (gensym (format "ement-compose-%s" (or (ement-room-canonical-alias ement-room)
+                                                                   (ement-room-id ement-room)))))
+         (compose-fn (lambda ()
+                       ;; HACK: Since exiting the minibuffer restores the previous window configuration,
+                       ;; we have to do some magic to get the new compose buffer to appear.
+                       ;; TODO: Use letrec with Emacs 27.
+                       (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
+                       (ement-room-compose-message ement-room ement-session :body body)
+                       (let* ((compose-buffer (current-buffer))
+                              (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
+                              (show-buffer-fn (lambda ()
+                                                (remove-hook 'window-configuration-change-hook show-buffer-fn-symbol)
+                                                (pop-to-buffer compose-buffer))))
+                         (fset show-buffer-fn-symbol show-buffer-fn)
+                         (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
+    (fset compose-fn-symbol compose-fn)
+    (add-hook 'minibuffer-exit-hook compose-fn-symbol)
+    (minibuffer-keyboard-quit)))
+
+(defun ement-room-compose-send ()
+  "Prompt to send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer."
+  (interactive)
+  (cl-assert ement-room) (cl-assert ement-session)
+  ;; Putting it in the kill ring seems like the best thing to do, to ensure
+  ;; it doesn't get lost if the user exits the minibuffer before sending.
+  (kill-new (string-trim (buffer-string)))
+  ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
+  (ement-view-room ement-session ement-room)
+  (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+         (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
+    (ement-room-send-message ement-room ement-session :body body)))
 
 ;;;;; Widgets
 
