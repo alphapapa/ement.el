@@ -766,6 +766,27 @@ The message must be one sent by the local user."
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
                              :content content :data))))
 
+(defun ement-room-delete-message (event room session &optional reason)
+  "Delete EVENT in ROOM on SESSION, optionally with REASON."
+  (interactive (ement-room-with-highlighted-event-at (point)
+                 (if (yes-or-no-p "Delete this event? ")
+                     (list (ewoc-data (ewoc-locate ement-ewoc))
+                           ement-room ement-session (read-string "Reason (optional): " nil nil nil 'inherit-input-method))
+                   ;; HACK: This isn't really an error, but is there a cleaner way to cancel?
+                   (user-error "Message not deleted"))))
+  (pcase-let* (((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/redact/%s/%s"
+                                 (url-hexify-string room-id) (url-hexify-string event-id)
+                                 (cl-incf (ement-session-transaction-id ement-session))))
+               (content (if reason
+                            (ement-alist "reason" reason)
+                          ;; To get an empty JSON object, we use an empty hash table.
+                          (make-hash-table))))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (lambda (_data)
+              (message "Event %S deleted." event-id)))))
+
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
   (interactive)
