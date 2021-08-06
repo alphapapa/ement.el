@@ -1874,10 +1874,13 @@ use it as the initial message contents."
   (interactive (progn
                  (cl-assert ement-room) (cl-assert ement-session)
                  (list ement-room ement-session)))
-  (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room)))))
+  (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room))))
+         (input-method current-input-method))
     (with-current-buffer compose-buffer
       (setq-local ement-room room) (setq-local ement-session session)
       (setf ement-room-compose-buffer t)
+      (when input-method
+        (set-input-method input-method))
       ;; TODO: Make mode configurable.
       ;; FIXME: Compose with local map?
       (use-local-map (if (current-local-map)
