@@ -684,35 +684,43 @@ sync requests."
       (view-mode)
       (pop-to-buffer (current-buffer)))))
 
-(cl-defun ement-room-send-message (&key (prompt "Send message"))
-  "Send message in current buffer's room.
-PROMPT should not end in a colon or space, as these will be
-automatically added after the room ID."
-  (interactive)
-  (cl-assert ement-room) (cl-assert ement-session)
-  (ement-room-with-typing
-    (let* ((prompt (format "%s (%s): " prompt (ement-room-display-name ement-room)))
-           (body (read-string prompt nil nil nil 'inherit-input-method)))
-      (unless (string-empty-p body)
-        (pcase-let* (((cl-struct ement-room id) ement-room)
-                     (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string id)
-                                       "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                     (content (ement-alist "msgtype" "m.text"
-                                           "body" body)))
-          (when ement-room-replying-to-event
-            (setf content (ement-room--add-reply content ement-room-replying-to-event)))
-          (ement-api ement-session endpoint :method 'put :data (json-encode content)
-            :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                                   :content content :data)))))) ;; Data is added when calling back.
-  ;; NOTE: This assumes that the selected window is the buffer's window.  For now
-  ;; this is almost surely the case, but in the future, we might let the function
-  ;; send messages to other rooms more easily, so this assumption might not hold.
-  (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
-    ;; Point is on last event: advance it to eob so that when the event is received
-    ;; back, the window will scroll.  (This might not always be desirable, because
-    ;; the user might have point on that event for a reason, but I think in most
-    ;; cases, it will be what's expected and most helpful.)
-    (setf (window-point) (point-max))))
+(cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
+  "Send message to ROOM on SESSION with BODY and FORMATTED-BODY."
+  (interactive (progn
+                 (cl-assert ement-room) (cl-assert ement-session)
+                 (let* ((room ement-room)
+                        (session ement-session)
+                        (prompt (format "Send message (%s): " (ement-room-display-name room)))
+                        (body (ement-room-with-typing
+                                (read-string prompt nil nil nil 'inherit-input-method))))
+                   (list room session :body body))))
+  (cl-assert (not (string-empty-p body)))
+  (cl-assert (or (not formatted-body) (not (string-empty-p formatted-body))))
+  (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
+               (window (when buffer (get-buffer-window buffer)))
+               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                 "m.room.message" (cl-incf (ement-session-transaction-id session))))
+               (content (ement-aprog1
+                            (ement-alist "msgtype" "m.text"
+                                         "body" body)
+                          (when formatted-body
+                            (push (cons "formatted_body" formatted-body) it)))))
+    (when replying-to-event
+      (setf content (ement-room--add-reply content replying-to-event)))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (apply-partially #'ement-room-send-event-callback :room room :session session
+                             :content content :data)) ;; Data is added when calling back.
+    ;; NOTE: This assumes that the selected window is the buffer's window.  For now
+    ;; this is almost surely the case, but in the future, we might let the function
+    ;; send messages to other rooms more easily, so this assumption might not hold.
+    (when window
+      (with-selected-window window
+        (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
+          ;; Point is on last event: advance it to eob so that when the event is received
+          ;; back, the window will scroll.  (This might not always be desirable, because
+          ;; the user might have point on that event for a reason, but I think in most
+          ;; cases, it will be what's expected and most helpful.)
+          (setf (window-point) (point-max)))))))
 
 (cl-defun ement-room-send-event-callback (&key data room session content)
   "Callback for event-sending functions.
@@ -791,9 +799,16 @@ The message must be one sent by the local user."
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
   (interactive)
-  ;; MAYBE: Accept event, body, etc. as arguments, but that complicates using send-message...
+  (cl-assert ement-ewoc) (cl-assert ement-room) (cl-assert ement-session)
+  (cl-assert (ement-event-p (ewoc-data (ewoc-locate ement-ewoc))))
   (ement-room-with-highlighted-event-at (point)
-    (ement-room-send-message :prompt "Send reply")))
+    (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
+                 (room ement-room)
+                 (session ement-session)
+                 (prompt (format "Send reply (%s): " (ement-room-display-name room)))
+                 (body (ement-room-with-typing
+                         (read-string prompt nil nil nil 'inherit-input-method))))
+      (ement-room-send-message room session :body body :replying-to-event event))))
 
 (defun ement-room-send-reaction (position)
   "Send reaction to event at POSITION.
