@@ -692,17 +692,19 @@ and `session' to the session.  Adds function to
     (if url
         (plz 'get url :as 'binary :noquery t
           :then (lambda (data)
-                  (let ((image (create-image data nil 'data-p
-                                             :ascent 'center
-                                             :max-width ement-room-avatar-max-width
-                                             :max-height ement-room-avatar-max-height)))
-                    (when (fboundp 'imagemagick-types)
-                      ;; Only do this when ImageMagick is supported.
-                      ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
-                      (setf (image-property image :type) 'imagemagick))
-                    ;; We set the room-avatar slot to a propertized string that displays
-                    ;; as the image.  This seems the most convenient thing to do.
-                    (setf (ement-room-avatar room) (propertize " " 'display image)))))
+                  (when ement-room-avatars
+                    ;; MAYBE: Store the raw image data instead of using create-image here.
+                    (let ((image (create-image data nil 'data-p
+                                               :ascent 'center
+                                               :max-width ement-room-avatar-max-width
+                                               :max-height ement-room-avatar-max-height)))
+                      (when (fboundp 'imagemagick-types)
+                        ;; Only do this when ImageMagick is supported.
+                        ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+                        (setf (image-property image :type) 'imagemagick))
+                      ;; We set the room-avatar slot to a propertized string that displays
+                      ;; as the image.  This seems the most convenient thing to do.
+                      (setf (ement-room-avatar room) (propertize " " 'display image))))))
       ;; Unset avatar.
       (setf (ement-room-avatar room) nil
             (alist-get 'room-list-avatar (ement-room-local room)) nil))))
