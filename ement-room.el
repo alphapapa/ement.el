@@ -1035,7 +1035,7 @@ DATA is an unsent message event's data alist."
                when (equal "m.direct" (alist-get 'type event))
                thereis (content-contains-room-id (alist-get 'content event) id)))))
 
-(define-derived-mode ement-room-mode fundamental-mode "Ement Room"
+(define-derived-mode ement-room-mode fundamental-mode "Ement-Room"
   "Major mode for Ement room buffers.
 This mode initializes a buffer to be used for showing events in
 an Ement room.  It kills all local variables, removes overlays,

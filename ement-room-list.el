@@ -137,7 +137,7 @@ call `pop-to-buffer'."
 (defalias 'ement-list-rooms 'ement-room-list)
 
 (define-derived-mode ement-room-list-mode tabulated-list-mode
-  "Ement Room List"
+  "Ement-Room-List"
   :group 'ement
   (setf tabulated-list-format (vector
                                '("U" 1 t) '("B" 1 t)
