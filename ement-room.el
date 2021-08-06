@@ -1058,6 +1058,7 @@ and erases the buffer."
         (lambda ()
           "Bind keys and variables locally (to be called in minibuffer)."
           (setq-local ement-room room) (setq-local ement-session session)
+          (visual-line-mode 1)
           ;; HACK: This probably isn't the best way to do this.
           (let ((map (make-sparse-keymap)))
             (set-keymap-parent map minibuffer-local-map)
