@@ -1863,6 +1863,9 @@ ROOM defaults to the value of `ement-room'."
 
 ;; Compose messages in a separate buffer, like `org-edit-special'.
 
+(defvar-local ement-room-compose-buffer nil
+  "Non-nil in buffers that are composing a message to a room.")
+
 (cl-defun ement-room-compose-message (room session &key body)
   "Compose a message to ROOM on SESSION.
 Interactively, compose to the current buffer's room.  With BODY,
@@ -1873,6 +1876,7 @@ use it as the initial message contents."
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room)))))
     (with-current-buffer compose-buffer
       (setq-local ement-room room) (setq-local ement-session session)
+      (setf ement-room-compose-buffer t)
       ;; TODO: Make mode configurable.
       ;; FIXME: Compose with local map?
       (use-local-map (if (current-local-map)
@@ -1919,10 +1923,12 @@ To be called from a minibuffer opened from
   "Prompt to send the current compose buffer's contents.
 To be called from an `ement-room-compose' buffer."
   (interactive)
+  (cl-assert ement-room-compose-buffer)
   (cl-assert ement-room) (cl-assert ement-session)
   ;; Putting it in the kill ring seems like the best thing to do, to ensure
   ;; it doesn't get lost if the user exits the minibuffer before sending.
   (kill-new (string-trim (buffer-string)))
+  (kill-buffer (current-buffer))
   ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
   (ement-view-room ement-session ement-room)
   (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
