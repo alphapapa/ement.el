@@ -1910,7 +1910,9 @@ To be called from a minibuffer opened from
                        ;; we have to do some magic to get the new compose buffer to appear.
                        ;; TODO: Use letrec with Emacs 27.
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
-                       (ement-room-compose-message ement-room ement-session :body body)
+                       (let ((input-method current-input-method))
+                         (ement-room-compose-message ement-room ement-session :body body)
+                         (set-input-method input-method))
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
@@ -1932,13 +1934,15 @@ To be called from an `ement-room-compose' buffer."
   ;; it doesn't get lost if the user exits the minibuffer before sending.
   (kill-new (string-trim (buffer-string)))
   (let ((room ement-room)
-        (session ement-session))
+        (session ement-session)
+        (input-method current-input-method))
     ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
     (kill-buffer (current-buffer))
-    (ement-view-room session room))
-  (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
-         (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
-    (ement-room-send-message ement-room ement-session :body body)))
+    (ement-view-room session room)
+    (set-input-method input-method)
+    (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+           (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
+      (ement-room-send-message ement-room ement-session :body body))))
 
 ;;;;; Widgets
 
