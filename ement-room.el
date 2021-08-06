@@ -1894,7 +1894,6 @@ use it as the initial message contents."
                                         (ement-room-display-name room)))))
     (pop-to-buffer compose-buffer)))
 
-(declare-function minibuffer-keyboard-quit "delsel")
 (defun ement-room-compose-from-minibuffer ()
   "Edit the current message in a compose buffer.
 To be called from a minibuffer opened from
@@ -1921,7 +1920,7 @@ To be called from a minibuffer opened from
                          (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
     (fset compose-fn-symbol compose-fn)
     (add-hook 'minibuffer-exit-hook compose-fn-symbol)
-    (minibuffer-keyboard-quit)))
+    (abort-recursive-edit)))
 
 (defun ement-room-compose-send ()
   "Prompt to send the current compose buffer's contents.
