@@ -372,6 +372,7 @@ Matrix-related commands in it will fail."
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
   "Highlight event at POSITION while evaluating BODY."
+  ;; MAYBE: Accept a marker for POSITION.
   (declare (indent 1))
   `(let* ((node (ewoc-locate ement-ewoc ,position))
           (event (ewoc-data node))
