@@ -53,13 +53,17 @@
 ;;;; Functions
 
 (cl-defun ement-api (session endpoint
-                             &key then timeout data params
+                             &key then data params
                              (content-type "application/json")
                              (data-type 'text)
                              (else #'ement-api-error) (method 'get)
                              ;; FIXME: What's the right term for the URL part after "/_matrix/"?
                              (endpoint-category "client")
-                             (json-read-fn #'json-read))
+                             (json-read-fn #'json-read)
+                             ;; NOTE: Hard to say what the default timeouts
+                             ;; should be.  Sometimes the matrix.org homeserver
+                             ;; can get slow and respond a minute or two later.
+                             (connect-timeout 10) (timeout 60))
   "FIXME: Docstring."
   ;; TODO: Remind users to json-encode data when needed.
   (declare (indent defun))
@@ -82,8 +86,7 @@
     ;;  (ement-debug (current-time) method url headers)
     (plz method url :headers headers :body data :body-type data-type
       :as json-read-fn :then then :else else
-      ;; FIXME: Timeout is not necessarily the same as connect-timeout, or shouldn't be.
-      :connect-timeout timeout :noquery t)))
+      :connect-timeout connect-timeout :timeout timeout :noquery t)))
 
 (define-error 'ement-api-error "Ement API error" 'error)
 

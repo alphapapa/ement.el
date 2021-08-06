@@ -354,13 +354,18 @@ a filter ID).  When unspecified, the value of
                (sync-start-time (time-to-seconds))
                ;; FIXME: Auto-sync again in error handler.
                (process (ement-api session "sync" :params params
+                          :timeout 40  ;; Give the server an extra 10 seconds.
                           :then (apply-partially #'ement--sync-callback session)
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
                                   (pcase (plz-error-curl-error plz-error)
                                     (`(28 . ,_) ; Timeout: sync again if enabled.
-                                     (display-warning 'ement "Sync timed out" :warning)
-                                     (ement--auto-sync session))
+                                     (if (not ement-auto-sync)
+                                         (error (substitute-command-keys
+                                                 "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
+                                                (ement-user-id (ement-session-user session)))
+                                       (message "Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
+                                       (ement--sync session)))
                                     (_ (signal 'ement-api-error (list "Unrecognized error" plz-error)))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
