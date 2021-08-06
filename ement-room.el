@@ -370,6 +370,33 @@ Matrix-related commands in it will fail."
 
 ;;;; Macros
 
+(defmacro ement-room-with-highlighted-event-at (position &rest body)
+  "Highlight event at POSITION while evaluating BODY."
+  (declare (indent 1))
+  `(let* ((node (ewoc-locate ement-ewoc ,position))
+          (event (ewoc-data node))
+          ement-room-replying-to-event ement-room-replying-to-overlay)
+     (unless (and (ement-event-p event)
+                  (ement-event-id event))
+       (error "No event at point"))
+     (unwind-protect
+         (progn
+           (setf ement-room-replying-to-event event
+                 ement-room-replying-to-overlay
+                 (make-overlay (ewoc-location node)
+                               ;; NOTE: It doesn't seem possible to get the end position of
+                               ;; a node, so if there is no next node, we use point-max.
+                               ;; But this might break if we were to use an EWOC footer.
+                               (if (ewoc-next ement-ewoc node)
+                                   (ewoc-location (ewoc-next ement-ewoc node))
+                                 (point-max))))
+           (overlay-put ement-room-replying-to-overlay 'face 'highlight)
+           ,@body)
+       (when (overlayp ement-room-replying-to-overlay)
+         (delete-overlay ement-room-replying-to-overlay))
+       (setf ement-room-replying-to-event nil
+             ement-room-replying-to-overlay nil))))
+
 (defmacro ement-room-with-typing (&rest body)
   "Send typing notifications around BODY.
 When `ement-room-send-typing' is enabled, typing notifications
@@ -705,63 +732,46 @@ mentioning the ROOM and CONTENT."
         (message "Message sent to room %S: %S"
                  (ement-room-display-name room) (alist-get "body" content nil nil #'equal))))))
 
-(defun ement-room-edit-message ()
-  "Edit message at point.
+(defun ement-room-edit-message (event room session body)
+  "Edit EVENT in ROOM on SESSION to have new BODY.
 The message must be one sent by the local user."
-  (interactive)
-  (cl-assert ement-room) (cl-assert ement-session)
-  (when-let ((event (ewoc-data (ewoc-locate ement-ewoc))))
-    (pcase-let* (((cl-struct ement-session user) ement-session)
-                 ((cl-struct ement-event (id event-id) sender (content (map body ('m.relates_to relates-to)))) event))
-      (unless (equal (ement-user-id sender) (ement-user-id user))
-        (user-error "You may only edit your own messages"))
-      (when relates-to
-        ;; TODO: When we show edits by replacing the original event, this will need to be changed.
-        (user-error "Only original messages may be edited, not the edit events themselves"))
-      (ement-room-with-typing
-        (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
-               (body (read-string prompt body nil nil 'inherit-input-method)))
-          (unless (string-empty-p body)
-            (when (yes-or-no-p (format "Edit message to: %S? " body))
-              (pcase-let* (((cl-struct ement-room (id room-id)) ement-room)
-                           (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                             "m.room.message" (cl-incf (ement-session-transaction-id ement-session))))
-                           (content (ement-alist "msgtype" "m.text"
-                                                 "body" (concat "* " body)
-                                                 "m.new_content" (ement-alist "body" body
-                                                                              "msgtype" "m.text")
-                                                 "m.relates_to" (ement-alist "rel_type" "m.replace"
-                                                                             "event_id" event-id))))
-                (ement-api ement-session endpoint :method 'put :data (json-encode content)
-                  :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                                         :content content :data)))))))
-      (ement-room-scroll-up-mark-read))))
+  (interactive (ement-room-with-highlighted-event-at (point)
+                 (cl-assert ement-session) (cl-assert ement-room)
+                 (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
+                              ((cl-struct ement-session user) ement-session)
+                              ((cl-struct ement-event sender (content (map body ('m.relates_to relates-to))))
+                               event))
+                   (unless (equal (ement-user-id sender) (ement-user-id user))
+                     (user-error "You may only edit your own messages"))
+                   (when relates-to
+                     ;; FIXME: This isn't quite right.  When we show edits by replacing
+                     ;; the original event, this will need to be changed.
+                     (user-error "Only original messages may be edited, not the edit events themselves"))
+                   (ement-room-with-typing
+                     (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
+                            (body (read-string prompt body nil nil 'inherit-input-method)))
+                       (when (string-empty-p body)
+                         (user-error "To delete a message, use command `ement-room-delete-message'"))
+                       (when (yes-or-no-p (format "Edit message to: %S? " body))
+                         (list event ement-room ement-session body)))))))
+  (let ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
+                          "m.room.message" (cl-incf (ement-session-transaction-id session))))
+        (content (ement-alist "msgtype" "m.text"
+                              "body" (concat "* " body)
+                              "m.new_content" (ement-alist "body" body
+                                                           "msgtype" "m.text")
+                              "m.relates_to" (ement-alist "rel_type" "m.replace"
+                                                          "event_id" (ement-event-id event)))))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (apply-partially #'ement-room-send-event-callback :room room :session session
+                             :content content :data))))
 
 (defun ement-room-send-reply ()
   "Send a reply to event at point."
   (interactive)
-  (let* ((node (ewoc-locate ement-ewoc))
-         (event (ewoc-data node)))
-    (unless (and (ement-event-p event)
-                 (ement-event-id event))
-      (user-error "No event at point"))
-    (unwind-protect
-        (progn
-          (setf ement-room-replying-to-event event
-                ement-room-replying-to-overlay
-                (make-overlay (ewoc-location node)
-                              ;; NOTE: It doesn't seem possible to get the end position of
-                              ;; a node, so if there is no next node, we use point-max.
-                              ;; But this might break if we were to use an EWOC footer.
-                              (if (ewoc-next ement-ewoc node)
-                                  (ewoc-location (ewoc-next ement-ewoc node))
-                                (point-max))))
-          (overlay-put ement-room-replying-to-overlay 'face 'highlight)
-          (ement-room-send-message :prompt "Send reply"))
-      (when ement-room-replying-to-overlay
-        (delete-overlay ement-room-replying-to-overlay))
-      (setf ement-room-replying-to-event nil
-            ement-room-replying-to-overlay nil))))
+  ;; MAYBE: Accept event, body, etc. as arguments, but that complicates using send-message...
+  (ement-room-with-highlighted-event-at (point)
+    (ement-room-send-message :prompt "Send reply")))
 
 (defun ement-room-send-reaction (position)
   "Send reaction to event at POSITION.
@@ -789,23 +799,24 @@ Interactively, send reaction to event at point."
                             ;; Point is in a reaction button but after the key.
                             (buffer-substring-while (button-start (button-at pos))
                                                     (apply-partially #'face-at-point-p 'ement-room-reactions-key))))))
-    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
-                            (user-error "No event at point")))
-                 ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
-                 ;; hl-line-mode is enabled, it only returns the hl-line face.
-                 (key (or (key-at position)
-                          (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
-                 ((cl-struct ement-event (id event-id)) event)
-                 ((cl-struct ement-room (id room-id)) ement-room)
-                 (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                   "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
-                 (content (ement-alist "m.relates_to"
-                                       (ement-alist "rel_type" "m.annotation"
-                                                    "event_id" event-id
-                                                    "key" key))))
-      (ement-api ement-session endpoint :method 'put :data (json-encode content)
-        :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                               :content content :data)))))
+    (ement-room-with-highlighted-event-at (point)
+      (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+                              (user-error "No event at point")))
+                   ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
+                   ;; hl-line-mode is enabled, it only returns the hl-line face.
+                   (key (or (key-at position)
+                            (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
+                   ((cl-struct ement-event (id event-id)) event)
+                   ((cl-struct ement-room (id room-id)) ement-room)
+                   (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                     "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
+                   (content (ement-alist "m.relates_to"
+                                         (ement-alist "rel_type" "m.annotation"
+                                                      "event_id" event-id
+                                                      "key" key))))
+        (ement-api ement-session endpoint :method 'put :data (json-encode content)
+          :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                                 :content content :data))))))
 
 (defun ement-room-reaction-button-action (button)
   "Push reaction BUTTON at point."
