@@ -227,6 +227,7 @@ commands in them won't work."
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
 (defun ement-view-room (session room)
+  ;; TODO: Swap argument order of ement-view-room to be more consistent.
   "Switch to a buffer showing ROOM on SESSION.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
