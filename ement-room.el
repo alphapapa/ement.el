@@ -1060,6 +1060,7 @@ and erases the buffer."
           (setq-local ement-room room) (setq-local ement-session session)
           (visual-line-mode 1)
           ;; HACK: This probably isn't the best way to do this.
+          ;; FIXME: Try using `read-from-minibuffer' instead.
           (let ((map (make-sparse-keymap)))
             (set-keymap-parent map minibuffer-local-map)
             (define-key map (kbd "C-c '") #'ement-room-compose-from-minibuffer)
