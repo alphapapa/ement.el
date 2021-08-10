@@ -365,7 +365,7 @@ a filter ID).  When unspecified, the value of
                                          (error (substitute-command-keys
                                                  "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
                                                 (ement-user-id (ement-session-user session)))
-                                       (message "Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
+                                       (message "Ement: Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
                                        (ement--sync session)))
                                     (_ (signal 'ement-api-error (list "Unrecognized error" plz-error)))))
                           :json-read-fn (lambda ()
