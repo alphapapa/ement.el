@@ -137,6 +137,8 @@ again; otherwise, use a saved session if `ement-save-session' is
 enabled and a saved session is available, or prompt to log in if
 not enabled or available.
 
+If PASSWORD is not specified, the user will be prompted for it.
+
 If URI-PREFIX is specified, it should be the prefix of the
 server's API URI, including protocol, hostname, and optionally
 the port, e.g.
@@ -193,6 +195,8 @@ the port, e.g.
           (setf ement-sessions (list session))
           (ement--sync (car ement-sessions)))
       ;; Start password login flow.
+      (unless password
+        (setf password (read-passwd (format "Password for %s: " user-id))))
       (setf session (new-session))
       (when (ement-api session "login" :then #'flows-callback)
         (message "Ement: Checking server's login flows...")))))
