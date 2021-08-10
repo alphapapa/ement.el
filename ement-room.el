@@ -94,7 +94,7 @@ Used by `ement-room-send-message'.")
     map)
   "Keymap used in `ement-room-read-string'.")
 
-(defvar ement-room-sender-in-left-margin nil
+(defvar ement-room-sender-in-headers nil
   "Non-nil when sender is displayed in the left margin.
 In that case, sender names are aligned to the margin edge.")
 
@@ -243,6 +243,66 @@ Automatically set by setting `ement-room-message-format-spec',
 but may be overridden manually."
   :type 'boolean)
 
+(defun ement-room-message-format-spec-setter (option value &optional local)
+  "Set relevant options for `ement-room-message-format-spec', which see.
+To be used as that option's setter.  OPTION and VALUE are
+received from setting the customization option.  If LOCAL is
+non-nil, set the variables buffer-locally (i.e. when called from
+`ement-room-set-message-format'."
+  (cl-macrolet ((set-vars (&rest pairs)
+                          ;; Set variable-value pairs, locally if LOCAL is non-nil.
+                          `(progn
+                             ,@(cl-loop for (symbol value) on pairs by #'cddr
+                                        collect `(if local
+                                                     (set (make-local-variable ',symbol) ,value)
+                                                   (set ',symbol ,value))))))
+    (if local
+        (set (make-local-variable option) value)
+      (set-default option value))
+    (pcase value
+      ;; Try to set the margin widths smartly.
+      ("%B%r%R%t" ;; "Elemental"
+       (set-vars ement-room-left-margin-width 0
+                 ement-room-right-margin-width 8
+                 ement-room-sender-headers t
+                 ement-room-sender-in-headers t))
+      ("%S%L%B%r%R%t" ;; "IRC-style using margins"
+       (set-vars ement-room-left-margin-width 12
+                 ement-room-right-margin-width 8
+                 ement-room-sender-headers nil
+                 ement-room-sender-in-headers nil))
+      ("[%t] %S> %B%r" ;; "IRC-style without margins"
+       (set-vars ement-room-left-margin-width 0
+                 ement-room-right-margin-width 0
+                 ement-room-sender-headers nil
+                 ement-room-sender-in-headers nil))
+      (_ (set-vars ement-room-left-margin-width
+                   (if (string-match-p "%L" value)
+                       12 0)
+                   ement-room-right-margin-width
+                   (if (string-match-p "%R" value)
+                       8 0)
+                   ement-room-sender-headers
+                   (if (string-match-p "%S" value)
+                       nil t)
+                   ement-room-sender-in-headers
+                   (if (string-match-p (rx (1+ anything) "%S" (1+ anything) "%L") value)
+                       t nil))
+         (message "Ement: When using custom message format, setting margin widths may be necessary")))
+    (unless ement-room-sender-in-headers
+      ;; HACK: Disable overline on sender face.
+      (require 'face-remap)
+      (if local
+          (progn
+            (face-remap-reset-base 'ement-room-user)
+            (face-remap-add-relative 'ement-room-user '(:overline nil)))
+        (set-face-attribute 'ement-room-user nil :overline nil)))
+    (unless local
+      (when (and (bound-and-true-p ement-sessions) (car ement-sessions))
+        ;; Only display when a session is connected (not sure why `bound-and-true-p'
+        ;; is required to avoid compilation warnings).
+        (message "Ement: Kill and reopen room buffers to display in new format")))))
+
 (defcustom ement-room-message-format-spec "%S%L%B%r%R%t"
   "Format messages according to this spec.
 It may contain these specifiers:
@@ -267,44 +327,7 @@ Note that margin sizes must be set manually with
                  (const :tag "IRC-style without margins" "[%t] %S> %B%r")
                  (const :tag "Elemental" "%B%r%R%t")
                  (string :tag "Custom format"))
-  :set (lambda (option value)
-         (set-default option value)
-         (pcase value
-           ;; Try to set the margin widths smartly.
-           ("%B%r%R%t" ;; "Elemental"
-            (setf ement-room-left-margin-width 0
-                  ement-room-right-margin-width 8
-                  ement-room-sender-headers t))
-           ("%S%L%B%r%R%t" ;; "IRC-style using margins"
-            (setf ement-room-left-margin-width 12
-                  ement-room-right-margin-width 8
-                  ement-room-sender-headers nil
-                  ement-room-sender-in-left-margin t))
-           ("[%t] %S> %B%r" ;; "IRC-style without margins"
-            (setf ement-room-left-margin-width 0
-                  ement-room-right-margin-width 0
-                  ement-room-sender-headers nil
-                  ement-room-sender-in-left-margin nil))
-           (_ (setf ement-room-left-margin-width
-                    (if (string-match-p "%L" value)
-                        12 0)
-                    ement-room-right-margin-width
-                    (if (string-match-p "%R" value)
-                        8 0)
-                    ement-room-sender-headers
-                    (if (string-match-p "%S" value)
-                        nil t)
-                    ement-room-sender-in-left-margin
-                    (if (string-match-p (rx (1+ anything) "%S" (1+ anything) "%L") value)
-                        nil t))
-              (message "Ement: When using custom message format, setting margin widths may be necessary")))
-         (when ement-room-sender-in-left-margin
-           ;; HACK: Disable overline on sender face.
-           (set-face-attribute 'ement-room-user nil :overline nil))
-         (when (and (bound-and-true-p ement-sessions) (car ement-sessions))
-           ;; Only display when a session is connected (not sure why `bound-and-true-p'
-           ;; is required to avoid compilation warnings).
-           (message "Ement: Kill and reopen room buffers to display in new format")))
+  :set #'ement-room-message-format-spec-setter
   :set-after '(ement-room-left-margin-width ement-room-right-margin-width
                                             ement-room-sender-headers)
   ;; This file must be loaded before calling the setter to define the
@@ -517,7 +540,7 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   "Sender display name."
   (ignore session)
   (let ((sender (ement-room--format-user (ement-event-sender event) room)))
-    (when (and ement-room-sender-in-left-margin
+    (when (and (not ement-room-sender-in-headers)
                (< (string-width sender) ement-room-left-margin-width))
       ;; Using :align-to or :width space display properties doesn't
       ;; seem to have any effect in the margin, so we make a string.
@@ -602,6 +625,30 @@ BODY is wrapped in a lambda form that binds `event', `room', and
       (ement-view-room (car ement-sessions) room))))
 
 ;;;; Commands
+
+(defun ement-room-set-message-format (format-spec)
+  "Set `ement-room-message-format-spec' in current buffer to FORMAT-SPEC.
+Interactively, prompts for the spec using suggested values of the
+option."
+  (interactive (list (let* ((choices (thread-last (get 'ement-room-message-format-spec 'custom-type)
+                                       cdr
+                                       (seq-filter (lambda (it)
+                                                     (eq (car it) 'const)))
+                                       (mapcar (lambda (it)
+                                                 (cons (nth 2 it) (nth 3 it))))))
+                            (choice (completing-read "Format: " (mapcar #'car choices)
+                                                     nil 'confirm)))
+                       (or (alist-get choice choices nil nil #'equal)
+                           choice))))
+  (cl-assert ement-ewoc)
+  (ement-room-message-format-spec-setter 'ement-room-message-format-spec format-spec 'local)
+  (set-window-margins nil ement-room-left-margin-width ement-room-right-margin-width)
+  (if ement-room-sender-in-headers
+      (ement-room--insert-sender-headers)
+    (ewoc-filter ement-ewoc (lambda (node-data)
+                              ;; Return non-nil for nodes that should stay.
+                              (not (ement-user-p node-data)))))
+  (ewoc-refresh ement-ewoc))
 
 (defun ement-room-set-topic (session room topic)
   "Set ROOM's TOPIC on SESSION.
@@ -1535,6 +1582,45 @@ the first and last nodes in the buffer, respectively."
             (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
           (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))))
 
+(defun ement-room--insert-sender-headers (&optional start-node end-node)
+  ;; TODO: Use this in appropriate places.
+  "Insert sender headers into current buffer's `ement-ewoc'.
+Inserts headers between START-NODE and END-NODE, which default to
+the first and last nodes in the buffer, respectively."
+  (let* ((ewoc ement-ewoc)
+         (end-pos (ewoc-location (or end-node
+                                     (ewoc-nth ewoc -1))))
+         (node-b (or start-node (ewoc-nth ewoc 0)))
+         (type-predicate (lambda (node-data)
+                           (pcase node-data
+                             ((pred ement-event-p) t)
+                             (`(ts . ,_) t))))
+         node-a)
+    ;; On the first loop iteration, node-a is set to the first matching
+    ;; node after node-b; then it's set to the first node after node-a.
+    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) type-predicate)
+                      node-b (when node-a
+                               (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
+                (not (or (> (ewoc-location node-a) end-pos)
+                         (> (ewoc-location node-b) end-pos))))
+      ;; This starts to get a little messy, accounting for the
+      ;; different types of nodes.  EIEIO would probably help here.
+      (let* ((a-data (ewoc-data node-a))
+             (b-data (ewoc-data node-b))
+             (a-sender (when (ement-event-p a-data)
+                         (ement-event-sender a-data)))
+             (b-sender (when (ement-event-p b-data)
+                         (ement-event-sender b-data))))
+        (unless (or (when (ement-event-p b-data)
+                      ;; B is a membership event: don't insert sender header.
+                      (equal "m.room.member" (ement-event-type b-data)))
+                    (when-let ((node-after-a (ewoc-next ewoc node-a)))
+                      ;; Node after A (regardless of type) is a sender header: don't insert another.
+                      (ement-user-p (ewoc-data node-after-a))))
+          (unless (equal a-sender b-sender)
+            (when b-sender
+              (ewoc-enter-before ewoc node-b b-sender))))))))
+
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
   (cl-labels ((format-event
@@ -1770,12 +1856,17 @@ Formats according to `ement-room-message-format-spec', which see."
   "Return EVENT in ROOM on SESSION formatted according to FORMAT.
 Format defaults to `ement-room-message-format-spec', which see."
   ;; Bind this locally so formatters can modify it for this call.
-  (let* ((ement-room--format-message-margin-p))
+  (let ((ement-room--format-message-margin-p)
+        (left-margin-width ement-room-left-margin-width)
+        (right-margin-width ement-room-right-margin-width))
     ;; Copied from `format-spec'.
     (with-temp-buffer
       ;; Pretend this is a room buffer.
       (setf ement-session session
             ement-room room)
+      ;; HACK: Setting these buffer-locally in a temp buffer is ugly.
+      (setq-local ement-room-left-margin-width left-margin-width)
+      (setq-local ement-room-right-margin-width right-margin-width)
       (insert format)
       (goto-char (point-min))
       (while (search-forward "%" nil t)

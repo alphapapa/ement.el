@@ -188,7 +188,7 @@ Calls `ement-notify--notifications-notify'."
       (setf ement-session session
             ement-room room)
       (let* (;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
-             (ement-room-sender-in-left-margin nil)
+             (ement-room-sender-in-headers t)
              ;; NOTE: We hard-code the room and sender name to be in the left
              ;; margin.  It works well.  See also `room-avatar-string' below.
              (ement-room-message-format-spec "%O %S%L%B%R%t")
