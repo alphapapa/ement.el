@@ -952,55 +952,60 @@ The message must be one sent by the local user."
                          (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
       (ement-room-send-message room session :body body :replying-to-event event))))
 
-(defun ement-room-send-reaction (position)
-  "Send reaction to event at POSITION.
-Interactively, send reaction to event at point."
+(defun ement-room-send-reaction (key position)
+  "Send reaction of KEY to event at POSITION.
+Interactively, send reaction to event at point.  KEY should be a
+reaction string, e.g. \"👍\"."
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
-  (interactive (list (point)))
+  (interactive
+   (cl-labels
+       ((face-at-point-p
+         (face) (let ((face-at-point (get-text-property (point) 'face)))
+                  (or (eq face face-at-point)
+                      (and (listp face-at-point)
+                           (member face face-at-point)))))
+        (buffer-substring-while
+         (beg pred &key (forward-fn #'forward-char))
+         "Return substring of current buffer from BEG while PRED is true."
+         (save-excursion
+           (goto-char beg)
+           (cl-loop while (funcall pred)
+                    do (funcall forward-fn)
+                    finally return (buffer-substring-no-properties beg (point)))))
+        (key-at
+         (pos) (cond ((face-at-point-p 'ement-room-reactions-key)
+                      (buffer-substring-while pos (apply-partially #'face-at-point-p 'ement-room-reactions-key)))
+                     ((face-at-point-p 'ement-room-reactions)
+                      ;; Point is in a reaction button but after the key.
+                      (buffer-substring-while (button-start (button-at pos))
+                                              (apply-partially #'face-at-point-p 'ement-room-reactions-key))))))
+     (list (or (key-at (point))
+               (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+           (point))))
   ;; HACK: We could simplify this by storing the key in a text property...
-  (cl-labels ((face-at-point-p
-               (face) (let ((face-at-point (get-text-property (point) 'face)))
-                        (or (eq face face-at-point)
-                            (and (listp face-at-point)
-                                 (member face face-at-point)))))
-              (buffer-substring-while
-               (beg pred &key (forward-fn #'forward-char))
-               "Return substring of current buffer from BEG while PRED is true."
-               (save-excursion
-                 (goto-char beg)
-                 (cl-loop while (funcall pred)
-                          do (funcall forward-fn)
-                          finally return (buffer-substring-no-properties beg (point)))))
-              (key-at
-               (pos) (cond ((face-at-point-p 'ement-room-reactions-key)
-                            (buffer-substring-while pos (apply-partially #'face-at-point-p 'ement-room-reactions-key)))
-                           ((face-at-point-p 'ement-room-reactions)
-                            ;; Point is in a reaction button but after the key.
-                            (buffer-substring-while (button-start (button-at pos))
-                                                    (apply-partially #'face-at-point-p 'ement-room-reactions-key))))))
-    (ement-room-with-highlighted-event-at (point)
-      (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
-                              (user-error "No event at point")))
-                   ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
-                   ;; hl-line-mode is enabled, it only returns the hl-line face.
-                   (key (or (key-at position)
-                            (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))))
-                   ((cl-struct ement-event (id event-id)) event)
-                   ((cl-struct ement-room (id room-id)) ement-room)
-                   (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                     "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
-                   (content (ement-alist "m.relates_to"
-                                         (ement-alist "rel_type" "m.annotation"
-                                                      "event_id" event-id
-                                                      "key" key))))
-        (ement-api ement-session endpoint :method 'put :data (json-encode content)
-          :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                                 :content content :data))))))
+  (ement-room-with-highlighted-event-at position
+    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+                            (user-error "No event at point")))
+                 ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
+                 ;; hl-line-mode is enabled, it only returns the hl-line face.
+                 ((cl-struct ement-event (id event-id)) event)
+                 ((cl-struct ement-room (id room-id)) ement-room)
+                 (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                   "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
+                 (content (ement-alist "m.relates_to"
+                                       (ement-alist "rel_type" "m.annotation"
+                                                    "event_id" event-id
+                                                    "key" key))))
+      (ement-api ement-session endpoint :method 'put :data (json-encode content)
+        :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
+                               :content content :data)))))
 
 (defun ement-room-reaction-button-action (button)
   "Push reaction BUTTON at point."
   ;; TODO: Toggle reactions off with redactions (not in spec yet, but Element does it).
-  (ement-room-send-reaction (button-start button)))
+  (save-excursion
+    (goto-char (button-start button))
+    (call-interactively #'ement-room-send-reaction)))
 
 ;;;; Functions
 
