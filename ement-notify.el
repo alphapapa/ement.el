@@ -37,9 +37,13 @@
 
 ;;;; Variables
 
+(declare-function ement-room-list "ement-room-list")
 (defvar ement-notify-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "S-<return>") #'ement-notify-reply)
+    (define-key map (kbd "M-g M-l") #'ement-room-list)
+    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
+    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
   "Map for Ement notification buffers.")
 
@@ -115,6 +119,16 @@ margins in Emacs.  But it's useful, anyway."
     ;; Not sure why `call-interactively' doesn't work for `push-button' but oh well.
     (push-button)
     (call-interactively #'ement-room-send-reply)))
+
+(defun ement-notify-switch-to-notifications-buffer ()
+  "Switch to \"*Ement Notifications*\" buffer."
+  (interactive)
+  (switch-to-buffer (ement-notify--log-buffer "*Ement Notifications*")))
+
+(defun ement-notify-switch-to-mentions-buffer ()
+  "Switch to \"*Ement Mentions*\" buffer."
+  (interactive)
+  (switch-to-buffer (ement-notify--log-buffer "*Ement Mentions*")))
 
 ;;;; Functions
 
@@ -193,14 +207,7 @@ Calls `ement-notify--notifications-notify'."
              ;; margin.  It works well.  See also `room-avatar-string' below.
              (ement-room-message-format-spec "%O %S%L%B%R%t")
              (message (ement-room--format-event event room session))
-             (buffer (or (get-buffer buffer-name)
-                         (with-current-buffer (get-buffer-create buffer-name)
-                           (view-mode)
-                           (visual-line-mode)
-                           (use-local-map ement-notify-map)
-                           (setf left-margin-width ement-room-left-margin-width
-                                 right-margin-width 8)
-                           (current-buffer))))
+             (buffer (ement-notify--log-buffer buffer-name))
              (avatar-width (if ement-notify-room-avatars 2 0))
              (room-name-width (if ement-notify-limit-room-name-width
                                   (min (+ avatar-width (string-width (ement-room-display-name room)))
@@ -255,6 +262,17 @@ Calls `ement-notify--notifications-notify'."
           (setf left-margin-width new-left-margin-width)
           (when-let (window (get-buffer-window buffer))
             (set-window-margins window new-left-margin-width right-margin-width)))))))
+
+(defun ement-notify--log-buffer (name)
+  "Return an Ement notifications buffer named NAME."
+  (or (get-buffer name)
+      (with-current-buffer (get-buffer-create name)
+        (view-mode)
+        (visual-line-mode)
+        (use-local-map ement-notify-map)
+        (setf left-margin-width ement-room-left-margin-width
+              right-margin-width 8)
+        (current-buffer))))
 
 (defun ement-notify--room-background-color (room)
   "Return a background color on which to display ROOM's messages."

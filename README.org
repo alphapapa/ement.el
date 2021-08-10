@@ -106,6 +106,12 @@ If you want to install it manually, it's simple enough, but you should know what
 
 ** Bindings
 
+These bindings are common to all of the following buffer types:
+
++  Switch to the room list buffer: ~M-g M-l~
++  Switch to the mentions buffer: ~M-g M-m~
++  Switch to the notifications buffer: ~M-g M-n~
+
 *** Room buffers
 
 *Sending messages*

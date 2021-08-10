@@ -73,6 +73,8 @@ Used to, e.g. call `ement-room-compose-org'.")
 
 (declare-function ement-view-room "ement.el")
 (declare-function ement-room-list "ement-room-list.el")
+(declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
+(declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") #'ement-room-send-reaction)
@@ -88,6 +90,9 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "TAB") #'ement-room-goto-next)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
+    (define-key map (kbd "M-g M-l") #'ement-room-list)
+    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
+    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     map)
   "Keymap for Ement room buffers.")
 

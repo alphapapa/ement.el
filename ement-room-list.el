@@ -52,11 +52,15 @@
 
 ;;;; Variables
 
+(declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
+(declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
 (defvar ement-room-list-mode-map
   (let ((map (make-sparse-keymap)))
     ;; (define-key map (kbd "g") #'tabulated-list-revert)
     ;; (define-key map (kbd "q") #'bury-buffer)
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
+    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
+    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     ;; (define-key map (kbd "S") #'tabulated-list-sort)
     map))
 
