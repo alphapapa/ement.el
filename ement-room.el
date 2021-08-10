@@ -1299,6 +1299,9 @@ function to `ement-room-event-fns', which see."
   (with-silent-modifications
     (ement-room--insert-event event)))
 
+(ement-room-defevent "m.room.message"
+  (ement-room--insert-event event))
+
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body replacement_room) content)
