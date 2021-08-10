@@ -432,16 +432,23 @@ To be called in `ement-sync-callback-hook'."
                            collect buffer)))
     (dolist (buffer buffers)
       (with-current-buffer buffer
-        (cl-assert ement-room)
-        (when (ement-room-ephemeral ement-room)
-          (ement-room--handle-events (ement-room-ephemeral ement-room))
-          (setf (ement-room-ephemeral ement-room) nil))
-        (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
-          ;; HACK: Process these events in reverse order, so that later events (like reactions)
-          ;; which refer to earlier events can find them.  (Not sure if still necessary.)
-          (ement-room--handle-events (reverse new-events))
-          ;; Clear new events slot.
-          (setf (alist-get 'new-events (ement-room-local ement-room)) nil))))))
+        (save-window-excursion
+          ;; NOTE: When the buffer has a window, it must be the selected one
+          ;; while calling event-insertion functions.  I don't know if this is
+          ;; due to a bug in EWOC or if I just misunderstand something, but
+          ;; without doing this, events may be inserted at the wrong place.
+          (when-let ((buffer-window (get-buffer-window buffer) ))
+            (select-window buffer-window))
+          (cl-assert ement-room)
+          (when (ement-room-ephemeral ement-room)
+            (ement-room--handle-events (ement-room-ephemeral ement-room))
+            (setf (ement-room-ephemeral ement-room) nil))
+          (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
+            ;; HACK: Process these events in reverse order, so that later events (like reactions)
+            ;; which refer to earlier events can find them.  (Not sure if still necessary.)
+            (ement-room--handle-events (reverse new-events))
+            ;; Clear new events slot.
+            (setf (alist-get 'new-events (ement-room-local ement-room)) nil)))))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."

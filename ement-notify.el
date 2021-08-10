@@ -192,7 +192,7 @@ Calls `ement-notify--notifications-notify'."
              ;; NOTE: We hard-code the room and sender name to be in the left
              ;; margin.  It works well.  See also `room-avatar-string' below.
              (ement-room-message-format-spec "%O %S%L%B%R%t")
-             (message (ement-room--format-event event))
+             (message (ement-room--format-event event room session))
              (buffer (or (get-buffer buffer-name)
                          (with-current-buffer (get-buffer-create buffer-name)
                            (view-mode)

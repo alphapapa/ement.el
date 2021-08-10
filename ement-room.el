@@ -250,7 +250,6 @@ It may contain these specifiers:
   %S  Sender display name
   %t  Event timestamp, formatted according to
       `ement-room-timestamp-format'
-  %y  Event type
 
 Note that margin sizes must be set manually with
 `ement-room-left-margin-width' and
@@ -421,6 +420,146 @@ sends a not-typing notification."
        ;; Cancel typing notifications after sending a message.  (The
        ;; spec doesn't say whether this is needed, but it seems to be.)
        (ement-room--send-typing ement-session ement-room :typing nil))))
+
+;;;;; Event formatting
+
+;; NOTE: When adding specs, also add them to docstring
+;; for `ement-room-message-format-spec'.
+
+(defvar ement-room-event-formatters nil
+  "Alist mapping characters to event-formatting functions.
+Each function is called with three arguments: the event, the
+room, and the session.  See macro
+`ement-room-define-event-formatter'.")
+
+(defvar ement-room--format-message-margin-p nil
+  "Set by margin-related event formatters.")
+
+(defmacro ement-room-define-event-formatter (char docstring &rest body)
+  "Define an event formatter for CHAR with DOCSTRING and BODY.
+BODY is wrapped in a lambda form that binds `event', `room', and
+`session', and the lambda is added to the variable
+`ement-room-event-formatters', which see."
+  (declare (indent defun))
+  `(setf (alist-get ,char ement-room-event-formatters nil nil #'equal)
+         (lambda (event room session)
+           ,docstring
+           ,@body)))
+
+(ement-room-define-event-formatter ?L
+  "Text before this is shown in the left margin."
+  (ignore event room session)
+  (setf ement-room--format-message-margin-p t)
+  (propertize " " 'left-margin-end t))
+
+(ement-room-define-event-formatter ?R
+  "Text after this is shown in the right margin."
+  (ignore event room session)
+  (setf ement-room--format-message-margin-p t)
+  (propertize " " 'right-margin-start t))
+
+(ement-room-define-event-formatter ?b
+  "Plain-text body content."
+  ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
+  (let ((body (save-match-data
+                (ement-room--format-message-body event :formatted-p nil)))
+        (face (ement-room--event-body-face event room session)))
+    (propertize body 'face face)))
+
+(ement-room-define-event-formatter ?B
+  "Formatted body content (i.e. rendered HTML)."
+  (let ((body (save-match-data
+                (ement-room--format-message-body event)))
+        (face (ement-room--event-body-face event room session)))
+    (add-face-text-property 0 (length body) face 'append body)
+    body))
+
+(ement-room-define-event-formatter ?i
+  "Event ID."
+  ;; Probably only useful for debugging, so might remove later.
+  (ignore room session)
+  (ement-event-id event))
+
+(ement-room-define-event-formatter ?O
+  "Room display name."
+  (ignore event session)
+  (let ((room-name (propertize (or (ement-room-display-name room)
+                                   (ement-room--room-display-name room))
+                               'face 'ement-room-name
+                               'help-echo (or (ement-room-canonical-alias room)
+                                              (ement-room-id room)))))
+    ;; HACK: This will probably only be used in the notifications buffers, anyway.
+    (when ement-notify-limit-room-name-width
+      (setf room-name (truncate-string-to-width room-name ement-notify-limit-room-name-width
+                                                nil nil ement-room-ellipsis)))
+    room-name))
+
+;; NOTE: In ?s and ?S, we add nearly-invisible ASCII unit-separator characters ("​")
+;; to prevent, e.g. `dabbrev-expand' from expanding display names with body text.
+
+(ement-room-define-event-formatter ?s
+  "Sender MXID."
+  (ignore room session)
+  (concat (propertize (ement-user-id (ement-event-sender event))
+                      'face 'ement-room-user)
+          "​"))
+
+(ement-room-define-event-formatter ?S
+  "Sender display name."
+  (ignore session)
+  (let ((sender (ement-room--format-user (ement-event-sender event) room)))
+    (when (and ement-room-sender-in-left-margin
+               (< (string-width sender) ement-room-left-margin-width))
+      ;; Using :align-to or :width space display properties doesn't
+      ;; seem to have any effect in the margin, so we make a string.
+      (setf sender (concat (make-string (- ement-room-left-margin-width (string-width sender))
+                                        ? )
+                           sender)))
+    ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
+    ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
+    ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
+    (concat sender "​")))
+
+(ement-room-define-event-formatter ?r
+  "Reactions."
+  (ignore room session)
+  (ement-room--format-reactions event))
+
+(ement-room-define-event-formatter ?t
+  "Timestamp."
+  (ignore room session)
+  (propertize (format-time-string ement-room-timestamp-format ;; Timestamps are in milliseconds.
+                                  (/ (ement-event-origin-server-ts event) 1000))
+              'face 'ement-room-timestamp
+              'help-echo (format-time-string "%Y-%m-%d %H:%M:%S"
+                                             (/ (ement-event-origin-server-ts event) 1000))))
+
+(defun ement-room--event-body-face (event room session)
+  "Return face definition for EVENT in ROOM on SESSION."
+  (ignore room)  ;; Unused for now, but keeping for consistency.
+  ;; This used to be a macro in --format-message, which is probably better for
+  ;; performance, but using a function is clearer, and avoids premature optimization.
+  (pcase-let* (((cl-struct ement-event sender content) event)
+               ((cl-struct ement-user (id sender-id)) sender)
+               ((cl-struct ement-session user) session)
+               ((cl-struct ement-user (id user-id)) user)
+               (self-message-p (equal sender-id user-id))
+               (type-face (pcase (alist-get 'msgtype content)
+                            ("m.emote" 'ement-room-message-emote)
+                            (_ 'ement-room-message-text)))
+               (context-face (cond (self-message-p
+                                    'ement-room-self-message)
+                                   ((ement-room--event-mentions-user-p event user)
+                                    'ement-room-mention)))
+               (prism-color (unless self-message-p
+                              (when (eq 'both ement-room-prism)
+                                (or (ement-user-color sender)
+                                    (setf (ement-user-color sender)
+                                          (ement-room--user-color sender))))))
+               (body-face (list :inherit (delq nil (list context-face type-face)))))
+    (if prism-color
+        (plist-put body-face :foreground prism-color)
+      body-face)))
 
 ;;;; Bookmark support
 
@@ -911,10 +1050,14 @@ Interactively, send reaction to event at point."
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
-          ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
-          (ement-room--handle-events chunk)
-          (setf (ement-room-prev-batch room) end
-                ement-room-retro-loading nil))))
+          (save-window-excursion
+            ;; NOTE: See note in `ement--update-room-buffers'.
+            (when-let ((buffer-window (get-buffer-window buffer)))
+              (select-window buffer-window))
+            ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
+            (ement-room--handle-events chunk)
+            (setf (ement-room-prev-batch room) end
+                  ement-room-retro-loading nil)))))
     (message "Ement: Loaded %s earlier events." num-events)))
 
 (defun ement-room--insert-events (events &optional retro)
@@ -1204,6 +1347,11 @@ data slot."
 
 ;; TODO: Tidy this up.
 
+;; NOTE: --handle-events and --handle-event need to be called in the room
+;; buffer's window, when it has one.  This is absolutely necessary,
+;; otherwise the events may be inserted at the wrong place.  (I'm not
+;; sure if this is a bug in EWOC or in my code, but doing this fixes it.)
+
 (defun ement-room--handle-events (events)
   "Process EVENTS in current buffer.
 Calls `ement-progress-update' for each event.  Calls
@@ -1484,7 +1632,7 @@ seconds."
   ;; TODO: Use handlers to insert so e.g. membership events can be inserted silently.
   (pcase-exhaustive thing
     ((pred ement-event-p)
-     (insert "" (ement-room--format-event thing)))
+     (insert "" (ement-room--format-event thing ement-room ement-session)))
     ((pred ement-user-p)
      (insert (propertize (ement-room--format-user thing)
                          'display ement-room-username-display-property)))
@@ -1533,10 +1681,11 @@ seconds."
 ;;                      :button-face 'ement-room-membership
 ;;                         :value (list (alist-get 'membership content))))))))
 
-(defun ement-room--format-event (event)
-  "Return EVENT formatted according to `ement-room-message-format-spec'."
+(defun ement-room--format-event (event room session)
+  "Return EVENT in ROOM on SESSION formatted.
+Formats according to `ement-room-message-format-spec', which see."
   (concat (pcase (ement-event-type event)
-            ("m.room.message" (ement-room--format-message event))
+            ("m.room.message" (ement-room--format-message event room session))
             ("m.room.member"
              (widget-create 'ement-room-membership
                             :button-face 'ement-room-membership
@@ -1585,149 +1734,74 @@ seconds."
                  finally return (concat "\n  " (string-join (mapcar #'format-reaction keys-senders) "  "))))
     ""))
 
-(cl-defun ement-room--format-message (event &optional (format ement-room-message-format-spec))
-  "Return EVENT formatted according to FORMAT.
+(cl-defun ement-room--format-message (event room session &optional (format ement-room-message-format-spec))
+  "Return EVENT in ROOM on SESSION formatted according to FORMAT.
 Format defaults to `ement-room-message-format-spec', which see."
-  (cl-macrolet ((defspecs (&rest specs)
-                  `(list ,@(cl-loop for (char form) in specs
-                                    collect `(cons ,char (lambda (event) ,form)))))
-                (body-face
-                 ;; HACK: Reads `ement-session' from current buffer.
-                 () `(let* ((self-message-p (equal (ement-user-id sender)
-                                                   (ement-user-id (ement-session-user ement-session))))
-                            (type-face (pcase (alist-get 'msgtype (ement-event-content event))
-                                         ("m.emote" 'ement-room-message-emote)
-                                         (_ 'ement-room-message-text)))
-                            (context-face (cond (self-message-p
-                                                 'ement-room-self-message)
-                                                ((ement-room--event-mentions-user-p event (ement-session-user ement-session))
-                                                 'ement-room-mention)))
-                            (prism-color (unless self-message-p
-                                           (when (eq 'both ement-room-prism)
-                                             (or (ement-user-color sender)
-                                                 (setf (ement-user-color sender)
-                                                       (ement-room--user-color sender))))))
-                            (body-face (list :inherit (delq nil (list context-face type-face)))))
-                       (if prism-color
-                           (plist-put body-face :foreground prism-color)
-                         body-face))))
-    (let* ((room-buffer (current-buffer))
-           (margin-p)
-           (specs (defspecs
-                    ;; NOTE: When adding specs, also add them to docstring
-                    ;; for `ement-room-message-format-spec'.
-                    (?L (progn (ignore event) (setf margin-p t) (propertize " " 'left-margin-end t)))
-                    (?R (progn (ignore event) (setf margin-p t) (propertize " " 'right-margin-start t)))
-                    ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
-                    (?b (pcase-let* (((cl-struct ement-event sender) event)
-                                     (body (save-match-data
-                                             (ement-room--format-message-body event :formatted-p nil))))
-                          (propertize body 'face (body-face))))
-                    (?B (pcase-let* (((cl-struct ement-event sender) event)
-                                     (body (save-match-data
-                                             (ement-room--format-message-body event))))
-                          (add-face-text-property 0 (length body) (body-face) 'append body)
-                          body))
-                    (?i (ement-event-id event))
-                    (?O (let ((room-name (propertize (or (ement-room-display-name ement-room)
-                                                         (ement-room--room-display-name ement-room))
-                                                     'face 'ement-room-name
-                                                     'help-echo (or (ement-room-canonical-alias ement-room)
-                                                                    (ement-room-id ement-room)))))
-                          (ignore event)
-                          ;; HACK: This will probably only be used in the notifications buffers, anyway.
-                          (when ement-notify-limit-room-name-width
-                            (setf room-name (truncate-string-to-width room-name ement-notify-limit-room-name-width
-                                                                      nil nil ement-room-ellipsis)))
-                          room-name))
-                    ;; Add unit separators to prevent, e.g. dabbrev-expand
-                    ;; from reading displaynames with the next field.
-                    (?s (concat (propertize (ement-user-id (ement-event-sender event))
-                                            'face 'ement-room-user)
-                                "​"))
-                    (?S (let ((sender (ement-room--format-user (ement-event-sender event) ement-room)))
-                          (when (and ement-room-sender-in-left-margin
-                                     (< (string-width sender) ement-room-left-margin-width))
-                            ;; Using :align-to or :width space display properties doesn't
-                            ;; seem to have any effect in the margin, so we make a string.
-                            (setf sender (concat (make-string (- ement-room-left-margin-width (string-width sender))
-                                                              ? )
-                                                 sender)))
-                          ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
-                          ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
-                          ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
-                          (concat sender "​")))
-                    (?r (ement-room--format-reactions event))
-                    (?t (propertize (format-time-string ement-room-timestamp-format
-                                                        ;; Timestamps are in milliseconds.
-                                                        (/ (ement-event-origin-server-ts event) 1000))
-                                    'face 'ement-room-timestamp
-                                    'help-echo (format-time-string
-                                                "%Y-%m-%d %H:%M:%S" (/ (ement-event-origin-server-ts event) 1000))))
-                    (?y (ement-event-type event)))))
-      ;; Copied from `format-spec'.
-      (with-temp-buffer
-        ;; Pretend this is a room buffer.
-        (setf ement-session (buffer-local-value 'ement-session room-buffer)
-              ement-room (buffer-local-value 'ement-room room-buffer))
-        (insert format)
-        (goto-char (point-min))
-        (while (search-forward "%" nil t)
-          (cond
-           ;; Quoted percent sign.
-           ((eq (char-after) ?%)
-            (delete-char 1))
-           ;; Valid format spec.
-           ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
-            (let* ((num (match-string 1))
-                   (spec (string-to-char (match-string 2)))
-                   (fn (or (alist-get spec specs)
-                           (error "Invalid format character: `%%%c'" spec)))
-                   (val (or (funcall fn event)
-                            (let ((print-level 1))
-                              (propertize (format "[Event has no value for spec \"?%s\"]" (char-to-string spec))
-                                          'face 'font-lock-comment-face
-                                          'help-echo (format "%S" event))))))
-              ;; (setq val (cdr val))
-              ;; Pad result to desired length.
-              (let ((text (format (concat "%" num "s") val)))
-                ;; Insert first, to preserve text properties.
-                ;; (insert-and-inherit text)
-                ;; ;;  Delete the specifier body.
-                ;; (delete-region (+ (match-beginning 0) (string-width text))
-                ;;                (+ (match-end 0) (string-width text)))
-                ;; ;; Delete the percent sign.
-                ;; (delete-region (1- (match-beginning 0)) (match-beginning 0))
+  ;; Bind this locally so formatters can modify it for this call.
+  (let* ((ement-room--format-message-margin-p))
+    ;; Copied from `format-spec'.
+    (with-temp-buffer
+      ;; Pretend this is a room buffer.
+      (setf ement-session session
+            ement-room room)
+      (insert format)
+      (goto-char (point-min))
+      (while (search-forward "%" nil t)
+        (cond
+         ;; Quoted percent sign.
+         ((eq (char-after) ?%)
+          (delete-char 1))
+         ;; Valid format spec.
+         ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
+          (let* ((num (match-string 1))
+                 (spec (string-to-char (match-string 2)))
+                 (formatter (or (alist-get spec ement-room-event-formatters)
+                                (error "Invalid format character: `%%%c'" spec)))
+                 (val (or (funcall formatter event room session)
+                          (let ((print-level 1))
+                            (propertize (format "[Event has no value for spec \"?%s\"]" (char-to-string spec))
+                                        'face 'font-lock-comment-face
+                                        'help-echo (format "%S" event))))))
+            ;; (setq val (cdr val))
+            ;; Pad result to desired length.
+            (let ((text (format (concat "%" num "s") val)))
+              ;; Insert first, to preserve text properties.
+              ;; (insert-and-inherit text)
+              ;; ;;  Delete the specifier body.
+              ;; (delete-region (+ (match-beginning 0) (string-width text))
+              ;;                (+ (match-end 0) (string-width text)))
+              ;; ;; Delete the percent sign.
+              ;; (delete-region (1- (match-beginning 0)) (match-beginning 0))
 
-                ;; NOTE: Actually, delete the specifier first, because it seems that if
-                ;; `text' is multiline, the specifier body does not get deleted that way.
-                ;; (Not sure if preserving the text properties is needed for this use case.
-                ;; Leaving the old code commented in case there's a better solution.)
-                (delete-region (1- (match-beginning 0)) (match-end 0))
-                (insert text))))
-           ;; Signal an error on bogus format strings.
-           (t
-            (error "Invalid format string"))))
-        ;; Propertize margin text.
-        (when margin-p
-          (when-let ((left-margin-end (next-single-property-change (point-min) 'left-margin-end)))
-            (goto-char left-margin-end)
-            (delete-char 1)
-            (put-text-property (point-min) (point)
-                               'display `((margin left-margin)
-                                          ,(buffer-substring (point-min) (point)))))
-          (when-let ((right-margin-start (next-single-property-change (point-min) 'right-margin-start)))
-            (goto-char right-margin-start)
-            (delete-char 1)
-            (let ((string (buffer-substring (point) (point-max))))
-              ;; Relocate its text to the beginning so it won't be
-              ;; displayed at the last line of wrapped messages.
-              (delete-region (point) (point-max))
-              (goto-char (point-min))
-              (insert-and-inherit
-               (propertize " "
-                           'display `((margin right-margin) ,string))))))
-        (buffer-string)))))
+              ;; NOTE: Actually, delete the specifier first, because it seems that if
+              ;; `text' is multiline, the specifier body does not get deleted that way.
+              ;; (Not sure if preserving the text properties is needed for this use case.
+              ;; Leaving the old code commented in case there's a better solution.)
+              (delete-region (1- (match-beginning 0)) (match-end 0))
+              (insert text))))
+         ;; Signal an error on bogus format strings.
+         (t
+          (error "Invalid format string"))))
+      ;; Propertize margin text.
+      (when ement-room--format-message-margin-p
+        (when-let ((left-margin-end (next-single-property-change (point-min) 'left-margin-end)))
+          (goto-char left-margin-end)
+          (delete-char 1)
+          (put-text-property (point-min) (point)
+                             'display `((margin left-margin)
+                                        ,(buffer-substring (point-min) (point)))))
+        (when-let ((right-margin-start (next-single-property-change (point-min) 'right-margin-start)))
+          (goto-char right-margin-start)
+          (delete-char 1)
+          (let ((string (buffer-substring (point) (point-max))))
+            ;; Relocate its text to the beginning so it won't be
+            ;; displayed at the last line of wrapped messages.
+            (delete-region (point) (point-max))
+            (goto-char (point-min))
+            (insert-and-inherit
+             (propertize " "
+                         'display `((margin right-margin) ,string))))))
+      (buffer-string))))
 
 (cl-defun ement-room--format-message-body (event &key (formatted-p t))
   "Return formatted body of \"m.room.message\" EVENT.
