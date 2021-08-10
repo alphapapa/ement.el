@@ -1206,6 +1206,19 @@ data slot."
 (defvar ement-room-event-fns nil
   "Alist mapping event types to functions which process an event of each type in the room's buffer.")
 
+(defun ement-room--handle-events (events)
+  "Process EVENTS in current buffer.
+Calls `ement-progress-update' for each event.  Uses handlers
+defined in `ement-room-event-fns'.  The current buffer should be
+a room's buffer."
+  (cl-loop for event being the elements of events ;; EVENTS may be a list or array.
+           for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)
+           when handler
+           do (funcall handler event)
+           do (ement-progress-update)))
+
+;;;;;; Event handlers
+
 (defmacro ement-room-defevent (type &rest body)
   "Define an event handling function for events of TYPE.
 Around the BODY, the variable `event' is bound to the event being
@@ -1269,16 +1282,6 @@ function to `ement-room-event-fns', which see."
     ;; which would replace the footer.
     (ement-room--insert-event event)
     (ewoc-set-hf ement-ewoc "" footer)))
-
-(defun ement-room--handle-events (events)
-  "Process EVENTS in current buffer.
-Uses handlers defined in `ement-room-event-fns'.  The current
-buffer should be a room's buffer."
-  (cl-loop for event being the elements of events ;; EVENTS may be a list or array.
-           for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)
-           when handler
-           do (funcall handler event)
-           do (ement-progress-update)))
 
 ;;;;; EWOC
 
