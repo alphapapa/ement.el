@@ -1206,6 +1206,12 @@ data slot."
 (defvar ement-room-event-fns nil
   "Alist mapping event types to functions which process an event of each type in the room's buffer.")
 
+;; NOTE: While transitioning to the defevent-based handler system, we
+;; define both a handle-events and handle-event function that do the
+;; same thing.
+
+;; TODO: Tidy this up.
+
 (defun ement-room--handle-events (events)
   "Process EVENTS in current buffer.
 Calls `ement-progress-update' for each event.  Uses handlers
@@ -1216,6 +1222,13 @@ a room's buffer."
            when handler
            do (funcall handler event)
            do (ement-progress-update)))
+
+(defun ement-room--handle-event (event)
+  "Process EVENT in current buffer.
+Uses handlers defined in `ement-room-event-fns'.  The current
+buffer should be a room's buffer."
+  (when-let ((handler (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)))
+    (funcall handler event)))
 
 ;;;;;; Event handlers
 
