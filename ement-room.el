@@ -1422,10 +1422,11 @@ function to `ement-room-event-fns', which see."
              ;; Every time a room buffer is made, these reaction events are processed again, so we use pushnew to
              ;; avoid duplicates.  (In the future, as event-processing is refactored, this may not be necessary.)
              (cl-pushnew event (map-elt (ement-event-local related-event) 'reactions))
-             (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
-                                           (lambda (data)
-                                             (and (ement-event-p data)
-                                                  (equal related-id (ement-event-id data)))))))
+             (when-let ((nodes (ement-room--ewoc-last-matching ement-ewoc
+                                 (lambda (data)
+                                   (and (ement-event-p data)
+                                        (equal related-id (ement-event-id data)))))))
+               (ewoc-invalidate ement-ewoc nodes)))
          ;; No known related event: discard.
          ;; TODO: Is this the correct thing to do?
          nil)))))
