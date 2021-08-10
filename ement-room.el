@@ -2083,6 +2083,7 @@ For use as a `help-echo' function on `ement-user' headings."
 
 (define-widget 'ement-room-membership 'item
   "Widget for membership events."
+  ;; FIXME: This makes it hard to add a timestamp according to the buffer's message format spec.
   :format "%{ %v %}"
   :sample-face 'ement-room-membership
   ;; FIXME: Using the :help-echo property on the widget doesn't seem to work, seemingly something to do with the widget
