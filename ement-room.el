@@ -913,7 +913,7 @@ Interactively, send reaction to event at point."
         (with-current-buffer buffer
           ;; FIXME: Unify insert/process-events.
           (ement-room--insert-events chunk 'retro)
-          (ement-room--process-events chunk)
+          (ement-room--handle-events chunk)
           (setf (ement-room-prev-batch room) end
                 ement-room-retro-loading nil))))
     (message "Ement: Loaded %s earlier events." num-events)))
@@ -1092,10 +1092,10 @@ data slot."
           (setf (alist-get 'new-events (ement-room-local room)) nil)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
-          (ement-room--process-events (ement-room-state room))
+          (ement-room--handle-events (ement-room-state room))
           ;; TODO: Move event insertion to defevent handlers.
           (mapc #'ement-room--insert-event (ement-room-timeline room))
-          (ement-room--process-events (ement-room-timeline room))
+          (ement-room--handle-events (ement-room-timeline room))
           (ement-room--insert-ts-headers))
         ;; Return the buffer!
         new-buffer)))
@@ -1270,7 +1270,7 @@ function to `ement-room-event-fns', which see."
     (ement-room--insert-event event)
     (ewoc-set-hf ement-ewoc "" footer)))
 
-(defun ement-room--process-events (events)
+(defun ement-room--handle-events (events)
   "Process EVENTS in current buffer.
 Uses handlers defined in `ement-room-event-fns'.  The current
 buffer should be a room's buffer."
