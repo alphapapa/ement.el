@@ -1567,7 +1567,16 @@ the first and last nodes in the buffer, respectively."
                                            (ewoc-data next-node)))
                            (ement-debug "Next node is header for this sender: insert after it, instead.")
                            (setf node-before next-node)))
-                       (ement-debug "Inserting after event: " (format-event (ewoc-data node-before)))
+                       (ement-debug "Inserting after event"
+                                    ;; NOTE: `format-event' is only for debugging, and it
+                                    ;; doesn't handle user headers, so commenting it out or now.
+                                    ;; (format-event (ewoc-data node-before))
+
+                                    ;; NOTE: And it's *Very Bad* to pass the raw node data
+                                    ;; to `ement-debug', because it makes event insertion
+                                    ;; *Very Slow*.  So we just comment that out for now.
+                                    ;; (ewoc-data node-before)
+                                    )
                        (ewoc-enter-after ewoc node-before event)))
       ;; Insert sender where necessary.
       (when ement-room-sender-headers
