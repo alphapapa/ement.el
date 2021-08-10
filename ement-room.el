@@ -2022,14 +2022,14 @@ To be called from a minibuffer opened from
   (let* ((body (minibuffer-contents))
          (compose-fn-symbol (gensym (format "ement-compose-%s" (or (ement-room-canonical-alias ement-room)
                                                                    (ement-room-id ement-room)))))
+         (input-method current-input-method) ; Capture this value from the minibuffer.
          (compose-fn (lambda ()
                        ;; HACK: Since exiting the minibuffer restores the previous window configuration,
                        ;; we have to do some magic to get the new compose buffer to appear.
                        ;; TODO: Use letrec with Emacs 27.
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
-                       (let ((input-method current-input-method))
-                         (ement-room-compose-message ement-room ement-session :body body)
-                         (set-input-method input-method))
+                       (ement-room-compose-message ement-room ement-session :body body)
+                       (set-input-method input-method) ; Set in compose buffer.
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
