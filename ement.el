@@ -367,7 +367,9 @@ a filter ID).  When unspecified, the value of
                                                 (ement-user-id (ement-session-user session)))
                                        (message "Ement: Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
                                        (ement--sync session)))
-                                    (_ (signal 'ement-api-error (list "Unrecognized error" plz-error)))))
+                                    (`(,code . ,message)
+                                     (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message) plz-error)))
+                                    (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
                                           (when (ement--sync-messages-p session)
