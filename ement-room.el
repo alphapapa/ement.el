@@ -1218,14 +1218,19 @@ data slot."
 
 (defun ement-room--handle-events (events)
   "Process EVENTS in current buffer.
-Calls `ement-progress-update' for each event.  Uses handlers
-defined in `ement-room-event-fns'.  The current buffer should be
-a room's buffer."
+Calls `ement-progress-update' for each event.  Calls
+`ement-room--insert-ts-headers' when done.  Uses handlers defined
+in `ement-room-event-fns'.  The current buffer should be a room's
+buffer."
+  ;; FIXME: Calling `ement-room--insert-ts-headers' is convenient, but it
+  ;; may also be called in functions that call this function, which may
+  ;; result in it being called multiple times for a single set of events.
   (cl-loop for event being the elements of events ;; EVENTS may be a list or array.
            for handler = (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)
            when handler
            do (funcall handler event)
-           do (ement-progress-update)))
+           do (ement-progress-update))
+  (ement-room--insert-ts-headers))
 
 (defun ement-room--handle-event (event)
   "Process EVENT in current buffer.
