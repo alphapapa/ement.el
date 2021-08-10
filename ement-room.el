@@ -190,11 +190,13 @@ normal text.")
                       (or (ement-room-avatar ement-room)
                           "")
                     "")
-                  " " (propertize (or (ement-room-display-name ement-room)
-                                      "[no room name]")
+                  " " (propertize (ement-room--escape-%
+                                   (or (ement-room-display-name ement-room)
+                                       "[no room name]"))
                                   'face 'ement-room-name)
-                  ": " (propertize (or (ement-room-topic ement-room)
-                                       "[no topic]")
+                  ": " (propertize (ement-room--escape-%
+                                    (or (ement-room-topic ement-room)
+                                        "[no topic]"))
                                    ;; Also set help-echo in case the topic is too wide to fit.
                                    'help-echo (ement-room-topic ement-room))))
   "Header line format for room buffers.
@@ -1323,6 +1325,11 @@ data slot."
                      (equal id (ement-event-id data)))
            return data
            do (setf node (ewoc-prev ement-ewoc node))))
+
+(defun ement-room--escape-% (string)
+  "Return STRING with \"%\" escaped.
+Needed to display things in the header line."
+  (replace-regexp-in-string (rx "%") "%%" string t t))
 
 ;;;;; Events
 
