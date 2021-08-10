@@ -945,8 +945,12 @@ the previously oldest event."
       (cl-loop for event being the elements of events
                ;; TODO: This should be done in a unified interface.
                ;; HACK: Only insert certain types of events.
+               ;; FIXME: Remove this when the transition to defevent-based handlers is done.
                when (pcase (ement-event-type event)
                       ("m.reaction" nil)
+                      ("m.room.member"
+                       ;; Membership events now handled with defevent-based handler.
+                       nil)
                       (_ t))
                do (ement-room--insert-event event)
                do (ement-progress-update)))
@@ -1285,6 +1289,10 @@ function to `ement-room-event-fns', which see."
                                'face 'font-lock-comment-face)))
     (with-silent-modifications
       (ewoc-set-hf ement-ewoc "" footer))))
+
+(ement-room-defevent "m.room.member"
+  (with-silent-modifications
+    (ement-room--insert-event event)))
 
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
