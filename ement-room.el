@@ -67,6 +67,10 @@ Used by `ement-room-send-message'.")
 (defvar-local ement-room-replying-to-overlay nil
   "Used by ement-room-send-reply.")
 
+(defvar ement-room-compose-hook nil
+  "Hook run in compose buffers when created.
+Used to, e.g. call `ement-room-compose-org'.")
+
 (declare-function ement-view-room "ement.el")
 (declare-function ement-room-list "ement-room-list.el")
 (defvar ement-room-mode-map
@@ -384,6 +388,21 @@ See Info node `(elisp)Specified Space'."
 (defcustom ement-room-timestamp-header-delta 600
   "Show timestamp header where events are at least this many seconds apart."
   :type 'integer)
+
+(defcustom ement-room-send-message-filter nil
+  "Function through which to pass message content before sending.
+Used to, e.g. send an Org-formatted message by exporting it to
+HTML first."
+  :type '(choice (const :tag "Send messages as-is" nil)
+                 (const :tag "Send messages in Org format" ement-room-send-org-filter)
+                 (function :tag "Custom filter function"))
+  :set (lambda (option value)
+         (set-default option value)
+         (pcase value
+           ('ement-room-send-org-filter
+            ;; Activate in compose buffer by default.
+            (add-hook 'ement-room-compose-hook #'ement-room-compose-org))
+           (_ (remove-hook 'ement-room-compose-hook #'ement-room-compose-org)))))
 
 (defcustom ement-room-send-typing t
   "Send typing notifications to the server while typing a message."
@@ -881,7 +900,14 @@ sync requests."
       (pop-to-buffer (current-buffer)))))
 
 (cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
-  "Send message to ROOM on SESSION with BODY and FORMATTED-BODY."
+  "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
+REPLYING-TO-EVENT may be an event the message is in reply to; the
+message will reference it appropriately.
+
+If `ement-room-send-message-filter' is non-nil, the message's
+content alist is passed through it before sending.  This may be
+used to, e.g. process the BODY into another format and add it to
+the content. (e.g. see `ement-room-send-org-filter')."
   (interactive (progn
                  (cl-assert ement-room) (cl-assert ement-session)
                  (let* ((room ement-room)
@@ -903,6 +929,8 @@ sync requests."
                             (push (cons "formatted_body" formatted-body) it)))))
     (when replying-to-event
       (setf content (ement-room--add-reply content replying-to-event)))
+    (when ement-room-send-message-filter
+      (setf content (funcall ement-room-send-message-filter content)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
                              :content content :data)) ;; Data is added when calling back.
@@ -2094,23 +2122,30 @@ use it as the initial message contents."
                  (cl-assert ement-room) (cl-assert ement-session)
                  (list ement-room ement-session)))
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room))))
-         (input-method current-input-method))
+         (input-method current-input-method)
+         (send-message-filter ement-room-send-message-filter))
     (with-current-buffer compose-buffer
-      (setq-local ement-room room) (setq-local ement-session session)
-      (setf ement-room-compose-buffer t)
+      (ement-room-init-compose-buffer room session)
       (when input-method
         (set-input-method input-method))
+      (setf ement-room-send-message-filter send-message-filter)
       ;; TODO: Make mode configurable.
-      ;; FIXME: Compose with local map?
-      (use-local-map (if (current-local-map)
-                         (copy-keymap (current-local-map))
-                       (make-sparse-keymap)))
-      (local-set-key [remap save-buffer] #'ement-room-compose-send)
       (when body
         (insert body))
-      (setq header-line-format (substitute-command-keys
-                                (format " Press \\[save-buffer] to send message to room (%s)"
-                                        (ement-room-display-name room)))))
+
+      ;; FIXME: Inexplicably, this doesn't do anything, so we comment it out for now.
+      ;; (add-function :override (local 'org-mode)
+      ;;               ;; HACK: Since `org-mode' kills buffer-local variables we need, we add
+      ;;               ;; buffer-local advice to prevent that from happening in case a user enables it.
+      ;;               (lambda (&rest _ignore)
+      ;;                 (message "Use `ement-room-compose-org' to activate Org in this buffer")))
+
+      ;; NOTE: Surprisingly, we don't run this hook in `ement-room-init-compose-buffer',
+      ;; because if a function in that hook calls the init function (like
+      ;; `ement-room-compose-org' does), it makes `run-hooks' recursive.  As long as this
+      ;; is the only function that makes the compose buffer, and as long as none of the
+      ;; hooks do anything that activating `org-mode' nullifies, this should be okay...
+      (run-hooks 'ement-room-compose-hook))
     (pop-to-buffer compose-buffer)))
 
 (defun ement-room-compose-from-minibuffer ()
@@ -2125,6 +2160,7 @@ To be called from a minibuffer opened from
          (compose-fn-symbol (gensym (format "ement-compose-%s" (or (ement-room-canonical-alias ement-room)
                                                                    (ement-room-id ement-room)))))
          (input-method current-input-method) ; Capture this value from the minibuffer.
+         (send-message-filter ement-room-send-message-filter)
          (compose-fn (lambda ()
                        ;; HACK: Since exiting the minibuffer restores the previous window configuration,
                        ;; we have to do some magic to get the new compose buffer to appear.
@@ -2132,6 +2168,7 @@ To be called from a minibuffer opened from
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
                        (ement-room-compose-message ement-room ement-session :body body)
                        (set-input-method input-method) ; Set in compose buffer.
+                       (setf ement-room-send-message-filter send-message-filter)
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
@@ -2154,14 +2191,33 @@ To be called from an `ement-room-compose' buffer."
   (kill-new (string-trim (buffer-string)))
   (let ((room ement-room)
         (session ement-session)
-        (input-method current-input-method))
+        (input-method current-input-method)
+        (send-message-filter ement-room-send-message-filter))
     ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
     (kill-buffer (current-buffer))
     (ement-view-room session room)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
            (current-input-method input-method) ; Bind around read-string call.
+           (ement-room-send-message-filter send-message-filter)
            (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
       (ement-room-send-message ement-room ement-session :body body))))
+
+(defun ement-room-init-compose-buffer (room session)
+  "Eval BODY, setting up the current buffer as a compose buffer.
+Sets ROOM and SESSION buffer-locally, binds `save-buffer' in
+a copy of the local keymap, and sets `header-line-format'."
+  ;; Using a macro for this seems awkward but necessary.
+  (setq-local ement-room room)
+  (setq-local ement-session session)
+  (setf ement-room-compose-buffer t)
+  ;; FIXME: Compose with local map?
+  (use-local-map (if (current-local-map)
+                     (copy-keymap (current-local-map))
+                   (make-sparse-keymap)))
+  (local-set-key [remap save-buffer] #'ement-room-compose-send)
+  (setq header-line-format (substitute-command-keys
+                            (format " Press \\[save-buffer] to send message to room (%s)"
+                                    (ement-room-display-name room)))))
 
 ;;;;; Widgets
 
@@ -2355,6 +2411,106 @@ Then invalidate EVENT's node to show the image."
         (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
                                       (lambda (node-data)
                                         (eq node-data event))))))))
+
+;;;;; Org format sending
+
+;; Some of these declarations may need updating as Org changes.
+
+(defvar org-export-with-toc)
+(defvar org-export-with-broken-links)
+(defvar org-export-with-section-numbers)
+(defvar org-html-inline-images)
+
+(declare-function org-element-property "org-element")
+(declare-function org-export-data "ox")
+(declare-function org-export-get-caption "ox")
+(declare-function org-export-get-ordinal "ox")
+(declare-function org-export-get-reference "ox")
+(declare-function org-export-read-attribute "ox")
+(declare-function org-html--has-caption-p "ox-html")
+(declare-function org-html--textarea-block "ox-html")
+(declare-function org-html--translate "ox-html")
+(declare-function org-html-export-as-html "ox-html")
+(declare-function org-html-format-code "ox-html")
+(declare-function org-trim "org")
+
+(defun ement-room-compose-org ()
+  "Activate `org-mode' in current compose buffer.
+Configures the buffer appropriately so that saving it will export
+the Org buffer's contents."
+  (interactive)
+  (cl-assert ement-room-compose-buffer)
+  ;; Calling `org-mode' seems to wipe out local variables.
+  (let ((room ement-room)
+        (session ement-session))
+    (org-mode)
+    (ement-room-init-compose-buffer room session))
+  (setq-local ement-room-send-message-filter #'ement-room-send-org-filter))
+
+(defun ement-room-send-org-filter (content)
+  "Return event CONTENT having processed its Org content.
+The CONTENT's body is exported with
+`org-html-export-as-html' (with some adjustments for
+compatibility), and the result is added to the CONTENT as
+\"formatted_body\"."
+  (require 'ox-html)
+  ;; The CONTENT alist has string keys before being sent.
+  (pcase-let* ((body (alist-get "body" content nil nil #'equal))
+               (formatted-body
+                (save-window-excursion
+                  (with-temp-buffer
+                    (insert body)
+                    (cl-letf (((symbol-function 'org-html-src-block)
+                               (symbol-function 'ement-room--org-html-src-block)))
+                      (let ((org-export-with-toc nil)
+                            (org-export-with-broken-links t)
+                            (org-export-with-section-numbers nil)
+                            (org-html-inline-images nil))
+                        (org-html-export-as-html nil nil nil 'body-only)))
+                    (with-current-buffer "*Org HTML Export*"
+                      (prog1 (string-trim (buffer-string))
+                        (kill-buffer)))))))
+    (push (cons "formatted_body" formatted-body) content)
+    (push (cons "format" "org.matrix.custom.html") content)
+    content))
+
+(defun ement-room--org-html-src-block (src-block _contents info)
+  "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the item.  INFO is a plist holding
+contextual information.
+
+This is a copy of `org-html-src-block' that uses Riot
+Web-compatible HTML output, using HTML like:
+
+<pre><code class=\"language-python\">..."
+  (if (org-export-read-attribute :attr_html src-block :textarea)
+      (org-html--textarea-block src-block)
+    (let ((lang (pcase (org-element-property :language src-block)
+                  ;; Riot's syntax coloring doesn't support "elisp", but "lisp" works.
+                  ("elisp" "lisp")
+                  (else else)))
+	  (code (org-html-format-code src-block info))
+	  (label (let ((lbl (and (org-element-property :name src-block)
+				 (org-export-get-reference src-block info))))
+		   (if lbl (format " id=\"%s\"" lbl) ""))))
+      (if (not lang) (format "<pre class=\"example\"%s>\n%s</pre>" label code)
+	(format "<div class=\"org-src-container\">\n%s%s\n</div>"
+		;; Build caption.
+		(let ((caption (org-export-get-caption src-block)))
+		  (if (not caption) ""
+		    (let ((listing-number
+			   (format
+			    "<span class=\"listing-number\">%s </span>"
+			    (format
+			     (org-html--translate "Listing %d:" info)
+			     (org-export-get-ordinal
+			      src-block info nil #'org-html--has-caption-p)))))
+		      (format "<label class=\"org-src-name\">%s%s</label>"
+			      listing-number
+			      (org-trim (org-export-data caption info))))))
+		;; Contents.
+		(format "<pre><code class=\"src language-%s\"%s>%s</code></pre>"
+			lang label code))))))
 
 ;;;; Footer
 

@@ -144,7 +144,16 @@ If you want to install it manually, it's simple enough, but you should know what
 
 ** Tips
 
+# TODO: Show sending messages in Org format.
+
 +  Desktop notifications are enabled by default for events that mention the local user.  They can also be shown for all events in rooms with open buffers.
++  Send messages in Org mode format by customizing the option ~ement-room-send-message-filter~ (which enables Org format by default), or by calling ~ement-room-compose-org~ in a compose buffer (which enables it for a single message).  Then Org-formatted messages are automatically converted and sent as HTML-formatted messages (with the Org syntax as the plain-text fallback).  You can send syntax such as:
+     -  Bold, italic, underline, strikethrough
+     -  Links
+     -  Tables
+     -  Source blocks (including results with ~:exports both~)
+     -  Footnotes (okay, that might be pushing it, but you can!)
+     -  And, generally, anything that Org can export to HTML
 +  Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
 +  Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
 +  You can customize settings in the ~ement~ group.
