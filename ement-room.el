@@ -1492,16 +1492,19 @@ last node."
   "Insert timestamp headers into current buffer's `ement-ewoc'.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (let* ((ewoc ement-ewoc)
+  (let* ((type-predicate (lambda (node-data)
+                           (and (ement-event-p node-data)
+                                (not (equal "m.room.member" (ement-event-type node-data))))))
+         (ewoc ement-ewoc)
          (end-pos (ewoc-location (or end-node
                                      (ewoc-nth ewoc -1))))
          (node-b (or start-node (ewoc-nth ewoc 0)))
          node-a)
     ;; On the first loop iteration, node-a is set to the first matching
-    ;; node after node-b; then its set to the first node after node-a.
-    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) #'ement-event-p)
+    ;; node after node-b; then it's set to the first node after node-a.
+    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) type-predicate)
                       node-b (when node-a
-                               (ement-room--ewoc-next-matching ewoc node-a #'ement-event-p)))
+                               (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
                 (not (or (>= (ewoc-location node-a) end-pos)
                          (>= (ewoc-location node-b) end-pos))))
       (cl-labels ((format-event
