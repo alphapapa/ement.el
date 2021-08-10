@@ -911,8 +911,7 @@ Interactively, send reaction to event at point."
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
-          ;; FIXME: Unify insert/process-events.
-          (ement-room--insert-events chunk 'retro)
+          ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
           (ement-room--handle-events chunk)
           (setf (ement-room-prev-batch room) end
                 ement-room-retro-loading nil))))
@@ -943,16 +942,7 @@ the previously oldest event."
       (when buffer-window
         (select-window buffer-window))
       (cl-loop for event being the elements of events
-               ;; TODO: This should be done in a unified interface.
-               ;; HACK: Only insert certain types of events.
-               ;; FIXME: Remove this when the transition to defevent-based handlers is done.
-               when (pcase (ement-event-type event)
-                      ("m.reaction" nil)
-                      ("m.room.member"
-                       ;; Membership events now handled with defevent-based handler.
-                       nil)
-                      (_ t))
-               do (ement-room--insert-event event)
+               do (ement-room--handle-event event)
                do (ement-progress-update)))
     ;; Since events can be received in any order, we have to check the whole buffer
     ;; for where to insert new timestamp headers.  (Avoiding that would require
@@ -1097,8 +1087,6 @@ data slot."
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
           (ement-room--handle-events (ement-room-state room))
-          ;; TODO: Move event insertion to defevent handlers.
-          (mapc #'ement-room--insert-event (ement-room-timeline room))
           (ement-room--handle-events (ement-room-timeline room))
           (ement-room--insert-ts-headers))
         ;; Return the buffer!

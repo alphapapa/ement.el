@@ -437,9 +437,6 @@ To be called in `ement-sync-callback-hook'."
           (ement-room--handle-events (ement-room-ephemeral ement-room))
           (setf (ement-room-ephemeral ement-room) nil))
         (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
-          (ement-room--insert-events new-events)
-          ;; For now, we also call `--process-events' for ones that are defined with `ement-room-defevent'.
-          ;; FIXME: Unify this.
           ;; HACK: Process these events in reverse order, so that later events (like reactions)
           ;; which refer to earlier events can find them.  (Not sure if still necessary.)
           (ement-room--handle-events (reverse new-events))
