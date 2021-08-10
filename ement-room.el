@@ -87,6 +87,13 @@ Used by `ement-room-send-message'.")
     map)
   "Keymap for Ement room buffers.")
 
+(defvar ement-room-minibuffer-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map minibuffer-local-map)
+    (define-key map (kbd "C-c '") #'ement-room-compose-from-minibuffer)
+    map)
+  "Keymap used in `ement-room-read-string'.")
+
 (defvar ement-room-sender-in-left-margin nil
   "Non-nil when sender is displayed in the left margin.
 In that case, sender names are aligned to the margin edge.")
@@ -1195,22 +1202,21 @@ and erases the buffer."
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
 
-(defun ement-room-read-string (&rest args)
-  "Call `read-string' with ARGS, binding variables and keys for Ement."
+(defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
+  "Call `read-from-minibuffer', binding variables and keys for Ement.
+Arguments PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE, and
+INHERIT-INPUT-METHOD are as those expected by `read-string',
+which see."
   (let ((room ement-room)
         (session ement-session))
     (minibuffer-with-setup-hook
         (lambda ()
           "Bind keys and variables locally (to be called in minibuffer)."
-          (setq-local ement-room room) (setq-local ement-session session)
-          (visual-line-mode 1)
-          ;; HACK: This probably isn't the best way to do this.
-          ;; FIXME: Try using `read-from-minibuffer' instead.
-          (let ((map (make-sparse-keymap)))
-            (set-keymap-parent map minibuffer-local-map)
-            (define-key map (kbd "C-c '") #'ement-room-compose-from-minibuffer)
-            (use-local-map map)))
-      (apply #'read-string args))))
+          (setq-local ement-room room)
+          (setq-local ement-session session)
+          (visual-line-mode 1))
+      (read-from-minibuffer prompt initial-input ement-room-minibuffer-map
+                            nil history default-value inherit-input-method))))
 
 (defun ement-room--buffer (session room name)
   "Return buffer named NAME showing ROOM's events on SESSION.
