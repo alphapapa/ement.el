@@ -2056,8 +2056,8 @@ To be called from an `ement-room-compose' buffer."
     ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
     (kill-buffer (current-buffer))
     (ement-view-room session room)
-    (set-input-method input-method)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+           (current-input-method input-method) ; Bind around read-string call.
            (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
       (ement-room-send-message ement-room ement-session :body body))))
 
