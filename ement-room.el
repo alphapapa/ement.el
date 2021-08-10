@@ -1554,8 +1554,8 @@ the first and last nodes in the buffer, respectively."
     (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) type-predicate)
                       node-b (when node-a
                                (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
-                (not (or (>= (ewoc-location node-a) end-pos)
-                         (>= (ewoc-location node-b) end-pos))))
+                (not (or (> (ewoc-location node-a) end-pos)
+                         (> (ewoc-location node-b) end-pos))))
       (cl-labels ((format-event
                    (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
                                    (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
