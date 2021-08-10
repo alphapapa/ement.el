@@ -1049,6 +1049,7 @@ reaction string, e.g. \"👍\"."
     (ement-debug num-events progress-max-value)
     (setf chunk (nreverse chunk)
           state (nreverse state))
+    ;; FIXME: Like `ement--push-joined-room-events', this should probably run the `ement-event-hook' on the newly seen events.
     ;; Append state events.
     (cl-loop for event across-ref state
              do (setf event (ement--make-event event))
