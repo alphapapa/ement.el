@@ -1590,16 +1590,16 @@ data slot."
                                 summary))
                     ;; TODO: Disambiguate hero display names.
                     (when hero-ids
-                      (cond ((>= (length hero-ids) (1- (+ joined-count invited-count)))
+                      (cond ((<= (+ joined-count invited-count) 1)
+                             ;; Empty room.
+                             (empty-room hero-ids joined-count))
+                            ((>= (length hero-ids) (1- (+ joined-count invited-count)))
                              ;; Members == heroes.
                              (hero-names hero-ids))
                             ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
                                   (> (+ joined-count invited-count) 1))
                              ;; More members than heroes.
-                             (heroes-and-others hero-ids joined-count))
-                            ((<= (+ joined-count invited-count) 1)
-                             ;; Empty room.
-                             (empty-room hero-ids joined-count))))))
+                             (heroes-and-others hero-ids joined-count))))))
               (hero-names
                (heroes) (string-join (mapcar #'hero-name heroes) ", "))
               (hero-name
