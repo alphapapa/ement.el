@@ -1882,6 +1882,7 @@ Formats according to `ement-room-message-format-spec', which see."
                  for key = (map-nested-elt (ement-event-content reaction) '(m.relates_to key))
                  for sender = (ement-event-sender reaction)
                  do (push sender (alist-get key keys-senders nil nil #'string=))
+                 finally do (setf keys-senders (cl-sort keys-senders #'> :key (lambda (pair) (length (cdr pair)))))
                  finally return (concat "\n  " (string-join (mapcar #'format-reaction keys-senders) "  "))))
     ""))
 
