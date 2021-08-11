@@ -1306,7 +1306,8 @@ data slot."
       (let ((new-buffer (generate-new-buffer name)))
         (with-current-buffer new-buffer
           (ement-room-mode)
-          (setf header-line-format 'ement-room-header-line-format
+          (setf header-line-format (when ement-room-header-line-format
+                                     'ement-room-header-line-format)
                 ement-session session
                 ement-room room
                 list-buffers-directory (or (ement-room-canonical-alias room)
