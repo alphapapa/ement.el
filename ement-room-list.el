@@ -241,8 +241,13 @@ To be called in `ement-sync-callback-hook'."
                                          new-avatar)
                                    new-avatar))
                            ""))
+               (name-face (if (and buffer (buffer-modified-p buffer))
+                              '(:inherit (bold button))
+                            '(:inherit button)))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
+                                         ;; HACK: Apply face here, otherwise tabulated-list overrides it.
+                                         'face name-face
                                          'help-echo e-alias)
                              'action #'ement-room-list-action))
                (e-topic (if topic
