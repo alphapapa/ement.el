@@ -67,20 +67,6 @@ The recommended way to install is with [[https://github.com/quelpa/quelpa-use-pa
     :quelpa (ement :fetcher github :repo "alphapapa/ement.el"))
 #+END_SRC
 
-** Straight
-
-Using [[https://github.com/raxod502/straight.el][Straight]], it's also very simple:
-
-#+BEGIN_SRC elisp
-  ;; Install `plz' HTTP library (not on MELPA yet).
-  (use-package plz
-    :straight (plz :fetcher github :repo "alphapapa/plz.el"))
-
-  ;; Install Ement.
-  (use-package ement
-    :straight (ement :fetcher github :repo "alphapapa/ement.el"))
-#+END_SRC
-
 ** Manual
 
 If you want to install it manually, it's simple enough, but you should know what you're doing, and you're on your own.
