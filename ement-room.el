@@ -900,15 +900,17 @@ Interactively, set the current buffer's ROOM's TOPIC."
                     (_ (error "Unable to leave room %s: %s %S" id-or-alias status plz-error)))))))))
 (defalias 'ement-leave-room #'ement-room-leave)
 
-(defun ement-room-goto-prev (num)
-  "Goto the NUM'th previous message in buffer."
-  (interactive "p")
-  (ewoc-goto-prev ement-ewoc num))
+(defun ement-room-goto-prev ()
+  "Go to the previous message in buffer."
+  (interactive)
+  (ewoc-goto-node ement-ewoc (ement-room--ewoc-next-matching ement-ewoc
+                               (ewoc-locate ement-ewoc) #'ement-event-p #'ewoc-prev)))
 
-(defun ement-room-goto-next (num)
-  "Goto the NUM'th next message in buffer."
-  (interactive "p")
-  (ewoc-goto-next ement-ewoc num))
+(defun ement-room-goto-next ()
+  "Go to the next message in buffer."
+  (interactive)
+  (ewoc-goto-node ement-ewoc (ement-room--ewoc-next-matching ement-ewoc
+                               (ewoc-locate ement-ewoc) #'ement-event-p)))
 
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
@@ -1629,10 +1631,11 @@ function to `ement-room-event-fns', which see."
 
 ;;;;; EWOC
 
-(defun ement-room--ewoc-next-matching (ewoc node pred)
-  "Return the next node in EWOC after NODE that PRED is true of."
-  ;; MAYBE: Make the next/prev fn an arg.
-  (cl-loop do (setf node (ewoc-next ewoc node))
+(cl-defun ement-room--ewoc-next-matching (ewoc node pred &optional (move-fn #'ewoc-next))
+  "Return the next node in EWOC after NODE that PRED is true of.
+PRED is called with node's data.  Moves to next node by MOVE-FN."
+  (declare (indent defun))
+  (cl-loop do (setf node (funcall move-fn ewoc node))
            until (or (null node)
                      (funcall pred (ewoc-data node)))
            finally return node))
