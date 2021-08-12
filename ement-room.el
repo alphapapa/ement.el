@@ -2015,9 +2015,23 @@ Format defaults to `ement-room-message-format-spec', which see."
         (when-let ((left-margin-end (next-single-property-change (point-min) 'left-margin-end)))
           (goto-char left-margin-end)
           (delete-char 1)
-          (put-text-property (point-min) (point)
-                             'display `((margin left-margin)
-                                        ,(buffer-substring (point-min) (point)))))
+          (let ((left-margin-text-width (string-width (buffer-substring-no-properties (point-min) (point)))))
+            ;; It would be preferable to not have to allocate a string to
+            ;; calculate the display width, but I don't know of another way.
+            (put-text-property (point-min) (point)
+                               'display `((margin left-margin)
+                                          ,(buffer-substring (point-min) (point))))
+            (save-excursion
+              (goto-char (point-min))
+              ;; Insert a string with a display specification that causes it to be displayed in the
+              ;; left margin as a space that displays with the width of the difference between the
+              ;; left margin's width and the display width of the text in the left margin (whew).
+              ;; This is complicated, but it seems to work (minus a possible Emacs/Gtk bug that
+              ;; sometimes causes the space to have a little "junk" displayed in it at times, but
+              ;; that's not our fault).  (And this is another example of how well-documented Emacs
+              ;; is: this was only possible by carefully reading the Elisp manual.)
+              (insert (propertize " " 'display `((margin left-margin)
+                                                 (space :width (- left-margin ,left-margin-text-width))))))))
         (when-let ((right-margin-start (next-single-property-change (point-min) 'right-margin-start)))
           (goto-char right-margin-start)
           (delete-char 1)
