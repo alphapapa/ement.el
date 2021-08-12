@@ -13,21 +13,26 @@ Then various cleanups were done, some of which are included below:
 
 ** Change JSON example blocks to source blocks
 
+This also changes the type of blocks that are HTTP request examples which appear to contain JSON.
+
 #+BEGIN_SRC elisp
   (let ((reporter (make-progress-reporter "Changing block types" 0 (buffer-size))))
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward (rx bol "#+BEGIN_" (group "EXAMPLE") (0+ blank) eol) nil t)
-        (goto-char (match-end 0))
-        (forward-line 1)
-        (when (save-match-data
-                (re-search-forward (rx (0+ blank) "{") (point-at-eol) t))
-          ;; Appears to be a JSON block.
-          (goto-char (match-end 1))
-          (replace-match "SRC" t t nil 1)
-          (insert " json")
-          (re-search-forward (rx bol "#+END_" (group "EXAMPLE") (0+ blank) eol) nil)
-          (replace-match "SRC" t t nil 1))
+        (save-restriction
+          (org-narrow-to-block)
+          (goto-char (match-end 0))
+          (forward-line 1)
+          (when (save-match-data
+                  (or (re-search-forward (rx (0+ blank) "{") (point-at-eol) t)
+                      (re-search-forward (rx bol (0+ blank) "}" (0+ blank) "\n" "#+END") nil t)))
+            ;; Appears to be a JSON block.
+            (goto-char (match-end 1))
+            (replace-match "SRC" t t nil 1)
+            (insert " json")
+            (re-search-forward (rx bol "#+END_" (group "EXAMPLE") (0+ blank) eol) nil)
+            (replace-match "SRC" t t nil 1)))
         (progress-reporter-update reporter (point)))))
 #+END_SRC
 

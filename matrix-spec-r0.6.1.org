@@ -980,27 +980,27 @@ In the REST API described in this specification, authentication works by the cli
 
 A client should first make a request with no =auth= parameter [[#id21][[1]]]. The homeserver returns an HTTP 401 response, with a JSON body, as follows:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   HTTP/1.1 401 Unauthorized
   Content-Type: application/json
 
   {
-  "flows": [
-  {
-  "stages": [ "example.type.foo", "example.type.bar" ]
-  },
-  {
-  "stages": [ "example.type.foo", "example.type.baz" ]
+      "flows": [
+          {
+              "stages": [ "example.type.foo", "example.type.bar" ]
+          },
+          {
+              "stages": [ "example.type.foo", "example.type.baz" ]
+          }
+      ],
+      "params": {
+          "example.type.baz": {
+              "example_key": "foobar"
+          }
+      },
+      "session": "xxxxxx"
   }
-  ],
-  "params": {
-  "example.type.baz": {
-  "example_key": "foobar"
-  }
-  },
-  "session": "xxxxxx"
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 In addition to the =flows=, this object contains some extra information:
 
@@ -1009,86 +1009,86 @@ In addition to the =flows=, this object contains some extra information:
 
 The client then chooses a flow and attempts to complete the first stage. It does this by resubmitting the same request with the addition of an =auth= key in the object that it submits. This dictionary contains a =type= key whose value is the name of the authentication type that the client is attempting to complete. It must also contain a =session= key with the value of the session key given by the homeserver, if one was given. It also contains other keys dependent on the auth type being attempted. For example, if the client is attempting to complete auth type =example.type.foo=, it might submit something like this:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/endpoint HTTP/1.1
   Content-Type: application/json
 
   {
-  "a_request_parameter": "something",
-  "another_request_parameter": "something else",
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxxx",
-  "example_credential": "verypoorsharedsecret"
+      "a_request_parameter": "something",
+      "another_request_parameter": "something else",
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxxx",
+          "example_credential": "verypoorsharedsecret"
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 If the homeserver deems the authentication attempt to be successful but still requires more stages to be completed, it returns HTTP status 401 along with the same object as when no authentication was attempted, with the addition of the =completed= key which is an array of auth types the client has completed successfully:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   HTTP/1.1 401 Unauthorized
   Content-Type: application/json
 
   {
-  "completed": [ "example.type.foo" ],
-  "flows": [
-  {
-  "stages": [ "example.type.foo", "example.type.bar" ]
-  },
-  {
-  "stages": [ "example.type.foo", "example.type.baz" ]
+      "completed": [ "example.type.foo" ],
+      "flows": [
+          {
+              "stages": [ "example.type.foo", "example.type.bar" ]
+          },
+          {
+              "stages": [ "example.type.foo", "example.type.baz" ]
+          }
+      ],
+      "params": {
+          "example.type.baz": {
+              "example_key": "foobar"
+          }
+      },
+      "session": "xxxxxx"
   }
-  ],
-  "params": {
-  "example.type.baz": {
-  "example_key": "foobar"
-  }
-  },
-  "session": "xxxxxx"
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Individual stages may require more than one request to complete, in which case the response will be as if the request was unauthenticated with the addition of any other keys as defined by the auth type.
 
 If the homeserver decides that an attempt on a stage was unsuccessful, but the client may make a second attempt, it returns the same HTTP status 401 response as above, with the addition of the standard =errcode= and =error= fields describing the error. For example:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   HTTP/1.1 401 Unauthorized
   Content-Type: application/json
 
   {
-  "errcode": "M_FORBIDDEN",
-  "error": "Invalid password",
-  "completed": [ "example.type.foo" ],
-  "flows": [
-  {
-  "stages": [ "example.type.foo", "example.type.bar" ]
-  },
-  {
-  "stages": [ "example.type.foo", "example.type.baz" ]
+      "errcode": "M_FORBIDDEN",
+      "error": "Invalid password",
+      "completed": [ "example.type.foo" ],
+      "flows": [
+          {
+              "stages": [ "example.type.foo", "example.type.bar" ]
+          },
+          {
+              "stages": [ "example.type.foo", "example.type.baz" ]
+          }
+      ],
+      "params": {
+          "example.type.baz": {
+              "example_key": "foobar"
+          }
+      },
+      "session": "xxxxxx"
   }
-  ],
-  "params": {
-  "example.type.baz": {
-  "example_key": "foobar"
-  }
-  },
-  "session": "xxxxxx"
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 If the request fails for a reason other than authentication, the server returns an error message in the standard format. For example:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   HTTP/1.1 400 Bad request
   Content-Type: application/json
 
   {
-  "errcode": "M_EXAMPLE_ERROR",
-  "error": "Something was wrong"
+      "errcode": "M_EXAMPLE_ERROR",
+      "error": "Something was wrong"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 If the client has completed all stages of a flow, the homeserver performs the API call and returns the result as normal. Completed stages cannot be retried by clients, therefore servers must return either a 401 response with the completed stages, or the result of the API call if all stages were completed when a client retries a stage.
 
@@ -1403,57 +1403,57 @@ Once a client receives the notificaton that the authentication stage has been co
 
 A client webapp might use the following javascript to open a popup window which will handle unknown login types:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   /**
-  ,* Arguments:
-  ,* homeserverUrl: the base url of the homeserver (eg "https://matrix.org")
-  ,*
-  ,* apiEndpoint: the API endpoint being used (eg
-  ,* "/_matrix/client/r0/account/password")
-  ,*
-  ,* loginType: the loginType being attempted (eg "m.login.recaptcha")
-  ,*
-  ,* sessionID: the session ID given by the homeserver in earlier requests
-  ,*
-  ,* onComplete: a callback which will be called with the results of the request
-  ,*/
+   ,* Arguments:
+   ,* homeserverUrl: the base url of the homeserver (eg "https://matrix.org")
+   ,*
+   ,* apiEndpoint: the API endpoint being used (eg
+   ,* "/_matrix/client/r0/account/password")
+   ,*
+   ,* loginType: the loginType being attempted (eg "m.login.recaptcha")
+   ,*
+   ,* sessionID: the session ID given by the homeserver in earlier requests
+   ,*
+   ,* onComplete: a callback which will be called with the results of the request
+   ,*/
   function unknownLoginType(homeserverUrl, apiEndpoint, loginType, sessionID, onComplete) {
-  var popupWindow;
+      var popupWindow;
 
-  var eventListener = function(ev) {
-  // check it's the right message from the right place.
-  if (ev.data !== "authDone" || ev.origin !== homeserverUrl) {
-  return;
+      var eventListener = function(ev) {
+          // check it's the right message from the right place.
+          if (ev.data !== "authDone" || ev.origin !== homeserverUrl) {
+              return;
+          }
+
+          // close the popup
+          popupWindow.close();
+          window.removeEventListener("message", eventListener);
+
+          // repeat the request
+          var requestBody = {
+              auth: {
+                  session: sessionID,
+              },
+          };
+
+          request({
+              method:'POST', url:apiEndpint, json:requestBody,
+          }, onComplete);
+      };
+
+      window.addEventListener("message", eventListener);
+
+      var url = homeserverUrl +
+          "/_matrix/client/r0/auth/" +
+          encodeURIComponent(loginType) +
+          "/fallback/web?session=" +
+          encodeURIComponent(sessionID);
+
+
+      popupWindow = window.open(url);
   }
-
-  // close the popup
-  popupWindow.close();
-  window.removeEventListener("message", eventListener);
-
-  // repeat the request
-  var requestBody = {
-  auth: {
-  session: sessionID,
-  },
-  };
-
-  request({
-  method:'POST', url:apiEndpint, json:requestBody,
-  }, onComplete);
-  };
-
-  window.addEventListener("message", eventListener);
-
-  var url = homeserverUrl +
-  "/_matrix/client/r0/auth/" +
-  encodeURIComponent(loginType) +
-  "/fallback/web?session=" +
-  encodeURIComponent(sessionID);
-
-
-  popupWindow = window.open(url);
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 *** [[#id199][5.4.6   Identifier types]]
 :PROPERTIES:
@@ -1749,20 +1749,20 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/login HTTP/1.1
   Content-Type: application/json
 
   {
-  "type": "m.login.password",
-  "identifier": {
-  "type": "m.id.user",
-  "user": "cheeky_monkey"
-  },
-  "password": "ilovebananas",
-  "initial_device_display_name": "Jungle Phone"
+      "type": "m.login.password",
+      "identifier": {
+          "type": "m.id.user",
+          "user": "cheeky_monkey"
+      },
+      "password": "ilovebananas",
+      "initial_device_display_name": "Jungle Phone"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2020,23 +2020,23 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/register?kind=user HTTP/1.1
   Content-Type: application/json
 
   {
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxx",
-  "example_credential": "verypoorsharedsecret"
-  },
-  "username": "cheeky_monkey",
-  "password": "ilovebananas",
-  "device_id": "GHTYAJCE",
-  "initial_device_display_name": "Jungle Phone",
-  "inhibit_login": false
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxx",
+          "example_credential": "verypoorsharedsecret"
+      },
+      "username": "cheeky_monkey",
+      "password": "ilovebananas",
+      "device_id": "GHTYAJCE",
+      "initial_device_display_name": "Jungle Phone",
+      "inhibit_login": false
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2200,19 +2200,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/register/email/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "email": "alice@example.org",
-  "send_attempt": 1,
-  "next_link": "https://example.org/congratulations.html",
-  "id_server": "id.example.com",
-  "id_access_token": "string"
+      "client_secret": "monkeys_are_GREAT",
+      "email": "alice@example.org",
+      "send_attempt": 1,
+      "next_link": "https://example.org/congratulations.html",
+      "id_server": "id.example.com",
+      "id_access_token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2335,20 +2335,20 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/register/msisdn/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "country": "GB",
-  "phone_number": "07700900001",
-  "send_attempt": 1,
-  "next_link": "https://example.org/congratulations.html",
-  "id_server": "id.example.com",
-  "id_access_token": "string"
+      "client_secret": "monkeys_are_GREAT",
+      "country": "GB",
+      "phone_number": "07700900001",
+      "send_attempt": 1,
+      "next_link": "https://example.org/congratulations.html",
+      "id_server": "id.example.com",
+      "id_access_token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2448,20 +2448,20 @@ Additional authentication information for the user-interactive authentication AP
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/password HTTP/1.1
   Content-Type: application/json
 
   {
-  "new_password": "ihatebananas",
-  "logout_devices": true,
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxx",
-  "example_credential": "verypoorsharedsecret"
+      "new_password": "ihatebananas",
+      "logout_devices": true,
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxx",
+          "example_credential": "verypoorsharedsecret"
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2591,19 +2591,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/password/email/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "email": "alice@example.org",
-  "send_attempt": 1,
-  "next_link": "https://example.org/congratulations.html",
-  "id_server": "id.example.com",
-  "id_access_token": "string"
+      "client_secret": "monkeys_are_GREAT",
+      "email": "alice@example.org",
+      "send_attempt": 1,
+      "next_link": "https://example.org/congratulations.html",
+      "id_server": "id.example.com",
+      "id_access_token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2711,17 +2711,17 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/password/msisdn/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "country": "GB",
-  "phone_number": "07700900001",
-  "send_attempt": 1
+      "client_secret": "monkeys_are_GREAT",
+      "country": "GB",
+      "phone_number": "07700900001",
+      "send_attempt": 1
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -2818,19 +2818,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/deactivate HTTP/1.1
   Content-Type: application/json
 
   {
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxx",
-  "example_credential": "verypoorsharedsecret"
-  },
-  "id_server": "example.org"
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxx",
+          "example_credential": "verypoorsharedsecret"
+      },
+      "id_server": "example.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -3099,19 +3099,19 @@ ThreePidCredentials
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid HTTP/1.1
   Content-Type: application/json
 
   {
-  "three_pid_creds": {
-  "id_server": "matrix.org",
-  "id_access_token": "abc123_OpaqueString",
-  "sid": "abc123987",
-  "client_secret": "d0n'tT3ll"
+      "three_pid_creds": {
+          "id_server": "matrix.org",
+          "id_access_token": "abc123_OpaqueString",
+          "sid": "abc123987",
+          "client_secret": "d0n'tT3ll"
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -3190,15 +3190,15 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/add HTTP/1.1
   Content-Type: application/json
 
   {
-  "sid": "abc123987",
-  "client_secret": "d0n'tT3ll"
+      "sid": "abc123987",
+      "client_secret": "d0n'tT3ll"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -3303,17 +3303,17 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/bind HTTP/1.1
   Content-Type: application/json
 
   {
-  "id_server": "example.org",
-  "id_access_token": "abc123_OpaqueString",
-  "sid": "abc123987",
-  "client_secret": "d0n'tT3ll"
+      "id_server": "example.org",
+      "id_access_token": "abc123_OpaqueString",
+      "sid": "abc123987",
+      "client_secret": "d0n'tT3ll"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -3389,16 +3389,16 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/delete HTTP/1.1
   Content-Type: application/json
 
   {
-  "id_server": "example.org",
-  "medium": "email",
-  "address": "example@example.org"
+      "id_server": "example.org",
+      "medium": "email",
+      "address": "example@example.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -3462,16 +3462,16 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/unbind HTTP/1.1
   Content-Type: application/json
 
   {
-  "id_server": "example.org",
-  "medium": "email",
-  "address": "example@example.org"
+      "id_server": "example.org",
+      "medium": "email",
+      "address": "example@example.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -3558,19 +3558,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/email/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "email": "alice@example.org",
-  "send_attempt": 1,
-  "next_link": "https://example.org/congratulations.html",
-  "id_server": "id.example.com",
-  "id_access_token": "string"
+      "client_secret": "monkeys_are_GREAT",
+      "email": "alice@example.org",
+      "send_attempt": 1,
+      "next_link": "https://example.org/congratulations.html",
+      "id_server": "id.example.com",
+      "id_access_token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -3690,20 +3690,20 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/account/3pid/msisdn/requestToken HTTP/1.1
   Content-Type: application/json
 
   {
-  "client_secret": "monkeys_are_GREAT",
-  "country": "GB",
-  "phone_number": "07700900001",
-  "send_attempt": 1,
-  "next_link": "https://example.org/congratulations.html",
-  "id_server": "id.example.com",
-  "id_access_token": "string"
+      "client_secret": "monkeys_are_GREAT",
+      "country": "GB",
+      "phone_number": "07700900001",
+      "send_attempt": 1,
+      "next_link": "https://example.org/congratulations.html",
+      "id_server": "id.example.com",
+      "id_access_token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -4234,61 +4234,61 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/user/%40alice%3Aexample.com/filter HTTP/1.1
   Content-Type: application/json
 
   {
-  "room": {
-  "state": {
-  "types": [
-  "m.room.*"
-  ],
-  "not_rooms": [
-  "!726s6s6q:example.com"
-  ]
-  },
-  "timeline": {
-  "limit": 10,
-  "types": [
-  "m.room.message"
-  ],
-  "not_rooms": [
-  "!726s6s6q:example.com"
-  ],
-  "not_senders": [
-  "@spam:example.com"
-  ]
-  },
-  "ephemeral": {
-  "types": [
-  "m.receipt",
-  "m.typing"
-  ],
-  "not_rooms": [
-  "!726s6s6q:example.com"
-  ],
-  "not_senders": [
-  "@spam:example.com"
-  ]
+      "room": {
+          "state": {
+              "types": [
+                  "m.room.*"
+              ],
+              "not_rooms": [
+                  "!726s6s6q:example.com"
+              ]
+          },
+          "timeline": {
+              "limit": 10,
+              "types": [
+                  "m.room.message"
+              ],
+              "not_rooms": [
+                  "!726s6s6q:example.com"
+              ],
+              "not_senders": [
+                  "@spam:example.com"
+              ]
+          },
+          "ephemeral": {
+              "types": [
+                  "m.receipt",
+                  "m.typing"
+              ],
+              "not_rooms": [
+                  "!726s6s6q:example.com"
+              ],
+              "not_senders": [
+                  "@spam:example.com"
+              ]
+          }
+      },
+      "presence": {
+          "types": [
+              "m.presence"
+          ],
+          "not_senders": [
+              "@alice:example.com"
+          ]
+      },
+      "event_format": "client",
+      "event_fields": [
+          "type",
+          "content",
+          "sender"
+      ]
   }
-  },
-  "presence": {
-  "types": [
-  "m.presence"
-  ],
-  "not_senders": [
-  "@alice:example.com"
-  ]
-  },
-  "event_format": "client",
-  "event_fields": [
-  "type",
-  "content",
-  "sender"
-  ]
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -6957,16 +6957,16 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/rooms/%21636q39766251%3Aexample.com/state/m.room.member/%40alice%3Aexample.com HTTP/1.1
   Content-Type: application/json
 
   {
-  "membership": "join",
-  "avatar_url": "mxc://localhost/SEsfnsuifSDFSSEF",
-  "displayname": "Alice Margatroid"
+      "membership": "join",
+      "avatar_url": "mxc://localhost/SEsfnsuifSDFSSEF",
+      "displayname": "Alice Margatroid"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -7104,15 +7104,15 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/rooms/%21636q39766251%3Aexample.com/send/m.room.message/35 HTTP/1.1
   Content-Type: application/json
 
   {
-  "msgtype": "m.text",
-  "body": "hello"
+      "msgtype": "m.text",
+      "body": "hello"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -7243,14 +7243,14 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/rooms/%21637q39766251%3Aexample.com/redact/bai2b1i9%3Amatrix.org/37 HTTP/1.1
   Content-Type: application/json
 
   {
-  "reason": "Indecent material"
+      "reason": "Indecent material"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -7425,20 +7425,20 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/createRoom HTTP/1.1
   Content-Type: application/json
 
   {
-  "preset": "public_chat",
-  "room_alias_name": "thepub",
-  "name": "The Grand Duke Pub",
-  "topic": "All about happy hour",
-  "creation_content": {
-  "m.federate": false
+      "preset": "public_chat",
+      "room_alias_name": "thepub",
+      "name": "The Grand Duke Pub",
+      "topic": "All about happy hour",
+      "creation_content": {
+          "m.federate": false
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -7519,14 +7519,14 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/directory/room/%23monkeys%3Amatrix.org HTTP/1.1
   Content-Type: application/json
 
   {
-  "room_id": "!abnjk1jdasj98:capuchins.com"
+      "room_id": "!abnjk1jdasj98:capuchins.com"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -7932,14 +7932,14 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21d41d8cd%3Amatrix.org/invite HTTP/1.1
   Content-Type: application/json
 
   {
-  "user_id": "@cheeky_monkey:matrix.org"
+      "user_id": "@cheeky_monkey:matrix.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8057,23 +8057,23 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21d41d8cd%3Amatrix.org/join HTTP/1.1
   Content-Type: application/json
 
   {
-  "third_party_signed": {
-  "sender": "@alice:example.org",
-  "mxid": "@bob:example.org",
-  "token": "random8nonce",
-  "signatures": {
-  "example.org": {
-  "ed25519:0": "some9signature"
+      "third_party_signed": {
+          "sender": "@alice:example.org",
+          "mxid": "@bob:example.org",
+          "token": "random8nonce",
+          "signatures": {
+              "example.org": {
+                  "ed25519:0": "some9signature"
+              }
+          }
+      }
   }
-  }
-  }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8185,23 +8185,23 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/join/%23monkeys%3Amatrix.org?server_name=matrix.org&server_name=elsewhere.ca HTTP/1.1
   Content-Type: application/json
 
   {
-  "third_party_signed": {
-  "sender": "@alice:example.org",
-  "mxid": "@bob:example.org",
-  "token": "random8nonce",
-  "signatures": {
-  "example.org": {
-  "ed25519:0": "some9signature"
+      "third_party_signed": {
+          "sender": "@alice:example.org",
+          "mxid": "@bob:example.org",
+          "token": "random8nonce",
+          "signatures": {
+              "example.org": {
+                  "ed25519:0": "some9signature"
+              }
+          }
+      }
   }
-  }
-  }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8447,15 +8447,15 @@ The reason the user has been kicked. This will be supplied as the =reason= on th
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21e42d8c%3Amatrix.org/kick HTTP/1.1
   Content-Type: application/json
 
   {
-  "reason": "Telling unfunny jokes",
-  "user_id": "@cheeky_monkey:matrix.org"
+      "reason": "Telling unfunny jokes",
+      "user_id": "@cheeky_monkey:matrix.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8556,15 +8556,15 @@ The reason the user has been banned. This will be supplied as the =reason= on th
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21e42d8c%3Amatrix.org/ban HTTP/1.1
   Content-Type: application/json
 
   {
-  "reason": "Telling unfunny jokes",
-  "user_id": "@cheeky_monkey:matrix.org"
+      "reason": "Telling unfunny jokes",
+      "user_id": "@cheeky_monkey:matrix.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8632,14 +8632,14 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21e42d8c%3Amatrix.org/unban HTTP/1.1
   Content-Type: application/json
 
   {
-  "user_id": "@cheeky_monkey:matrix.org"
+      "user_id": "@cheeky_monkey:matrix.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8776,14 +8776,14 @@ The new visibility setting for the room. Defaults to 'public'. One of: ["private
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/directory/list/room/%21curbf%3Amatrix.org HTTP/1.1
   Content-Type: application/json
 
   {
-  "visibility": "public"
+      "visibility": "public"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -8997,19 +8997,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/publicRooms HTTP/1.1
   Content-Type: application/json
 
   {
-  "limit": 10,
-  "filter": {
-  "generic_search_term": "foo"
-  },
-  "include_all_networks": false,
-  "third_party_instance_id": "irc"
+      "limit": 10,
+      "filter": {
+          "generic_search_term": "foo"
+      },
+      "include_all_networks": false,
+      "third_party_instance_id": "irc"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -9101,15 +9101,15 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/user_directory/search HTTP/1.1
   Content-Type: application/json
 
   {
-  "search_term": "foo",
-  "limit": 10
+      "search_term": "foo",
+      "limit": 10
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -9187,14 +9187,14 @@ The new display name for this user.
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/profile/%40alice%3Aexample.com/displayname HTTP/1.1
   Content-Type: application/json
 
   {
-  "displayname": "Alice Margatroid"
+      "displayname": "Alice Margatroid"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -9314,14 +9314,14 @@ The new avatar URL for this user.
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/profile/%40alice%3Aexample.com/avatar_url HTTP/1.1
   Content-Type: application/json
 
   {
-  "avatar_url": "mxc://matrix.org/wefh34uihSDRGhw34"
+      "avatar_url": "mxc://matrix.org/wefh34uihSDRGhw34"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -11109,15 +11109,15 @@ The length of time in milliseconds to mark this user as typing.
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/rooms/%21wefh3sfukhs%3Aexample.com/typing/%40alice%3Aexample.com HTTP/1.1
   Content-Type: application/json
 
   {
-  "typing": true,
-  "timeout": 30000
+      "typing": true,
+      "timeout": 30000
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -11431,15 +11431,15 @@ The event ID to set the read receipt location at. This is equivalent to calling 
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21somewhere%3Aexample.org/read_markers HTTP/1.1
   Content-Type: application/json
 
   {
-  "m.fully_read": "$somewhere:example.org",
-  "m.read": "$elsewhere:example.org"
+      "m.fully_read": "$somewhere:example.org",
+      "m.read": "$elsewhere:example.org"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -11582,15 +11582,15 @@ The status message to attach to this state.
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/presence/%40alice%3Aexample.com/status HTTP/1.1
   Content-Type: application/json
 
   {
-  "presence": "online",
-  "status_msg": "I am here."
+      "presence": "online",
+      "status_msg": "I am here."
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -12449,20 +12449,20 @@ The messages to send. A map from user ID, to a map from device ID to message bod
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/sendToDevice/m.new_device/35 HTTP/1.1
   Content-Type: application/json
 
   {
-  "messages": {
-  "@alice:example.com": {
-  "TLLBEANAAG": {
-  "example_content_key": "value"
+      "messages": {
+          "@alice:example.com": {
+              "TLLBEANAAG": {
+                  "example_content_key": "value"
+              }
+          }
+      }
   }
-  }
-  }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -12690,14 +12690,14 @@ The new display name for this device. If not given, the display name is unchange
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/devices/QBUAZIFURK HTTP/1.1
   Content-Type: application/json
 
   {
-  "display_name": "My other phone"
+      "display_name": "My other phone"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -12759,18 +12759,18 @@ Additional authentication information for the user-interactive authentication AP
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   DELETE /_matrix/client/r0/devices/QBUAZIFURK HTTP/1.1
   Content-Type: application/json
 
   {
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxx",
-  "example_credential": "verypoorsharedsecret"
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxx",
+          "example_credential": "verypoorsharedsecret"
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -12853,22 +12853,22 @@ Additional authentication information for the user-interactive authentication AP
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/delete_devices HTTP/1.1
   Content-Type: application/json
 
   {
-  "devices": [
-  "QBUAZIFURK",
-  "AUIECTSRND"
-  ],
-  "auth": {
-  "type": "example.type.foo",
-  "session": "xxxxx",
-  "example_credential": "verypoorsharedsecret"
+      "devices": [
+          "QBUAZIFURK",
+          "AUIECTSRND"
+      ],
+      "auth": {
+          "type": "example.type.foo",
+          "session": "xxxxx",
+          "example_credential": "verypoorsharedsecret"
+      }
   }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -14272,49 +14272,49 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/keys/upload HTTP/1.1
   Content-Type: application/json
 
   {
-  "device_keys": {
-  "user_id": "@alice:example.com",
-  "device_id": "JLAFKJWSCS",
-  "algorithms": [
-  "m.olm.v1.curve25519-aes-sha2",
-  "m.megolm.v1.aes-sha2"
-  ],
-  "keys": {
-  "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI",
-  "ed25519:JLAFKJWSCS": "lEuiRJBit0IG6nUf5pUzWTUEsRVVe/HJkoKuEww9ULI"
-  },
-  "signatures": {
-  "@alice:example.com": {
-  "ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
+      "device_keys": {
+          "user_id": "@alice:example.com",
+          "device_id": "JLAFKJWSCS",
+          "algorithms": [
+              "m.olm.v1.curve25519-aes-sha2",
+              "m.megolm.v1.aes-sha2"
+          ],
+          "keys": {
+              "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI",
+              "ed25519:JLAFKJWSCS": "lEuiRJBit0IG6nUf5pUzWTUEsRVVe/HJkoKuEww9ULI"
+          },
+          "signatures": {
+              "@alice:example.com": {
+                  "ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
+              }
+          }
+      },
+      "one_time_keys": {
+          "curve25519:AAAAAQ": "/qyvZvwjiTxGdGU0RCguDCLeR+nmsb3FfNG3/Ve4vU8",
+          "signed_curve25519:AAAAHg": {
+              "key": "zKbLg+NrIjpnagy+pIY6uPL4ZwEG2v+8F9lmgsnlZzs",
+              "signatures": {
+                  "@alice:example.com": {
+                      "ed25519:JLAFKJWSCS": "FLWxXqGbwrb8SM3Y795eB6OA8bwBcoMZFXBqnTn58AYWZSqiD45tlBVcDa2L7RwdKXebW/VzDlnfVJ+9jok1Bw"
+                  }
+              }
+          },
+          "signed_curve25519:AAAAHQ": {
+              "key": "j3fR3HemM16M7CWhoI4Sk5ZsdmdfQHsKL1xuSft6MSw",
+              "signatures": {
+                  "@alice:example.com": {
+                      "ed25519:JLAFKJWSCS": "IQeCEPb9HFk217cU9kw9EOiusC6kMIkoIRnbnfOh5Oc63S1ghgyjShBGpu34blQomoalCyXWyhaaT3MrLZYQAA"
+                  }
+              }
+          }
+      }
   }
-  }
-  },
-  "one_time_keys": {
-  "curve25519:AAAAAQ": "/qyvZvwjiTxGdGU0RCguDCLeR+nmsb3FfNG3/Ve4vU8",
-  "signed_curve25519:AAAAHg": {
-  "key": "zKbLg+NrIjpnagy+pIY6uPL4ZwEG2v+8F9lmgsnlZzs",
-  "signatures": {
-  "@alice:example.com": {
-  "ed25519:JLAFKJWSCS": "FLWxXqGbwrb8SM3Y795eB6OA8bwBcoMZFXBqnTn58AYWZSqiD45tlBVcDa2L7RwdKXebW/VzDlnfVJ+9jok1Bw"
-  }
-  }
-  },
-  "signed_curve25519:AAAAHQ": {
-  "key": "j3fR3HemM16M7CWhoI4Sk5ZsdmdfQHsKL1xuSft6MSw",
-  "signatures": {
-  "@alice:example.com": {
-  "ed25519:JLAFKJWSCS": "IQeCEPb9HFk217cU9kw9EOiusC6kMIkoIRnbnfOh5Oc63S1ghgyjShBGpu34blQomoalCyXWyhaaT3MrLZYQAA"
-  }
-  }
-  }
-  }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -14399,18 +14399,18 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/keys/query HTTP/1.1
   Content-Type: application/json
 
   {
-  "timeout": 10000,
-  "device_keys": {
-  "@alice:example.com": []
-  },
-  "token": "string"
+      "timeout": 10000,
+      "device_keys": {
+          "@alice:example.com": []
+      },
+      "token": "string"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -14495,19 +14495,19 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/keys/claim HTTP/1.1
   Content-Type: application/json
 
   {
-  "timeout": 10000,
-  "one_time_keys": {
-  "@alice:example.com": {
-  "JLAFKJWSCS": "signed_curve25519"
+      "timeout": 10000,
+      "one_time_keys": {
+          "@alice:example.com": {
+              "JLAFKJWSCS": "signed_curve25519"
+          }
+      }
   }
-  }
-  }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -14955,25 +14955,25 @@ If true, the homeserver should add another pusher with the given pushkey and App
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/pushers/set HTTP/1.1
   Content-Type: application/json
 
   {
-  "lang": "en",
-  "kind": "http",
-  "app_display_name": "Mat Rix",
-  "device_display_name": "iPhone 9",
-  "profile_tag": "xxyyzz",
-  "app_id": "com.example.app.ios",
-  "pushkey": "APA91bHPRgkF3JUikC4ENAHEeMrd41Zxv3hVZjC9KtT8OvPVGJ-hQMRKRrZuJAEcl7B338qju59zJMjw2DELjzEvxwYv7hH5Ynpc1ODQ0aT4U4OFEeco8ohsN5PjL1iC2dNtk2BAokeMCg2ZXKqpc8FXKmhX94kIxQ",
-  "data": {
-  "url": "https://push-gateway.location.here/_matrix/push/v1/notify",
-  "format": "event_id_only"
-  },
-  "append": false
+      "lang": "en",
+      "kind": "http",
+      "app_display_name": "Mat Rix",
+      "device_display_name": "iPhone 9",
+      "profile_tag": "xxyyzz",
+      "app_id": "com.example.app.ios",
+      "pushkey": "APA91bHPRgkF3JUikC4ENAHEeMrd41Zxv3hVZjC9KtT8OvPVGJ-hQMRKRrZuJAEcl7B338qju59zJMjw2DELjzEvxwYv7hH5Ynpc1ODQ0aT4U4OFEeco8ohsN5PjL1iC2dNtk2BAokeMCg2ZXKqpc8FXKmhX94kIxQ",
+      "data": {
+          "url": "https://push-gateway.location.here/_matrix/push/v1/notify",
+          "format": "event_id_only"
+      },
+      "append": false
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -16130,17 +16130,17 @@ Only applicable to =content= rules. The glob- style pattern to match against.
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/pushrules/global/content/nocake?before=someRuleId&after=anotherRuleId HTTP/1.1
   Content-Type: application/json
 
   {
-  "pattern": "cake*lie",
-  "actions": [
-  "notify"
-  ]
+      "pattern": "cake*lie",
+      "actions": [
+          "notify"
+      ]
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -16293,14 +16293,14 @@ boolean
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/pushrules/global/content/nocake/enabled HTTP/1.1
   Content-Type: application/json
 
   {
-  "enabled": true
+      "enabled": true
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -16428,16 +16428,16 @@ actions
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/pushrules/global/room/%23spam%3Aexample.com/actions HTTP/1.1
   Content-Type: application/json
 
   {
-  "actions": [
-  "notify"
-  ]
+      "actions": [
+          "notify"
+      ]
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -16934,17 +16934,17 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21d41d8cd%3Amatrix.org/invite HTTP/1.1
   Content-Type: application/json
 
   {
-  "id_server": "matrix.org",
-  "id_access_token": "abc123_OpaqueString",
-  "medium": "email",
-  "address": "cheeky@monkey.com"
+      "id_server": "matrix.org",
+      "id_access_token": "abc123_OpaqueString",
+      "medium": "email",
+      "address": "cheeky@monkey.com"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
@@ -17928,14 +17928,14 @@ A number in a range =[0,1]= describing a relative position of the room under the
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/user/%40alice%3Aexample.com/rooms/%21726s6s6q%3Aexample.com/tags/u.work HTTP/1.1
   Content-Type: application/json
 
   {
-  "order": 0.25
+      "order": 0.25
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -18062,14 +18062,14 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/user/%40alice%3Aexample.com/account_data/org.example.custom.config HTTP/1.1
   Content-Type: application/json
 
   {
-  "custom_account_data_key": "custom_config_value"
+      "custom_account_data_key": "custom_config_value"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -18169,14 +18169,14 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   PUT /_matrix/client/r0/user/%40alice%3Aexample.com/rooms/%21726s6s6q%3Aexample.com/account_data/org.example.custom.room.config HTTP/1.1
   Content-Type: application/json
 
   {
-  "custom_account_data_key": "custom_account_data_value"
+      "custom_account_data_key": "custom_account_data_value"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -18952,15 +18952,15 @@ string
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21637q39766251%3Aexample.com/report/%24something%3Aexample.org HTTP/1.1
   Content-Type: application/json
 
   {
-  "score": -100,
-  "reason": "this makes me sad"
+      "score": -100,
+      "reason": "this makes me sad"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Response:
 
@@ -19886,14 +19886,14 @@ Response format:
 
 Example request:
 
-#+BEGIN_EXAMPLE
+#+BEGIN_SRC json
   POST /_matrix/client/r0/rooms/%21oldroom%3Aexample.org/upgrade HTTP/1.1
   Content-Type: application/json
 
   {
-  "new_version": "2"
+      "new_version": "2"
   }
-#+END_EXAMPLE
+#+END_SRC
 
 Responses:
 
