@@ -325,10 +325,11 @@ If no URI is found, prompt the user for the hostname."
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room nil nil #'string=)))
 
-(cl-defun ement--sync (session &key (filter ement-default-sync-filter) force)
+(cl-defun ement--sync (session &key (filter ement-default-sync-filter) force quiet)
   "Send sync request for SESSION.
 If SESSION has a `next-batch' token, it's used.  If FORCE, first
-delete any outstanding sync processes.
+delete any outstanding sync processes.  If QUIET, don't show a
+message about syncing this time.
 
 FILTER may be an alist representing a raw event filter (i.e. not
 a filter ID).  When unspecified, the value of
@@ -370,7 +371,8 @@ a filter ID).  When unspecified, the value of
                                                  "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
                                                 (ement-user-id (ement-session-user session)))
                                        (message "Ement: Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
-                                       (ement--sync session)))
+                                       ;; Set QUIET to allow the just-printed message to remain visible.
+                                       (ement--sync session :quiet t)))
                                     (`(,code . ,message)
                                      (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message) plz-error)))
                                     (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))
@@ -387,7 +389,7 @@ a filter ID).  When unspecified, the value of
                                                          (- (time-to-seconds) start-time)))))))))
     (when process
       (setf (map-elt ement-syncs session) process)
-      (when (ement--sync-messages-p session)
+      (when (and (not quiet) (ement--sync-messages-p session))
         (message "Ement: Sync request sent, waiting for response...")))))
 
 (defun ement--sync-callback (session data)
