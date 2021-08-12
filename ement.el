@@ -217,6 +217,10 @@ commands in them won't work."
       (ement--write-session session))
     (setf ement-syncs (map-delete ement-syncs session)
           ement-sessions (map-delete ement-sessions session))
+    (unless ement-sessions
+      ;; HACK: If no sessions remain, clear the users table.  It might be best
+      ;; to store a per-session users table, but this is probably good enough.
+      (clrhash ement-users))
     (message "Disconnected %s" id)))
 
 (defun ement--login-callback (session data)
