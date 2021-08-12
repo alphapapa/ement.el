@@ -1981,6 +1981,9 @@ If FORMATTED-P, return the formatted body content, when available."
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
+    ;; HACK: Ensure body isn't nil (e.g. redacted messages can have empty bodies).
+    (unless body
+      (setf body "[message has no body content]"))
     (when appendix
       (setf body (concat body " " appendix)))
     body))
