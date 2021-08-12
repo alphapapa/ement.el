@@ -453,18 +453,22 @@ To be called in `ement-sync-callback-hook'."
           ;; while calling event-insertion functions.  I don't know if this is
           ;; due to a bug in EWOC or if I just misunderstand something, but
           ;; without doing this, events may be inserted at the wrong place.
-          (when-let ((buffer-window (get-buffer-window buffer) ))
+          (when-let ((buffer-window (get-buffer-window buffer)))
             (select-window buffer-window))
           (cl-assert ement-room)
           (when (ement-room-ephemeral ement-room)
+            ;; Ephemeral events.
             (ement-room--handle-events (ement-room-ephemeral ement-room))
             (setf (ement-room-ephemeral ement-room) nil))
           (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
             ;; HACK: Process these events in reverse order, so that later events (like reactions)
             ;; which refer to earlier events can find them.  (Not sure if still necessary.)
             (ement-room--handle-events (reverse new-events))
-            ;; Clear new events slot.
-            (setf (alist-get 'new-events (ement-room-local ement-room)) nil)))))))
+            (setf (alist-get 'new-events (ement-room-local ement-room)) nil))
+          (when-let ((new-events (alist-get 'new-account-data-events (ement-room-local ement-room))))
+            ;; Account data events.  Do this last so, e.g. read markers can refer to message events we've seen.
+            (ement-room--handle-events new-events)
+            (setf (alist-get 'new-account-data-events (ement-room-local ement-room)) nil)))))))
 
 (defun ement--push-joined-room-events (session joined-room)
   "Push events for JOINED-ROOM into that room in SESSION."
@@ -475,11 +479,11 @@ To be called in `ement-sync-callback-hook'."
                                      (ement-session-rooms session))
                          (car (push (make-ement-room :id id) (ement-session-rooms session)))))
                ((map summary state ephemeral timeline
-                     ('account_data account-data)
+                     ('account_data (map ('events account-data-events)))
                      ('unread_notifications unread-notifications))
                 event-types)
                (latest-timestamp))
-    (ignore account-data unread-notifications summary state ephemeral)
+    (ignore unread-notifications summary state ephemeral)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means
@@ -492,6 +496,18 @@ To be called in `ement-sync-callback-hook'."
       (when (alist-get parameter summary)
         ;; These fields are only included when they change.
         (setf (alist-get parameter (ement-room-summary room)) (alist-get parameter summary))))
+
+    ;; Update account data.  The spec doesn't seem very clear about this, but I gather that
+    ;; only the latest event of each type of account data event matters, so rather than
+    ;; storing all of the events in a list, we'll store the latest of each type we care about.
+    (dolist (type '("m.read" "m.fully_read"))
+      (when-let ((event (seq-find (lambda (event) (equal type (alist-get 'type event)))
+                                  account-data-events)))
+        (setf (alist-get type (ement-room-account-data room) nil nil #'equal) event)))
+    ;; But we also need to track just the new events so we can process those in a room buffer.
+    (cl-callf2 append (mapcar #'ement--make-event account-data-events)
+               (alist-get 'new-account-data-events (ement-room-local room)))
+
     ;; Save state and timeline events.
     (cl-macrolet ((push-events
                    (type accessor)
