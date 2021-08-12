@@ -2448,7 +2448,8 @@ Then invalidate EVENT's node to show the image."
 Configures the buffer appropriately so that saving it will export
 the Org buffer's contents."
   (interactive)
-  (cl-assert ement-room-compose-buffer)
+  (unless ement-room-compose-buffer
+    (user-error "This command should be run in a compose buffer.  Use `ement-room-compose-message' first"))
   ;; Calling `org-mode' seems to wipe out local variables.
   (let ((room ement-room)
         (session ement-session))
