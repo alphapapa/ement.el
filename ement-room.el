@@ -371,6 +371,19 @@ line."
                  (const :tag "Name and message" both)
                  (const :tag "Neither" nil)))
 
+(defcustom ement-room-prism-addressee t
+  "Show addressees' names in their respective colors.
+Applies to room member names at the beginning of messages,
+preceded by a colon or comma.
+
+Note that a limitation applies to the current implementation: if
+a message from the addressee is not yet visible in a room at the
+time the addressed message is formatted, the color may not be
+applied."
+  ;; FIXME: When we keep a hash table of members in a room, make this
+  ;; smarter.
+  :type 'boolean)
+
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
@@ -520,7 +533,10 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   (let ((body (save-match-data
                 (ement-room--format-message-body event :formatted-p nil)))
         (face (ement-room--event-body-face event room session)))
-    (propertize body 'face face)))
+    (add-face-text-property 0 (length body) face 'append body)
+    (when ement-room-prism-addressee
+      (ement-room--add-member-face body room))
+    body))
 
 (ement-room-define-event-formatter ?B
   "Formatted body content (i.e. rendered HTML)."
@@ -528,6 +544,8 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                 (ement-room--format-message-body event)))
         (face (ement-room--event-body-face event room session)))
     (add-face-text-property 0 (length body) face 'append body)
+    (when ement-room-prism-addressee
+      (ement-room--add-member-face body room))
     body))
 
 (ement-room-define-event-formatter ?i
@@ -616,6 +634,37 @@ BODY is wrapped in a lambda form that binds `event', `room', and
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))
+
+(defun ement-room--add-member-face (string room)
+  "Add member faces in ROOM to STRING.
+If STRING begins with the name of a member in ROOM followed by a
+colon or comma (as if STRING is a message addressing that
+member), apply that member's displayname color face to that part
+of the string."
+  ;; This only looks for a member name at the beginning of the string.  It would be neat to add
+  ;; colors to every member mentioned in a message, but that would probably not perform well.
+  (save-match-data
+    ;; This function may be called from a chain of others that use the match data, so
+    ;; rather than depending on all of them to save the match data, we do it here.
+    (when (string-match (rx bos (group (1+ (not blank))) (or ":" ",") (1+ blank)) string)
+      (when-let* ((member-name (match-string 1 string))
+                  ;; HACK: Since we don't currently keep a list of all
+                  ;; members in a room, we look to see if this displayname
+                  ;; has any mentions in the room so far.
+                  (user (save-match-data
+                          (with-current-buffer (alist-get 'buffer (ement-room-local room))
+                            (save-excursion
+                              (goto-char (point-min))
+                              (cl-loop while (re-search-forward (regexp-quote member-name) nil t)
+                                       for event = (ewoc-data (ewoc-locate ement-ewoc))
+                                       for sender = (ement-event-sender event)
+                                       when (equal member-name (gethash room (ement-user-room-display-names sender)))
+                                       return sender)))))
+                  (prism-color (or (ement-user-color user)
+                                   (setf (ement-user-color user)
+                                         (ement-room--user-color user)))))
+        (add-face-text-property (match-beginning 1) (match-end 1)
+                                (list :foreground prism-color) nil string)))))
 
 ;;;; Bookmark support
 
