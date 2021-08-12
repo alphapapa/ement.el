@@ -35,6 +35,7 @@ With [[#displaying-symbols-and-emojis][proper configuration]], Emacs can even di
 - [[#usage][Usage]]
   - [[#bindings][Bindings]]
   - [[#tips][Tips]]
+  - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 - [[#rationale][Rationale]]
 - [[#changelog][Changelog]]
 :END:
@@ -86,7 +87,12 @@ If you want to install it manually, it's simple enough, but you should know what
 
 * Usage
 :PROPERTIES:
-:TOC:      :depth 1
+:TOC:      :include descendants :depth 1
+:END:
+:CONTENTS:
+- [[#bindings][Bindings]]
+- [[#tips][Tips]]
+- [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
 1.  Call command ~ement-connect~ to connect.
@@ -172,6 +178,14 @@ Emacs may not display certain symbols and emojis well by default.  Based on [[ht
 #+BEGIN_SRC elisp
   (setf use-default-font-for-symbols nil)
   (set-fontset-font t 'unicode "Noto Emoji" nil 'append)
+#+END_SRC
+
+** Encrypted room support through Pantalaimon
+
+Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]].  After configuring it according to its documentation, call ~ement-connect~ with the appropriate hostname and port, like:
+
+#+BEGIN_SRC elisp
+  (ement-connect :uri-prefix "http://localhost:8009")
 #+END_SRC
 
 * Rationale
