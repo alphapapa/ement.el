@@ -932,7 +932,9 @@ Interactively, set the current buffer's ROOM's TOPIC."
   (unless ement-room-retro-loading
     (pcase-let* (((cl-struct ement-room id prev-batch) room)
                  (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
-      (ement-api session endpoint :timeout 5
+      ;; We use a timeout of 30, because sometimes the server can take a while to
+      ;; respond, especially if loading, e.g. hundreds or thousands of events.
+      (ement-api session endpoint :timeout 30
         :params (list (list "from" prev-batch)
                       (list "dir" "b")
                       (list "limit" (number-to-string number))
