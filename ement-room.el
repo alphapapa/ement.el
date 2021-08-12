@@ -384,6 +384,26 @@ applied."
   ;; smarter.
   :type 'boolean)
 
+(defcustom ement-room-prism-color-adjustment 0
+  "Number used to tweak computed username colors.
+This may be used to adjust your favorite users' colors if you
+don't like the default ones.  (The only way to do it is by
+experimentation--there is no direct mapping available, nor a
+per-user setting.)
+
+The number is added to the hashed user ID before converting it to
+a color.  Note that, since user ID hashes are ratioed against
+`most-positive-fixnum', this number must be very large in order
+to have any effect; it should be at least 1e13.
+
+After changing this option, a room's buffer must be killed and
+recreated to see the effect."
+  :type 'number
+  :set (lambda (option value)
+         (unless (or (= 0 value) (>= value 1e13))
+           (user-error "This option must be a very large number, at least 1e13"))
+         (set-default option value)))
+
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
@@ -2146,7 +2166,7 @@ ROOM defaults to the value of `ement-room'."
                                   (+ (relative-luminance b) 0.05))))
                        (max ct (/ ct)))))
     (let* ((id (ement-user-id user))
-           (id-hash (float (abs (sxhash id))))
+           (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
            ;; TODO: Wrap-around the value to get the color I want.
            (ratio (/ id-hash (float most-positive-fixnum)))
            (color-num (round (* (* 255 255 255) ratio)))
