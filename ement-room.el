@@ -85,6 +85,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "v") #'ement-room-view-event)
     (define-key map (kbd "RET") #'ement-room-send-message)
     (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
+    (define-key map (kbd "M-SPC") #'ement-room-go-to-read-marker)
     (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "TAB") #'ement-room-goto-next)
@@ -1686,6 +1687,15 @@ function to `ement-room-event-fns', which see."
 (defface ement-room-fully-read-marker
   '((t (:inherit show-paren-match)))
   "Fully read marker line in rooms.")
+
+(defun ement-room-go-to-read-marker ()
+  "Move to the read marker in the current room."
+  (interactive)
+  (when ement-room-fully-read-marker
+    (goto-char (ewoc-location
+                (ement-room--ewoc-last-matching ement-ewoc
+                  (lambda (node-data)
+                    (eq 'ement-room-fully-read-marker node-data)))))))
 
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
   "Mark ROOM on SESSION as read on the server.
