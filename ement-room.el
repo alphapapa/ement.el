@@ -404,6 +404,13 @@ recreated to see the effect."
            (user-error "This option must be a very large number, at least 1e13"))
          (set-default option value)))
 
+(defcustom ement-room-prism-minimum-contrast 6
+  "Attempt to enforce this minimum contrast ratio for user faces.
+This should be a reasonable number from, e.g. 0-7 or so."
+  ;; Prot would almost approve of this default.  :) I would go all the way
+  ;; to 7, but 6 already significantly dilutes the colors in some cases.
+  :type 'number)
+
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
@@ -2180,7 +2187,17 @@ ROOM defaults to the value of `ement-room'."
                ;; Copy of `modus-themes-contrast'; see above.
                (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
                                   (+ (relative-luminance b) 0.05))))
-                       (max ct (/ ct)))))
+                       (max ct (/ ct))))
+              (increase-contrast
+               (color against target toward)
+               (let ((gradient (cdr (color-gradient color toward 20)))
+                     new-color)
+                 (cl-loop do (setf new-color (pop gradient))
+                          while new-color
+                          until (>= (contrast-ratio new-color against) target)
+                          ;; Avoid infinite loop in case of weirdness
+                          ;; by returning color as a fallback.
+                          finally return (or new-color color)))))
     (let* ((id (ement-user-id user))
            (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
            ;; TODO: Wrap-around the value to get the color I want.
@@ -2190,16 +2207,10 @@ ROOM defaults to the value of `ement-room'."
                             (/ (float (lsh (logand color-num 65280) -8)) 255)
                             (/ (float (lsh (logand color-num 16711680) -16)) 255)))
            (background-rgb (color-name-to-rgb (face-background 'default))))
-      (if (< (contrast-ratio color-rgb background-rgb) 3)
-          (progn
-            ;; Contrast ratio too low: I don't know the best way to fix this,
-            ;; but using the complement seems to produce decent results.
-            ;; FIXME: Calculate and apply an adjustment instead.
-            (apply #'color-rgb-to-hex
-                   (append (color-complement (apply #'color-rgb-to-hex
-                                                    (append color-rgb (list 2))))
-                           (list 2))))
-        (apply #'color-rgb-to-hex (append color-rgb (list 2)))))))
+      (when (< (contrast-ratio color-rgb background-rgb) ement-room-prism-minimum-contrast)
+        (setf color-rgb (increase-contrast color-rgb background-rgb ement-room-prism-minimum-contrast
+                                           (color-name-to-rgb (face-foreground 'default)))))
+      (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 ;;;;; Compose buffer
 
