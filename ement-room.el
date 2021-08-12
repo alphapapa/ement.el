@@ -2273,8 +2273,7 @@ To be called from an `ement-room-compose' buffer."
         (session ement-session)
         (input-method current-input-method)
         (send-message-filter ement-room-send-message-filter))
-    ;; FIXME: This leaves the window from the compose buffer open, which feels awkward.
-    (kill-buffer (current-buffer))
+    (quit-restore-window nil 'kill)
     (ement-view-room session room)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
            (current-input-method input-method) ; Bind around read-string call.
