@@ -1819,7 +1819,11 @@ the first and last nodes in the buffer, respectively."
           (unless (equal (time-to-days a-ts) (time-to-days b-ts))
             ;; Different date: bind format to print date.
             (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
-          (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))))
+          (with-silent-modifications
+            ;; Avoid marking a buffer as modified just because we inserted a ts
+            ;; header (this function may be called after other events which shouldn't
+            ;; cause it to be marked modified, like moving the read markers).
+            (ewoc-enter-after ewoc node-a (list 'ts b-ts))))))))
 
 (defun ement-room--insert-sender-headers (&optional start-node end-node)
   ;; TODO: Use this in appropriate places.
