@@ -2370,12 +2370,9 @@ use it as the initial message contents."
                  (cl-assert ement-room) (cl-assert ement-session)
                  (list ement-room ement-session)))
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room))))
-         (input-method current-input-method)
          (send-message-filter ement-room-send-message-filter))
     (with-current-buffer compose-buffer
       (ement-room-init-compose-buffer room session)
-      (when input-method
-        (set-input-method input-method))
       (setf ement-room-send-message-filter send-message-filter)
       ;; TODO: Make mode configurable.
       (when body
@@ -2415,17 +2412,21 @@ To be called from a minibuffer opened from
                        ;; TODO: Use letrec with Emacs 27.
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
                        (ement-room-compose-message ement-room ement-session :body body)
-                       (set-input-method input-method) ; Set in compose buffer.
                        (setf ement-room-send-message-filter send-message-filter)
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
                                                 (remove-hook 'window-configuration-change-hook show-buffer-fn-symbol)
-                                                (pop-to-buffer compose-buffer))))
+                                                (pop-to-buffer compose-buffer)
+                                                (set-input-method input-method))))
                          (fset show-buffer-fn-symbol show-buffer-fn)
                          (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
     (fset compose-fn-symbol compose-fn)
     (add-hook 'minibuffer-exit-hook compose-fn-symbol)
+    ;; If minibuffer's input method is not deactivated, then all
+    ;; minibuffer commands inherit the room's input method.  This is
+    ;; not the correct behaviour.
+    (deactivate-input-method)
     (abort-recursive-edit)))
 
 (defun ement-room-compose-send ()
