@@ -2423,9 +2423,8 @@ To be called from a minibuffer opened from
                          (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
     (fset compose-fn-symbol compose-fn)
     (add-hook 'minibuffer-exit-hook compose-fn-symbol)
-    ;; If minibuffer's input method is not deactivated, then all
-    ;; minibuffer commands inherit the room's input method.  This is
-    ;; not the correct behaviour.
+    ;; Deactivate minibuffer's input method, otherwise subsequent
+    ;; minibuffers will have it, too.
     (deactivate-input-method)
     (abort-recursive-edit)))
 
