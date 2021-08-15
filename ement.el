@@ -292,8 +292,8 @@ If no URI is found, prompt the user for the hostname."
                        ;; Parsing error: FAIL_PROMPT.
                        (fail-prompt))))
     (let ((response (condition-case err
-                        (plz-get-sync (concat "https://" hostname "/.well-known/matrix/client")
-                          :as 'response)
+                        (plz 'get (concat "https://" hostname "/.well-known/matrix/client")
+                          :as 'response :then 'sync)
                       (plz-http-error (plz-error-response (cdr err))))))
       (pcase (plz-response-status response)
         (404 (fail-prompt))
