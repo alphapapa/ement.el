@@ -1474,6 +1474,7 @@ and erases the buffer."
         '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
+        imenu-create-index-function #'ement-room--imenu-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
@@ -1664,6 +1665,19 @@ data slot."
   "Return STRING with \"%\" escaped.
 Needed to display things in the header line."
   (replace-regexp-in-string (rx "%") "%%" string t t))
+
+(defun ement-room--generate-imenu-item (node)
+  "Generate an imenu cons cell from NODE."
+  (cons (format-time-string (string-trim ement-room-timestamp-header-with-date-format) (cadr (ewoc-data node))) (ewoc-location node)))
+
+(defun ement-room--timestamp-event-p (node)
+  "Return non-nil if NODE is a timestamp event."
+  (let ((event (ewoc-data node)))
+    (and (listp event) (eq (car event) 'ts))))
+
+(defun ement-room--imenu-index-function ()
+  "Generate imenu index for the current room."
+  (map 'array #'ement-room--generate-imenu-item (ement-room--ewoc-collect-nodes ement-ewoc #'ement-room--timestamp-event-p)))
 
 ;;;;; Events
 
@@ -1924,6 +1938,16 @@ last node."
            when (funcall predicate (ewoc-data node))
            return node
            do (setf node (ewoc-prev ewoc node))))
+
+(defun ement-room--ewoc-collect-nodes (ewoc predicate)
+  "Collect all nodes in EWOC matching PREDICATE.
+PREDICATE is called with the full node."
+  ;; Intended to be like `ewoc-collect', but working with the full node instead of just the node's data.
+  (cl-loop with node = (ewoc-nth ewoc 0)
+           do (setf node (ewoc-next ewoc node))
+           while node
+           when (funcall predicate node)
+           collect node))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
   "Insert timestamp headers into current buffer's `ement-ewoc'.
