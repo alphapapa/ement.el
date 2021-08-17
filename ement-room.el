@@ -673,7 +673,7 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                                 (or (ement-user-color sender)
                                     (setf (ement-user-color sender)
                                           (ement-room--user-color sender))))))
-               (body-face (list :inherit (delq nil (list context-face type-face)))))
+               (body-face (list :inherit (delq nil (list type-face context-face)))))
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))
