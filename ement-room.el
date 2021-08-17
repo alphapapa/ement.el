@@ -1762,7 +1762,12 @@ Interactively, mark both types as read up to event at point."
               (ement-room-move-read-markers room
                 :read-event read-event :fully-read-event fully-read-event)))))
 
-(cl-defun ement-room-move-read-markers (room &key read-event fully-read-event)
+(cl-defun ement-room-move-read-markers
+    (room &key
+          (read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
+                        (map-nested-elt event '(content event_id))))
+          (fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data room) nil nil #'equal)))
+                              (map-nested-elt event '(content event_id)))))
   "Move read markers in ROOM to given events.
 Each event may be an `ement-event' struct or an event ID.  This
 updates the markers in ROOM's buffer, not on the server; see
@@ -1781,10 +1786,10 @@ updates the markers in ROOM's buffer, not on the server; see
                                (with-silent-modifications
                                  (when old-node
                                    (ewoc-delete ement-ewoc old-node))
-                                 (when event-node
-                                   ;; If the event hasn't been inserted into the buffer yet,
-                                   ;; this might be nil.  That shouldn't happen, but...
-                                   (set symbol (ewoc-enter-after ement-ewoc event-node symbol)))))))
+                                 (set symbol (when event-node
+                                               ;; If the event hasn't been inserted into the buffer yet,
+                                               ;; this might be nil.  That shouldn't happen, but...
+                                               (ewoc-enter-after ement-ewoc event-node symbol)))))))
     (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
       ;; MAYBE: Error if no buffer?  Or does it matter?
       (with-current-buffer buffer
