@@ -1791,7 +1791,11 @@ updates the markers in ROOM's buffer, not on the server; see
         (when read-event
           (update-marker 'ement-room-read-marker read-event))
         (when fully-read-event
-          (update-marker 'ement-room-fully-read-marker fully-read-event))))))
+          (update-marker 'ement-room-fully-read-marker fully-read-event))))
+    ;; NOTE: Return nil so that, in the event this function is called manually with `eval-expression',
+    ;; it does not cause an error due to the return value being an EWOC node, which is a structure too
+    ;; big and/or circular to print.  (This was one of those bugs that only happens WHEN debugging.)
+    nil))
 
 ;;;;; EWOC
 
