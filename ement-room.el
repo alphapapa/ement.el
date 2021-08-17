@@ -1163,6 +1163,8 @@ The message must be one sent by the local user."
                      ;; FIXME: This isn't quite right.  When we show edits by replacing
                      ;; the original event, this will need to be changed.
                      (user-error "Only original messages may be edited, not the edit events themselves"))
+                   ;; Remove any leading asterisk from the plain-text body.
+                   (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
                    (ement-room-with-typing
                      (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
                             (body (ement-room-read-string prompt body nil nil 'inherit-input-method)))
@@ -1170,14 +1172,20 @@ The message must be one sent by the local user."
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
                          (list event ement-room ement-session body)))))))
-  (let ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
-                          "m.room.message" (cl-incf (ement-session-transaction-id session))))
-        (content (ement-alist "msgtype" "m.text"
-                              "body" (concat "* " body)
-                              "m.new_content" (ement-alist "body" body
-                                                           "msgtype" "m.text")
-                              "m.relates_to" (ement-alist "rel_type" "m.replace"
-                                                          "event_id" (ement-event-id event)))))
+  (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
+                           "m.room.message" (cl-incf (ement-session-transaction-id session))))
+         (new-content (ement-alist "body" body
+                                   "msgtype" "m.text"))
+         (_ (when ement-room-send-message-filter
+              (setf new-content (funcall ement-room-send-message-filter new-content))))
+         (content (ement-alist "msgtype" "m.text"
+                               "body" body
+                               "m.new_content" new-content
+                               "m.relates_to" (ement-alist "rel_type" "m.replace"
+                                                           "event_id" (ement-event-id event)))))
+    ;; Prepend the asterisk after the filter may have modified the content.  Note that the "m.new_content"
+    ;; body does not get the leading asterisk, only the "content" body, which is intended as a fallback.
+    (setf body (concat "* " body))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
                              :content content :data))))
