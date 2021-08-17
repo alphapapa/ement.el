@@ -952,14 +952,15 @@ Interactively, set the current buffer's ROOM's TOPIC."
        (when (call-interactively #'ement-room-retro)
          (message "Loading earlier messages..."))))))
 
-(defun ement-room-retro (session room number &optional buffer)
+(cl-defun ement-room-retro (room session number &key buffer
+                                 (then (apply-partially #'ement-room-retro-callback room session)))
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
-  (interactive (list ement-session ement-room
+  (interactive (list ement-room ement-session
                      (if current-prefix-arg
                          (read-number "Number of messages: ")
                        ement-room-retro-messages-number)
-                     (current-buffer)))
+                     :buffer (current-buffer)))
   (unless ement-room-retro-loading
     (pcase-let* (((cl-struct ement-room id prev-batch) room)
                  (endpoint (format "rooms/%s/messages" (url-hexify-string id))))
@@ -970,13 +971,40 @@ Interactively, set the current buffer's ROOM's TOPIC."
                       (list "dir" "b")
                       (list "limit" (number-to-string number))
                       (list "filter" (json-encode ement-room-messages-filter)))
-        :then (apply-partially #'ement-room-retro-callback room)
+        :then then
         :else (lambda (plz-error)
                 (when buffer
                   (with-current-buffer buffer
                     (setf ement-room-retro-loading nil)))
                 (signal 'ement-api-error (list "Loading earlier messages failed" plz-error))))
       (setf ement-room-retro-loading t))))
+
+(cl-defun ement-room-retro-to (room session event-id &key then (batch-size 100) (limit 1000))
+  "Retrieve messages in ROOM on SESSION back to EVENT-ID."
+  (cl-assert
+   ;; Ensure the event hasn't already been retrieved.
+   (not (gethash event-id (ement-session-events session))))
+  (let* ((total-retrieved 0)
+         ;; TODO: Use letrec someday.
+         (callback-symbol (gensym "ement-room-retro-to-callback-"))
+         (callback (lambda (data)
+                     (ement-room-retro-callback room session data)
+                     (if (gethash event-id (ement-session-events session))
+                         (progn
+                           (message "Found event %S" event-id)
+                           (when then
+                             (funcall then)))
+                       ;; FIXME: What if it hits the beginning of the timeline?
+                       (if (>= (cl-incf total-retrieved batch-size) limit)
+                           (message "%s older events retrieved without finding event %S" limit event-id)
+                         (message "Looking back for event %S (%s/%s events retrieved)" event-id total-retrieved limit)
+                         (ement-room-retro room session  batch-size
+                                           :buffer (alist-get 'buffer (ement-room-local room))
+                                           :then callback-symbol))))))
+    (fset callback-symbol callback)
+    (ement-room-retro room session batch-size
+                      :buffer (alist-get 'buffer (ement-room-local room))
+                      :then callback-symbol)))
 
 ;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
 (declare-function ement--sync "ement.el" t t)
@@ -1256,7 +1284,7 @@ reaction string, e.g. \"👍\"."
 
 (declare-function ement--make-event "ement.el")
 (declare-function ement--put-event "ement.el")
-(defun ement-room-retro-callback (room data)
+(defun ement-room-retro-callback (room session data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room local) room)
 	       ((map _start end chunk state) data)
@@ -1736,11 +1764,22 @@ function to `ement-room-event-fns', which see."
 (defun ement-room-go-to-read-marker ()
   "Move to the read marker in the current room."
   (interactive)
-  (when ement-room-fully-read-marker
-    (goto-char (ewoc-location
-                (ement-room--ewoc-last-matching ement-ewoc
-                  (lambda (node-data)
-                    (eq 'ement-room-fully-read-marker node-data)))))))
+  (if ement-room-fully-read-marker
+      (goto-char (ewoc-location
+                  (ement-room--ewoc-last-matching ement-ewoc
+                    (lambda (node-data)
+                      (eq 'ement-room-fully-read-marker node-data)))))
+    (if-let ((fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal)))
+                                 (map-nested-elt event '(content event_id)))))
+        (let ((buffer (current-buffer)))
+          (message "Searching for first unread event...")
+          (ement-room-retro-to ement-room ement-session fully-read-event
+                               :then (lambda ()
+                                       (with-current-buffer buffer
+                                         ;; HACK: Should probably call this function elsewhere, in a hook or something.
+                                         (ement-room-move-read-markers ement-room)
+                                         (ement-room-go-to-read-marker)))))
+      (error "Room has no fully-read event"))))
 
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
   "Mark ROOM on SESSION as read on the server.
