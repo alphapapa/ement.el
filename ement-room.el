@@ -173,8 +173,11 @@ normal text.")
   "Emote message bodies.")
 
 (defface ement-room-self-message
-  '((t (:inherit (font-lock-variable-name-face ement-room-message-text))))
-  "Oneself's message bodies.")
+  '((t (:inherit (font-lock-variable-name-face))))
+  "Oneself's message bodies.
+Note that this does not need to inherit
+`ement-room-message-text', because that face is combined with
+this one automatically.")
 
 (defface ement-room-timestamp-header
   '((t (:inherit header-line :weight bold :height 1.1)))
