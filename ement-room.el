@@ -78,6 +78,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") #'ement-room-send-reaction)
+    (define-key map (kbd "a") #'ement-room-send-emote)
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "r") #'ement-view-room)
     (define-key map (kbd "R") #'ement-room-list)
@@ -1034,6 +1035,46 @@ the content. (e.g. see `ement-room-send-org-filter')."
                             (push (cons "formatted_body" formatted-body) it)))))
     (when replying-to-event
       (setf content (ement-room--add-reply content replying-to-event)))
+    (when ement-room-send-message-filter
+      (setf content (funcall ement-room-send-message-filter content)))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (apply-partially #'ement-room-send-event-callback :room room :session session
+                             :content content :data)) ;; Data is added when calling back.
+    ;; NOTE: This assumes that the selected window is the buffer's window.  For now
+    ;; this is almost surely the case, but in the future, we might let the function
+    ;; send messages to other rooms more easily, so this assumption might not hold.
+    (when window
+      (with-selected-window window
+        (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
+          ;; Point is on last event: advance it to eob so that when the event is received
+          ;; back, the window will scroll.  (This might not always be desirable, because
+          ;; the user might have point on that event for a reason, but I think in most
+          ;; cases, it will be what's expected and most helpful.)
+          (setf (window-point) (point-max)))))))
+
+(cl-defun ement-room-send-emote (room session &key body)
+  "Send emote to ROOM on SESSION with BODY.
+
+If `ement-room-send-message-filter' is non-nil, the message's
+content alist is passed through it before sending.  This may be
+used to, e.g. process the BODY into another format and add it to
+the content. (e.g. see `ement-room-send-org-filter')."
+  (interactive (progn
+                 (cl-assert ement-room) (cl-assert ement-session)
+                 (let* ((room ement-room)
+                        (session ement-session)
+                        (prompt (format "Send emote (%s): " (ement-room-display-name room)))
+                        (body (ement-room-with-typing
+                                (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
+                   (list room session :body body))))
+  (cl-assert (not (string-empty-p body)))
+  (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
+               (window (when buffer (get-buffer-window buffer)))
+               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                 "m.room.message" (cl-incf (ement-session-transaction-id session))))
+               (content (ement-aprog1
+                            (ement-alist "msgtype" "m.emote"
+                                         "body" body))))
     (when ement-room-send-message-filter
       (setf content (funcall ement-room-send-message-filter content)))
     (ement-api session endpoint :method 'put :data (json-encode content)
