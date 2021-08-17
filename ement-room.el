@@ -78,7 +78,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") #'ement-room-send-reaction)
-    (define-key map (kbd "a") #'ement-room-send-emote)
+    (define-key map (kbd "e") #'ement-room-send-emote)
     (define-key map (kbd "g") #'ement-room-sync)
     (define-key map (kbd "r") #'ement-view-room)
     (define-key map (kbd "R") #'ement-room-list)
