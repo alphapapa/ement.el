@@ -1255,6 +1255,7 @@ reaction string, e.g. \"👍\"."
     (error "Event not found in buffer: %S" (ement-event-id event))))
 
 (declare-function ement--make-event "ement.el")
+(declare-function ement--put-event "ement.el")
 (defun ement-room-retro-callback (room data)
   "Push new DATA to ROOM on SESSION and add events to room buffer."
   (pcase-let* (((cl-struct ement-room local) room)
@@ -1289,6 +1290,8 @@ reaction string, e.g. \"👍\"."
       ;; Append timeline events (in the "chunk").
       (cl-loop for event across-ref chunk
                do (setf event (ement--make-event event))
+               ;; HACK: Put events on events table.  See FIXME above about using the event hook.
+               (ement--put-event event nil session)
                (ement-progress-update)
                finally do (setf (ement-room-timeline room)
                                 (append (ement-room-timeline room) (append chunk nil))))
