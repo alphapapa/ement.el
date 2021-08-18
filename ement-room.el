@@ -790,7 +790,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                  (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
                                               nil nil 'confirm))
                         (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                                      file nil nil 'inherit-input-method)))
+                                                      (file-name-nondirectory file) nil nil 'inherit-input-method)))
                    (list file body ement-room ement-session))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
