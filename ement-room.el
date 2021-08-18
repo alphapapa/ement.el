@@ -185,8 +185,8 @@ this one automatically.")
 
 (defface ement-room-mention
   (if (version< emacs-version "27.1")
-      '((t (:inherit highlight)))
-    '((t (:inherit highlight :extend t))))
+      '((t (:inverse-video t)))
+    '((t (:inverse-video t :extend t))))
   "Messages that mention the local user.")
 
 ;;;;; Options
