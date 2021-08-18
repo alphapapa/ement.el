@@ -2389,6 +2389,7 @@ ROOM defaults to the value of `ement-room'."
 (defun ement-room--linkify-urls (string)
   "Return STRING with URLs in it made clickable."
   ;; Is there an existing Emacs function to do this?  I couldn't find one.
+  ;; Yes, maybe: `goto-address-mode'.  TODO: Try goto-address-mode.
   (with-temp-buffer
     (insert string)
     (goto-char (point-min))
