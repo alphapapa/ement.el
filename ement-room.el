@@ -863,6 +863,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                         ;; In case the join event is not in this next sync response, make sure
                                         ;; the room is found before removing the function and joining the room.
                                         (remove-hook 'ement-sync-callback-hook join-fn-symbol)
+                                        ;; FIXME: Probably need to unintern the symbol.
                                         (ement-view-room session room)))))
                 (setf (symbol-function join-fn-symbol) join-fn)
                 (when ement-room-join-view-buffer
@@ -908,6 +909,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                 (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" id-or-alias)))
                        (leave-fn (lambda (_session)
                                    (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                                   ;; FIXME: Probably need to unintern the symbol.
                                    (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
                                      (when (buffer-live-p buffer)
                                        (kill-buffer buffer))))))
@@ -995,6 +997,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                      (if (gethash event-id (ement-session-events session))
                          (progn
                            (message "Found event %S" event-id)
+                           ;; FIXME: Probably need to unintern the symbol.
                            (when then
                              (funcall then)))
                        ;; FIXME: What if it hits the beginning of the timeline?
@@ -2517,12 +2520,14 @@ To be called from a minibuffer opened from
                        ;; we have to do some magic to get the new compose buffer to appear.
                        ;; TODO: Use letrec with Emacs 27.
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
+                       ;; FIXME: Probably need to unintern the symbol.
                        (ement-room-compose-message ement-room ement-session :body body)
                        (setf ement-room-send-message-filter send-message-filter)
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
                                                 (remove-hook 'window-configuration-change-hook show-buffer-fn-symbol)
+                                                ;; FIXME: Probably need to unintern the symbol.
                                                 (pop-to-buffer compose-buffer)
                                                 (set-input-method input-method))))
                          (fset show-buffer-fn-symbol show-buffer-fn)
