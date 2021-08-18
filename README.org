@@ -124,6 +124,7 @@ These bindings are common to all of the following buffer types:
 
 +  Write new message: ~RET~
 +  Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
++  Complete members and rooms at point: ~C-M-i~ (standard ~completion-at-point~ command).
 +  Compose message in a separate buffer (while writing in minibuffer): ~C-c '~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
 +  Send emote: ~e~
 +  Send reaction (a type of annotation) to event at point, or send same reaction at point: ~a~

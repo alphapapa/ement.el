@@ -1469,6 +1469,8 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
+        completion-at-point-functions
+        '(ement-room--member-names-and-ids ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
@@ -2863,6 +2865,74 @@ Web-compatible HTML output, using HTML like:
 		;; Contents.
 		(format "<pre><code class=\"src language-%s\"%s>%s</code></pre>"
 			lang label code))))))
+
+;;;;; Completion
+
+;; Completing member and room names.
+
+(defun ement-room--complete-members-at-point ()
+  "Complete member names and IDs at point.
+Uses members in the current buffer's room.  For use in
+`completion-at-point-functions'."
+  (let ((beg (save-excursion
+               (re-search-backward (rx (or bol bos blank)))
+               (1+ (point))))
+        (end (point))
+        (collection-fn (completion-table-dynamic
+                        ;; The manual seems to show the FUN ignoring any
+                        ;; arguments, but the `completion-table-dynamic' docstring
+                        ;; seems to say that it should use the argument.
+                        (lambda (_ignore)
+                          (ement-room--member-names-and-ids)))))
+    (list beg end collection-fn :exclusive 'no)))
+
+(defun ement-room--complete-rooms-at-point ()
+  "Complete room aliases and IDs at point.
+For use in `completion-at-point-functions'."
+  (let ((beg (save-excursion
+               (re-search-backward (rx (or bol bos blank)))
+               (1+ (point))))
+        (end (point))
+        (collection-fn (completion-table-dynamic
+                        ;; The manual seems to show the FUN ignoring any
+                        ;; arguments, but the `completion-table-dynamic' docstring
+                        ;; seems to say that it should use the argument.
+                        (lambda (_ignore)
+                          (ement-room--room-aliases-and-ids)))))
+    (list beg end collection-fn :exclusive 'no)))
+
+(defun ement-room--member-names-and-ids ()
+  "Return a list of member names and IDs seen in current room.
+For use in `completion-at-point-functions'."
+  ;; For now, we just collect a list of members from events we've seen.
+  ;; TODO: In the future, we may maintain a per-room table of members, which
+  ;; would be more suitable for completing names according to the spec.
+  (let* ((room (if (minibufferp)
+                   (buffer-local-value
+                    'ement-room (window-buffer (minibuffer-selected-window)))
+                 ement-room))
+         (ewoc (if (minibufferp)
+                   (buffer-local-value
+                    'ement-ewoc (window-buffer (minibuffer-selected-window)))
+                 ement-ewoc))
+         (members-seen (mapcar #'ement-event-sender
+                               (ewoc-collect ewoc #'ement-event-p))))
+    (delete-dups
+     (cl-loop for member in members-seen
+              collect (ement-user-id member)
+              collect (ement-room--user-display-name member room)))))
+
+(defun ement-room--room-aliases-and-ids ()
+  "Return a list of room names and aliases seen in current session.
+For use in `completion-at-point-functions'."
+  (let* ((session (if (minibufferp)
+                      (buffer-local-value
+                       'ement-session (window-buffer (minibuffer-selected-window)))
+                    ement-session)))
+    (delete-dups
+     (delq nil (cl-loop for room in (ement-session-rooms session)
+                        collect (ement-room-id room)
+                        collect (ement-room-canonical-alias room))))))
 
 ;;;; Footer
 
