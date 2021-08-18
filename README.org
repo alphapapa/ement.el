@@ -10,6 +10,8 @@
 
 Ement.el is a new Matrix client for Emacs.  It's basic at the moment, but it can be used to send and read messages (including replies and images), join and leave rooms, etc.
 
+Feel free to join us in the chat room: =#ement.el:matrix.org=.
+
 * Contents                                                         :noexport:
 :PROPERTIES:
 :TOC:      :include siblings
