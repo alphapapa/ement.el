@@ -1474,7 +1474,7 @@ and erases the buffer."
         '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
-        imenu-create-index-function #'ement-room--imenu-index-function
+        imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
@@ -1666,18 +1666,21 @@ data slot."
 Needed to display things in the header line."
   (replace-regexp-in-string (rx "%") "%%" string t t))
 
-(defun ement-room--generate-imenu-item (node)
-  "Generate an imenu cons cell from NODE."
-  (cons (format-time-string (string-trim ement-room-timestamp-header-with-date-format) (cadr (ewoc-data node))) (ewoc-location node)))
+;;;;; Imenu
 
-(defun ement-room--timestamp-event-p (node)
-  "Return non-nil if NODE is a timestamp event."
-  (let ((event (ewoc-data node)))
-    (and (listp event) (eq (car event) 'ts))))
-
-(defun ement-room--imenu-index-function ()
-  "Generate imenu index for the current room."
-  (map 'array #'ement-room--generate-imenu-item (ement-room--ewoc-collect-nodes ement-ewoc #'ement-room--timestamp-event-p)))
+(defun ement-room--imenu-create-index-function ()
+  "Return Imenu index for the current buffer.
+For use as `imenu-create-index-function'."
+  (let ((timestamp-nodes (ement-room--ewoc-collect-nodes
+                          ement-ewoc (lambda (node)
+                                       (pcase (ewoc-data node)
+                                         (`(ts . ,_) t)))))
+        (ts-format (string-trim ement-room-timestamp-header-with-date-format)))
+    (cl-loop for node in timestamp-nodes
+             collect (pcase-let*
+                         ((`(ts ,timestamp) (ewoc-data node))
+                          (formatted (format-time-string ts-format timestamp)))
+                       (cons formatted (ewoc-location node))))))
 
 ;;;;; Events
 
