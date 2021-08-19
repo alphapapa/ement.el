@@ -692,6 +692,7 @@ of the string."
   (save-match-data
     ;; This function may be called from a chain of others that use the match data, so
     ;; rather than depending on all of them to save the match data, we do it here.
+    ;; FIXME: Member names containing spaces aren't matched.  Can this even be fixed reasonably?
     (when (string-match (rx bos (group (1+ (not blank))) (or ":" ",") (1+ blank)) string)
       (when-let* ((member-name (match-string 1 string))
                   ;; HACK: Since we don't currently keep a list of all
