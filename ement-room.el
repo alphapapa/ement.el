@@ -1473,7 +1473,7 @@ and erases the buffer."
   (remove-overlays)
   (setf buffer-read-only t
         completion-at-point-functions
-        '(ement-room--member-names-and-ids ement-room--complete-rooms-at-point)
+        '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
