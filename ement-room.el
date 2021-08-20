@@ -1892,8 +1892,13 @@ the first and last nodes in the buffer, respectively."
                            (and (ement-event-p node-data)
                                 (not (equal "m.room.member" (ement-event-type node-data))))))
          (ewoc ement-ewoc)
-         (end-pos (ewoc-location (or end-node
-                                     (ewoc-nth ewoc -1))))
+         (end-node (or end-node
+                       (ewoc-nth ewoc -1)))
+         (end-pos (if end-node
+                      (ewoc-location end-node)
+                    ;; HACK: Trying to work around a bug in case the
+                    ;; room doesn't seem to have any events yet.
+                    (point-max)))
          (node-b (or start-node (ewoc-nth ewoc 0)))
          node-a)
     ;; On the first loop iteration, node-a is set to the first matching
