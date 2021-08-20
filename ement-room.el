@@ -1902,7 +1902,8 @@ the first and last nodes in the buffer, respectively."
                       node-b (when node-a
                                (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
                 (not (or (> (ewoc-location node-a) end-pos)
-                         (> (ewoc-location node-b) end-pos))))
+                         (when node-b
+                           (> (ewoc-location node-b) end-pos)))))
       (cl-labels ((format-event
                    (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
                                    (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
