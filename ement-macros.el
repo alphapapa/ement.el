@@ -54,12 +54,13 @@ keywords are supported:
   :buffer BUFFER   Name of buffer to pass to `display-warning'.
   :level  LEVEL    Level passed to `display-warning', which see.
                    Default is :debug."
-  (pcase-let* ((fn-name (with-current-buffer
-                            (or byte-compile-current-buffer (current-buffer))
-                          ;; This is a hack, but a nifty one.
-                          (save-excursion
-                            (beginning-of-defun)
-                            (cl-second (read (current-buffer))))))
+  ;; TODO: Can we use a compiler macro to handle this more elegantly?
+  (pcase-let* ((fn-name (when byte-compile-current-buffer
+                          (with-current-buffer byte-compile-current-buffer
+                            ;; This is a hack, but a nifty one.
+                            (save-excursion
+                              (beginning-of-defun)
+                              (cl-second (read (current-buffer)))))))
                (plist-args (cl-loop while (keywordp (car args))
                                     collect (pop args)
                                     collect (pop args)))
@@ -77,8 +78,18 @@ keywords are supported:
                                                     (_ "...)"))
                                                   ":%S "))))))
     (when (eq :debug warning-minimum-log-level)
-      `(progn
-         (display-warning ',fn-name (format ,string ,@args) ,level ,buffer)
+      `(let ((fn-name ,(if fn-name
+                           `',fn-name
+                         ;; In an interpreted function: use `backtrace-frame' to get the
+                         ;; function name (we have to use a little hackery to figure out
+                         ;; how far up the frame to look, but this seems to work).
+                         `(cl-loop for frame in (backtrace-frames)
+                                   for fn = (cl-second frame)
+                                   when (not (or (subrp fn)
+                                                 (special-form-p fn)
+                                                 (eq 'backtrace-frames fn)))
+                                   return (make-symbol (format "%s [interpreted]" fn))))))
+         (display-warning fn-name (format ,string ,@args) ,level ,buffer)
          nil))))
 
 ;;;; Macros
