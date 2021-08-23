@@ -146,7 +146,7 @@ call `pop-to-buffer'."
   (setf tabulated-list-format (vector
                                '("U" 1 t) '("B" 1 t)
                                ;; '("U" 1 t)
-                               '("D" 1 t) ; Direct
+                               '("d" 1 t) ; Direct
                                (list (propertize "🐱"
                                                  'help-echo "Avatar")
                                      4 t) ; Avatar
@@ -267,7 +267,7 @@ To be called in `ement-sync-callback-hook'."
                                       'value session))
                ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
                (e-direct-p (if (ement-room--direct-p room session)
-                               (propertize "D" 'help-echo "Direct room")
+                               (propertize "d" 'help-echo "Direct room")
                              ""))
                ;; (e-priority (cond (favorite-p "F")
                ;;                   (low-priority-p "l")
