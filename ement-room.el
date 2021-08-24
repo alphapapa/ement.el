@@ -1474,6 +1474,7 @@ and erases the buffer."
         '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
+        imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
@@ -1664,6 +1665,22 @@ data slot."
   "Return STRING with \"%\" escaped.
 Needed to display things in the header line."
   (replace-regexp-in-string (rx "%") "%%" string t t))
+
+;;;;; Imenu
+
+(defun ement-room--imenu-create-index-function ()
+  "Return Imenu index for the current buffer.
+For use as `imenu-create-index-function'."
+  (let ((timestamp-nodes (ement-room--ewoc-collect-nodes
+                          ement-ewoc (lambda (node)
+                                       (pcase (ewoc-data node)
+                                         (`(ts . ,_) t)))))
+        (ts-format (string-trim ement-room-timestamp-header-with-date-format)))
+    (cl-loop for node in timestamp-nodes
+             collect (pcase-let*
+                         ((`(ts ,timestamp) (ewoc-data node))
+                          (formatted (format-time-string ts-format timestamp)))
+                       (cons formatted (ewoc-location node))))))
 
 ;;;;; Events
 
@@ -1924,6 +1941,16 @@ last node."
            when (funcall predicate (ewoc-data node))
            return node
            do (setf node (ewoc-prev ewoc node))))
+
+(defun ement-room--ewoc-collect-nodes (ewoc predicate)
+  "Collect all nodes in EWOC matching PREDICATE.
+PREDICATE is called with the full node."
+  ;; Intended to be like `ewoc-collect', but working with the full node instead of just the node's data.
+  (cl-loop with node = (ewoc-nth ewoc 0)
+           do (setf node (ewoc-next ewoc node))
+           while node
+           when (funcall predicate node)
+           collect node))
 
 (defun ement-room--insert-ts-headers (&optional start-node end-node)
   "Insert timestamp headers into current buffer's `ement-ewoc'.
