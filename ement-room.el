@@ -892,35 +892,35 @@ string."
     (string (setf room (ement-afirst (or (equal room (ement-room-canonical-alias it))
                                          (equal room (ement-room-id it)))
                          (ement-session-rooms session)))))
-  (when (yes-or-no-p (format "Leave room %S (%s)? "
-                             (ement-room-display-name room)
-                             (or (ement-room-canonical-alias room)
-                                 (ement-room-id room))))
-    (pcase-let* (((cl-struct ement-room id) room)
-                 (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
-      (ement-api session endpoint :method 'post :data ""
-        :then (lambda (_data)
-                ;; NOTE: This generates a symbol and sets its function value to a lambda
-                ;; which removes the symbol from the hook, removing itself from the hook.
-                ;; TODO: When requiring Emacs 27, use `letrec'.
-                (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
-                       (leave-fn (lambda (_session)
-                                   (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
-                                   ;; FIXME: Probably need to unintern the symbol.
-                                   (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
-                                     (when (buffer-live-p buffer)
-                                       (kill-buffer buffer))))))
-                  (setf (symbol-function leave-fn-symbol) leave-fn)
-                  (when ement-room-leave-kill-buffer
-                    (add-hook 'ement-sync-callback-hook leave-fn-symbol))
-                  (message "Left room: %s" room)))
-        :else (lambda (plz-error)
-                (pcase-let* (((cl-struct plz-error response) plz-error)
-                             ((cl-struct plz-response status body) response)
-                             ((map error) (json-read-from-string body)))
-                  (pcase status
-                    (429 (error "Unable to leave room %s: %s" room error))
-                    (_ (error "Unable to leave room %s: %s %S" room status plz-error)))))))))
+  (let ((display-name (ement-room-display-name room))
+        (id-or-alias (or (ement-room-canonical-alias room)
+                         (ement-room-id room))))
+    (when (yes-or-no-p (format "Leave room %S (%s)? " display-name id-or-alias))
+      (pcase-let* (((cl-struct ement-room id) room)
+                   (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
+        (ement-api session endpoint :method 'post :data ""
+          :then (lambda (_data)
+                  ;; NOTE: This generates a symbol and sets its function value to a lambda
+                  ;; which removes the symbol from the hook, removing itself from the hook.
+                  ;; TODO: When requiring Emacs 27, use `letrec'.
+                  (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
+                         (leave-fn (lambda (_session)
+                                     (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                                     ;; FIXME: Probably need to unintern the symbol.
+                                     (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
+                                       (when (buffer-live-p buffer)
+                                         (kill-buffer buffer))))))
+                    (setf (symbol-function leave-fn-symbol) leave-fn)
+                    (when ement-room-leave-kill-buffer
+                      (add-hook 'ement-sync-callback-hook leave-fn-symbol))
+                    (message "Left room: %s (%s)" display-name id-or-alias)))
+          :else (lambda (plz-error)
+                  (pcase-let* (((cl-struct plz-error response) plz-error)
+                               ((cl-struct plz-response status body) response)
+                               ((map error) (json-read-from-string body)))
+                    (pcase status
+                      (429 (error "Unable to leave room %s: %s" room error))
+                      (_ (error "Unable to leave room %s: %s %S" room status plz-error))))))))))
 (defalias 'ement-leave-room #'ement-room-leave)
 
 (defun ement-room-goto-prev ()
