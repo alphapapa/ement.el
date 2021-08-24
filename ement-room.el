@@ -2720,31 +2720,33 @@ a copy of the local keymap, and sets `header-line-format'."
       ("leave"
        (pcase prev-membership
          ("invite"
-          (if (equal (ement-user-id sender) state-key)
-              (format "%s rejected invitation"
-                      (propertize sender-name
-                                  'help-echo (ement-user-id sender)))
-            (format "%s revoked %s's invitation"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key))))
+          (pcase state-key
+            ((pred (equal (ement-user-id sender)))
+             (format "%s rejected invitation"
+                     (propertize sender-name
+                                 'help-echo (ement-user-id sender))))
+            (_ (format "%s revoked %s's invitation"
+                       (propertize sender-name
+                                   'help-echo (ement-user-id sender))
+                       (propertize (or new-displayname state-key)
+                                   'help-echo state-key)))))
          ("join"
-          (if (equal (ement-user-id sender) state-key)
-              (format "%s left%s"
-                      (propertize (or prev-displayname sender-name)
-                                  'help-echo (ement-user-id sender))
-                      (if reason
-                          (format " (%s)" reason)
-                        ""))
-            (format "%s kicked %s%s"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key)
-                    (if reason
-                        (format " (%s)" reason)
-                      ""))))
+          (pcase state-key
+            ((pred (equal (ement-user-id sender)))
+             (format "%s left%s"
+                     (propertize (or prev-displayname sender-name)
+                                 'help-echo (ement-user-id sender))
+                     (if reason
+                         (format " (%s)" reason)
+                       "")))
+            (_ (format "%s kicked %s%s"
+                       (propertize sender-name
+                                   'help-echo (ement-user-id sender))
+                       (propertize (or new-displayname state-key)
+                                   'help-echo state-key)
+                       (if reason
+                           (format " (%s)" reason)
+                         "")))))
          ("ban"
           (format "%s unbanned %s"
                   (propertize sender-name
