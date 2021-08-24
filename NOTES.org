@@ -3,19 +3,47 @@
 * Tasks
 
 ** PROJECT Invited rooms
+:PROPERTIES:
+:ID:       bad4dbe4-4f86-479a-a346-e7d89bf39f92
+:END:
 :LOGBOOK:
 -  State "PROJECT"    from              [2021-08-23 Mon 16:32]
 :END:
 
 i.e. showing invitations, not sending them (a separate issue)
 
-*** TODO Column in room list for room type
+*** TODO Make join-room command default to current room in invited-room buffers
+
+*** MAYBE Show room preview for invited rooms
+:PROPERTIES:
+:ID:       acf07f25-3425-466b-83f6-81fb192f8e17
+:END:
+
+Not sure how this is intended to work, e.g. in Element sometimes rooms seem to show a preview in direct rooms, so you can see what someone said before you accept the invitation to the room.  But other times, it seems necessary to join the room first (maybe that's onl for encrypted rooms, which seem to be the default for direct rooms in Element).
+
+*** CANCELED Column in room list for room type
+CLOSED: [2021-08-23 Mon 19:22]
+:PROPERTIES:
+:ID:       a1078833-9637-488c-8fb9-cf989b35e970
+:END:
 
 i.e. =j= for joined, =i= for invited, =l= for left, and maybe some others for archived or forgotten, depending on what the spec calls for.
 
-*** TODO Show invited rooms in rooms list
+[2021-08-23 Mon 19:22]  Decided that the extra column didn't look nice, and isn't that useful.  Better to just use a different face and topic message for invited rooms.
 
-*** TODO Store =invite_state= for invited rooms
+*** DONE Set footer of invited rooms to a clickable link to join the room
+CLOSED: [2021-08-23 Mon 19:21]
+
+*** DONE Save room type in struct
+CLOSED: [2021-08-23 Mon 19:22]
+
+I don't see a straightforward way to know what a room's type is, other than saving it to a struct slot when processing a sync response, depending on which set of rooms it appears in.
+
+*** DONE Show invited rooms in rooms list
+CLOSED: [2021-08-23 Mon 19:22]
+
+*** DONE Store =invite_state= for invited rooms
+CLOSED: [2021-08-23 Mon 19:22]
 
 According to the [[file:worktrees/spec/matrix-spec-r0.6.1.org::#get-_matrixclientr0sync][spec]]:
 
@@ -23,13 +51,6 @@ According to the [[file:worktrees/spec/matrix-spec-r0.6.1.org::#get-_matrixclien
 The state of a room that the user has been invited to. These state events may only have the =sender=, =type=, =state_key= and =content= keys present. These events do not replace any state that the client already has for the room, for example if the client has archived the room. Instead the client should keep two separate copies of the state: the one from the =invite_state= and one from the archived =state=. If the client joins the room then the current state will be given as a delta against the archived =state= not the =invite_state=.
 #+END_QUOTE
 
-*** TODO Set footer of invited rooms to a clickable link to join the room
-
-*** TODO Make join-room command default to current room in invited-room buffers
-
-*** MAYBE Show room preview for invited rooms
-
-Not sure how this is intended to work, e.g. in Element sometimes rooms seem to show a preview in direct rooms, so you can see what someone said before you accept the invitation to the room.  But other times, it seems necessary to join the room first (maybe that's onl for encrypted rooms, which seem to be the default for direct rooms in Element).
 
 ** DONE [#A] Subsequent syncs overwrite prev-batch token               :bug:
 CLOSED: [2020-12-05 Sat 00:13]
