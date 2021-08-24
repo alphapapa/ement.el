@@ -4,7 +4,7 @@
 
 # Note: This readme works with the org-make-toc <https://github.com/alphapapa/org-make-toc> package, which automatically updates the table of contents.
 
-#+HTML: <img src="images/logo64-2.png" align="right">
+#+HTML: <img src="images/logo-128px.png" align="right">
 
 # [[https://melpa.org/#/package-name][file:https://melpa.org/packages/package-name-badge.svg]] [[https://stable.melpa.org/#/package-name][file:https://stable.melpa.org/packages/package-name-badge.svg]]
 
