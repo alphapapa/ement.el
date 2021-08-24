@@ -617,13 +617,14 @@ To be called in `ement-sync-callback-hook'."
 Adds sender to `ement-users' when necessary."
   (pcase-let* (((map content type unsigned
                      ('event_id id) ('origin_server_ts ts)
-                     ('sender sender-id) ('state_key _state-key))
+                     ('sender sender-id) ('state_key state-key))
                 event)
                (sender (or (gethash sender-id ement-users)
                            (puthash sender-id (make-ement-user
                                                :id sender-id :room-display-names (make-hash-table))
                                     ement-users))))
-    (make-ement-event :id id :sender sender :type type :content content
+    ;; MAYBE: Handle other keys in the event, such as "room_id" in "invite" events.
+    (make-ement-event :id id :sender sender :type type :content content :state-key state-key
                       :origin-server-ts ts :unsigned unsigned)))
 
 (defun ement--put-event (event _room session)

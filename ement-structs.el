@@ -43,7 +43,7 @@
   )
 
 (cl-defstruct ement-event
-  id sender content origin-server-ts type unsigned
+  id sender content origin-server-ts type unsigned state-key
   ;; The local slot is an alist used by the local client only.
   local)
 

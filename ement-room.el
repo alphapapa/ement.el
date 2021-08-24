@@ -1028,6 +1028,7 @@ sync requests."
                              :content (ement-event-content event)
                              :origin-server-ts (ement-event-origin-server-ts event)
                              :type (ement-event-type event)
+                             :state-key (ement-event-state-key event)
                              :unsigned (ement-event-unsigned event)))
          (inhibit-read-only t))
     (with-current-buffer (get-buffer-create buffer-name)
@@ -2625,33 +2626,116 @@ a copy of the local keymap, and sets `header-line-format'."
 
 (require 'widget)
 
-(defun ement-room--membership-help-echo (window _object pos)
-  "Return membership event string for POS in WINDOW.
-For use as a `help-echo' function on `ement-user' headings."
-  (with-selected-window window
-    (format "%S" (ement-event-content (ewoc-data (ewoc-locate ement-ewoc pos))))))
-
-;; (defun ement-room--membership-help-echo (widget)
-;;   "Return membership event string for WIDGET."
-;;   (format "%S" (ement-event-content (widget-value widget))))
-
 (define-widget 'ement-room-membership 'item
   "Widget for membership events."
   ;; FIXME: This makes it hard to add a timestamp according to the buffer's message format spec.
   :format "%{ %v %}"
   :sample-face 'ement-room-membership
-  ;; FIXME: Using the :help-echo property on the widget doesn't seem to work, seemingly something to do with the widget
-  ;; hierarchy (using `widget-forward' says "No buttons or fields found"), so we use 'help-echo on the string for now.
-  ;;  :help-echo #'ement-room--membership-help-echo
   :value-create (lambda (widget)
-                  (pcase-let* ((event (widget-value widget))
-                               ((cl-struct ement-event sender content) event)
-                               ((map membership reason) content)
-                               (displayname (ement-room--user-display-name sender ement-room))
-                               (reason-string (if reason (concat ": " reason) ""))
-                               (string (format "%s (%s%s)" membership displayname reason-string)))
-                    (insert (propertize string
-                                        'help-echo #'ement-room--membership-help-echo)))))
+                  (pcase-let* ((event (widget-value widget)))
+                    (insert (ement-room--format-member-event event)))))
+
+(defun ement-room--format-member-event (event)
+  "Return formatted string for \"m.room.member\" EVENT."
+  ;; SPEC: Section 9.3.4: "m.room.member".
+  (pcase-let* (((cl-struct ement-event sender state-key
+                           (content (map reason ('membership new-membership) ('displayname new-displayname)))
+                           (unsigned (map ('prev_content (map ('membership prev-membership)
+                                                              ('displayname prev-displayname))))))
+                event)
+               (sender-name (ement-room--user-display-name sender ement-room)))
+    (pcase-exhaustive new-membership
+      ("invite"
+       (pcase prev-membership
+         ((or "leave" 'nil)
+          (format "%s invited %s"
+                  (propertize sender-name
+                              'help-echo (ement-user-id sender))
+                  (propertize (or new-displayname state-key)
+                              'help-echo state-key)))
+         (_ (format "%s sent unrecognized invite event for %s"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key)))))
+      ("join"
+       (pcase prev-membership
+         ("invite"
+          (format "%s accepted invitation to join"
+                  (propertize sender-name
+                              'help-echo state-key)))
+         ("join"
+          (format "%s changed name/avatar"
+                  (propertize sender-name
+                              'help-echo state-key)))
+         ("leave"
+          (format "%s rejoined"
+                  (propertize sender-name
+                              'help-echo state-key)))
+         ('nil
+          (format "%s joined"
+                  (propertize sender-name
+                              'help-echo state-key)))
+         (_ (format "%s sent unrecognized join event for %s"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key)))))
+      ("leave"
+       (pcase prev-membership
+         ("invite"
+          (if (equal (ement-user-id sender) state-key)
+              (format "%s rejected invitation"
+                      (propertize sender-name
+                                  'help-echo (ement-user-id sender)))
+            (format "%s revoked %s's invitation"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key))))
+         ("join"
+          (if (equal (ement-user-id sender) state-key)
+              (format "%s left%s"
+                      (propertize (or prev-displayname sender-name)
+                                  'help-echo (ement-user-id sender))
+                      (if reason
+                          (format " (%s)" reason)
+                        ""))
+            (format "%s kicked %s"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key))))
+         ("ban"
+          (format "%s unbanned %s"
+                  (propertize sender-name
+                              'help-echo (ement-user-id sender))
+                  (propertize (or new-displayname state-key)
+                              'help-echo state-key)))
+         (_ (format "%s sent unrecognized leave event for %s"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key)))))
+      ("ban"
+       (pcase prev-membership
+         ((or "invite" "leave")
+          (format "%s banned %s"
+                  (propertize sender-name
+                              'help-echo (ement-user-id sender))
+                  (propertize (or new-displayname state-key)
+                              'help-echo state-key)))
+         ("join"
+          (format "%s kicked and banned %s"
+                  (propertize sender-name
+                              'help-echo (ement-user-id sender))
+                  (propertize (or new-displayname state-key)
+                              'help-echo state-key)))
+         (_ (format "%s sent unrecognized ban event for %s"
+                    (propertize sender-name
+                                'help-echo (ement-user-id sender))
+                    (propertize (or new-displayname state-key)
+                                'help-echo state-key))))))))
 
 ;;;;; Images
 
