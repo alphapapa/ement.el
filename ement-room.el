@@ -1773,6 +1773,9 @@ function to `ement-room-event-fns', which see."
     (with-silent-modifications
       (ewoc-set-hf ement-ewoc "" footer))))
 
+(ement-room-defevent "m.room.avatar"
+  (ement-room--insert-event event))
+
 (ement-room-defevent "m.room.member"
   (with-silent-modifications
     (ement-room--insert-event event)))
@@ -2210,6 +2213,7 @@ seconds."
   "Return EVENT in ROOM on SESSION formatted.
 Formats according to `ement-room-message-format-spec', which see."
   (concat (pcase (ement-event-type event)
+            ;; TODO: Define these with a macro, like the defevent and format-spec ones.
             ("m.room.message" (ement-room--format-message event room session))
             ("m.room.member"
              (widget-create 'ement-room-membership
@@ -2219,6 +2223,11 @@ Formats according to `ement-room-message-format-spec', which see."
             ("m.reaction"
              ;; Handled by defevent-based handler.
              "")
+            ("m.room.avatar"
+             (propertize (format " %s changed the room's avatar"
+                                 (propertize (ement-room--user-display-name (ement-event-sender event) room)
+                                             'help-echo (ement-user-id (ement-event-sender event))))
+                         'face 'ement-room-membership))
             (_ (propertize (format "[sender:%s type:%s]"
                                    (ement-user-id (ement-event-sender event))
                                    (ement-event-type event))
