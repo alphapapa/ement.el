@@ -2916,8 +2916,7 @@ show it in the buffer."
 (defun ement-room--m.image-callback (event room data)
   "Add downloaded image from DATA to EVENT in ROOM.
 Then invalidate EVENT's node to show the image."
-  (pcase-let* (((cl-struct ement-room (local room-local)) room)
-               ((map buffer) room-local))
+  (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (setf (map-elt (ement-event-local event) 'image) data)
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
