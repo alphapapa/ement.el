@@ -2680,103 +2680,89 @@ a copy of the local keymap, and sets `header-line-format'."
                                                               ('displayname prev-displayname))))))
                 event)
                (sender-name (ement-room--user-display-name sender ement-room)))
-    (pcase-exhaustive new-membership
-      ("invite"
-       (pcase prev-membership
-         ((or "leave" 'nil)
-          (format "%s invited %s"
-                  (propertize sender-name
-                              'help-echo (ement-user-id sender))
-                  (propertize (or new-displayname state-key)
-                              'help-echo state-key)))
-         (_ (format "%s sent unrecognized invite event for %s"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key)))))
-      ("join"
-       (pcase prev-membership
-         ("invite"
-          (format "%s accepted invitation to join"
-                  (propertize sender-name
-                              'help-echo state-key)))
-         ("join"
-          (format "%s changed name/avatar"
-                  (propertize sender-name
-                              'help-echo state-key)))
-         ("leave"
-          (format "%s rejoined"
-                  (propertize sender-name
-                              'help-echo state-key)))
-         ('nil
-          (format "%s joined"
-                  (propertize sender-name
-                              'help-echo state-key)))
-         (_ (format "%s sent unrecognized join event for %s"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key)))))
-      ("leave"
-       (pcase prev-membership
-         ("invite"
-          (pcase state-key
-            ((pred (equal (ement-user-id sender)))
-             (format "%s rejected invitation"
-                     (propertize sender-name
-                                 'help-echo (ement-user-id sender))))
-            (_ (format "%s revoked %s's invitation"
-                       (propertize sender-name
-                                   'help-echo (ement-user-id sender))
-                       (propertize (or new-displayname state-key)
-                                   'help-echo state-key)))))
-         ("join"
-          (pcase state-key
-            ((pred (equal (ement-user-id sender)))
-             (format "%s left%s"
-                     (propertize (or prev-displayname sender-name)
-                                 'help-echo (ement-user-id sender))
-                     (if reason
-                         (format " (%s)" reason)
-                       "")))
-            (_ (format "%s kicked %s%s"
-                       (propertize sender-name
-                                   'help-echo (ement-user-id sender))
-                       (propertize (or new-displayname state-key)
-                                   'help-echo state-key)
+    (cl-macrolet ((sender-name-id-string
+                   () `(propertize sender-name
+                                   'help-echo (ement-user-id sender)))
+                  (new-displayname-state-key-string
+                   () `(propertize (or new-displayname state-key)
+                                   'help-echo state-key))
+                  (sender-name-state-key-string
+                   () `(propertize sender-name
+                                   'help-echo state-key))
+                  (prev-displayname-id-string
+                   () `(propertize (or prev-displayname sender-name)
+                                   'help-echo (ement-user-id sender))))
+      (pcase-exhaustive new-membership
+        ("invite"
+         (pcase prev-membership
+           ((or "leave" 'nil)
+            (format "%s invited %s"
+                    (sender-name-id-string)
+                    (new-displayname-state-key-string)))
+           (_ (format "%s sent unrecognized invite event for %s"
+                      (sender-name-id-string)
+                      (new-displayname-state-key-string)))))
+        ("join"
+         (pcase prev-membership
+           ("invite"
+            (format "%s accepted invitation to join"
+                    (sender-name-state-key-string)))
+           ("join"
+            (format "%s changed name/avatar"
+                    (sender-name-state-key-string)))
+           ("leave"
+            (format "%s rejoined"
+                    (sender-name-state-key-string)))
+           ('nil
+            (format "%s joined"
+                    (sender-name-state-key-string)))
+           (_ (format "%s sent unrecognized join event for %s"
+                      (sender-name-id-string)
+                      (new-displayname-state-key-string)))))
+        ("leave"
+         (pcase prev-membership
+           ("invite"
+            (pcase state-key
+              ((pred (equal (ement-user-id sender)))
+               (format "%s rejected invitation"
+                       (sender-name-id-string)))
+              (_ (format "%s revoked %s's invitation"
+                         (sender-name-id-string)
+                         (new-displayname-state-key-string)))))
+           ("join"
+            (pcase state-key
+              ((pred (equal (ement-user-id sender)))
+               (format "%s left%s"
+                       (prev-displayname-id-string)
                        (if reason
                            (format " (%s)" reason)
-                         "")))))
-         ("ban"
-          (format "%s unbanned %s"
-                  (propertize sender-name
-                              'help-echo (ement-user-id sender))
-                  (propertize (or new-displayname state-key)
-                              'help-echo state-key)))
-         (_ (format "%s sent unrecognized leave event for %s"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key)))))
-      ("ban"
-       (pcase prev-membership
-         ((or "invite" "leave")
-          (format "%s banned %s"
-                  (propertize sender-name
-                              'help-echo (ement-user-id sender))
-                  (propertize (or new-displayname state-key)
-                              'help-echo state-key)))
-         ("join"
-          (format "%s kicked and banned %s"
-                  (propertize sender-name
-                              'help-echo (ement-user-id sender))
-                  (propertize (or new-displayname state-key)
-                              'help-echo state-key)))
-         (_ (format "%s sent unrecognized ban event for %s"
-                    (propertize sender-name
-                                'help-echo (ement-user-id sender))
-                    (propertize (or new-displayname state-key)
-                                'help-echo state-key))))))))
+                         "")))
+              (_ (format "%s kicked %s%s"
+                         (sender-name-id-string)
+                         (new-displayname-state-key-string)
+                         (if reason
+                             (format " (%s)" reason)
+                           "")))))
+           ("ban"
+            (format "%s unbanned %s"
+                    (sender-name-id-string)
+                    (new-displayname-state-key-string)))
+           (_ (format "%s sent unrecognized leave event for %s"
+                      (sender-name-id-string)
+                      (new-displayname-state-key-string)))))
+        ("ban"
+         (pcase prev-membership
+           ((or "invite" "leave")
+            (format "%s banned %s"
+                    (sender-name-id-string)
+                    (new-displayname-state-key-string)))
+           ("join"
+            (format "%s kicked and banned %s"
+                    (sender-name-id-string)
+                    (new-displayname-state-key-string)))
+           (_ (format "%s sent unrecognized ban event for %s"
+                      (sender-name-id-string)
+                      (new-displayname-state-key-string)))))))))
 
 ;;;;; Images
 
