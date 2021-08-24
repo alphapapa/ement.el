@@ -1529,13 +1529,43 @@ data slot."
             :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
                           (map-nested-elt event '(content event_id)))
             :fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data room) nil nil #'equal)))
-                                (map-nested-elt event '(content event_id)))))
+                                (map-nested-elt event '(content event_id))))
+          ;; Set initial header and footer.
+          (let ((header (if (cl-find-if (apply-partially #'equal "m.room.encryption")
+                                        (ement-room-invite-state ement-room)
+                                        :key #'ement-event-type)
+                            (propertize "This appears to be an encrypted room, which is not natively supported by Ement.el.  (See information about using Pantalaimon in Ement.el documentation.)"
+                                        'face 'font-lock-warning-face)
+                          ""))
+                (footer (pcase (ement-room-type ement-room)
+                          ;; Set header and footer for an invited room.
+                          ('invite
+                           (concat (propertize "You've been invited to this room.  "
+                                               'face 'font-lock-warning-face)
+                                   (propertize "[Join this room]"
+                                               'button '(t)
+                                               'category 'default-button
+                                               'mouse-face 'highlight
+                                               'follow-link t
+                                               'action (lambda (_button)
+                                                         ;; Kill the room buffer so it can be recreated after joining
+                                                         ;; (which will cleanly update the room's name, footer, etc).
+                                                         (let ((room ement-room)
+                                                               (session ement-session))
+                                                           (kill-buffer)
+                                                           (message "Joining room... (buffer will be reopened after joining)")
+                                                           (ement-room-join (ement-room-id room) session))))))
+                          (_ ""))))
+            (ewoc-set-hf ement-ewoc header footer)))
         ;; Return the buffer!
         new-buffer)))
 
 (defun ement-room--room-display-name (room)
   "Return the displayname for ROOM."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
+  ;; NOTE: The spec seems incomplete, because the algorithm it recommends does not say how
+  ;; or when to use "m.room.member" events for rooms without heroes (e.g. invited rooms).
+  ;; TODO: Add SESSION argument and use it to remove local user from names.
   (cl-labels ((latest-event (type content-field)
                             (or (cl-loop for event in (ement-room-timeline room)
                                          when (and (equal type (ement-event-type event))
@@ -1545,6 +1575,16 @@ data slot."
                                          when (and (equal type (ement-event-type event))
                                                    (not (string-empty-p (alist-get content-field (ement-event-content event)))))
                                          return (alist-get content-field (ement-event-content event)))))
+              (member-events-name
+               () (when-let ((member-events (cl-loop for accessor in '(ement-room-timeline ement-room-state ement-room-invite-state)
+                                                     append (cl-remove-if-not (apply-partially #'equal "m.room.member")
+                                                                              (funcall accessor room)
+                                                                              :key #'ement-event-type))))
+                    (string-join (delete-dups
+                                  (mapcar (lambda (event)
+                                            (ement-room--user-display-name (ement-event-sender event) room))
+                                          member-events))
+                                 ", ")))
               (heroes-name
                () (pcase-let* (((cl-struct ement-room summary) room)
                                ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
@@ -1582,6 +1622,7 @@ data slot."
     (or (latest-event "m.room.name" 'name)
         (latest-event "m.room.canonical_alias" 'alias)
         (heroes-name)
+        (member-events-name)
         (ement-room-id room))))
 
 (defun ement-room--user-display-name (user room)

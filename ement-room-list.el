@@ -80,6 +80,12 @@
   "Show room avatars in the room list."
   :type 'boolean)
 
+;;;;; Faces
+
+(defface ement-room-list-invited
+  '((t (:inherit italic)))
+  "Invited rooms.")
+
 ;;;; Bookmark support
 
 ;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
@@ -241,9 +247,12 @@ To be called in `ement-sync-callback-hook'."
                                          new-avatar)
                                    new-avatar))
                            ""))
-               (name-face (if (and buffer (buffer-modified-p buffer))
-                              '(:inherit (bold button))
-                            '(:inherit button)))
+               (name-face (cond ((eq 'invite (ement-room-type room))
+                                 '(:inherit (bold button ement-room-list-invited)))
+                                ((and buffer (buffer-modified-p buffer))
+                                 '(:inherit (bold button)))
+                                (t
+                                 '(:inherit button))))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
                                          ;; HACK: Apply face here, otherwise tabulated-list overrides it.
@@ -254,15 +263,19 @@ To be called in `ement-sync-callback-hook'."
                             ;; Remove newlines from topic.  Yes, this can happen.
                             (replace-regexp-in-string "\n" "" topic t t)
                           ""))
-               (formatted-timestamp (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
-                                                              t))
-               (e-latest (progn
-                           (when (string-empty-p formatted-timestamp)
-                             ;; FIXME: Remove this check when ts-0.3 is released
-                             ;; (with the fix also included in ts-0.2.1).
-                             (message "Ement: Please upgrade the `ts' library to fix a bug")
-                             (setf formatted-timestamp "0s"))
-                           (propertize formatted-timestamp 'value latest-ts)))
+               (formatted-timestamp (if latest-ts
+                                        (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
+                                                                  t)
+                                      ""))
+               (e-latest (or (progn
+                               (when (string-empty-p formatted-timestamp)
+                                 ;; FIXME: Remove this check when ts-0.3 is released
+                                 ;; (with the fix also included in ts-0.2.1).
+                                 (message "Ement: Please upgrade the `ts' library to fix a bug")
+                                 (setf formatted-timestamp "0s"))
+                               (propertize formatted-timestamp 'value latest-ts))
+                             ;; Invited rooms don't have a latest-ts.
+                             ""))
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
                ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
@@ -272,7 +285,12 @@ To be called in `ement-sync-callback-hook'."
                ;; (e-priority (cond (favorite-p "F")
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
-               (e-members (number-to-string member-count)))
+               (e-members (if member-count (number-to-string member-count) "")))
+    (pcase (ement-room-type room)
+      ('invite
+       (setf e-topic (concat (propertize "[invited]"
+                                         'face 'ement-room-list-invited)
+                             " " e-topic))))
     (list room (vector e-unread e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
                        ;; e-priority e-tags
@@ -287,15 +305,20 @@ To be called in `ement-sync-callback-hook'."
 A and B should be entries from `tabulated-list-mode'."
   (pcase-let* ((`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
                (`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
-    (< (string-to-number a-members) (string-to-number b-members))))
+    (when (and a-members b-members)
+      ;; Invited rooms may have no member count (I think).
+      (< (string-to-number a-members) (string-to-number b-members)))))
 
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
   (pcase-let* ((`(,_room-a [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
-               (`(,_room-b [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b))
-    (< (get-text-property 0 'value a-latest)
-       (get-text-property 0 'value b-latest))))
+               (`(,_room-b [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b)
+               (a-latest (get-text-property 0 'value a-latest))
+               (b-latest (get-text-property 0 'value b-latest)))
+    (when (and a-latest b-latest)
+      ;; Invited rooms have no latest timestamp.
+      (< a-latest b-latest))))
 
 ;;;; Footer
 

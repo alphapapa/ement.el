@@ -409,21 +409,39 @@ Runs `ement-sync-callback-hook' with SESSION."
   (setf (map-elt ement-syncs session) nil)
   (pcase-let* (((map rooms ('next_batch next-batch) ('account_data (map ('events account-data-events))))
                 data)
-               ((map ('join joined-rooms)) rooms)
-               ;; FIXME: Only counts events in joined-rooms list.
-               ;; HACK: In `ement--push-joined-room-events', we do
-               ;; something with each event 3 times, so we multiply
-               ;; this by 3.
-               (num-events (* 3 (cl-loop for (_id . room) in joined-rooms
-                                         sum (length (map-nested-elt room '(state events)))
-                                         sum (length (map-nested-elt room '(timeline events)))))))
+               ((map ('join joined-rooms) ('invite invited-rooms)) rooms)
+               (num-events (+
+                            ;; HACK: In `ement--push-joined-room-events', we do something
+                            ;; with each event 3 times, so we multiply this by 3.
+                            ;; FIXME: That calculation doesn't seem to be quite right, because
+                            ;; the progress reporter never seems to hit 100% before it's done.
+                            (* 3 (cl-loop for (_id . room) in joined-rooms
+                                          sum (length (map-nested-elt room '(state events)))
+                                          sum (length (map-nested-elt room '(timeline events)))))
+                            (cl-loop for (_id . room) in invited-rooms
+                                     sum (length (map-nested-elt room '(invite_state events)))))))
+    ;; Append account data events.
     (cl-callf2 append (cl-coerce account-data-events 'list) (ement-session-account-data session))
+    ;; Process invited and joined rooms.
     (ement-with-progress-reporter (:when (ement--sync-messages-p session)
                                          :reporter ("Ement: Reading events..." 0 num-events))
+      ;; Invited rooms.
+      (mapc (apply-partially #'ement--push-invite-room-events session) invited-rooms)
+      ;; Joined rooms.
       (mapc (apply-partially #'ement--push-joined-room-events session) joined-rooms))
     ;; TODO: Process "left" rooms (remove room structs, etc).
+    ;; NOTE: We update the next-batch token before updating any room buffers.  This means
+    ;; that any errors in updating room buffers (like for unexpected event formats that
+    ;; expose a bug) could cause events to not appear in the buffer, but the user could
+    ;; still dismiss the error and start syncing again, and the client could remain
+    ;; usable.  Updating the token after doing everything would be preferable in some
+    ;; ways, but it would mean that an event that exposes a bug would be processed again
+    ;; on every sync, causing the same error each time.  It would seem preferable to
+    ;; maintain at least some usability rather than to keep repeating a broken behavior.
     (setf (ement-session-next-batch session) next-batch)
+    ;; Run hooks which update buffers, etc.
     (run-hook-with-args 'ement-sync-callback-hook session)
+    ;; Show sync message if appropriate, and run after-initial-sync-hook.
     (when (ement--sync-messages-p session)
       (message (concat "Ement: Sync done."
                        (unless (ement-session-has-synced-p session)
@@ -431,6 +449,23 @@ Runs `ement-sync-callback-hook' with SESSION."
                          ;; Show tip after initial sync.
                          (setf (ement-session-has-synced-p session) t)
                          "  Use commands `ement-list-rooms' or `ement-view-room' to view a room."))))))
+
+(defun ement--push-invite-room-events (session invited-room)
+  "Push events for INVITED-ROOM into that room in SESSION."
+  ;; TODO: Make ement-session-rooms a hash-table.
+  (pcase-let* ((`(,invited-room-id . ,(map ('invite_state (map events)))) invited-room)
+               (invited-room-id (symbol-name invited-room-id))
+               (room (or (cl-find-if (apply-partially #'equal invited-room-id)
+                                     (ement-session-rooms session)
+                                     :key #'ement-room-id)
+                         (car (push (make-ement-room :id invited-room-id)
+                                    (ement-session-rooms session))))))
+    (setf (ement-room-type room) 'invite)
+    ;; Push the StrippedState events to the room's invite-state.
+    ;; (These events have no timestamp data.)
+    (cl-loop for event across-ref events do
+             (setf event (ement--make-event event))
+             (push event (ement-room-invite-state room)))))
 
 (defun ement--auto-sync (session)
   "If `ement-auto-sync' is non-nil, sync SESSION again."
@@ -475,6 +510,7 @@ To be called in `ement-sync-callback-hook'."
   "Push events for JOINED-ROOM into that room in SESSION."
   (pcase-let* ((`(,id . ,event-types) joined-room)
                (id (symbol-name id)) ; Really important that the ID is a STRING!
+               ;; TODO: Make ement-session-rooms a hash-table.
                (room (or (cl-find-if (lambda (room)
                                        (equal id (ement-room-id room)))
                                      (ement-session-rooms session))
@@ -485,6 +521,7 @@ To be called in `ement-sync-callback-hook'."
                 event-types)
                (latest-timestamp))
     (ignore unread-notifications summary state ephemeral)
+    (setf (ement-room-type room) 'join)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means
