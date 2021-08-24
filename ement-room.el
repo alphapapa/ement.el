@@ -2737,11 +2737,14 @@ a copy of the local keymap, and sets `header-line-format'."
                       (if reason
                           (format " (%s)" reason)
                         ""))
-            (format "%s kicked %s"
+            (format "%s kicked %s%s"
                     (propertize sender-name
                                 'help-echo (ement-user-id sender))
                     (propertize (or new-displayname state-key)
-                                'help-echo state-key))))
+                                'help-echo state-key)
+                    (if reason
+                        (format " (%s)" reason)
+                      ""))))
          ("ban"
           (format "%s unbanned %s"
                   (propertize sender-name
