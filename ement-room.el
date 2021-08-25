@@ -2757,9 +2757,11 @@ a copy of the local keymap, and sets `header-line-format'."
             (format "%s unbanned %s"
                     (sender-name-id-string)
                     (new-displayname-sender-name-state-key-string)))
-           (_ (format "%s sent unrecognized leave event for %s"
-                      (sender-name-id-string)
-                      (new-displayname-sender-name-state-key-string)))))
+           (_ (format "%s left%s"
+                      (prev-displayname-id-string)
+                      (if reason
+                          (format " (%s)" reason)
+                        "")))))
         ("ban"
          (pcase prev-membership
            ((or "invite" "leave")
