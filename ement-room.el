@@ -138,7 +138,7 @@ In that case, sender names are aligned to the margin edge.")
   "Room name shown in header line.")
 
 (defface ement-room-membership
-  '((t (:inherit font-lock-comment-face)))
+  '((t (:height 0.8 :inherit font-lock-comment-face)))
   "Membership events (join/part).")
 
 (defface ement-room-reactions
