@@ -2688,8 +2688,8 @@ a copy of the local keymap, and sets `header-line-format'."
     (cl-macrolet ((sender-name-id-string
                    () `(propertize sender-name
                                    'help-echo (ement-user-id sender)))
-                  (new-displayname-state-key-string
-                   () `(propertize (or new-displayname state-key)
+                  (new-displayname-sender-name-state-key-string
+                   () `(propertize (or new-displayname sender-name state-key)
                                    'help-echo state-key))
                   (sender-name-state-key-string
                    () `(propertize sender-name
@@ -2700,30 +2700,35 @@ a copy of the local keymap, and sets `header-line-format'."
       (pcase-exhaustive new-membership
         ("invite"
          (pcase prev-membership
-           ((or "leave" 'nil)
+           ((or "leave" '())
             (format "%s invited %s"
                     (sender-name-id-string)
-                    (new-displayname-state-key-string)))
+                    (new-displayname-sender-name-state-key-string)))
            (_ (format "%s sent unrecognized invite event for %s"
                       (sender-name-id-string)
-                      (new-displayname-state-key-string)))))
+                      (new-displayname-sender-name-state-key-string)))))
         ("join"
          (pcase prev-membership
            ("invite"
             (format "%s accepted invitation to join"
                     (sender-name-state-key-string)))
            ("join"
-            (format "%s changed name/avatar"
-                    (sender-name-state-key-string)))
+            (cond ((and new-displayname prev-displayname
+                        (not (equal new-displayname prev-displayname)))
+                   (propertize (format "%s changed name to %s"
+                                       prev-displayname new-displayname)
+                               'help-echo state-key))
+                  (t (format "%s changed avatar"
+                             (new-displayname-sender-name-state-key-string)))))
            ("leave"
             (format "%s rejoined"
                     (sender-name-state-key-string)))
-           ('nil
+           ('()
             (format "%s joined"
-                    (sender-name-state-key-string)))
+                    (new-displayname-sender-name-state-key-string)))
            (_ (format "%s sent unrecognized join event for %s"
                       (sender-name-id-string)
-                      (new-displayname-state-key-string)))))
+                      (new-displayname-sender-name-state-key-string)))))
         ("leave"
          (pcase prev-membership
            ("invite"
@@ -2733,7 +2738,7 @@ a copy of the local keymap, and sets `header-line-format'."
                        (sender-name-id-string)))
               (_ (format "%s revoked %s's invitation"
                          (sender-name-id-string)
-                         (new-displayname-state-key-string)))))
+                         (new-displayname-sender-name-state-key-string)))))
            ("join"
             (pcase state-key
               ((pred (equal (ement-user-id sender)))
@@ -2744,30 +2749,30 @@ a copy of the local keymap, and sets `header-line-format'."
                          "")))
               (_ (format "%s kicked %s%s"
                          (sender-name-id-string)
-                         (new-displayname-state-key-string)
+                         (new-displayname-sender-name-state-key-string)
                          (if reason
                              (format " (%s)" reason)
                            "")))))
            ("ban"
             (format "%s unbanned %s"
                     (sender-name-id-string)
-                    (new-displayname-state-key-string)))
+                    (new-displayname-sender-name-state-key-string)))
            (_ (format "%s sent unrecognized leave event for %s"
                       (sender-name-id-string)
-                      (new-displayname-state-key-string)))))
+                      (new-displayname-sender-name-state-key-string)))))
         ("ban"
          (pcase prev-membership
            ((or "invite" "leave")
             (format "%s banned %s"
                     (sender-name-id-string)
-                    (new-displayname-state-key-string)))
+                    (new-displayname-sender-name-state-key-string)))
            ("join"
             (format "%s kicked and banned %s"
                     (sender-name-id-string)
-                    (new-displayname-state-key-string)))
+                    (new-displayname-sender-name-state-key-string)))
            (_ (format "%s sent unrecognized ban event for %s"
                       (sender-name-id-string)
-                      (new-displayname-state-key-string)))))))))
+                      (new-displayname-sender-name-state-key-string)))))))))
 
 ;;;;; Images
 
