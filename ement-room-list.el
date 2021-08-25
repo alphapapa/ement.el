@@ -263,12 +263,7 @@ To be called in `ement-sync-callback-hook'."
                                         (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
                                                                   t)
                                       ""))
-               (e-latest (or (progn
-                               (when (string-empty-p formatted-timestamp)
-                                 ;; FIXME: Remove this check when ts-0.3 is released
-                                 ;; (with the fix also included in ts-0.2.1).
-                                 (message "Ement: Please upgrade the `ts' library to fix a bug")
-                                 (setf formatted-timestamp "0s"))
+               (e-latest (or (when formatted-timestamp
                                (propertize formatted-timestamp 'value latest-ts))
                              ;; Invited rooms don't have a latest-ts.
                              ""))
@@ -312,9 +307,12 @@ A and B should be entries from `tabulated-list-mode'."
                (`(,_room-b [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b)
                (a-latest (get-text-property 0 'value a-latest))
                (b-latest (get-text-property 0 'value b-latest)))
-    (when (and a-latest b-latest)
-      ;; Invited rooms have no latest timestamp.
-      (< a-latest b-latest))))
+    (cond ((and a-latest b-latest)
+           (< a-latest b-latest))
+          (b-latest
+           ;; Invited rooms have no latest timestamp, and we want to sort them first.
+           nil)
+          (t t))))
 
 ;;;; Footer
 
