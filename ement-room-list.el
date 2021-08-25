@@ -82,9 +82,21 @@
 
 ;;;;; Faces
 
+(defface ement-room-list-name
+  '((t (:inherit font-lock-function-name-face button)))
+  "Non-direct rooms.")
+
+(defface ement-room-list-direct
+  '((t (:inherit font-lock-constant-face ement-room-list-name)))
+  "Direct rooms.")
+
 (defface ement-room-list-invited
-  '((t (:inherit italic)))
+  '((t (:inherit italic ement-room-list-name)))
   "Invited rooms.")
+
+(defface ement-room-list-unread
+  '((t (:inherit bold ement-room-list-name)))
+  "Unread rooms.")
 
 ;;;; Bookmark support
 
@@ -243,12 +255,9 @@ To be called in `ement-sync-callback-hook'."
                                          new-avatar)
                                    new-avatar))
                            ""))
-               (name-face (cond ((eq 'invite (ement-room-type room))
-                                 '(:inherit (bold button ement-room-list-invited)))
-                                ((and buffer (buffer-modified-p buffer))
-                                 '(:inherit (bold button)))
-                                (t
-                                 '(:inherit button))))
+               ;; We have to copy the list, otherwise using `setf' on it
+               ;; later causes its value to be mutated for every entry.
+               (name-face (cl-copy-list '(:inherit (ement-room-list-name))))
                (e-name (list (propertize (or display-name
                                              (ement-room--room-display-name room))
                                          ;; HACK: Apply face here, otherwise tabulated-list overrides it.
@@ -277,11 +286,21 @@ To be called in `ement-sync-callback-hook'."
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
                (e-members (if member-count (number-to-string member-count) "")))
+    ;; Add face modifiers.
+    (when (and buffer (buffer-modified-p buffer))
+      ;; For some reason, `push' doesn't work with `map-elt'.
+      (setf (map-elt name-face :inherit)
+            (cons 'ement-room-list-unread (map-elt name-face :inherit))))
+    (when (ement-room--direct-p room session)
+      (setf (map-elt name-face :inherit)
+            (cons 'ement-room-list-direct (map-elt name-face :inherit))))
     (pcase (ement-room-type room)
       ('invite
        (setf e-topic (concat (propertize "[invited]"
                                          'face 'ement-room-list-invited)
-                             " " e-topic))))
+                             " " e-topic)
+             (map-elt name-face :inherit) (cons 'ement-room-list-invited
+                                                (map-elt name-face :inherit)))))
     (list room (vector e-unread e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
                        ;; e-priority e-tags
