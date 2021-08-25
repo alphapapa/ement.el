@@ -1457,9 +1457,14 @@ DATA is an unsent message event's data alist."
                                           thereis (seq-contains room-ids room-id))))
     (pcase-let* (((cl-struct ement-session account-data) session)
                  ((cl-struct ement-room id) room))
-      (cl-loop for event in account-data
-               when (equal "m.direct" (alist-get 'type event))
-               thereis (content-contains-room-id (alist-get 'content event) id)))))
+      (or (cl-loop for event in account-data
+                   when (equal "m.direct" (alist-get 'type event))
+                   thereis (content-contains-room-id (alist-get 'content event) id))
+          (cl-loop
+           ;; Invited rooms have no account-data yet, and their
+           ;; directness flag is in invite-state events.
+           for event in (ement-room-invite-state room)
+           thereis (alist-get 'is_direct (ement-event-content event)))))))
 
 (define-derived-mode ement-room-mode fundamental-mode "Ement-Room"
   "Major mode for Ement room buffers.
