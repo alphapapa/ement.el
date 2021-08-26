@@ -1475,13 +1475,13 @@ and erases the buffer."
     (erase-buffer))
   (remove-overlays)
   (setf buffer-read-only t
-        completion-at-point-functions
-        '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
-        ement-ewoc (ewoc-create #'ement-room--pp-thing)))
+        ement-ewoc (ewoc-create #'ement-room--pp-thing))
+  (setq-local completion-at-point-functions
+              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
