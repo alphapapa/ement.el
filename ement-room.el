@@ -1521,8 +1521,13 @@ data slot."
                       (setf (map-elt (ement-room-local room) 'buffer) nil))
                     nil 'local)
           (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
-          ;; Clear new-events, because those only matter when a buffer is already open.
-          (setf (alist-get 'new-events (ement-room-local room)) nil)
+          (setf
+           ;; Clear new-events, because those only matter when a buffer is already open.
+           (alist-get 'new-events (ement-room-local room)) nil
+           ;; Set the new buffer in the room's local alist so that it
+           ;; can be used by event-inserting functions before this
+           ;; function returns, e.g. `ement-room--add-member-face'.
+           (alist-get 'buffer (ement-room-local room)) new-buffer)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
           (ement-room--handle-events (ement-room-state room))
