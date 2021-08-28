@@ -1854,11 +1854,11 @@ function to `ement-room-event-fns', which see."
                   (ement-room--ewoc-last-matching ement-ewoc
                     (lambda (node-data)
                       (eq 'ement-room-fully-read-marker node-data)))))
-    (if-let ((fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal)))
-                                 (map-nested-elt event '(content event_id)))))
+    (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
+              (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
         (let ((buffer (current-buffer)))
           (message "Searching for first unread event...")
-          (ement-room-retro-to ement-room ement-session fully-read-event
+          (ement-room-retro-to ement-room ement-session fully-read-event-id
                                :then (lambda ()
                                        (with-current-buffer buffer
                                          ;; HACK: Should probably call this function elsewhere, in a hook or something.
