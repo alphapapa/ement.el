@@ -546,6 +546,9 @@ To be called in `ement-sync-callback-hook'."
     ;; recent room name event.  However, chronological order is not guaranteed, e.g. after
     ;; loading older messages (the "retro" function; this behavior is in development).
 
+    ;; MAYBE: Use queue.el to store the events in a DLL, so they could
+    ;; be accessed from either end.  Could be useful.
+
     ;; Save room summary.
     (dolist (parameter '(m.heroes m.joined_member_count m.invited_member_count))
       (when (alist-get parameter summary)
