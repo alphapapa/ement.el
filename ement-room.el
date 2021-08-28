@@ -1850,10 +1850,11 @@ function to `ement-room-event-fns', which see."
   "Move to the read marker in the current room."
   (interactive)
   (if ement-room-fully-read-marker
-      (goto-char (ewoc-location
+      (let ((pos (ewoc-location
                   (ement-room--ewoc-last-matching ement-ewoc
                     (lambda (node-data)
-                      (eq 'ement-room-fully-read-marker node-data)))))
+                      (eq 'ement-room-fully-read-marker node-data))))))
+        (setf (point) pos (window-start) pos))
     (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
               (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
         (let ((buffer (current-buffer)))
