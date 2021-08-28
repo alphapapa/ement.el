@@ -1844,11 +1844,11 @@ function to `ement-room-event-fns', which see."
   "EWOC node for the room's fully-read marker.")
 
 (defface ement-room-read-receipt-marker
-  '((t (:inherit isearch)))
+  '((t (:inherit show-paren-match)))
   "Read marker line in rooms.")
 
 (defface ement-room-fully-read-marker
-  '((t (:inherit show-paren-match)))
+  '((t (:inherit isearch)))
   "Fully read marker line in rooms.")
 
 (defcustom ement-room-send-read-receipts t
