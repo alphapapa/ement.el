@@ -87,7 +87,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "RET") #'ement-room-send-message)
     (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
     (define-key map (kbd "S-SPC") #'ement-room-scroll-down-command)
-    (define-key map (kbd "M-SPC") #'ement-room-go-to-read-marker)
+    (define-key map (kbd "M-SPC") #'ement-room-goto-fully-read-marker)
     (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "TAB") #'ement-room-goto-next)
@@ -456,7 +456,7 @@ HTML first."
             (add-hook 'ement-room-compose-hook #'ement-room-compose-org))
            (_ (remove-hook 'ement-room-compose-hook #'ement-room-compose-org)))))
 
-(defcustom ement-room-mark-rooms-read 'send
+(defcustom ement-room-mark-rooms-read t
   "Mark rooms as read automatically.
 Moves read and fully-read markers in rooms on the server when
 `ement-room-scroll-up-mark-read' is called at the end of a
@@ -1481,7 +1481,9 @@ and erases the buffer."
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
   (setq-local completion-at-point-functions
-              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)))
+              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
+  (setq-local window-scroll-functions
+              (cons 'ement-room-start-read-receipt-timer window-scroll-functions)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
@@ -1832,13 +1834,16 @@ function to `ement-room-event-fns', which see."
   (ement-room-move-read-markers ement-room
     :fully-read-event (ement-event-id event)))
 
-(defvar-local ement-room-read-marker nil
-  "EWOC node for the room's read marker.")
+(defvar-local ement-room-read-receipt-marker nil
+  "EWOC node for the room's read-receipt marker.")
+
+(defvar-local ement-room-read-receipt-timer nil
+  "Timer that sets read receipt after scrolling.")
 
 (defvar-local ement-room-fully-read-marker nil
   "EWOC node for the room's fully-read marker.")
 
-(defface ement-room-read-marker
+(defface ement-room-read-receipt-marker
   '((t (:inherit isearch)))
   "Read marker line in rooms.")
 
@@ -1846,26 +1851,76 @@ function to `ement-room-event-fns', which see."
   '((t (:inherit show-paren-match)))
   "Fully read marker line in rooms.")
 
-(defun ement-room-go-to-read-marker ()
-  "Move to the read marker in the current room."
+(defcustom ement-room-send-read-receipts t
+  "Whether to send read receipts.
+Also controls whether the read-receipt marker in a room is moved
+automatically."
+  :type 'boolean)
+
+(defun ement-room-start-read-receipt-timer (window _pos)
+  "Start idle timer to set read-receipt to POS in WINDOW's room.
+Read receipt is sent if `ement-room-send-read-receipts' is
+non-nil, the read-receipt marker is between retrieved events, and
+WINDOW's end is beyond the marker.  For use in
+`window-scroll-functions'."
+  (with-selected-window window
+    (when (timerp ement-room-read-receipt-timer)
+      (cancel-timer ement-room-read-receipt-timer))
+    (when ement-room-send-read-receipts
+      ;; This is highly suboptimal, because this function is called
+      ;; from `window-scroll-functions', whose docstring says that
+      ;; `window-end' is not valid when this function is called.  So
+      ;; we have to call `window-end' from the idle timer, and the
+      ;; window might not even be visible or on the same buffer by
+      ;; that time; if that's the case, the receipt is not sent.
+
+      ;; MAYBE: Reduce idle time so the receipt is less likely to not
+      ;; get updated if the user only views a room's buffer for a
+      ;; short time.
+      (let ((room-buffer (window-buffer window)))
+        (run-with-idle-timer
+         3 nil (lambda ()
+                 (when (and (windowp window)
+                            (eq (window-buffer window) room-buffer))
+                   (with-selected-window window
+                     (when-let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
+                                                     (lambda (node-data)
+                                                       (eq 'ement-room-read-receipt-marker node-data)))))
+                       ;; The read-receipt marker is visible (i.e. it's not between
+                       ;; earlier events which we have not retrieved).
+                       (when (> (window-end) (ewoc-location read-receipt-node))
+                         ;; The window's end has been scrolled past the position of the receipt marker.
+                         (when-let* ((window-end-node (or (ewoc-locate ement-ewoc (window-end))
+                                                          (ewoc-nth ement-ewoc -1)))
+                                     (event-node (cl-typecase (ewoc-data window-end-node)
+                                                   (ement-event window-end-node)
+                                                   (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
+                                                        #'ement-event-p #'ewoc-prev)))))
+                           (ement-room-mark-read ement-room ement-session
+                             :read-event (ewoc-data event-node)))))))))))))
+
+(defun ement-room-goto-fully-read-marker ()
+  "Move to the fully-read marker in the current room."
   (interactive)
-  (if ement-room-fully-read-marker
-      (let ((pos (ewoc-location
-                  (ement-room--ewoc-last-matching ement-ewoc
-                    (lambda (node-data)
-                      (eq 'ement-room-fully-read-marker node-data))))))
-        (setf (point) pos (window-start) pos))
-    (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
-              (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
-        (let ((buffer (current-buffer)))
-          (message "Searching for first unread event...")
-          (ement-room-retro-to ement-room ement-session fully-read-event-id
-                               :then (lambda ()
-                                       (with-current-buffer buffer
-                                         ;; HACK: Should probably call this function elsewhere, in a hook or something.
-                                         (ement-room-move-read-markers ement-room)
-                                         (ement-room-go-to-read-marker)))))
-      (error "Room has no fully-read event"))))
+  (let ((fully-read-pos (when ement-room-fully-read-marker
+                          (ewoc-location ement-room-fully-read-marker))))
+    (if fully-read-pos
+        (setf (point) fully-read-pos (window-start) fully-read-pos)
+      ;; Unlike the fully-read marker, there doesn't seem to be a
+      ;; simple way to get the user's read-receipt marker.  So if
+      ;; we haven't seen either marker in the retrieved events, we
+      ;; go back to the fully-read marker.
+      (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
+                (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
+          (let ((buffer (current-buffer)))
+            (message "Searching for first unread event...")
+            (ement-room-retro-to ement-room ement-session fully-read-event-id
+                                 :then (lambda ()
+                                         (with-current-buffer buffer
+                                           ;; HACK: Should probably call this function elsewhere, in a hook or something.
+                                           (ement-room-move-read-markers ement-room)
+                                           (ement-room-goto-fully-read-marker)))))
+        (error "Room has no fully-read event")))))
 
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
   "Mark ROOM on SESSION as read on the server.
@@ -1878,17 +1933,35 @@ Interactively, mark both types as read up to event at point."
                      :read-event (ewoc-data (ewoc-locate ement-ewoc))
                      :fully-read-event (ewoc-data (ewoc-locate ement-ewoc))))
   (cl-assert room) (cl-assert session) (cl-assert (or read-event fully-read-event))
+  (if (not fully-read-event)
+      ;; Sending only a read receipt, which uses a different endpoint
+      ;; than when setting the fully-read marker or both.
+      (ement-room-send-receipt room session read-event)
+    ;; Setting the fully-read marker, and maybe the "m.read" one too.
+    (pcase-let* (((cl-struct ement-room (id room-id)) room)
+                 (endpoint (format "rooms/%s/read_markers" (url-hexify-string room-id)))
+                 (data (ement-alist "m.fully_read" (ement-event-id fully-read-event))))
+      (when read-event
+        (push (cons "m.read" (ement-event-id read-event)) data))
+      (ement-api session endpoint :method 'post :data (json-encode data)
+        :then (lambda (_data)
+                (ement-room-move-read-markers room
+                  :read-event read-event :fully-read-event fully-read-event))))))
+
+(cl-defun ement-room-send-receipt (room session event &key (type "m.read"))
+  "Send receipt of TYPE for EVENT to ROOM on SESSION."
   (pcase-let* (((cl-struct ement-room (id room-id)) room)
-               (endpoint (format "rooms/%s/read_markers" (url-hexify-string room-id)))
-               (data))
-    (when read-event
-      (push (cons "m.read" (ement-event-id read-event)) data))
-    (when fully-read-event
-      (push (cons "m.fully_read" (ement-event-id fully-read-event)) data))
-    (ement-api session endpoint :method 'post :data (json-encode data)
-      :then (lambda (_data)
-              (ement-room-move-read-markers room
-                :read-event read-event :fully-read-event fully-read-event)))))
+               ((cl-struct ement-event (id event-id)) event)
+               (endpoint (format "rooms/%s/receipt/%s/%s"
+                                 (url-hexify-string room-id) type
+                                 (url-hexify-string event-id))))
+    (ement-api session endpoint :method 'post :data "{}"
+      :then (pcase type
+              ("m.read" (lambda (_data)
+                          (ement-room-move-read-markers room
+                            :read-event event)))
+              ;; No other type is yet specified.
+              (_ #'ignore)))))
 
 (cl-defun ement-room-move-read-markers
     (room &key
@@ -1922,7 +1995,7 @@ updates the markers in ROOM's buffer, not on the server; see
       ;; MAYBE: Error if no buffer?  Or does it matter?
       (with-current-buffer buffer
         (when read-event
-          (update-marker 'ement-room-read-marker read-event))
+          (update-marker 'ement-room-read-receipt-marker read-event))
         (when fully-read-event
           (update-marker 'ement-room-fully-read-marker fully-read-event))))
     ;; NOTE: Return nil so that, in the event this function is called manually with `eval-expression',
@@ -2009,7 +2082,7 @@ the first and last nodes in the buffer, respectively."
                    (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
                           (pcase (ewoc-data node-after-a)
                             (`(ts . ,_) t)
-                            ((or 'ement-room-read-marker 'ement-room-fully-read-marker) t)))))
+                            ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t)))))
           (unless (equal (time-to-days a-ts) (time-to-days b-ts))
             ;; Different date: bind format to print date.
             (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
@@ -2082,7 +2155,7 @@ the first and last nodes in the buffer, respectively."
                while node-after-node-before
                while (pcase (ewoc-data node-after-node-before)
                        ;; MAYBE: Invert this and test that it's *not* an event node.
-                       ((or 'ement-room-read-marker 'ement-room-fully-read-marker) t))
+                       ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t))
                do (setf node-before node-after-node-before))
       (setf new-node (if (not node-before)
                          (progn
@@ -2207,7 +2280,7 @@ seconds."
         "")
       (propertize (format-time-string ement-room-timestamp-header-format ts)
                   'face 'ement-room-timestamp-header)))
-    ((or 'ement-room-read-marker 'ement-room-fully-read-marker)
+    ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker)
      (insert (propertize " "
                          'display '(space :width text :height (1))
                          'face thing)))))
