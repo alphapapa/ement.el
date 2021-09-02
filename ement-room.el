@@ -1131,7 +1131,7 @@ present in SESSION's events table, show an appropriate warning
 mentioning the ROOM and CONTENT."
   (pcase-let* (((map ('event_id event-id)) data))
     (if (gethash event-id (ement-session-events session))
-        (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which likely means that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-session-file', and connect again to start a new session."
+        (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which could mean that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-sessions-file', and connect again to start a new session.  Alternatively, this can happen if the event's sent-confirmation is received after the event itself is received in the next sync response, in which case no action is needed."
                                event-id (ement-user-id (ement-session-user session)) (ement-room-display-name room))))
           (when content
             (setf message (concat message (format " Event content: %S" content))))
