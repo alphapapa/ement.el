@@ -702,11 +702,19 @@ of the string."
                           (with-current-buffer (alist-get 'buffer (ement-room-local room))
                             (save-excursion
                               (goto-char (point-min))
-                              (cl-loop while (re-search-forward (regexp-quote member-name) nil t)
-                                       for event = (ewoc-data (ewoc-locate ement-ewoc))
-                                       for sender = (ement-event-sender event)
-                                       when (equal member-name (gethash room (ement-user-room-display-names sender)))
-                                       return sender)))))
+                              (cl-labels ((found-sender-p
+                                           (ewoc-data)
+                                           (when (ement-event-p ewoc-data)
+                                             (equal member-name
+                                                    (gethash room (ement-user-room-display-names (ement-event-sender ewoc-data)))))))
+                                (cl-loop with regexp = (regexp-quote member-name)
+                                         while (re-search-forward regexp nil t)
+                                         ;; NOTE: I don't know why, but sometimes the regexp
+                                         ;; search ends on a non-event line, like a timestamp
+                                         ;; header, so for now we just try to handle that case.
+                                         for maybe-event = (ewoc-data (ewoc-locate ement-ewoc))
+                                         when (found-sender-p maybe-event)
+                                         return (ement-event-sender maybe-event)))))))
                   (prism-color (or (ement-user-color user)
                                    (setf (ement-user-color user)
                                          (ement-room--user-color user)))))
