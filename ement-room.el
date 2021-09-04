@@ -2844,16 +2844,25 @@ a copy of the local keymap, and sets `header-line-format'."
         ("ban"
          (pcase prev-membership
            ((or "invite" "leave")
-            (format "%s banned %s"
+            (format "%s banned %s%s"
                     (sender-name-id-string)
-                    (new-displayname-sender-name-state-key-string)))
+                    (propertize (or prev-displayname state-key)
+                                'help-echo state-key)
+                    (if reason
+                        (format " (%s)" reason)
+                      "")))
            ("join"
-            (format "%s kicked and banned %s"
+            (format "%s kicked and banned %s%s"
                     (sender-name-id-string)
-                    (new-displayname-sender-name-state-key-string)))
+                    (propertize (or prev-displayname state-key)
+                                'help-echo state-key)
+                    (if reason
+                        (format " (%s)" reason)
+                      "")))
            (_ (format "%s sent unrecognized ban event for %s"
                       (sender-name-id-string)
-                      (new-displayname-sender-name-state-key-string)))))))))
+                      (propertize (or prev-displayname state-key)
+                                  'help-echo state-key)))))))))
 
 ;;;;; Images
 
