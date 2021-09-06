@@ -45,7 +45,6 @@
 (require 'cl-lib)
 (require 'tabulated-list)
 
-;; FIXME: Depend on ts.
 (require 'ts)
 
 (require 'ement)
