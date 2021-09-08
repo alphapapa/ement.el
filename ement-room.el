@@ -1506,6 +1506,8 @@ which see."
           "Bind keys and variables locally (to be called in minibuffer)."
           (setq-local ement-room room)
           (setq-local ement-session session)
+          (setq-local completion-at-point-functions
+                      '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
           (visual-line-mode 1))
       (read-from-minibuffer prompt initial-input ement-room-minibuffer-map
                             nil history default-value inherit-input-method))))
