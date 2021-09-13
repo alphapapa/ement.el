@@ -537,7 +537,7 @@ To be called in `ement-sync-callback-hook'."
                      ('unread_notifications unread-notifications))
                 event-types)
                (latest-timestamp))
-    (ignore unread-notifications summary state ephemeral)
+    (ignore unread-notifications)
     (setf (ement-room-type room) 'join)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
