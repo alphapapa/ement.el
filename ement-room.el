@@ -1036,8 +1036,14 @@ are sync batch tokens.  Used for, e.g. filling gaps in
                 (lambda (data)
                   (ement-room-retro-callback room session data
                                              :set-prev-batch nil)
-                  (pcase-let* (((map end) data))
-                    (unless (equal end to)
+                  (pcase-let* (((map end chunk) data))
+		    ;; HACK: Comparing the END and TO tokens ought to
+		    ;; work for determining whether we are done
+		    ;; filling, but it isn't (maybe the server isn't
+		    ;; returning the TO token as END when there are no
+		    ;; more events), so instead we'll check the length
+		    ;; of the chunk.
+                    (unless (< (length chunk) batch-size)
                       ;; More pages remain to be loaded.
                       (let ((remaining-limit (- limit batch-size)))
                         (if (not (> remaining-limit 0))
@@ -1046,16 +1052,16 @@ are sync batch tokens.  Used for, e.g. filling gaps in
                                                      (ement-room-display-name room)
                                                      (or (ement-room-canonical-alias room)
                                                          (ement-room-id room))))
-			  ;; FIXME: Remove this after testing.
-                          (message "Continuing to fill gap in %S (%S) (remaining limit: %s)"
+			  ;; FIXME: Remove this message after testing.
+                          (message "Ement: Continuing to fill gap in %S (%S) (remaining limit: %s)"
                                    (ement-room-display-name room)
                                    (or (ement-room-canonical-alias room)
                                        (ement-room-id room))
                                    remaining-limit)
                           (ement-room-retro-to-token
                            room session end to :limit remaining-limit))))))))
-    ;; FIXME: Remove this after testing.
-    (message "Filling gap in %S (%S)"
+    ;; FIXME: Remove this message after testing.
+    (message "Ement: Filling gap in %S (%S)"
 	     (ement-room-display-name room)
              (or (ement-room-canonical-alias room)
                  (ement-room-id room)))
