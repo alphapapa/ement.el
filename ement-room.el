@@ -962,6 +962,8 @@ string."
        (when (call-interactively #'ement-room-retro)
          (message "Loading earlier messages..."))))))
 
+;; TODO: Unify these retro-loading functions.
+
 (cl-defun ement-room-retro (room session number &key buffer
                                  (then (apply-partially #'ement-room-retro-callback room session)))
   ;; FIXME: Naming things is hard.
