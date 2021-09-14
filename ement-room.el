@@ -2697,6 +2697,7 @@ To be called from a minibuffer opened from
                        (remove-hook 'minibuffer-exit-hook compose-fn-symbol)
                        ;; FIXME: Probably need to unintern the symbol.
                        (ement-room-compose-message ement-room ement-session :body body)
+		       ;; FIXME: This doesn't propagate the send-message-filter to the minibuffer.
                        (setf ement-room-send-message-filter send-message-filter)
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
