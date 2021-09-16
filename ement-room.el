@@ -857,6 +857,18 @@ Interactively, set the current buffer's ROOM's TOPIC."
                      (or ement-session
                          (ement-complete-session))))
   (cl-assert id-or-alias) (cl-assert session)
+  (unless (string-match-p
+           ;; According to tulir in #matrix-dev:matrix.org, ": is not
+           ;; allowed in the localpart, all other valid unicode is
+           ;; allowed.  (user ids and room ids are the same over
+           ;; federation).  it's mostly a lack of validation in
+           ;; synapse (arbitrary unicode isn't intentionally allowed,
+           ;; but it's not disallowed either)".  See
+           ;; <https://matrix.to/#/!jxlRxnrZCsjpjDubDX:matrix.org/$Cnb53UQdYnGFizM49Aje_Xs0BxVdt-be7Dnm7_k-0ho>.
+           (rx bos (or "#" "!") (1+ (not (any ":")))
+               ":" (1+ (or alnum (any "-."))))
+           id-or-alias)
+    (user-error "Invalid room ID or alias (use, e.g. \"#ROOM-ALIAS:SERVER\")"))
   (let ((endpoint (format "join/%s" (url-hexify-string id-or-alias))))
     (ement-api session endpoint :method 'post :data ""
       :then (lambda (data)
