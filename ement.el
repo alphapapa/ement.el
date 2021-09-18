@@ -613,7 +613,23 @@ To be called in `ement-sync-callback-hook'."
     (cl-loop for event across (alist-get 'events timeline)
              do (run-hook-with-args 'ement-event-hook event room session)
              (when (ement--sync-messages-p session)
-               (ement-progress-update)))))
+               (ement-progress-update)))
+    (when (ement-session-has-synced-p session)
+      ;; NOTE: We don't fill gaps in "limited" requests on initial
+      ;; sync, only in subsequent syncs, e.g. after the system has
+      ;; slept and awakened.
+      ;; NOTE: When not limited, the read value is `:json-false', so
+      ;; we must explicitly compare to t.
+      (when (eq t (alist-get 'limited timeline))
+	;; Timeline was limited: start filling gap.  We start the
+	;; gap-filling, retrieving up to the session's current
+	;; next-batch token (this function is not called when retrieving
+	;; older messages, so the session's next-batch token is only
+	;; evaluated once, when this chain begins, and then that token
+	;; is passed to repeated calls to `ement-room-retro-to-token'
+	;; until the gap is filled).
+	(ement-room-retro-to-token room session (alist-get 'prev_batch timeline)
+				   (ement-session-next-batch session))))))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.

@@ -974,6 +974,8 @@ string."
        (when (call-interactively #'ement-room-retro)
          (message "Loading earlier messages..."))))))
 
+;; TODO: Unify these retro-loading functions.
+
 (cl-defun ement-room-retro (room session number &key buffer
                                  (then (apply-partially #'ement-room-retro-callback room session)))
   ;; FIXME: Naming things is hard.
@@ -1028,6 +1030,71 @@ string."
     (ement-room-retro room session batch-size
                       :buffer (alist-get 'buffer (ement-room-local room))
                       :then callback-symbol)))
+
+(cl-defun ement-room-retro-to-token (room session from to
+                                          &key (batch-size 100) (limit 1000))
+  "Retrieve messages in ROOM on SESSION back from FROM to TO.
+Retrieve batches of BATCH-SIZE up to total LIMIT.  FROM and TO
+are sync batch tokens.  Used for, e.g. filling gaps in
+\"limited\" sync responses."
+  ;; NOTE: We don't set `ement-room-retro-loading' since the room may
+  ;; not have a buffer.  This could theoretically allow a user to
+  ;; overlap manual scrollback-induced loading of old messages with
+  ;; this gap-filling loading, but that shouldn't matter, and probably
+  ;; would be very rare, anyway.
+  (pcase-let* (((cl-struct ement-room id) room)
+               (endpoint (format "rooms/%s/messages" (url-hexify-string id)))
+               (then
+                (lambda (data)
+                  (ement-room-retro-callback room session data
+                                             :set-prev-batch nil)
+                  (pcase-let* (((map end chunk) data))
+		    ;; HACK: Comparing the END and TO tokens ought to
+		    ;; work for determining whether we are done
+		    ;; filling, but it isn't (maybe the server isn't
+		    ;; returning the TO token as END when there are no
+		    ;; more events), so instead we'll check the length
+		    ;; of the chunk.
+                    (unless (< (length chunk) batch-size)
+                      ;; More pages remain to be loaded.
+                      (let ((remaining-limit (- limit batch-size)))
+                        (if (not (> remaining-limit 0))
+                            ;; FIXME: This leaves a gap if it's larger than 1,000 events.
+                            ;; Probably, the limit should be configurable, but it would be good
+                            ;; to find some way to remember the gap and fill it if the user
+                            ;; scrolls to it later (although that might be very awkward to do).
+                            (display-warning 'ement-room-retro-to-token
+                                             (format "Loaded events in %S (%S) without filling gap; not filling further"
+                                                     (ement-room-display-name room)
+                                                     (or (ement-room-canonical-alias room)
+                                                         (ement-room-id room))))
+			  ;; FIXME: Remove this message after further testing.
+                          (message "Ement: Continuing to fill gap in %S (%S) (remaining limit: %s)"
+                                   (ement-room-display-name room)
+                                   (or (ement-room-canonical-alias room)
+                                       (ement-room-id room))
+                                   remaining-limit)
+                          (ement-room-retro-to-token
+                           room session end to :limit remaining-limit))))))))
+    ;; FIXME: Remove this message after further testing.
+    (message "Ement: Filling gap in %S (%S)"
+	     (ement-room-display-name room)
+             (or (ement-room-canonical-alias room)
+                 (ement-room-id room)))
+    (ement-api session endpoint :timeout 30
+      :params (list (list "from" from)
+                    (list "to" to)
+                    (list "dir" "b")
+                    (list "limit" (number-to-string batch-size))
+                    (list "filter" (json-encode ement-room-messages-filter)))
+      :then then
+      :else (lambda (plz-error)
+              (signal 'ement-api-error
+                      (list (format "Filling gap in %S (%S) failed"
+                                    (ement-room-display-name room)
+                                    (or (ement-room-canonical-alias room)
+                                        (ement-room-id room)))
+                            plz-error))))))
 
 ;; NOTE: `declare-function' doesn't recognize cl-defun forms, so this declaration doesn't work.
 (declare-function ement--sync "ement.el" t t)
@@ -1316,8 +1383,13 @@ reaction string, e.g. \"👍\"."
 
 (declare-function ement--make-event "ement.el")
 (declare-function ement--put-event "ement.el")
-(defun ement-room-retro-callback (room session data)
-  "Push new DATA to ROOM on SESSION and add events to room buffer."
+(cl-defun ement-room-retro-callback (room session data
+                                          &key (set-prev-batch t))
+  "Push new DATA to ROOM on SESSION and add events to room buffer.
+If SET-PREV-BATCH is nil, don't set ROOM's prev-batch slot to the
+\"prev_batch\" token in response DATA (this should be set,
+e.g. when filling timeline gaps as opposed to retrieving messages
+before the earliest-seen message)."
   (pcase-let* (((cl-struct ement-room local) room)
 	       ((map _start end chunk state) data)
                ((map buffer) local)
@@ -1364,8 +1436,10 @@ reaction string, e.g. \"👍\"."
               (select-window buffer-window))
             ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
             (ement-room--handle-events chunk)
-            (setf (ement-room-prev-batch room) end
-                  ement-room-retro-loading nil)))))
+            (when set-prev-batch
+              ;; This feels a little hacky, but maybe not too bad.
+              (setf (ement-room-prev-batch room) end))
+            (setf ement-room-retro-loading nil)))))
     (message "Ement: Loaded %s earlier events." num-events)))
 
 (defun ement-room--insert-events (events &optional retro)
