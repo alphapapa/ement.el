@@ -1047,12 +1047,16 @@ are sync batch tokens.  Used for, e.g. filling gaps in
                       ;; More pages remain to be loaded.
                       (let ((remaining-limit (- limit batch-size)))
                         (if (not (> remaining-limit 0))
+                            ;; FIXME: This leaves a gap if it's larger than 1,000 events.
+                            ;; Probably, the limit should be configurable, but it would be good
+                            ;; to find some way to remember the gap and fill it if the user
+                            ;; scrolls to it later (although that might be very awkward to do).
                             (display-warning 'ement-room-retro-to-token
                                              (format "Loaded events in %S (%S) without filling gap; not filling further"
                                                      (ement-room-display-name room)
                                                      (or (ement-room-canonical-alias room)
                                                          (ement-room-id room))))
-			  ;; FIXME: Remove this message after testing.
+			  ;; FIXME: Remove this message after further testing.
                           (message "Ement: Continuing to fill gap in %S (%S) (remaining limit: %s)"
                                    (ement-room-display-name room)
                                    (or (ement-room-canonical-alias room)
@@ -1060,7 +1064,7 @@ are sync batch tokens.  Used for, e.g. filling gaps in
                                    remaining-limit)
                           (ement-room-retro-to-token
                            room session end to :limit remaining-limit))))))))
-    ;; FIXME: Remove this message after testing.
+    ;; FIXME: Remove this message after further testing.
     (message "Ement: Filling gap in %S (%S)"
 	     (ement-room-display-name room)
              (or (ement-room-canonical-alias room)
