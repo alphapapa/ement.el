@@ -1338,14 +1338,17 @@ reaction string, e.g. \"👍\"."
                     finally return (buffer-substring-no-properties beg (point)))))
         (key-at
          (pos) (cond ((face-at-point-p 'ement-room-reactions-key)
-                      (buffer-substring-while pos (apply-partially #'face-at-point-p 'ement-room-reactions-key)))
+                      (buffer-substring-while
+                       pos (lambda () (face-at-point-p 'ement-room-reactions-key))))
                      ((face-at-point-p 'ement-room-reactions)
                       ;; Point is in a reaction button but after the key.
-                      (buffer-substring-while (button-start (button-at pos))
-                                              (apply-partially #'face-at-point-p 'ement-room-reactions-key))))))
-     (list (or (key-at (point))
-               (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
-           (point))))
+                      (buffer-substring-while
+                       (button-start (button-at pos))
+                       (lambda () (face-at-point-p 'ement-room-reactions-key)))))))
+     (list
+      (or (key-at (point))
+          (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+      (point))))
   ;; HACK: We could simplify this by storing the key in a text property...
   (ement-room-with-highlighted-event-at position
     (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
@@ -1354,15 +1357,16 @@ reaction string, e.g. \"👍\"."
                  ;; hl-line-mode is enabled, it only returns the hl-line face.
                  ((cl-struct ement-event (id event-id)) event)
                  ((cl-struct ement-room (id room-id)) ement-room)
-                 (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                   "m.reaction" (cl-incf (ement-session-transaction-id ement-session))))
+                 (endpoint (format "rooms/%s/send/m.reaction/%s" (url-hexify-string room-id)
+                                   (cl-incf (ement-session-transaction-id ement-session))))
                  (content (ement-alist "m.relates_to"
                                        (ement-alist "rel_type" "m.annotation"
                                                     "event_id" event-id
                                                     "key" key))))
       (ement-api ement-session endpoint :method 'put :data (json-encode content)
-        :then (apply-partially #'ement-room-send-event-callback :room ement-room :session ement-session
-                               :content content :data)))))
+        :then (apply-partially #'ement-room-send-event-callback
+                               :room ement-room :session ement-session :content content
+                               :data)))))
 
 (defun ement-room-reaction-button-action (button)
   "Push reaction BUTTON at point."
