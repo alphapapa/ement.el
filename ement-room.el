@@ -877,15 +877,17 @@ Interactively, set the current buffer's ROOM's TOPIC."
               ;; TODO: When requiring Emacs 27, use `letrec'.
               (pcase-let* (((map ('room_id room-id)) data)
                            (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
-                           (join-fn (lambda (session)
-                                      (when-let ((room (cl-loop for room in (ement-session-rooms session)
-                                                                when (equal room-id (ement-room-id room))
-                                                                return room)))
-                                        ;; In case the join event is not in this next sync response, make sure
-                                        ;; the room is found before removing the function and joining the room.
-                                        (remove-hook 'ement-sync-callback-hook join-fn-symbol)
-                                        ;; FIXME: Probably need to unintern the symbol.
-                                        (ement-view-room room session)))))
+                           (join-fn
+                            (lambda (session)
+                              (when-let ((room (cl-loop for room in (ement-session-rooms session)
+                                                        when (equal room-id (ement-room-id room))
+                                                        return room)))
+                                ;; In case the join event is not in this next sync
+                                ;; response, make sure the room is found before removing
+                                ;; the function and joining the room.
+                                (remove-hook 'ement-sync-callback-hook join-fn-symbol)
+                                ;; FIXME: Probably need to unintern the symbol.
+                                (ement-view-room room session)))))
                 (setf (symbol-function join-fn-symbol) join-fn)
                 (when ement-room-join-view-buffer
                   (add-hook 'ement-sync-callback-hook join-fn-symbol))
@@ -904,7 +906,8 @@ Interactively, set the current buffer's ROOM's TOPIC."
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
 string."
-  ;; FIXME: Left rooms are not removed from the room list, because the "leave" rooms aren't yet handled in sync responses.
+  ;; FIXME: Left rooms are not removed from the room list, because the "leave" rooms
+  ;; aren't yet handled in sync responses.
   (interactive (ement-complete-room (ement-complete-session)))
   (cl-assert room) (cl-assert session)
   (cl-etypecase room
@@ -924,12 +927,13 @@ string."
                   ;; which removes the symbol from the hook, removing itself from the hook.
                   ;; TODO: When requiring Emacs 27, use `letrec'.
                   (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
-                         (leave-fn (lambda (_session)
-                                     (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
-                                     ;; FIXME: Probably need to unintern the symbol.
-                                     (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
-                                       (when (buffer-live-p buffer)
-                                         (kill-buffer buffer))))))
+                         (leave-fn
+                          (lambda (_session)
+                            (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                            ;; FIXME: Probably need to unintern the symbol.
+                            (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
+                              (when (buffer-live-p buffer)
+                                (kill-buffer buffer))))))
                     (setf (symbol-function leave-fn-symbol) leave-fn)
                     (when ement-room-leave-kill-buffer
                       (add-hook 'ement-sync-callback-hook leave-fn-symbol))
@@ -976,8 +980,9 @@ string."
 
 ;; TODO: Unify these retro-loading functions.
 
-(cl-defun ement-room-retro (room session number &key buffer
-                                 (then (apply-partially #'ement-room-retro-callback room session)))
+(cl-defun ement-room-retro
+    (room session number &key buffer
+          (then (apply-partially #'ement-room-retro-callback room session)))
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
   (interactive (list ement-room ement-session
@@ -1021,8 +1026,10 @@ string."
                              (funcall then)))
                        ;; FIXME: What if it hits the beginning of the timeline?
                        (if (>= (cl-incf total-retrieved batch-size) limit)
-                           (message "%s older events retrieved without finding event %S" limit event-id)
-                         (message "Looking back for event %S (%s/%s events retrieved)" event-id total-retrieved limit)
+                           (message "%s older events retrieved without finding event %S"
+                                    limit event-id)
+                         (message "Looking back for event %S (%s/%s events retrieved)"
+                                  event-id total-retrieved limit)
                          (ement-room-retro room session  batch-size
                                            :buffer (alist-get 'buffer (ement-room-local room))
                                            :then callback-symbol))))))
@@ -1139,14 +1146,15 @@ the content. (e.g. see `ement-room-send-org-filter')."
                         (session ement-session)
                         (prompt (format "Send message (%s): " (ement-room-display-name room)))
                         (body (ement-room-with-typing
-                                (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
+                                (ement-room-read-string prompt nil nil nil
+                                                        'inherit-input-method))))
                    (list room session :body body))))
   (cl-assert (not (string-empty-p body)))
   (cl-assert (or (not formatted-body) (not (string-empty-p formatted-body))))
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
-               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                 "m.room.message" (cl-incf (ement-session-transaction-id session))))
+               (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
+                                 (cl-incf (ement-session-transaction-id session))))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.text"
                                          "body" body)
@@ -1184,13 +1192,14 @@ the content. (e.g. see `ement-room-send-org-filter')."
                         (session ement-session)
                         (prompt (format "Send emote (%s): " (ement-room-display-name room)))
                         (body (ement-room-with-typing
-                                (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
+                                (ement-room-read-string prompt nil nil nil
+                                                        'inherit-input-method))))
                    (list room session :body body))))
   (cl-assert (not (string-empty-p body)))
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
-               (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                 "m.room.message" (cl-incf (ement-session-transaction-id session))))
+               (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
+                                 (cl-incf (ement-session-transaction-id session))))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.emote"
                                          "body" body))))
@@ -1219,7 +1228,8 @@ mentioning the ROOM and CONTENT."
   (pcase-let* (((map ('event_id event-id)) data))
     (if (gethash event-id (ement-session-events session))
         (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which could mean that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-sessions-file', and connect again to start a new session.  Alternatively, this can happen if the event's sent-confirmation is received after the event itself is received in the next sync response, in which case no action is needed."
-                               event-id (ement-user-id (ement-session-user session)) (ement-room-display-name room))))
+                               event-id (ement-user-id (ement-session-user session))
+                               (ement-room-display-name room))))
           (when content
             (setf message (concat message (format " Event content: %S" content))))
           (display-warning 'ement-room-send-event-callback message))
@@ -1233,10 +1243,12 @@ mentioning the ROOM and CONTENT."
       ;; Move read markers.
       (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
         (with-current-buffer buffer
-          ;; NOTE: The new event may not exist in the buffer yet, so we just have to use the last one.
+          ;; NOTE: The new event may not exist in the buffer yet, so we just have to use
+          ;; the last one.          
           ;; FIXME: When we add local echo, this can be fixed.
           (save-excursion
-            (goto-char (ewoc-location (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p)))
+            (goto-char (ewoc-location
+                        (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p)))
             (call-interactively #'ement-room-mark-read)))))))
 
 (defun ement-room-edit-message (event room session body)
@@ -1246,7 +1258,8 @@ The message must be one sent by the local user."
                  (cl-assert ement-session) (cl-assert ement-room)
                  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
                               ((cl-struct ement-session user) ement-session)
-                              ((cl-struct ement-event sender (content (map body ('m.relates_to relates-to))))
+                              ((cl-struct ement-event sender
+                                          (content (map body ('m.relates_to relates-to))))
                                event))
                    (unless (equal (ement-user-id sender) (ement-user-id user))
                      (user-error "You may only edit your own messages"))
@@ -1257,8 +1270,10 @@ The message must be one sent by the local user."
                    ;; Remove any leading asterisk from the plain-text body.
                    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
                    (ement-room-with-typing
-                     (let* ((prompt (format "Edit message (%s): " (ement-room-display-name ement-room)))
-                            (body (ement-room-read-string prompt body nil nil 'inherit-input-method)))
+                     (let* ((prompt (format "Edit message (%s): "
+                                            (ement-room-display-name ement-room)))
+                            (body (ement-room-read-string prompt body nil nil
+                                                          'inherit-input-method)))
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
@@ -1274,8 +1289,9 @@ The message must be one sent by the local user."
                                "m.new_content" new-content
                                "m.relates_to" (ement-alist "rel_type" "m.replace"
                                                            "event_id" (ement-event-id event)))))
-    ;; Prepend the asterisk after the filter may have modified the content.  Note that the "m.new_content"
-    ;; body does not get the leading asterisk, only the "content" body, which is intended as a fallback.
+    ;; Prepend the asterisk after the filter may have modified the content.  Note that the
+    ;; "m.new_content" body does not get the leading asterisk, only the "content" body,
+    ;; which is intended as a fallback.
     (setf body (concat "* " body))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
