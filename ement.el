@@ -127,6 +127,13 @@ Writes the session file when Emacs is killed."
 Run with one argument, the session synced."
   :type 'hook)
 
+(defcustom ement-initial-sync-timeout 40
+  "Timeout in seconds for initial sync requests.
+For accounts in many rooms, the Matrix server may take some time
+to prepare the initial sync response, and increasing this timeout
+might be necessary."
+  :type 'integer)
+
 ;;;; Commands
 
 ;;;###autoload
@@ -250,7 +257,7 @@ in them won't work."
     (setf (ement-session-token session) token
           (ement-session-device-id session) device-id
           (alist-get user-id ement-sessions nil nil #'equal) session)
-    (ement--sync session)))
+    (ement--sync session :timeout ement-initial-sync-timeout)))
 
 ;; FIXME: Make a room-buffer-name function or something.
 (defvar ement-room-buffer-name-prefix)
@@ -350,7 +357,9 @@ If SESSION is nil, select from rooms in all of `ement-sessions'."
                (selected-name (completing-read "Room: " names nil t)))
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
-(cl-defun ement--sync (session &key (filter ement-default-sync-filter) force quiet)
+(cl-defun ement--sync (session &key force quiet
+                               (timeout 40) ;; Give the server an extra 10 seconds.
+                               (filter ement-default-sync-filter))
   "Send sync request for SESSION.
 If SESSION has a `next-batch' token, it's used.  If FORCE, first
 delete any outstanding sync processes.  If QUIET, don't show a
@@ -385,7 +394,7 @@ a filter ID).  When unspecified, the value of
                (sync-start-time (time-to-seconds))
                ;; FIXME: Auto-sync again in error handler.
                (process (ement-api session "sync" :params params
-                          :timeout 40  ;; Give the server an extra 10 seconds.
+                          :timeout timeout
                           :then (apply-partially #'ement--sync-callback session)
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
