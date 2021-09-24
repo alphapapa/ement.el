@@ -233,6 +233,13 @@ Bug reports, feature requests, suggestions — /oh my/!
 
 While Ement.el is not yet available in GNU ELPA and is not part of Emacs, it would be good to keep that option available.  In that case, cumulative contributions of more than 15 lines of code would require that the author assign copyright of such contributions to the FSF.  Therefore, please note that this project may require such assignment before accepting contributions.  Authors who are interested in doing so may contact [[mailto:assign@gnu.org][assign@gnu.org]] to request the appropriate form.
 
+** Matrix spec in Org format
+:PROPERTIES:
+:TOC:      :ignore (this)
+:END:
+
+An Org-formatted version of the Matrix spec is available in the [[https://github.com/alphapapa/ement.el/tree/meta/spec][meta/spec]] branch.
+
 * License
 :PROPERTIES:
 :TOC:      :ignore (this)
