@@ -83,6 +83,11 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Show room avatars in the room list."
   :type 'boolean)
 
+(defcustom ement-room-list-simplify-timestamps t
+  "Only show the largest unit of time in a timestamp.
+For example, \"1h54m3s\" becomes \"1h\"."
+  :type 'boolean)
+
 ;;;;; Faces
 
 (defface ement-room-list-name
@@ -177,7 +182,10 @@ call `pop-to-buffer'."
                                                  'help-echo "Avatar")
                                      4 t) ; Avatar
                                '("Name" 25 t) '("Topic" 35 t)
-                               '("Latest" 20 ement-room-list-latest<)
+                               (list "Latest"
+                                     (if ement-room-list-simplify-timestamps
+                                         6 20)
+                                     #'ement-room-list-latest<)
                                '("Members" 7 ement-room-list-members<)
                                ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
@@ -330,6 +338,10 @@ To be called in `ement-sync-callback-hook'."
                ;;                   (low-priority-p "l")
                ;;                   ("N")))
                (e-members (if member-count (number-to-string member-count) "")))
+    (when ement-room-list-simplify-timestamps
+      (setf e-latest (replace-regexp-in-string
+                      (rx bos (1+ digit) (1+ alpha) (group (1+ (1+ digit) (1+ alpha))))
+                      "" e-latest t t 1)))
     ;; Add face modifiers.
     (when (and buffer (buffer-modified-p buffer))
       ;; For some reason, `push' doesn't work with `map-elt'.
