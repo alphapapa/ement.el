@@ -1580,7 +1580,12 @@ DATA is an unsent message event's data alist."
            for event in (ement-room-invite-state room)
            thereis (alist-get 'is_direct (ement-event-content event)))))))
 
-(define-derived-mode ement-room-mode fundamental-mode "Ement-Room"
+(define-derived-mode ement-room-mode fundamental-mode
+  `("Ement-Room"
+    (:eval (unless (map-elt ement-syncs ement-session)
+             (propertize ":Not-syncing"
+                         'face 'font-lock-warning-face
+                         'help-echo "Automatic syncing was interrupted; press \"g\" to resume"))))
   "Major mode for Ement room buffers.
 This mode initializes a buffer to be used for showing events in
 an Ement room.  It kills all local variables, removes overlays,
