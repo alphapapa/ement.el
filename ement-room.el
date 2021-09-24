@@ -950,14 +950,17 @@ string."
 (defun ement-room-goto-prev ()
   "Go to the previous message in buffer."
   (interactive)
-  (ewoc-goto-node ement-ewoc (ement-room--ewoc-next-matching ement-ewoc
-                               (ewoc-locate ement-ewoc) #'ement-event-p #'ewoc-prev)))
+  (ement-room-goto-next :next-fn #'ewoc-prev))
 
-(defun ement-room-goto-next ()
-  "Go to the next message in buffer."
+(cl-defun ement-room-goto-next (&key (next-fn #'ewoc-next))
+  "Go to the next message in buffer.
+NEXT-FN is passed to `ement-room--ewoc-next-matching', which
+see."
   (interactive)
-  (ewoc-goto-node ement-ewoc (ement-room--ewoc-next-matching ement-ewoc
-                               (ewoc-locate ement-ewoc) #'ement-event-p)))
+  (if-let (node (ement-room--ewoc-next-matching ement-ewoc
+                  (ewoc-locate ement-ewoc) #'ement-event-p next-fn))
+      (ewoc-goto-node ement-ewoc node)
+    (user-error "End of events")))
 
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
