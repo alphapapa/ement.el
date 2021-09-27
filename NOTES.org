@@ -2,6 +2,33 @@
 
 * Tasks
 
+** MAYBE Use line-prefix and/or wrap-prefix
+:LOGBOOK:
+-  State "MAYBE"      from              [2020-12-03 Thu 15:28]
+:END:
+
+These could be alternatives to using margins.  See [[info:elisp#Truncation][info:elisp#Truncation]].
+
+** MAYBE Use =persist.el= for saving session data
+
+It's in ELPA, and its code looks good.  Is there any reason not to use it?
+
+** PROJECT Backfilling paged events after interrupted sync
+
+e.g. when a system has been asleep for hours and syncs again, there may be more new events in a room than the server is willing to send in a single sync response, causing the response to be paged.  The old events need to be fetched in pages up to the old sync token.
+
++ [[file:worktrees/spec/matrix-spec-r0.6.1.org::*\[\[#id256\]\[9.4   Syncing\]\]][SPEC: 9.4 Syncing]]
+
+This note from the spec is important:
+
+#+begin_quote
+Events are ordered in this API according to the arrival time of the event on the homeserver. This can conflict with other APIs which order events based on their partial ordering in the event graph. This can result in duplicate events being received (once per distinct API called). Clients SHOULD de-duplicate events based on the event ID when this happens.
+#+end_quote
+
+[2021-09-24 Fri]  This is done (in =6d772ec=) to a useful extent: after an interrupted sync, rooms are backfilled up to 1,000 events (and that number could be configurable).  Beyond that, a gap would remain, and it would remain unfilled within that Ement session.  (Disconnecting and reconnecting would cause the room history to be cleared and re-fetched from scratch.)
+
+In the long run, a more flexible solution is needed, e.g. something like Element does, where it seems that an event can be fetched, displayed, and then gaps on either side of it are filled on-demand.  Doing that in Emacs with EWOC will probably require some thoughtful design.
+
 ** PROJECT Invited rooms
 :PROPERTIES:
 :ID:       bad4dbe4-4f86-479a-a346-e7d89bf39f92
@@ -31,13 +58,13 @@ i.e. =j= for joined, =i= for invited, =l= for left, and maybe some others for ar
 
 [2021-08-23 Mon 19:22]  Decided that the extra column didn't look nice, and isn't that useful.  Better to just use a different face and topic message for invited rooms.
 
-*** DONE Set footer of invited rooms to a clickable link to join the room
-CLOSED: [2021-08-23 Mon 19:21]
-
 *** DONE Save room type in struct
 CLOSED: [2021-08-23 Mon 19:22]
 
 I don't see a straightforward way to know what a room's type is, other than saving it to a struct slot when processing a sync response, depending on which set of rooms it appears in.
+
+*** DONE Set footer of invited rooms to a clickable link to join the room
+CLOSED: [2021-08-23 Mon 19:21]
 
 *** DONE Show invited rooms in rooms list
 CLOSED: [2021-08-23 Mon 19:22]
@@ -51,32 +78,98 @@ According to the [[file:worktrees/spec/matrix-spec-r0.6.1.org::#get-_matrixclien
 The state of a room that the user has been invited to. These state events may only have the =sender=, =type=, =state_key= and =content= keys present. These events do not replace any state that the client already has for the room, for example if the client has archived the room. Instead the client should keep two separate copies of the state: the one from the =invite_state= and one from the archived =state=. If the client joins the room then the current state will be given as a delta against the archived =state= not the =invite_state=.
 #+END_QUOTE
 
-** PROJECT Backfilling paged events after interrupted sync
-
-e.g. when a system has been asleep for hours and syncs again, there may be more new events in a room than the server is willing to send in a single sync response, causing the response to be paged.  The old events need to be fetched in pages up to the old sync token.
-
-+ [[file:worktrees/spec/matrix-spec-r0.6.1.org::*\[\[#id256\]\[9.4   Syncing\]\]][SPEC: 9.4 Syncing]]
-
-This note from the spec is important:
-
-#+begin_quote
-Events are ordered in this API according to the arrival time of the event on the homeserver. This can conflict with other APIs which order events based on their partial ordering in the event graph. This can result in duplicate events being received (once per distinct API called). Clients SHOULD de-duplicate events based on the event ID when this happens.
-#+end_quote
-
-[2021-09-24 Fri]  This is done (in =6d772ec=) to a useful extent: after an interrupted sync, rooms are backfilled up to 1,000 events (and that number could be configurable).  Beyond that, a gap would remain, and it would remain unfilled within that Ement session.  (Disconnecting and reconnecting would cause the room history to be cleared and re-fetched from scratch.)
-
-In the long run, a more flexible solution is needed, e.g. something like Element does, where it seems that an event can be fetched, displayed, and then gaps on either side of it are filled on-demand.  Doing that in Emacs with EWOC will probably require some thoughtful design.
-
-** MAYBE Use =persist.el= for saving session data
-
-It's in ELPA, and its code looks good.  Is there any reason not to use it?
-
 ** PROJECT Inviting users/sending direct messages
 :LOGBOOK:
 -  State "PROJECT"    from              [2021-08-24 Tue 23:04]
 :END:
 
 + [[https://github.com/matrix-org/matrix-react-sdk/blob/21bb8e00ab837fad7ec10be67418f1e83e449d97/src/createRoom.ts#L283][The function that Element uses to find an existing direct room for a user]]
+
+** PROJECT [#B] Multi-room buffer
+:LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+
+Like the "notifications" buffer in ~matrix-client~.
+
+[2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
+
+** DONE [#A] Apply new room state events                                :bug:
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2021-09-27 Mon 00:56]
+-  State "PROJECT"    from              [2020-12-05 Sat 16:11]
+:END:
+
+[2020-12-05 Sat 16:11]  I made a new room, =#ement.el:matrix.org=, but the room is listed in this client without a name, alias, topic, etc.  In the room buffer, I see these events:
+
+#+BEGIN_EXAMPLE
+@alphapapa:matrix.org
+[sender:@alphapapa:matrix.org type:m.room.create]
+ (join)
+[sender:@alphapapa:matrix.org type:m.room.power_levels]
+[sender:@alphapapa:matrix.org type:m.room.canonical_alias]
+[sender:@alphapapa:matrix.org type:m.room.join_rules]
+[sender:@alphapapa:matrix.org type:m.room.history_visibility]
+[sender:@alphapapa:matrix.org type:m.room.name]
+[sender:@alphapapa:matrix.org type:m.room.topic]
+#+END_EXAMPLE
+
+I guess, for some reason, the server isn't sending the same initial state data, so we need to apply the room state events as they come in.  This is also necessary for when those things are changed during a session.
+
+** DONE [#A] Room list buffer
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2021-09-27 Mon 00:56]
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+
+Probably using ~tabulated-list-mode~.
+
+** DONE [#B] Replies
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2021-09-27 Mon 00:58]
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:45]
+:END:
+
+*** DONE Replies with quoted parts
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2021-09-27 Mon 00:58]
+:END:
+
+Note that Element doesn't support this; it always displays the whole quoted event, not just the quoted part, so the value of doing this is limited.
+
+*** DONE Simple replies
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2021-09-27 Mon 00:58]
+:END:
+
+i.e. without quoting a specific part.
+
+** DONE [#C] Send Org-formatted messages
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2021-09-27 Mon 00:58]
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+** DONE [#A] Avoid passing URL params on command line
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2021-09-25 Sat 01:13]
+-  State "PROJECT"    from              [2020-12-02 Wed 22:58]
+:END:
+
+There seem to be two options: pass the URL on the command line, or pass it in a temp file.  Either way is bad: the command line makes it visible to all users (AFAIK), and temp files are messy, could be left behind, clutter the disk, etc.
+
+Curl has so many options that I was hoping for a way to pass the URL via STDIN, and there is, but that appears to preclude the passing of other data via STDIN.  I found [[https://curl.se/mail/archive-2003-08/0099.html][this mailing list thread from 2003]] where Rich Gray asks for this very feature, but Daniel Stenberg shoots down the idea:
+
+#+BEGIN_QUOTE
+While you of course are 100% correct, I fail to see why curl has to do all this by itself. This kind of magic will only be attempted by people who are using unix(-like) operating systems and if you sit in front of a unix box, it would be dead easy to write a wrapper script around curl that hides all the arguments quite nicely already, right?
+
+The same goes for your idea of being able to read from specific file handle numbers.
+
+I don't think adding these features would benefit more than a few unix hackers (most likely wearing beards! ;-O), who already know how to overcome the problems they fix.
+#+END_QUOTE
+
+In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
+
+[2021-09-24 Fri]  This is done in =plz= now.
 
 ** DONE [#A] Subsequent syncs overwrite prev-batch token               :bug:
 CLOSED: [2020-12-05 Sat 00:13]
@@ -236,82 +329,3 @@ So as best I can tell, the server is violating the spec.
 
 [2021-07-25 Sun 14:12]  After carefully digging into the raw events, reviewing these notes, and talking with Michael (t3chguy) in =#matrix-dev:matrix.org=, I found that I was sending =/messages= the kind of filter that =/sync= expects, rather than the =RoomEventFilter= that is called for. (Actually, I wasn't sending =/messages= any filter before now, and then today I started by sending it the wrong kind.) After fixing that, finally, loading earlier messages gets the membership events for newly seen users, and the displaynames are seen!  Finally this can be put to rest.
 
-** PROJECT [#A] Apply new room state events                            :bug:
-:LOGBOOK:
--  State "PROJECT"    from              [2020-12-05 Sat 16:11]
-:END:
-
-[2020-12-05 Sat 16:11]  I made a new room, =#ement.el:matrix.org=, but the room is listed in this client without a name, alias, topic, etc.  In the room buffer, I see these events:
-
-#+BEGIN_EXAMPLE
-@alphapapa:matrix.org
-[sender:@alphapapa:matrix.org type:m.room.create]
- (join)
-[sender:@alphapapa:matrix.org type:m.room.power_levels]
-[sender:@alphapapa:matrix.org type:m.room.canonical_alias]
-[sender:@alphapapa:matrix.org type:m.room.join_rules]
-[sender:@alphapapa:matrix.org type:m.room.history_visibility]
-[sender:@alphapapa:matrix.org type:m.room.name]
-[sender:@alphapapa:matrix.org type:m.room.topic]
-#+END_EXAMPLE
-
-I guess, for some reason, the server isn't sending the same initial state data, so we need to apply the room state events as they come in.  This is also necessary for when those things are changed during a session.
-
-** DONE [#A] Avoid passing URL params on command line
-:LOGBOOK:
-- State "DONE"       from "PROJECT"    [2021-09-25 Sat 01:13]
--  State "PROJECT"    from              [2020-12-02 Wed 22:58]
-:END:
-
-There seem to be two options: pass the URL on the command line, or pass it in a temp file.  Either way is bad: the command line makes it visible to all users (AFAIK), and temp files are messy, could be left behind, clutter the disk, etc.
-
-Curl has so many options that I was hoping for a way to pass the URL via STDIN, and there is, but that appears to preclude the passing of other data via STDIN.  I found [[https://curl.se/mail/archive-2003-08/0099.html][this mailing list thread from 2003]] where Rich Gray asks for this very feature, but Daniel Stenberg shoots down the idea:
-
-#+BEGIN_QUOTE
-While you of course are 100% correct, I fail to see why curl has to do all this by itself. This kind of magic will only be attempted by people who are using unix(-like) operating systems and if you sit in front of a unix box, it would be dead easy to write a wrapper script around curl that hides all the arguments quite nicely already, right?
-
-The same goes for your idea of being able to read from specific file handle numbers.
-
-I don't think adding these features would benefit more than a few unix hackers (most likely wearing beards! ;-O), who already know how to overcome the problems they fix.
-#+END_QUOTE
-
-In fact, writing a wrapper script does not help at all: how horribly hacky and messy it would be to /write a shell script to the disk every time I want to call curl from Emacs/.
-
-[2021-09-24 Fri]  This is done in =plz= now.
-
-** MAYBE Use line-prefix and/or wrap-prefix
-:LOGBOOK:
--  State "MAYBE"      from              [2020-12-03 Thu 15:28]
-:END:
-
-These could be alternatives to using margins.  See [[info:elisp#Truncation][info:elisp#Truncation]].
-
-** PROJECT [#A] Room list buffer
-:LOGBOOK:
--  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
-:END:
-
-Probably using ~tabulated-list-mode~.
-
-** PROJECT [#B] Multi-room buffer
-:LOGBOOK:
--  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
-:END:
-
-Like the "notifications" buffer in ~matrix-client~.
-
-** PROJECT [#B] Replies
-:LOGBOOK:
--  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:45]
-:END:
-
-*** TODO Simple replies
-
-i.e. without quoting a specific part.
-
-*** TODO Replies with quoted parts
-
-** PROJECT [#C] Send Org-formatted messages
-:LOGBOOK:
--  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
-:END:
