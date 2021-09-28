@@ -179,8 +179,7 @@ the port, e.g.
                       (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
                       (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
                       (server (make-ement-server :name server-name :uri-prefix uri-prefix))
-                      ;; A new session with a new token should be able to start over with a transaction ID of 0.
-                      (transaction-id 0))
+                      (transaction-id (ement--initial-transaction-id)))
                  (make-ement-session :user user :server server :transaction-id transaction-id
                                      :events (make-hash-table :test #'equal))))
               (password-login
@@ -290,6 +289,15 @@ THEN and ELSE are passed to `ement-api', which see."
       :then then :else else)))
 
 ;;;; Functions
+
+(defun ement--initial-transaction-id ()
+  "Return an initial  transaction ID for a new session."
+  ;; We generate a somewhat-random initial transaction ID to avoid potential conflicts in
+  ;; case, e.g. using Pantalaimon causes a transaction ID conflict.  See
+  ;; <https://github.com/alphapapa/ement.el/issues/36>.
+  (cl-parse-integer
+   (secure-hash 'sha256 (prin1-to-string (list (current-time) (system-name))))
+   :end 8 :radix 16))
 
 (defsubst ement--sync-messages-p (session)
   "Return non-nil if sync-related messages should be shown for SESSION."
