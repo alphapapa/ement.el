@@ -1246,8 +1246,8 @@ mentioning the ROOM and CONTENT."
       ;; Move read markers.
       (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
         (with-current-buffer buffer
-          ;; NOTE: The new event may not exist in the buffer yet, so we just have to use
-          ;; the last one.          
+          ;; NOTE: The new event may not exist in the buffer yet, so
+          ;; we just have to use the last one.
           ;; FIXME: When we add local echo, this can be fixed.
           (save-excursion
             (goto-char (ewoc-location
