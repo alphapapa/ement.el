@@ -169,20 +169,20 @@ the port, e.g.
                             :password (read-passwd "Password: ")))
                    (1 (list :session (cdar ement-sessions)))
                    (otherwise (list :session (ement-complete-session))))))
-  (cl-labels ((new-session ()
-                           (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
-                                                     ":" (group (optional (1+ (not (any blank)))))) ; Server name
-                                                 user-id)
-                             (user-error "Invalid user ID format: use @USERNAME:SERVER"))
-                           (let* ((username (match-string 1 user-id))
-                                  (server-name (match-string 2 user-id))
-                                  (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
-                                  (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
-                                  (server (make-ement-server :name server-name :uri-prefix uri-prefix))
-                                  ;; A new session with a new token should be able to start over with a transaction ID of 0.
-                                  (transaction-id 0))
-                             (make-ement-session :user user :server server :transaction-id transaction-id
-                                                 :events (make-hash-table :test #'equal))))
+  (cl-labels ((new-session
+               () (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
+                                            ":" (group (optional (1+ (not (any blank)))))) ; Server name
+                                        user-id)
+                    (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+               (let* ((username (match-string 1 user-id))
+                      (server-name (match-string 2 user-id))
+                      (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
+                      (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
+                      (server (make-ement-server :name server-name :uri-prefix uri-prefix))
+                      ;; A new session with a new token should be able to start over with a transaction ID of 0.
+                      (transaction-id 0))
+                 (make-ement-session :user user :server server :transaction-id transaction-id
+                                     :events (make-hash-table :test #'equal))))
               (password-login
                () (pcase-let* (((cl-struct ement-session user device-id initial-device-display-name) session)
                                ((cl-struct ement-user id) user)
