@@ -267,10 +267,15 @@ To be called in `ement-sync-callback-hook'."
   ;;   arguments (*note Making Buttons::).
   ;;
   ;;   There should be no newlines in any of these strings.
-  (setf tabulated-list-entries
-        (cl-loop for (_id . session) in ement-sessions
-                 append (mapcar (apply-partially #'ement-room-list--entry session)
-                                (ement-session-rooms session)))))
+  (let ((entries (cl-loop for (_id . session) in ement-sessions
+                          append (mapcar (lambda (room)
+                                           (ement-room-list--entry session room))
+                                         (ement-session-rooms session)))))
+    (setf tabulated-list-entries
+          ;; Pre-sort by latest event so that, when the list is sorted by other columns,
+          ;; the rooms will be secondarily sorted by latest event.
+          (cl-sort entries #'> :key (lambda (entry)
+                                      (ement-room-latest-ts (car entry)))))))
 
 (defun ement-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
