@@ -276,7 +276,10 @@ To be called in `ement-sync-callback-hook'."
           ;; Pre-sort by latest event so that, when the list is sorted by other columns,
           ;; the rooms will be secondarily sorted by latest event.
           (cl-sort entries #'> :key (lambda (entry)
-                                      (ement-room-latest-ts (car entry)))))))
+                                      ;; In case a room has no latest event (not sure if
+                                      ;; this may obscure a bug, but this has happened, so
+                                      ;; we need to handle it), we fall back to 0.
+                                      (or (ement-room-latest-ts (car entry)) 0))))))
 
 (defun ement-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
