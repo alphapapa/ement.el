@@ -185,7 +185,8 @@ call `pop-to-buffer'."
                                (list "Latest"
                                      (if ement-room-list-simplify-timestamps
                                          6 20)
-                                     #'ement-room-list-latest<)
+                                     #'ement-room-list-latest<
+				     :right-align t)
                                '("Members" 7 ement-room-list-members<)
                                ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
