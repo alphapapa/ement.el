@@ -48,6 +48,16 @@ i.e. showing invitations, not sending them (a separate issue)
 
 Not sure how this is intended to work, e.g. in Element sometimes rooms seem to show a preview in direct rooms, so you can see what someone said before you accept the invitation to the room.  But other times, it seems necessary to join the room first (maybe that's onl for encrypted rooms, which seem to be the default for direct rooms in Element).
 
+*** TODO Notification for invitations
+:LOGBOOK:
+- State "TODO"       from              [2021-09-30 Thu 20:52]
+:END:
+
+*** TODO Sort invited rooms to the top of room list by default
+:LOGBOOK:
+- State "TODO"       from              [2021-09-30 Thu 20:52]
+:END:
+
 *** CANCELED Column in room list for room type
 CLOSED: [2021-08-23 Mon 19:22]
 :PROPERTIES:
