@@ -122,7 +122,8 @@ Writes the session file when Emacs is killed."
   "Automatically sync again after syncing."
   :type 'boolean)
 
-(defcustom ement-after-initial-sync-hook '(ement-list-rooms)
+(defcustom ement-after-initial-sync-hook
+  '(ement-list-rooms ement-view-initial-rooms)
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)
@@ -133,6 +134,12 @@ For accounts in many rooms, the Matrix server may take some time
 to prepare the initial sync response, and increasing this timeout
 might be necessary."
   :type 'integer)
+
+(defcustom ement-default-rooms nil
+  "Rooms to view after initial sync.
+Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
+  :type '(alist :key-type (string :tag "Local user ID")
+                :value-type (repeat (string :tag "Room alias/ID"))))
 
 ;;;; Commands
 
@@ -289,6 +296,17 @@ THEN and ELSE are passed to `ement-api', which see."
       :then then :else else)))
 
 ;;;; Functions
+
+(defun ement-view-initial-rooms (session)
+  "View rooms for SESSION configured in `ement-default-rooms'."
+  (when-let (rooms (alist-get (ement-user-id (ement-session-user session))
+			      ement-default-rooms nil nil #'equal))
+    (dolist (alias/id rooms)
+      (when-let (room (cl-find-if (lambda (room)
+				    (or (equal alias/id (ement-room-canonical-alias room))
+					(equal alias/id (ement-room-id room))))
+				  (ement-session-rooms session)))
+        (ement-view-room room session)))))
 
 (defun ement--initial-transaction-id ()
   "Return an initial  transaction ID for a new session."
