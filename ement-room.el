@@ -819,7 +819,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                 (pcase-let* (((map ('content_uri content-uri)) data)
                              ((cl-struct ement-room (id room-id)) room)
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                               "m.room.message" (cl-incf (ement-session-transaction-id session))))
+                                               "m.room.message" (ement-room-update-transaction-id session)))
                              ;; TODO: Image height/width (maybe not easy to get in Emacs).
                              (content (ement-alist "msgtype" "m.image"
                                                    "url" content-uri
@@ -1157,7 +1157,7 @@ the content. (e.g. see `ement-room-send-org-filter')."
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
                (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
-                                 (cl-incf (ement-session-transaction-id session))))
+                                 (ement-room-update-transaction-id session)))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.text"
                                          "body" body)
@@ -1202,7 +1202,7 @@ the content. (e.g. see `ement-room-send-org-filter')."
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
                (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
-                                 (cl-incf (ement-session-transaction-id session))))
+                                 (ement-room-update-transaction-id session)))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.emote"
                                          "body" body))))
@@ -1282,7 +1282,7 @@ The message must be one sent by the local user."
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
                          (list event ement-room ement-session body)))))))
   (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
-                           "m.room.message" (cl-incf (ement-session-transaction-id session))))
+                           "m.room.message" (ement-room-update-transaction-id session)))
          (new-content (ement-alist "body" body
                                    "msgtype" "m.text"))
          (_ (when ement-room-send-message-filter
@@ -1312,7 +1312,7 @@ The message must be one sent by the local user."
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/redact/%s/%s"
                                  (url-hexify-string room-id) (url-hexify-string event-id)
-                                 (cl-incf (ement-session-transaction-id ement-session))))
+                                 (ement-room-update-transaction-id ement-session)))
                (content (if reason
                             (ement-alist "reason" reason)
                           ;; To get an empty JSON object, we use an empty hash table.
@@ -1377,7 +1377,7 @@ reaction string, e.g. \"👍\"."
                  ((cl-struct ement-event (id event-id)) event)
                  ((cl-struct ement-room (id room-id)) ement-room)
                  (endpoint (format "rooms/%s/send/m.reaction/%s" (url-hexify-string room-id)
-                                   (cl-incf (ement-session-transaction-id ement-session))))
+                                   (ement-room-update-transaction-id ement-session)))
                  (content (ement-alist "m.relates_to"
                                        (ement-alist "rel_type" "m.annotation"
                                                     "event_id" event-id
@@ -1395,6 +1395,19 @@ reaction string, e.g. \"👍\"."
     (call-interactively #'ement-room-send-reaction)))
 
 ;;;; Functions
+
+(defun ement-room-update-transaction-id (session)
+  "Return SESSION's incremented transaction ID formatted for sending.
+Increments ID and appends current timestamp to avoid reuse
+problems."
+  ;; TODO: Naming things is hard.
+  ;; In the event that Emacs isn't killed cleanly and the session isn't saved to disk, the
+  ;; transaction ID would get reused the next time the user connects.  To avoid that, we
+  ;; append the current time to the ID.  (IDs are just strings, and Element does something
+  ;; similar, so this seems reasonable.)
+  (format "%s-%s"
+          (cl-incf (ement-session-transaction-id session))
+          (format-time-string "%s")))
 
 (defun ement-room-goto-event (event)
   "Go to EVENT in current buffer."
