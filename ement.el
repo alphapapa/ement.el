@@ -135,7 +135,7 @@ to prepare the initial sync response, and increasing this timeout
 might be necessary."
   :type 'integer)
 
-(defcustom ement-default-rooms nil
+(defcustom ement-auto-view-rooms nil
   "Rooms to view after initial sync.
 Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
   :type '(alist :key-type (string :tag "Local user ID")
@@ -298,9 +298,9 @@ THEN and ELSE are passed to `ement-api', which see."
 ;;;; Functions
 
 (defun ement-view-initial-rooms (session)
-  "View rooms for SESSION configured in `ement-default-rooms'."
+  "View rooms for SESSION configured in `ement-auto-view-rooms'."
   (when-let (rooms (alist-get (ement-user-id (ement-session-user session))
-			      ement-default-rooms nil nil #'equal))
+			      ement-auto-view-rooms nil nil #'equal))
     (dolist (alias/id rooms)
       (when-let (room (cl-find-if (lambda (room)
 				    (or (equal alias/id (ement-room-canonical-alias room))
