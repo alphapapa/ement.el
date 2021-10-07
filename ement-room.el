@@ -2966,7 +2966,8 @@ a copy of the local keymap, and sets `header-line-format'."
                          "")))
               (_ (format "%s kicked %s%s"
                          (sender-name-id-string)
-                         (new-displayname-sender-name-state-key-string)
+                         (propertize (or prev-displayname state-key)
+                                     'help-echo state-key)
                          (if reason
                              (format " (%s)" reason)
                            "")))))
