@@ -1624,7 +1624,10 @@ and erases the buffer."
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
-  (yank-media-handler "image/.*" #'ement-room-image-yank-handler)
+  (if (version< emacs-version "29")
+      nil
+      (yank-media-handler "image/.*" #'ement-room-image-yank-handler))
+
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local window-scroll-functions
