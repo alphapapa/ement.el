@@ -95,7 +95,9 @@ For example, \"1h54m3s\" becomes \"1h\"."
   "Non-direct rooms.")
 
 (defface ement-room-list-direct
-  '((t (:inherit font-lock-constant-face ement-room-list-name)))
+  ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
+  ;; made bold for unread rooms only.
+  '((t (:weight normal :inherit font-lock-constant-face ement-room-list-name)))
   "Direct rooms.")
 
 (defface ement-room-list-invited
