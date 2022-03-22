@@ -312,6 +312,67 @@ to be selected as well."
 	 (selected-user (completing-read "User: " (mapcar #'car display-to-id))))
     (or (alist-get selected-user display-to-id nil nil #'equal)
 	selected-user)))
+
+(cl-defun ement-create-room
+    (session &key name alias topic invite direct-p (visibility 'private)
+	     (then (lambda (data)
+                     (message "Created new room: %s" (alist-get 'room_id data)))))
+  "Create new room on SESSION with given arguments."
+  ;; TODO: Document other arguments.
+  ;; SPEC: 10.1.1.
+  (declare (indent defun))
+  (interactive (list (ement-complete-session)
+		     :name (read-string "New room name: ")
+		     :alias (read-string "New room alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
+		     :topic (read-string "New room topic: ")
+		     :visibility (completing-read "New room type: " '(private public))))
+  (cl-labels ((given-p
+	       (var) (and var (not (string-empty-p var))))
+	      (put-direct
+	       (data) (let ((room-id (alist-get 'room_id data))
+			    (users-to-room (make-hash-table)))
+			(cl-loop for user-id in invite
+				 do (puthash user-id (vector room-id) users-to-room))
+			(ement-put-account-data session "m.direct" users-to-room)
+			(ement-debug "Marked room as direct: %s" room-id))))
+    (pcase-let* ((endpoint "createRoom")
+		 (data (ement-aprog1
+			   (ement-alist "visibility" visibility)
+			 (when (given-p alias)
+			   (push (cons "room_alias_name" alias) it))
+			 (when (given-p name)
+			   (push (cons "name" name) it))
+			 (when (given-p topic)
+			   (push (cons "topic" topic) it))
+			 (when invite
+			   (push (cons "invite" invite) it))
+			 (when direct-p
+			   (push (cons "is_direct" t) it)))))
+      (ement-api session endpoint :method 'post :data (json-encode data)
+	:then (if direct-p
+                  (lambda (data)
+                    (put-direct data)
+                    (funcall then data))
+                then)))))
+
+(defun ement-invite (user-id room session)
+  "Invite USER-ID to ROOM on SESSION."
+  ;; SPEC: 10.4.2.1.
+  (interactive
+   (let* ((session (ement-complete-session))
+          (user-id (ement-complete-user-id))
+          (room (car (ement-complete-room session))))
+     (list user-id room session)))
+  (pcase-let* ((endpoint (format "rooms/%s/invite"
+                                 (url-hexify-string (ement-room-id room))))
+               (data (ement-alist "user_id" user-id) ))
+    (ement-api session endpoint :method 'post :data (json-encode data)
+      ;; TODO: Handle error codes.
+      :then (lambda (_data)
+              (message "User %s invited to room \"%s\" (%s)" user-id
+                       (ement-room-display-name room)
+                       (ement-room-id room))))))
+
 ;;;; Functions
 
 (defun ement-view-initial-rooms (session)
@@ -815,6 +876,17 @@ IMAGE should be one as created by, e.g. `create-image'."
       (car (cl-sort direct-rooms-with-user
 		    (lambda (a b)
 		      (> (latest-event-in a) (latest-event-in b))))))))
+
+(defun ement-put-account-data (session type data)
+  "Put account data of TYPE with DATA on SESSION."
+  (declare (indent defun))
+  (let ((endpoint (format "user/%s/account_data/%s"
+                          (url-hexify-string (ement-user-id (ement-session-user session)))
+                          type)))
+    (ement-api session endpoint :data (json-encode data)
+      :then (lambda (_data)
+              (ement-debug "Account data put on session %s: TYPE:%S  DATA:%S"
+                           (ement-user-id (ement-session-user session)) type (json-encode data))))))
 
 ;;;;; Reading/writing sessions
 
