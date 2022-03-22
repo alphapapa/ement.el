@@ -742,6 +742,63 @@ IMAGE should be one as created by, e.g. `create-image'."
           (image-property new-image :max-height) max-height)
     new-image))
 
+(defun ement--direct-room-for-user (user session)
+  "Return last-modified direct room with USER on SESSION, if one exists."
+  ;; Loosely modeled on the Element function findDMForUser in createRoom.ts.
+  (cl-labels ((latest-event-in
+	       (room) (car
+		       (cl-sort
+			(append (ement-room-state room)
+				(ement-room-timeline room))
+			(lambda (a b)
+			  ;; Sort latest first so we can use the car.
+			  (> (ement-event-origin-server-ts a)
+			     (ement-event-origin-server-ts b))))))
+	      (latest-membership-for
+	       (user room)
+	       (when-let ((latest-membership-event
+                           (car
+			    (cl-sort
+			     ;; I guess we need to check both state and timeline events.
+			     (append (cl-remove-if-not
+				      (lambda (event)
+					(and (equal "m.room.member" (ement-event-type event))
+					     (equal (ement-user-id user)
+                                                    (ement-user-id (ement-event-sender event)))))
+				      (ement-room-state room))
+				     (cl-remove-if-not
+				      (lambda (event)
+					(and (equal "m.room.member" (ement-event-type event))
+					     (equal (ement-user-id user)
+                                                    (ement-user-id (ement-event-sender event)))))
+				      (ement-room-timeline room)))
+			     (lambda (a b)
+			       ;; Sort latest first so we can use the car.
+			       (> (ement-event-origin-server-ts a)
+				  (ement-event-origin-server-ts b)))))))
+		 (alist-get 'membership
+			    (ement-event-content latest-membership-event)))))
+    (let* ((direct-rooms (cl-remove-if-not
+			  (lambda (room)
+			    (ement-room--direct-p room session))
+			  (ement-session-rooms session)))
+	   (direct-joined-rooms
+	    ;; Ensure that the local user is still in each room.
+	    (cl-remove-if-not
+	     (lambda (room)
+	       (equal "join" (latest-membership-for (ement-session-user session) room)))
+	     direct-rooms))
+	   ;; Since we don't currently keep a member list for each room, we look in the room's
+	   ;; join events to see if the user has joined or been invited.
+	   (direct-rooms-with-user
+	    (cl-remove-if-not
+	     (lambda (room)
+	       (member (latest-membership-for user room) '("invite" "join")))
+	     direct-joined-rooms)))
+      (car (cl-sort direct-rooms-with-user
+		    (lambda (a b)
+		      (> (latest-event-in a) (latest-event-in b))))))))
+
 ;;;;; Reading/writing sessions
 
 (defun ement--read-sessions ()
