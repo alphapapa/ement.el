@@ -458,7 +458,15 @@ If SESSION is nil, select from rooms in all of `ement-sessions'."
                                                                    (ement-room-id room)))
                                                        (list room session)))))
                (names (mapcar #'car name-to-room-session))
-               (selected-name (completing-read "Room: " names nil t)))
+               (selected-name (completing-read "Room: " names nil t
+                                               (when (equal major-mode 'ement-room-mode)
+                                                 ;; Suggest current buffer's room.
+                                                 (format "%s (%s)"
+                                                         (or (ement-room-display-name ement-room)
+                                                             (setf (ement-room-display-name ement-room)
+                                                                   (ement-room--room-display-name ement-room)))
+                                                         (or (ement-room-canonical-alias ement-room)
+                                                             (ement-room-id ement-room)))))))
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (cl-defun ement--sync (session &key force quiet
