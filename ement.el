@@ -295,6 +295,23 @@ THEN and ELSE are passed to `ement-api', which see."
       :content-type content-type :data data :data-type 'binary
       :then then :else else)))
 
+(defun ement-complete-user-id ()
+  "Return a user-id selected with completion.
+Selects from seen users on all sessions.  Allows unseen user IDs
+to be selected as well."
+  (let* ((display-to-id
+	  (cl-loop for key being the hash-keys of ement-users
+		   using (hash-values value)
+		   collect (cons (format "%s <%s>"
+                                         (string-join
+                                          (map-values
+                                           (ement-user-room-display-names value))
+					  ", ")
+					 key)
+				 key)))
+	 (selected-user (completing-read "User: " (mapcar #'car display-to-id))))
+    (or (alist-get selected-user display-to-id nil nil #'equal)
+	selected-user)))
 ;;;; Functions
 
 (defun ement-view-initial-rooms (session)
