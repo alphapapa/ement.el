@@ -105,6 +105,7 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-invite~ to invite a user to a room.
       -  ~ement-join-room~ to join a room.
       -  ~ement-leave-room~ to leave a room.
+      -  ~ement-forget-room~ to forget a room.
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
       -  ~ement-room-set-topic~ to set a room's topic.

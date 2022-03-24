@@ -355,6 +355,23 @@ to be selected as well."
                     (funcall then data))
                 then)))))
 
+(defalias 'ement-room-forget #'ement-forget-room)
+(defun ement-forget-room (room session)
+  "Forget ROOM on SESSION."
+  (interactive (ement-complete-room))
+  (pcase-let* (((cl-struct ement-room id display-name) room)
+               (endpoint (format "rooms/%s/forget" (url-hexify-string id))))
+    (when (yes-or-no-p (format "Forget room \"%s\" (%s)? " display-name id))
+      (ement-api session endpoint :method 'post :data ""
+        :then (lambda (data)
+                ;; NOTE: The spec does not seem to indicate that the action of forgetting
+                ;; a room is synced to other clients, so it seems that we need to remove
+                ;; the room from the session here.
+                (setf (ement-session-rooms session)
+                      (cl-remove room (ement-session-rooms session)))
+                ;; TODO: Indicate forgotten in footer in room buffer.
+                (message "Room \"%s\" (%s) forgotten." display-name id))))))
+
 (defun ement-invite (user-id room session)
   "Invite USER-ID to ROOM on SESSION."
   ;; SPEC: 10.4.2.1.
