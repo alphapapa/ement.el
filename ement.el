@@ -559,6 +559,11 @@ Runs `ement-sync-callback-hook' with SESSION."
                             (cl-loop for (_id . room) in invited-rooms
                                      sum (length (map-nested-elt room '(invite_state events)))))))
     ;; Append account data events.
+    ;; TODO: Since only one event of each type is allowed in account data (the spec
+    ;; doesn't seem to make this clear, but see
+    ;; <https://github.com/matrix-org/matrix-js-sdk/blob/d0b964837f2820940bd93e718a2450b5f528bffc/src/store/memory.ts#L292>),
+    ;; we should store account-data events in a hash table or alist rather than just a
+    ;; list of events.
     (cl-callf2 append (cl-coerce account-data-events 'list) (ement-session-account-data session))
     ;; Process invited and joined rooms.
     (ement-with-progress-reporter (:when (ement--sync-messages-p session)
