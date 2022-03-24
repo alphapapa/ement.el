@@ -446,7 +446,9 @@ If no URI is found, prompt the user for the hostname."
 (defun ement-complete-room (&optional session)
   "Return a (room session) list selected from SESSION with completion.
 If SESSION is nil, select from rooms in all of `ement-sessions'."
-  (pcase-let* ((sessions (if session (list session) ement-sessions))
+  (pcase-let* ((sessions (if session
+                             (list session)
+                           (mapcar #'cdr ement-sessions)))
                (name-to-room-session
                 (cl-loop for session in sessions
                          append (cl-loop for room in (ement-session-rooms session)
