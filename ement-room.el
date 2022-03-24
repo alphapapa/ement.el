@@ -906,8 +906,6 @@ Interactively, set the current buffer's ROOM's TOPIC."
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
 string."
-  ;; FIXME: Left rooms are not removed from the room list, because the "leave" rooms
-  ;; aren't yet handled in sync responses.
   (interactive (ement-complete-room (ement-complete-session)))
   (cl-assert room) (cl-assert session)
   (cl-etypecase room

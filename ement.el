@@ -549,7 +549,7 @@ Runs `ement-sync-callback-hook' with SESSION."
   (setf (map-elt ement-syncs session) nil)
   (pcase-let* (((map rooms ('next_batch next-batch) ('account_data (map ('events account-data-events))))
                 data)
-               ((map ('join joined-rooms) ('invite invited-rooms)) rooms)
+               ((map ('join joined-rooms) ('invite invited-rooms) ('leave left-rooms)) rooms)
                (num-events (+
                             ;; HACK: In `ement--push-joined-room-events', we do something
                             ;; with each event 3 times, so we multiply this by 3.
@@ -570,6 +570,8 @@ Runs `ement-sync-callback-hook' with SESSION."
     ;; Process invited and joined rooms.
     (ement-with-progress-reporter (:when (ement--sync-messages-p session)
                                          :reporter ("Ement: Reading events..." 0 num-events))
+      ;; Left rooms.
+      (mapc (apply-partially #'ement--push-left-room-events session) left-rooms)
       ;; Invited rooms.
       (mapc (apply-partially #'ement--push-invite-room-events session) invited-rooms)
       ;; Joined rooms.
@@ -651,8 +653,10 @@ To be called in `ement-sync-callback-hook'."
             (ement-room--handle-events new-events)
             (setf (alist-get 'new-account-data-events (ement-room-local ement-room)) nil)))))))
 
-(defun ement--push-joined-room-events (session joined-room)
-  "Push events for JOINED-ROOM into that room in SESSION."
+(cl-defun ement--push-joined-room-events (session joined-room &optional (type 'join))
+  "Push events for JOINED-ROOM into that room in SESSION.
+Also used for left rooms, in which case TYPE should be set to
+`leave'."
   (pcase-let* ((`(,id . ,event-types) joined-room)
                (id (symbol-name id)) ; Really important that the ID is a STRING!
                ;; TODO: Make ement-session-rooms a hash-table.
@@ -666,7 +670,7 @@ To be called in `ement-sync-callback-hook'."
                 event-types)
                (latest-timestamp))
     (ignore unread-notifications)
-    (setf (ement-room-type room) 'join)
+    (setf (ement-room-type room) type)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means
@@ -758,6 +762,10 @@ To be called in `ement-sync-callback-hook'."
 	;; until the gap is filled).
 	(ement-room-retro-to-token room session (alist-get 'prev_batch timeline)
 				   (ement-session-next-batch session))))))
+
+(defun ement--push-left-room-events (session left-room)
+  "Push events for LEFT-ROOM into that room in SESSION."
+  (ement--push-joined-room-events session left-room 'leave))
 
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.

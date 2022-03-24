@@ -104,6 +104,10 @@ For example, \"1h54m3s\" becomes \"1h\"."
   '((t (:inherit italic ement-room-list-name)))
   "Invited rooms.")
 
+(defface ement-room-list-left
+  '((t (:strike-through t :inherit ement-room-list-name)))
+  "Left rooms.")
+
 (defface ement-room-list-unread
   '((t (:inherit bold ement-room-list-name)))
   "Unread rooms.")
@@ -367,6 +371,12 @@ To be called in `ement-sync-callback-hook'."
                                          'face 'ement-room-list-invited)
                              " " e-topic)
              (map-elt name-face :inherit) (cons 'ement-room-list-invited
+                                                (map-elt name-face :inherit))))
+      ('leave
+       (setf e-topic (concat (propertize "[left]"
+                                         'face 'ement-room-list-left)
+                             " " e-topic)
+             (map-elt name-face :inherit) (cons 'ement-room-list-left
                                                 (map-elt name-face :inherit)))))
     (list room (vector e-unread e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
