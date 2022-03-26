@@ -1239,13 +1239,7 @@ mentioning the ROOM and CONTENT."
                                (ement-room-display-name room))))
           (when content
             (setf message (concat message (format " Event content: %S" content))))
-          (display-warning 'ement-room-send-event-callback message))
-      (when (eq :debug warning-minimum-log-level)
-        ;; HACK: Mildly abuse `warning-minimum-log-level' by using it to control whether
-        ;; successfully sent events display a message.  This is really only needed for
-        ;; debugging (until adding local echo), and using actual warnings would be too much.
-        (message "Message sent to room %S: %S"
-                 (ement-room-display-name room) (alist-get "body" content nil nil #'equal))))
+          (display-warning 'ement-room-send-event-callback message)))
     (when (eq 'send ement-room-mark-rooms-read)
       ;; Move read markers.
       (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
