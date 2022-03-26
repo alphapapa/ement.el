@@ -52,6 +52,19 @@
 (taxy-define-key-definer ement-taxy-define-key
   ement-taxy-keys "ement-taxy" "FIXME: Docstring.")
 
+(ement-taxy-define-key membership (&key name type)
+  ;; FIXME: Docstring: type should be a symbol of either `invite', `join', `leave'.
+  (cl-labels ((format-membership (membership)
+                                 (pcase membership
+                                   ('join "Joined")
+                                   ('invite "Invited")
+                                   ('leave "[Left]"))))
+    (pcase-let ((`[,(cl-struct ement-room (type membership)) ,_session] item))
+      (if type
+          (when (equal type membership)
+            (or name (format-membership membership)))
+        (format-membership membership)))))
+
 (ement-taxy-define-key alias (&key name regexp)
   (pcase-let ((`[,(cl-struct ement-room canonical-alias) ,_session] item))
     (when canonical-alias
@@ -67,6 +80,11 @@
   (pcase-let ((`[,room ,session] item))
     (when (ement-room--direct-p room session)
       "Direct")))
+
+(ement-taxy-define-key people-p ()
+  (pcase-let ((`[,room ,session] item))
+    (when (ement-room--direct-p room session)
+      "[People]")))
 
 (ement-taxy-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
@@ -97,8 +115,8 @@
       "Unread")))
 
 (defcustom ement-taxy-default-keys
-  '(
-    (direct-p (buffer-p unread-p))
+  '((membership :type 'leave)
+    (people-p (buffer-p unread-p))
 
     (unread-p)
     ((name :name "Matrix"
@@ -119,6 +137,7 @@
                (display-name (ement-room--room-display-name room))
                (face))
     (or (when display-name
+          ;; TODO: Use code from ement-room-list and put in a dedicated function.
           (setf face (cl-copy-list '(:inherit (ement-room-list-name))))
           (when (and buffer (buffer-modified-p buffer))
             ;; For some reason, `push' doesn't work with `map-elt'.
@@ -186,9 +205,9 @@
                          (apply #'make-taxy-magit-section
                                 :make #'make-fn
                                 :format-fn #'format-item
-                                :heading-indent ement-taxy-level-indent
+                                :level-indent ement-taxy-level-indent
                                 ;; :visibility-fn #'visible-p
-                                :heading-indent 2
+                                ;; :heading-indent 2
                                 :item-indent 2
                                 ;; :heading-face-fn #'heading-face
                                 args)))
@@ -201,9 +220,9 @@
                          append (cl-loop for room in (ement-session-rooms session)
                                          collect (vector room session))))
                (taxy (thread-last
-                         (make-fn
-                          :name "Ement Rooms"
-                          :take (taxy-make-take-function keys ement-taxy-keys))
+                       (make-fn
+                        :name "Ement Rooms"
+                        :take (taxy-make-take-function keys ement-taxy-keys))
                        (taxy-fill room-session-vectors)
                        (taxy-sort #'> #'latest-ts)
                        (taxy-sort* #'string< #'taxy-name)
