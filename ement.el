@@ -313,6 +313,49 @@ to be selected as well."
     (or (alist-get selected-user display-to-id nil nil #'equal)
 	selected-user)))
 
+(defun ement-send-direct-message (session user-id message)
+  "Send a direct MESSAGE to USER-ID on SESSION.
+Uses the latest existing direct room with the user, or creates a
+new one automatically if necessary."
+  ;; SPEC: 13.23.2.
+  (interactive
+   (let* ((session (ement-complete-session))
+	  (user-id (ement-complete-user-id))
+	  (message (read-string "Message: ")))
+     (list session user-id message)))
+  (if-let* ((seen-user (gethash user-id ement-users))
+	    (existing-direct-room (ement--direct-room-for-user seen-user session)))
+      (progn
+        (ement-room-send-message existing-direct-room session :body message)
+        (message "Message sent to %s <%s> in room %S <%s>."
+                 (ement-room--user-display-name seen-user existing-direct-room)
+                 user-id
+                 (ement-room-display-name existing-direct-room) (ement-room-id existing-direct-room)))
+    ;; No existing room for user: make new one.
+    (message "Creating new room for user %s..." user-id)
+    (ement-create-room session :direct-p t :invite (list user-id)
+      :then (lambda (data)
+              (let* ((room-id (alist-get 'room_id data))
+	             (room (or (cl-find-if (lambda (room)
+				             (equal room-id (ement-room-id room)))
+			                   (ement-session-rooms session))
+		               ;; New room hasn't synced yet: make a temporary struct.
+		               (make-ement-room :id room-id)))
+                     (direct-rooms-account-data-event-content
+                      ;; FIXME: Make account-data a map.
+                      (alist-get 'content (cl-find-if (lambda (event)
+                                                        (equal "m.direct" (alist-get 'type event)))
+                                                      (ement-session-account-data session)))))
+                ;; Mark new room as direct: add the room to the account-data event, then
+                ;; put the new account data to the server.  (See also:
+                ;; <https://github.com/matrix-org/matrix-react-sdk/blob/919aab053e5b3bdb5a150fd90855ad406c19e4ab/src/Rooms.ts#L91>).
+                (setf (map-elt direct-rooms-account-data-event-content user-id) (vector room-id))
+                (ement-put-account-data session "m.direct" direct-rooms-account-data-event-content)
+                ;; Send message to new room.
+                (ement-room-send-message room session :body message)
+                (message "Room \"%s\" created for user %s.  Sending message..."
+	                 room-id user-id))))))
+
 (cl-defun ement-create-room
     (session &key name alias topic invite direct-p (visibility 'private)
 	     (then (lambda (data)
