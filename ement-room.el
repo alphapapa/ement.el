@@ -2074,9 +2074,15 @@ FULLY-READ-EVENT.
 
 Interactively, mark both types as read up to event at point."
   (declare (indent defun))
-  (interactive (list ement-room ement-session
-                     :read-event (ewoc-data (ewoc-locate ement-ewoc))
-                     :fully-read-event (ewoc-data (ewoc-locate ement-ewoc))))
+  (interactive (let* ((node (ewoc-locate ement-ewoc))
+                      (event (cl-typecase (ewoc-data node)
+                               (ement-event (ewoc-data node))
+                               (t (when-let ((prev-event-node (ement-room--ewoc-next-matching ement-ewoc node
+                                                                #'ement-event-p #'ewoc-prev)))
+                                    (ewoc-data prev-event-node))))))
+                 (list ement-room ement-session
+                       :read-event event
+                       :fully-read-event event)))
   (cl-assert room) (cl-assert session) (cl-assert (or read-event fully-read-event))
   (if (not fully-read-event)
       ;; Sending only a read receipt, which uses a different endpoint
