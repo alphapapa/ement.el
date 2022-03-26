@@ -2644,7 +2644,8 @@ Format defaults to `ement-room-message-format-spec', which see."
   "Return formatted body of \"m.room.message\" EVENT.
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content) event)
-               ((map body msgtype ('format content-format) ('formatted_body formatted-body))
+               ((map body msgtype ('format content-format) ('formatted_body formatted-body)
+                     ('m.relates_to (map ('rel_type rel-type))))
                 content)
                (body (if (or (not formatted-p) (not formatted-body))
                          ;; Copy the string so as not to add face properties to the one in the struct.
@@ -2666,6 +2667,9 @@ If FORMATTED-P, return the formatted body content, when available."
       (setf body "[message has no body content]"))
     (when appendix
       (setf body (concat body " " appendix)))
+    (when (equal "m.replace" rel-type)
+      ;; Message is an edit.
+      (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
     body))
 
 (defun ement-room--render-html (string)
