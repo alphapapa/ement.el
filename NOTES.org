@@ -101,6 +101,16 @@ The state of a room that the user has been invited to. These state events may on
 
 [2022-03-24 Thu 16:05] Found [[https://github.com/matrix-org/matrix-react-sdk/blob/919aab053e5b3bdb5a150fd90855ad406c19e4ab/src/Rooms.ts#L91][this function]] in matrix-react-sdk that does this.  But I've already tried doing that, and it isn't working (the server accepts the PUT request but doesn't seem to "digest" the new event, because it's not seen in subsequent syncs).
 
+[2022-03-25 Fri 21:27] On Thursday at 16:10 I posted this message in =#matrix-dev:matrix.org= (=$A5-ZhuaI3VBT3vmFQXXpowXZ4Rz8v_qBBeAqsPhfGHE=), but I've received no response:
+
+#+begin_quote
+Hi, having a minor problem with creating new direct messaging rooms.  The spec says that the clients are responsible for adding a new m.direct event to the account's account_data associating the invitee's ID with the new room's ID.  So that's what I'm trying to do.  The problem is that, even though the PUT request for the account_data returns 200, the new event I'm trying to PUT is not showing up in the account_data: it's not propagated in a new sync event, nor does it appear in a new initial sync, nor does it appear in the PUT request's response (which appears to include the whole m.direct account_data event).  Unfortunately, the spec does not give an example of a properly formed PUT request for an m.direct event, so I could be making a mistake there, but the server response is 200, which would suggest that I'm doing that correctly.  So I'm a bit stumped.  Any help would be appreciated.
+
+Looking at what Element itself sends, it appears that the m.direct event it PUTs does not include only the new room, but also all of the existing content of the account's current m.direct event, with the new room added to it.  However, the spec doesn't indicate that this is necessary, so I guessed that I only need to send the new user ID and room ID, and that the server would add those to the account's existing m.direct event.  But the server doesn't appear to be doing either: it's not replacing the m.direct event with the one I'm sending, nor is it adding the content of the one I'm sending to the existing account data event.  But it is responding with HTTP 200, implying that there is no error.  So...yeah...stumped.  :)
+
+So at this point, I've done my best to imitate Element's behavior in PUTting the m.direct account_data event, and the server seems to accept it, but the event content I send is not returned by the server on subsequent syncs.  So I don't seem to be able to mark rooms as direct message rooms.  I've even found this function in the react SDK that does the same thing: https://github.com/matrix-org/matrix-react-sdk/blob/919aab053e5b3bdb5a150fd90855ad406c19e4ab/src/Rooms.ts#L91  And I've tried doing the equivalent in my client, but it seems to have no effect on the m.direct event later returned by the server.
+#+end_quote
+
 ** PROJECT [#B] Multi-room buffer
 :LOGBOOK:
 -  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
