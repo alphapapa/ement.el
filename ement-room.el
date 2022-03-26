@@ -1850,7 +1850,7 @@ For use as `imenu-create-index-function'."
 (defvar ement-users)
 
 (defvar ement-room-event-fns nil
-  "Alist mapping event types to functions which process an event of each type in the room's buffer.")
+  "Alist mapping event types to functions which process events in room buffers.")
 
 ;; NOTE: While transitioning to the defevent-based handler system, we
 ;; define both a handle-events and handle-event function that do the
@@ -2397,7 +2397,7 @@ If OLD-EVENT-ID is not found, return nil, otherwise non-nil."
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
-  "Return node in EWOC that matches PRED and belongs before DATA according to COMPARATOR."
+  "Return node in EWOC that matches PRED and goes before DATA by COMPARATOR."
   (cl-assert (member from '(first last)))
   (if (null (ewoc-nth ewoc 0))
       (ement-debug "EWOC is empty: returning nil.")

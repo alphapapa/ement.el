@@ -363,7 +363,7 @@ to be selected as well."
                (endpoint (format "rooms/%s/forget" (url-hexify-string id))))
     (when (yes-or-no-p (format "Forget room \"%s\" (%s)? " display-name id))
       (ement-api session endpoint :method 'post :data ""
-        :then (lambda (data)
+        :then (lambda (_data)
                 ;; NOTE: The spec does not seem to indicate that the action of forgetting
                 ;; a room is synced to other clients, so it seems that we need to remove
                 ;; the room from the session here.

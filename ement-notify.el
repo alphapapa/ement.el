@@ -186,7 +186,7 @@ Calls `ement-notify--notifications-notify'."
     (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*")))
 
 (defun ement-notify--log-if-buffer (event room session)
-  "Log EVENT in ROOM on SESSION to \"*Ement Notifications*\" buffer if ROOM has a buffer."
+  "Log EVENT in ROOM on SESSION to notifications buffer if ROOM has a buffer."
   (when (ement-notify--room-buffer-live-p event room session)
     (ement-notify--log-to-buffer event room session)))
 
