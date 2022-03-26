@@ -88,8 +88,18 @@ According to the [[file:worktrees/spec/matrix-spec-r0.6.1.org::#get-_matrixclien
 The state of a room that the user has been invited to. These state events may only have the =sender=, =type=, =state_key= and =content= keys present. These events do not replace any state that the client already has for the room, for example if the client has archived the room. Instead the client should keep two separate copies of the state: the one from the =invite_state= and one from the archived =state=. If the client joins the room then the current state will be given as a delta against the archived =state= not the =invite_state=.
 #+END_QUOTE
 
-** PROJECT Sending direct messages
+** PROJECT [#B] Multi-room buffer
 :LOGBOOK:
+-  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
+:END:
+
+Like the "notifications" buffer in ~matrix-client~.
+
+[2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
+
+** DONE Sending direct messages
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2022-03-25 Fri 23:14]
 -  State "PROJECT"    from              [2021-08-24 Tue 23:04]
 :END:
 
@@ -97,7 +107,12 @@ The state of a room that the user has been invited to. These state events may on
 
 [2022-03-22 Tue 18:00] This almost works, except that when a room is automatically created for a direct message, it is not marked as =m.direct=, so it's not detected as a direct room if the user tries to send another direct message, so a second room is automatically created.  I've tried to follow the spec in putting the direct flag in an =account_data= event, and the HTTP request seems to return 200, but it doesn't seem to have any effect, because the event that I put doesn't show up in the account data.
 
-*** TODO Fix marking new direct rooms as direct
+[2022-03-25 Fri 23:14] It works!
+
+*** DONE Fix marking new direct rooms as direct
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-03-25 Fri 23:14]
+:END:
 
 [2022-03-24 Thu 16:05] Found [[https://github.com/matrix-org/matrix-react-sdk/blob/919aab053e5b3bdb5a150fd90855ad406c19e4ab/src/Rooms.ts#L91][this function]] in matrix-react-sdk that does this.  But I've already tried doing that, and it isn't working (the server accepts the PUT request but doesn't seem to "digest" the new event, because it's not seen in subsequent syncs).
 
@@ -111,14 +126,7 @@ Looking at what Element itself sends, it appears that the m.direct event it PUTs
 So at this point, I've done my best to imitate Element's behavior in PUTting the m.direct account_data event, and the server seems to accept it, but the event content I send is not returned by the server on subsequent syncs.  So I don't seem to be able to mark rooms as direct message rooms.  I've even found this function in the react SDK that does the same thing: https://github.com/matrix-org/matrix-react-sdk/blob/919aab053e5b3bdb5a150fd90855ad406c19e4ab/src/Rooms.ts#L91  And I've tried doing the equivalent in my client, but it seems to have no effect on the m.direct event later returned by the server.
 #+end_quote
 
-** PROJECT [#B] Multi-room buffer
-:LOGBOOK:
--  State "PROJECT"    from "TODO"       [2020-12-02 Wed 14:46]
-:END:
-
-Like the "notifications" buffer in ~matrix-client~.
-
-[2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
+[2022-03-25 Fri 23:14] Silly me, the problem was that I forgot to set the HTTP method to PUT on the request.
 
 ** DONE Inviting users to rooms
 :LOGBOOK:
