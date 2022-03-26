@@ -376,8 +376,8 @@ To be called in `ement-sync-callback-hook'."
        (setf e-topic (concat (propertize "[left]"
                                          'face 'ement-room-list-left)
                              " " e-topic)
-             (map-elt name-face :inherit) (cons 'ement-room-list-left
-                                                (map-elt name-face :inherit)))))
+             (map-elt name-face :inherit) (cons (map-elt name-face :inherit)
+                                                'ement-room-list-left))))
     (list room (vector e-unread e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
                        ;; e-priority e-tags
