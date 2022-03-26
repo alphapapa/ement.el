@@ -297,21 +297,29 @@ THEN and ELSE are passed to `ement-api', which see."
 
 (defun ement-complete-user-id ()
   "Return a user-id selected with completion.
-Selects from seen users on all sessions.  Allows unseen user IDs
-to be selected as well."
-  (let* ((display-to-id
-	  (cl-loop for key being the hash-keys of ement-users
-		   using (hash-values value)
-		   collect (cons (format "%s <%s>"
-                                         (string-join
-                                          (map-values
-                                           (ement-user-room-display-names value))
-					  ", ")
-					 key)
-				 key)))
-	 (selected-user (completing-read "User: " (mapcar #'car display-to-id))))
-    (or (alist-get selected-user display-to-id nil nil #'equal)
-	selected-user)))
+Selects from seen users on all sessions.  If point is on an
+event, suggests the event's sender as initial input.  Allows
+unseen user IDs to be input as well."
+  (cl-labels ((format-user (user)
+                           (format "%s <%s>"
+                                   (string-join
+                                    (delete-dups
+                                     (map-values
+                                      (ement-user-room-display-names user)))
+				    ", ")
+				   (ement-user-id user))))
+    (let* ((display-to-id
+	    (cl-loop for key being the hash-keys of ement-users
+		     using (hash-values value)
+		     collect (cons (format-user value) key)))
+           (user-at-point (when (equal major-mode 'ement-room-mode)
+                            (when-let ((node (ewoc-locate ement-ewoc)))
+                              (when (ement-event-p (ewoc-data node))
+                                (format-user (ement-event-sender (ewoc-data node)))))))
+	   (selected-user (completing-read "User: " (mapcar #'car display-to-id)
+                                           nil nil user-at-point)))
+      (or (alist-get selected-user display-to-id nil nil #'equal)
+	  selected-user))))
 
 (defun ement-send-direct-message (session user-id message)
   "Send a direct MESSAGE to USER-ID on SESSION.
