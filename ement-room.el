@@ -3132,12 +3132,13 @@ show it in the buffer."
                ((cl-struct ement-room local) ement-room)
                ((map buffer) local)
                ;; TODO: Thumbnail support.
-               ((map url info ;; (thumbnail_url thumbnail-url)
+               ((map ('url mxc) info ;; ('thumbnail_url thumbnail-url)
                      ) content)
                ((map thumbnail_info) info)
                ((map ('h _thumbnail-height) ('w _thumbnail-width)) thumbnail_info)
                ((map image) event-local)
-               (url (ement--mxc-to-url url ement-session))
+               (url (when mxc
+                      (ement--mxc-to-url mxc ement-session)))
                ;; (thumbnail-url (ement--mxc-to-url thumbnail-url ement-session))
                )
     (if (and ement-room-images image)
@@ -3177,12 +3178,12 @@ show it in the buffer."
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
           (with-temp-buffer
-            (insert-text-button url
+            (insert-text-button (or url "[no URL for image]")
                                 'face 'link
                                 'follow-link t)
             (buffer-string))
-        (when ement-room-images
-          ;; Images enabled: download it.
+        (when (and ement-room-images url)
+          ;; Images enabled and URL present: download it.
           (plz 'get url :as 'binary
             :then (apply-partially #'ement-room--m.image-callback event ement-room)
             :noquery t))))))
