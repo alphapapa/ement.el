@@ -363,10 +363,8 @@ new one automatically if necessary."
                 (message "Room \"%s\" created for user %s.  Sending message..."
 	                 room-id user-id))))))
 
-(cl-defun ement-create-room
-    (session &key name alias topic invite direct-p (visibility 'private)
-	     (then (lambda (data)
-                     (message "Created new room: %s" (alist-get 'room_id data)))))
+(cl-defun ement-create-room (session &key name alias topic invite direct-p then
+                                     (visibility 'private))
   "Create new room on SESSION with given arguments."
   ;; TODO: Document other arguments.
   ;; SPEC: 10.1.1.
@@ -377,14 +375,7 @@ new one automatically if necessary."
 		     :topic (read-string "New room topic: ")
 		     :visibility (completing-read "New room type: " '(private public))))
   (cl-labels ((given-p
-	       (var) (and var (not (string-empty-p var))))
-	      (put-direct
-	       (data) (let ((room-id (alist-get 'room_id data))
-			    (users-to-room (make-hash-table)))
-			(cl-loop for user-id in invite
-				 do (puthash user-id (vector room-id) users-to-room))
-			(ement-put-account-data session "m.direct" users-to-room)
-			(ement-debug "Marked room as direct: %s" room-id))))
+	       (var) (and var (not (string-empty-p var)))))
     (pcase-let* ((endpoint "createRoom")
 		 (data (ement-aprog1
 			   (ement-alist "visibility" visibility)
@@ -399,11 +390,8 @@ new one automatically if necessary."
 			 (when direct-p
 			   (push (cons "is_direct" t) it)))))
       (ement-api session endpoint :method 'post :data (json-encode data)
-	:then (if direct-p
-                  (lambda (data)
-                    (put-direct data)
-                    (funcall then data))
-                then)))))
+                 :then (lambda (data)
+                         (message "Created new room: %s" (alist-get 'room_id data)))))))
 
 (defalias 'ement-room-forget #'ement-forget-room)
 (defun ement-forget-room (room session)
