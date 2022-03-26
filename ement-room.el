@@ -372,6 +372,12 @@ line."
   :type '(choice (const " %Y-%m-%d (%A) %H:%M\n")
                  string))
 
+(defcustom ement-room-replace-edited-messages t
+  "Replace edited messages with their new content.
+When nil, edited messages are displayed as new messages, leaving
+the original messages visible."
+  :type 'boolean)
+
 (defcustom ement-room-prism 'name
   "Display users' names and messages in unique colors."
   :type '(choice (const :tag "Name only" name)
@@ -1945,7 +1951,17 @@ function to `ement-room-event-fns', which see."
     (ement-room--insert-event event)))
 
 (ement-room-defevent "m.room.message"
-  (ement-room--insert-event event))
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map ('m.relates_to (map ('rel_type rel-type) ('event_id replaces-event-id)))) content))
+    (if (and ement-room-replace-edited-messages
+             replaces-event-id (equal "m.replace" rel-type))
+        ;; Event replaces existing event: find and replace it in buffer if possible, otherwise insert it.
+        (or (ement-room--replace-event replaces-event-id event)
+            (progn
+              (ement-debug "Unable to replace event ID: inserting instead." replaces-event-id)
+              (ement-room--insert-event event)))
+      ;; New event: insert it.
+      (ement-room--insert-event event))))
 
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
@@ -2357,6 +2373,27 @@ the first and last nodes in the buffer, respectively."
               (when (ement-event-p (ewoc-data next-node))
                 (ement-debug "Event after from different sender: insert its sender before it.")
                 (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node)))))))))))
+
+(defun ement-room--replace-event (old-event-id new-event)
+  "Replace event having or replacing OLD-EVENT-ID with NEW-EVENT in current buffer.
+If OLD-EVENT-ID is not found, return nil, otherwise non-nil."
+  (let* ((ewoc ement-ewoc)
+         (old-event-node (ement-room--ewoc-last-matching ewoc
+                           (lambda (data)
+                             (cl-typecase data
+                               (ement-event (or (equal old-event-id (ement-event-id data))
+                                                (pcase-let* (((cl-struct ement-event content) data)
+                                                             ((map ('m.relates_to (map rel_type event_id))) content))
+                                                  (and (equal "m.replace" rel_type)
+                                                       (equal old-event-id event_id))))))))))
+    (when old-event-node
+      ;; TODO: Record old events in new event's local data, and make it accessible when inspecting the new event.
+      (let ((node-before (ewoc-prev ewoc old-event-node))
+            (inhibit-read-only t))
+        (ewoc-delete ewoc old-event-node)
+        (if node-before
+            (ewoc-enter-after ewoc node-before new-event)
+          (ewoc-enter-first ewoc new-event))))))
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
