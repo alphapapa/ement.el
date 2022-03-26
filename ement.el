@@ -272,7 +272,7 @@ in them won't work."
   "Switch to a buffer showing ROOM on SESSION.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
-  (interactive (ement-complete-room (ement-complete-session)))
+  (interactive (ement-complete-room (ement-complete-session) nil))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
       (setf buffer (ement-room--buffer session room
@@ -503,9 +503,12 @@ If no URI is found, prompt the user for the hostname."
                      (alist-get selected-id ement-sessions nil nil #'equal)))
     (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
 
-(defun ement-complete-room (&optional session)
+(cl-defun ement-complete-room (&optional session (suggest t))
   "Return a (room session) list selected from SESSION with completion.
-If SESSION is nil, select from rooms in all of `ement-sessions'."
+If SESSION is nil, select from rooms in all of `ement-sessions'.
+When SUGGEST, suggest current buffer's room as initial
+input (i.e. it should be set to nil when switching from one room
+buffer to another)."
   (pcase-let* ((sessions (if session
                              (list session)
                            (mapcar #'cdr ement-sessions)))
@@ -521,7 +524,7 @@ If SESSION is nil, select from rooms in all of `ement-sessions'."
                                                        (list room session)))))
                (names (mapcar #'car name-to-room-session))
                (selected-name (completing-read "Room: " names nil t
-                                               (when (equal major-mode 'ement-room-mode)
+                                               (when (and suggest (equal major-mode 'ement-room-mode))
                                                  ;; Suggest current buffer's room.
                                                  (format "%s (%s)"
                                                          (or (ement-room-display-name ement-room)
