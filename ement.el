@@ -344,9 +344,8 @@ new one automatically if necessary."
     (ement-create-room session :direct-p t :invite (list user-id)
       :then (lambda (data)
               (let* ((room-id (alist-get 'room_id data))
-	             (room (or (cl-find-if (lambda (room)
-				             (equal room-id (ement-room-id room)))
-			                   (ement-session-rooms session))
+	             (room (or (cl-find room-id (ement-session-rooms session)
+                                        :key #'ement-room-id)
 		               ;; New room hasn't synced yet: make a temporary struct.
 		               (make-ement-room :id room-id)))
                      (direct-rooms-account-data-event-content
