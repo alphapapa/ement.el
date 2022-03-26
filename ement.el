@@ -924,7 +924,7 @@ Also handle the echoed-back event."
   (let ((endpoint (format "user/%s/account_data/%s"
                           (url-hexify-string (ement-user-id (ement-session-user session)))
                           type)))
-    (ement-api session endpoint :data (json-encode data)
+    (ement-api session endpoint :method 'put :data (json-encode data)
       :then (lambda (received-data)
               ;; Handle echoed-back account data event (the spec does not explain this,
               ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
