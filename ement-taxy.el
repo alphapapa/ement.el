@@ -277,7 +277,7 @@
           (delete-all-overlays)
           (erase-buffer)
           (save-excursion
-            (taxy-magit-section-insert taxy :items 'last
+            (taxy-magit-section-insert taxy :items 'first
               ;; :blank-between-depth bufler-taxy-blank-between-depth
               :initial-depth 0))))
       (pop-to-buffer buffer-name display-buffer-action))))
