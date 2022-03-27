@@ -49,8 +49,9 @@
 ;; structs don't include the session, we use a two-element vector in
 ;; which the session is the second element.
 
-(taxy-define-key-definer ement-taxy-define-key
-  ement-taxy-keys "ement-taxy" "FIXME: Docstring.")
+(eval-and-compile
+  (taxy-define-key-definer ement-taxy-define-key
+    ement-taxy-keys "ement-taxy" "FIXME: Docstring."))
 
 (ement-taxy-define-key membership (&key name type)
   ;; FIXME: Docstring: type should be a symbol of either `invite', `join', `leave'.
