@@ -132,6 +132,23 @@
 
 (taxy-magit-section-define-column-definer "ement-taxy")
 
+(ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
+  ;; FIXME: The images tend to break alignment; not sure why.
+  (pcase-let ((`[,(cl-struct ement-room avatar (local (map room-list-avatar)))
+                 ,_session]
+               item))
+    (if (and ement-room-list-avatars avatar)
+        (or room-list-avatar
+            (let ((new-avatar
+                   (propertize " " 'display
+                               (ement--resize-image (get-text-property 0 'display avatar)
+                                                    (frame-char-width) nil))))
+              ;; alist-get doesn't seem to return the new value when used with setf?
+              (setf (alist-get 'room-list-avatar (ement-room-local room))
+                    new-avatar)
+              new-avatar))
+      " ")))
+
 (ement-taxy-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-room (local (map buffer))) room)
@@ -154,6 +171,19 @@
           (propertize display-name 'face face))
         "")))
 
+(ement-taxy-define-column "Topic" (:max-width 35)
+  (pcase-let ((`[,(cl-struct ement-room topic) ,_session] item))
+    (or topic "")))
+
+(ement-taxy-define-column "Members" (:align 'right)
+  (pcase-let ((`[,(cl-struct ement-room
+                             (summary (map ('m.joined_member_count member-count))))
+                 ,_session]
+               item))
+    (if member-count
+        (number-to-string member-count)
+      "")))
+
 (ement-taxy-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
     (if latest-ts
@@ -168,6 +198,10 @@
                (formatted-ts (ts-human-format-duration difference-seconds 'abbreviate)))
           (propertize formatted-ts 'face face))
       "")))
+
+(ement-taxy-define-column "Session" ()
+  (pcase-let ((`[,_room ,(cl-struct ement-session (user (cl-struct ement-user id)))] item))
+    id))
 
 (unless ement-taxy-columns
   ;; TODO: Automate this or document it
