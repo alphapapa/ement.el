@@ -513,23 +513,13 @@ buffer to another)."
                (name-to-room-session
                 (cl-loop for session in sessions
                          append (cl-loop for room in (ement-session-rooms session)
-                                         collect (cons (format "%s (%s)"
-                                                               (or (ement-room-display-name room)
-                                                                   (setf (ement-room-display-name room)
-                                                                         (ement-room--room-display-name room)))
-                                                               (or (ement-room-canonical-alias room)
-                                                                   (ement-room-id room)))
+                                         collect (cons (ement--format-room room)
                                                        (list room session)))))
                (names (mapcar #'car name-to-room-session))
                (selected-name (completing-read "Room: " names nil t
                                                (when (and suggest (equal major-mode 'ement-room-mode))
                                                  ;; Suggest current buffer's room.
-                                                 (format "%s (%s)"
-                                                         (or (ement-room-display-name ement-room)
-                                                             (setf (ement-room-display-name ement-room)
-                                                                   (ement-room--room-display-name ement-room)))
-                                                         (or (ement-room-canonical-alias ement-room)
-                                                             (ement-room-id ement-room)))))))
+                                                 (ement--format-room ement-room)))))
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (defun ement--format-room (room)
