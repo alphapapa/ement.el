@@ -180,8 +180,7 @@
                                                  (map-elt face :inherit)))))
           (propertize (button-buttonize display-name #'ement-taxy-mouse-1)
                       'face face
-                      'mouse-face 'highlight)
-          )
+                      'mouse-face 'highlight))
         "")))
 
 (ement-taxy-define-column "Topic" (:max-width 35)
