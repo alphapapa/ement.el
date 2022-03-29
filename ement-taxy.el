@@ -228,6 +228,9 @@
                  (item) (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
                           (and (buffer-live-p buffer)
                                (buffer-modified-p buffer))))
+                (room-left-p
+                 (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
+                          (equal 'leave type)))
                 (taxy-unread-p
                  (taxy) (or (cl-some #'room-unread-p (taxy-items taxy))
                             (cl-some #'taxy-unread-p (taxy-taxys taxy))))
@@ -269,7 +272,9 @@
                        ;;                   (latest-ts (car (taxy-items taxy)))))
                        (taxy-sort #'t<nil #'room-unread-p)
                        (taxy-sort* #'t<nil (lambda (taxy)
-                                             (room-unread-p (car (taxy-items taxy)))))))
+                                             (room-unread-p (car (taxy-items taxy)))))
+                       (taxy-sort* #'t<nil (lambda (taxy)
+                                             (not (room-left-p (car (taxy-items taxy))))))))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
