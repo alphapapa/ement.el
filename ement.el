@@ -6,7 +6,7 @@
 ;; Keywords: comm
 ;; URL: https://github.com/alphapapa/ement.el
 ;; Package-Version: 0.1-pre
-;; Package-Requires: ((emacs "26.3") (map "2.1") (plz "0.1-pre") (ts "0.2.1"))
+;; Package-Requires: ((emacs "26.3") (map "2.1") (plz "0.1-pre") (taxy "0.9") (taxy-magit-section "0.9") (ts "0.2.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -76,7 +76,8 @@
   "Used to report progress while processing sync events.")
 
 (defvar ement-sync-callback-hook
-  '(ement--update-room-buffers ement--auto-sync ement-room-list-auto-update)
+  '(ement--update-room-buffers ement--auto-sync ement-room-list-auto-update
+                               ement-taxy-auto-update)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
 synced.")
@@ -727,8 +728,8 @@ Also used for left rooms, in which case TYPE should be set to
                      ('unread_notifications unread-notifications))
                 event-types)
                (latest-timestamp))
-    (ignore unread-notifications)
-    (setf (ement-room-type room) type)
+    (setf (ement-room-type room) type
+          (ement-room-unread-notifications room) unread-notifications)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means
@@ -774,12 +775,6 @@ Also used for left rooms, in which case TYPE should be set to
                       ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
                       ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
                       ts)))
-      (when (map-elt (ement-room-local room) 'buffer)
-        ;; Only use ephemeral events if the room has a buffer, and don't use the
-        ;; `push-events' macro because we don't use these events' timestamps.
-        (cl-loop for event across (alist-get 'events ephemeral)
-                 for event-struct = (ement--make-event event)
-                 do (push event-struct (ement-room-ephemeral room))))
       ;; FIXME: This is a bit convoluted and hacky now.  Refactor it.
       (setf latest-timestamp
             (max (push-events state ement-room-state)
@@ -804,6 +799,11 @@ Also used for left rooms, in which case TYPE should be set to
              do (run-hook-with-args 'ement-event-hook event room session)
              (when (ement--sync-messages-p session)
                (ement-progress-update)))
+    ;; Ephemeral events (do this after state and timeline hooks, so those events will be
+    ;; in the hash tables).
+    (cl-loop for event across (alist-get 'events ephemeral)
+             for event-struct = (ement--make-event event)
+             do (ement--process-event event-struct room session))
     (when (ement-session-has-synced-p session)
       ;; NOTE: We don't fill gaps in "limited" requests on initial
       ;; sync, only in subsequent syncs, e.g. after the system has
@@ -970,6 +970,57 @@ Also handle the echoed-back event."
               (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
                            (ement-user-id (ement-session-user session)) (json-encode data) received-data)))))
 
+(defun ement--room-unread-p (room session)
+  "Return non-nil if ROOM is considered unread for SESSION.
+The room is unread if it has a modified, live buffer; if it has
+non-zero unread notification acounts; or if its fully-read marker
+is not at the latest known message event."
+  ;; Roughly equivalent to the "red/gray/bold/idle" states listed in
+  ;; <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
+  (pcase-let* (((cl-struct ement-room timeline account-data unread-notifications receipts
+                           (local (map buffer)))
+                room)
+               ((cl-struct ement-session user events) session)
+               ((cl-struct ement-user (id our-id)) user)
+               ((map notification_count highlight_count) unread-notifications)
+               (fully-read-event-id (map-nested-elt (alist-get "m.fully_read" account-data nil nil #'equal)
+                                                    '(content event_id))))
+    (or (and buffer (buffer-modified-p buffer))
+        (and unread-notifications
+             (or (not (zerop notification_count))
+                 (not (zerop highlight_count))))
+        ;; NOTE: This is *WAY* too complicated, but it seems roughly equivalent to doesRoomHaveUnreadMessages() from
+        ;; <https://github.com/matrix-org/matrix-react-sdk/blob/7fa01ffb068f014506041bce5f02df4f17305f02/src/Unread.ts#L52>.
+        (cl-labels ((event-counts-toward-unread-p
+                     (event) (not (member (ement-event-type event) '("m.room.member" "m.reaction")))))
+          (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
+                (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
+            (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
+                   ;; The fully-read marker is at the last known event: not unread.
+                   nil)
+                  ((and (not our-read-receipt-event-id)
+                        (when first-counting-event
+                          (and (not (equal fully-read-event-id (ement-event-id first-counting-event)))
+                               (not (equal our-id (ement-user-id (ement-event-sender first-counting-event)))))))
+                   ;; A missing read-receipt failsafes to marking the
+                   ;; room unread, unless the fully-read marker is at
+                   ;; the latest counting event or we sent the latest
+                   ;; counting event.
+                   t)
+                  ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
+                   ;; If we sent the last event in the room, the room is not unread.
+                   nil)
+                  ((and first-counting-event
+                        (equal our-id (ement-user-id (ement-event-sender first-counting-event))))
+                   ;; If we sent the last counting event in the room,
+                   ;; the room is not unread.
+                   nil)
+                  ((cl-loop for event in timeline
+                            when (event-counts-toward-unread-p event)
+                            return (and (not (equal our-read-receipt-event-id (ement-event-id event)))
+                                        (not (equal fully-read-event-id (ement-event-id event)))))
+                   t)))))))
+
 ;;;;; Reading/writing sessions
 
 (defun ement--read-sessions ()
@@ -1107,6 +1158,21 @@ and `session' to the session.  Adds function to
   (pcase-let* (((cl-struct ement-event (content (map topic))) event))
     (when topic
       (setf (ement-room-topic room) topic))))
+
+(ement-defevent "m.receipt"
+  (ignore session)
+  (pcase-let (((cl-struct ement-event content) event)
+              ((cl-struct ement-room (receipts room-receipts)) room))
+    (cl-loop for (event-id . receipts) in content
+             do (cl-loop for (user-id . receipt) in (alist-get 'm.read receipts)
+                         ;; Users may not have been "seen" yet, so although we'd
+                         ;; prefer to key on the user struct, we key on the user ID.
+                         ;; Same for events, unfortunately.
+                         ;; NOTE: The JSON map keys are converted to symbols by `json-read'.
+                         ;; MAYBE: (Should we keep them that way?  It would use less memory, I guess.)
+                         do (puthash (symbol-name user-id)
+                                     (cons (symbol-name event-id) (alist-get 'ts receipt))
+                                     room-receipts)))))
 
 ;;;; Footer
 

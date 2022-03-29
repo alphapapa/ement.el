@@ -62,7 +62,8 @@
   summary state timeline ephemeral account-data unread-notifications
   latest-ts topic canonical-alias avatar type invite-state
   ;; The local slot is an alist used by the local client only.
-  local)
+  local
+  (receipts (make-hash-table)))
 
 ;;;; Variables
 

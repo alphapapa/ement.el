@@ -849,7 +849,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                            (lambda (data) (ement-event-p data))))))
         (set-buffer-modified-p nil)
         (bury-buffer)
-        (when (equal major-mode 'ement-room-list-mode)
+        (when (member major-mode '(ement-room-list-mode ement-taxy-room-list-mode))
           ;; Back in the room-list buffer: revert it.
           (revert-buffer)))
     (condition-case _err
@@ -1130,7 +1130,8 @@ sync requests."
                              :origin-server-ts (ement-event-origin-server-ts event)
                              :type (ement-event-type event)
                              :state-key (ement-event-state-key event)
-                             :unsigned (ement-event-unsigned event)))
+                             :unsigned (ement-event-unsigned event)
+                             :receipts (ement-event-receipts event)))
          (inhibit-read-only t))
     (with-current-buffer (get-buffer-create buffer-name)
       (erase-buffer)
