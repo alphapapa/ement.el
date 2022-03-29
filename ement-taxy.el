@@ -99,7 +99,7 @@
                (display-name (ement-room--room-display-name room)))
     (when display-name
       (when (string-match-p regexp display-name)
-        name))))
+        (or name regexp)))))
 
 (ement-taxy-define-key session (&optional user-id)
   (pcase-let ((`[,_room ,(cl-struct ement-session
