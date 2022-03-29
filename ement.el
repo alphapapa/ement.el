@@ -728,8 +728,8 @@ Also used for left rooms, in which case TYPE should be set to
                      ('unread_notifications unread-notifications))
                 event-types)
                (latest-timestamp))
-    (ignore unread-notifications)
-    (setf (ement-room-type room) type)
+    (setf (ement-room-type room) type
+          (ement-room-unread-notifications room) unread-notifications)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means

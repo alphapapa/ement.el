@@ -204,6 +204,16 @@
           (propertize formatted-ts 'face face))
       "")))
 
+(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights")) (:align 'right)
+  (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
+               ((map notification_count highlight_count) unread-notifications))
+    (if (or (not unread-notifications)
+            (and (equal 0 notification_count)
+                 (equal 0 highlight_count)))
+        ""
+      (format #("%s:%s" 0 5 (help-echo "Notifications:Highlights"))
+              notification_count highlight_count))))
+
 (ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (if buffer #("B" 0 1 (help-echo "Buffer exists for room")) " ")))
