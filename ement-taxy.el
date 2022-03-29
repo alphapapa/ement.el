@@ -157,13 +157,17 @@
 
 (ement-taxy-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
-               ((cl-struct ement-room (local (map buffer))) room)
+               ((cl-struct ement-room unread-notifications (local (map buffer))) room)
+               ((map notification_count highlight_count) unread-notifications)
                (display-name (ement-room--room-display-name room))
                (face))
     (or (when display-name
           ;; TODO: Use code from ement-room-list and put in a dedicated function.
           (setf face (cl-copy-list '(:inherit (ement-room-list-name))))
-          (when (and buffer (buffer-modified-p buffer))
+          (when (or (and buffer (buffer-modified-p buffer))
+                    (and unread-notifications
+                         (or (not (zerop notification_count))
+                             (not (zerop highlight_count)))))
             ;; For some reason, `push' doesn't work with `map-elt'.
             (setf (map-elt face :inherit)
                   (cons 'ement-room-list-unread (map-elt face :inherit))))
