@@ -1962,7 +1962,7 @@ function to `ement-room-event-fns', which see."
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body replacement_room) content)
-               (footer (propertize (format "%s (new room: %s)" body replacement_room)
+               (footer (propertize (format "This room has been replaced.  Explanation:%S  Replacement room: <%s>" body replacement_room)
                                    'face 'font-lock-warning-face)))
     ;; NOTE: We assume that no more typing events will be received,
     ;; which would replace the footer.
