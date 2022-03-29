@@ -240,9 +240,10 @@
 ;;;; Commands
 
 ;;;###autoload
-(cl-defun ement-taxy (&key (buffer-name "*Ement Taxy*")
-                           (keys ement-taxy-default-keys)
-                           display-buffer-action visibility-fn)
+(cl-defun ement-taxy-room-list (&key (buffer-name "*Ement Taxy*")
+                                     (keys ement-taxy-default-keys)
+                                     display-buffer-action visibility-fn)
+  "Show a buffer listing Ement rooms, grouped with Taxy."
   (interactive)
   (let (format-table column-sizes)
     (cl-labels (;; (heading-face
@@ -315,7 +316,10 @@
             (taxy-magit-section-insert taxy :items 'first
               ;; :blank-between-depth bufler-taxy-blank-between-depth
               :initial-depth 0))))
-      (pop-to-buffer buffer-name display-buffer-action))))
+      ;; FIXME: There must be a better way to handle this.
+      (funcall (if current-prefix-arg
+                   #'pop-to-buffer #'pop-to-buffer-same-window)
+               buffer-name display-buffer-action))))
 
 (defun ement-taxy-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Taxy buffer."
