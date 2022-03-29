@@ -349,7 +349,7 @@
 
 ;;;###autoload
 (defun ement-taxy-auto-update (_session)
-  "Automatically update the room list buffer.
+  "Automatically update the Taxy room list buffer.
 +Does so when variable `ement-taxy-auto-update' is non-nil.
 +To be called in `ement-sync-callback-hook'."
   (when (and ement-taxy-auto-update
