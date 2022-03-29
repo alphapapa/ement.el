@@ -164,10 +164,9 @@
     (or (when display-name
           ;; TODO: Use code from ement-room-list and put in a dedicated function.
           (setf face (cl-copy-list '(:inherit (ement-room-list-name))))
-          (when (or (and buffer (buffer-modified-p buffer))
-                    (and unread-notifications
-                         (or (not (zerop notification_count))
-                             (not (zerop highlight_count)))))
+          ;; In concert with the "Unread" column, this is roughly equivalent to the
+          ;; "red/gray/bold/idle" states listed in <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
+          (when (ement--room-unread-p room session)
             ;; For some reason, `push' doesn't work with `map-elt'.
             (setf (map-elt face :inherit)
                   (cons 'ement-room-list-unread (map-elt face :inherit))))

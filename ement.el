@@ -970,6 +970,57 @@ Also handle the echoed-back event."
               (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
                            (ement-user-id (ement-session-user session)) (json-encode data) received-data)))))
 
+(defun ement--room-unread-p (room session)
+  "Return non-nil if ROOM is considered unread for SESSION.
+The room is unread if it has a modified, live buffer; if it has
+non-zero unread notification acounts; or if its fully-read marker
+is not at the latest known message event."
+  ;; Roughly equivalent to the "red/gray/bold/idle" states listed in
+  ;; <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
+  (pcase-let* (((cl-struct ement-room timeline account-data unread-notifications receipts
+                           (local (map buffer)))
+                room)
+               ((cl-struct ement-session user events) session)
+               ((cl-struct ement-user (id our-id)) user)
+               ((map notification_count highlight_count) unread-notifications)
+               (fully-read-event-id (map-nested-elt (alist-get "m.fully_read" account-data nil nil #'equal)
+                                                    '(content event_id))))
+    (or (and buffer (buffer-modified-p buffer))
+        (and unread-notifications
+             (or (not (zerop notification_count))
+                 (not (zerop highlight_count))))
+        ;; NOTE: This is *WAY* too complicated, but it seems roughly equivalent to doesRoomHaveUnreadMessages() from
+        ;; <https://github.com/matrix-org/matrix-react-sdk/blob/7fa01ffb068f014506041bce5f02df4f17305f02/src/Unread.ts#L52>.
+        (cl-labels ((event-counts-toward-unread-p
+                     (event) (not (member (ement-event-type event) '("m.room.member" "m.reaction")))))
+          (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
+                (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
+            (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
+                   ;; The fully-read marker is at the last known event: not unread.
+                   nil)
+                  ((and (not our-read-receipt-event-id)
+                        (when first-counting-event
+                          (and (not (equal fully-read-event-id (ement-event-id first-counting-event)))
+                               (not (equal our-id (ement-user-id (ement-event-sender first-counting-event)))))))
+                   ;; A missing read-receipt failsafes to marking the
+                   ;; room unread, unless the fully-read marker is at
+                   ;; the latest counting event or we sent the latest
+                   ;; counting event.
+                   t)
+                  ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
+                   ;; If we sent the last event in the room, the room is not unread.
+                   nil)
+                  ((and first-counting-event
+                        (equal our-id (ement-user-id (ement-event-sender first-counting-event))))
+                   ;; If we sent the last counting event in the room,
+                   ;; the room is not unread.
+                   nil)
+                  ((cl-loop for event in timeline
+                            when (event-counts-toward-unread-p event)
+                            return (and (not (equal our-read-receipt-event-id (ement-event-id event)))
+                                        (not (equal fully-read-event-id (ement-event-id event)))))
+                   t)))))))
+
 ;;;;; Reading/writing sessions
 
 (defun ement--read-sessions ()
