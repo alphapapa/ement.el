@@ -342,7 +342,7 @@
 
 (define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
   :global nil
-  (setq-local bookmark-make-record-function #'ement-taxy--bookmark-make-record
+  (setq-local bookmark-make-record-function #'ement-taxy-bookmark-make-record
               revert-buffer-function #'ement-taxy-revert))
 
 ;;;; Functions
