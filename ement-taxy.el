@@ -199,6 +199,10 @@
           (propertize formatted-ts 'face face))
       "")))
 
+(ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
+  (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
+    (if buffer #("B" 0 1 (help-echo "Buffer exists for room")) " ")))
+
 (ement-taxy-define-column "Session" ()
   (pcase-let ((`[,_room ,(cl-struct ement-session (user (cl-struct ement-user id)))] item))
     id))
