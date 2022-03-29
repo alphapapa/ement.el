@@ -292,8 +292,6 @@
                        (taxy-fill room-session-vectors)
                        (taxy-sort #'> #'latest-ts)
                        (taxy-sort* #'string< #'taxy-name)
-                       ;; (taxy-sort* #'> (lambda (taxy)
-                       ;;                   (latest-ts (car (taxy-items taxy)))))
                        (taxy-sort #'t<nil #'room-unread-p)
                        (taxy-sort* #'t<nil (lambda (taxy)
                                              (room-unread-p (car (taxy-items taxy)))))
