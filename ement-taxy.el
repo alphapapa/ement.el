@@ -158,8 +158,6 @@
 
 (ement-taxy-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
-               ((cl-struct ement-room unread-notifications (local (map buffer))) room)
-               ((map notification_count highlight_count) unread-notifications)
                (display-name (ement-room--room-display-name room))
                (face))
     (or (when display-name
@@ -270,7 +268,8 @@
 (cl-defun ement-taxy-room-list (&key (buffer-name "*Ement Taxy*")
                                      (keys ement-taxy-default-keys)
                                      (display-buffer-action '(display-buffer-same-window))
-                                     visibility-fn)
+                                     ;; visibility-fn
+                                     )
   "Show a buffer listing Ement rooms, grouped with Taxy."
   (interactive)
   (let (format-table column-sizes)
