@@ -849,7 +849,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                            (lambda (data) (ement-event-p data))))))
         (set-buffer-modified-p nil)
         (bury-buffer)
-        (when (equal major-mode 'ement-room-list-mode)
+        (when (member major-mode '(ement-room-list-mode ement-taxy-room-list-mode))
           ;; Back in the room-list buffer: revert it.
           (revert-buffer)))
     (condition-case _err
