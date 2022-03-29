@@ -137,7 +137,8 @@
 (defvar ement-taxy-room-avatar-cache (make-hash-table)
   "Hash table caching room avatars for the `ement-taxy' room list.")
 
-(taxy-magit-section-define-column-definer "ement-taxy")
+(eval-and-compile
+  (taxy-magit-section-define-column-definer "ement-taxy"))
 
 (ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
