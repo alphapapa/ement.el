@@ -117,14 +117,11 @@
 
 (defcustom ement-taxy-default-keys
   '((membership :type 'leave)
-    (people-p (buffer-p unread-p))
-
-    (unread-p)
+    (people-p)
     ((name :name "Matrix"
-           :regexp (rx (or "matrix" "TWIM"))))
+           :regexp (rx (or "#matrix" "TWIM"))))
     ((name :name "Emacs"
-           :regexp (rx (or "Emacs" "ement.el" "org-mode" "magit" "spacemacs" "systemcrafters"))))
-    ((name :name "Lisp" :regexp (rx (or "lisp" "hy")))))
+           :regexp (rx (or "Emacs" "ement.el" "org-mode" "magit" "spacemacs" "systemcrafters")))))
   "Default keys."
   :type 'sexp)
 
