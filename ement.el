@@ -1179,7 +1179,10 @@ and `session' to the session.  Adds function to
                          ;; NOTE: The JSON map keys are converted to symbols by `json-read'.
                          ;; MAYBE: (Should we keep them that way?  It would use less memory, I guess.)
                          do (puthash (symbol-name user-id)
-                                     (cons (symbol-name event-id) (alist-get 'ts receipt))
+                                     (cons (symbol-name event-id)
+                                           (if (json-alist-p receipt )
+                                               (alist-get 'ts receipt)
+                                             (alist-get 'ts (json-parse-string receipt :object-type 'alist))))
                                      room-receipts)))))
 
 (ement-defevent "m.space.child"
