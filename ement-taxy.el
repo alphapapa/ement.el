@@ -299,6 +299,8 @@
                                 args)))
       ;; (when (get-buffer buffer-name)
       ;;   (kill-buffer buffer-name))
+      (unless ement-sessions
+        (error "Ement: Not connected.  Use `ement-connect' to connect"))
       (with-current-buffer (get-buffer-create buffer-name)
         (ement-taxy-mode)
         (let* ((room-session-vectors
