@@ -214,8 +214,32 @@
   (setq-default ement-taxy-columns
                 (get 'ement-taxy-columns 'standard-value)))
 
+;;;; Bookmark support
+
+;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
+
+(require 'bookmark)
+
+(defun ement-taxy-bookmark-make-record ()
+  "Return a bookmark record for the `ement-taxy' buffer."
+  (pcase-let* (((cl-struct ement-session user) ement-session)
+               ((cl-struct ement-user (id session-id)) user))
+    ;; MAYBE: Support bookmarking specific events in a room.
+    (list (concat "Ement room list (Taxy) (" session-id ")")
+          (cons 'session-id session-id)
+          (cons 'handler #'ement-taxy-bookmark-handler))))
+
+(defun ement-taxy-bookmark-handler (bookmark)
+  "Show `ement-taxy' room list buffer for BOOKMARK."
+  (pcase-let* (((map session-id) bookmark))
+    (unless (alist-get session-id ement-sessions nil nil #'equal)
+      ;; MAYBE: Automatically connect.
+      (user-error "Session %s not connected: call `ement-connect' first" session-id))
+    (ement-taxy)))
+
 ;;;; Commands
 
+;;;###autoload
 (cl-defun ement-taxy (&key (buffer-name "*Ement Taxy*")
                            (keys ement-taxy-default-keys)
                            display-buffer-action visibility-fn)
@@ -313,8 +337,8 @@
 
 (define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
   :global nil
-  (setq-local ;; bookmark-make-record-function #'ement-taxy--bookmark-make-record
-   revert-buffer-function #'ement-taxy-revert))
+  (setq-local bookmark-make-record-function #'ement-taxy--bookmark-make-record
+              revert-buffer-function #'ement-taxy-revert))
 
 ;;;; Footer
 
