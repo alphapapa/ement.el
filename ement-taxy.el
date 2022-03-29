@@ -320,7 +320,9 @@
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
-                             ement-taxy-columns ement-taxy-column-formatters taxy)))
+                             ement-taxy-columns ement-taxy-column-formatters taxy))
+               (pos (point))
+               (window-start (window-start (get-buffer-window))))
           (setf format-table (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
@@ -330,11 +332,13 @@
           (save-excursion
             (taxy-magit-section-insert taxy :items 'first
               ;; :blank-between-depth bufler-taxy-blank-between-depth
-              :initial-depth 0))))
-      ;; FIXME: There must be a better way to handle this.
-      (funcall (if current-prefix-arg
-                   #'pop-to-buffer #'pop-to-buffer-same-window)
-               buffer-name display-buffer-action))))
+              :initial-depth 0))
+          (goto-char pos)
+          (display-buffer buffer-name (if current-prefix-arg
+                                          '((display-buffer-same-window))
+                                        display-buffer-action))
+          (when (get-buffer-window)
+            (set-window-start (get-buffer-window) window-start)))))))
 
 (defun ement-taxy-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Taxy buffer."
