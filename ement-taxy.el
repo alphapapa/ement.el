@@ -173,7 +173,10 @@
             ('invite
              (setf (map-elt face :inherit) (cons 'ement-room-list-invited
                                                  (map-elt face :inherit)))))
-          (propertize display-name 'face face))
+          (propertize (button-buttonize display-name #'ement-taxy-mouse-1)
+                      'face face
+                      'mouse-face 'highlight)
+          )
         "")))
 
 (ement-taxy-define-column "Topic" (:max-width 35)
