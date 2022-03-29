@@ -215,12 +215,15 @@
             (and (equal 0 notification_count)
                  (equal 0 highlight_count)))
         ""
-      (format #("%s:%s" 0 5 (help-echo "Notifications:Highlights"))
-              notification_count highlight_count))))
+      (propertize (format #("%s:%s" 0 5 (help-echo "Notifications:Highlights"))
+                          notification_count highlight_count)
+                  'face 'highlight))))
 
 (ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
-    (if buffer #("B" 0 1 (help-echo "Buffer exists for room")) " ")))
+    (if buffer
+        #("B" 0 1 (help-echo "Buffer exists for room"))
+      " ")))
 
 (ement-taxy-define-column "Session" ()
   (pcase-let ((`[,_room ,(cl-struct ement-session (user (cl-struct ement-user id)))] item))
