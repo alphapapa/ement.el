@@ -44,6 +44,7 @@
 
 (cl-defstruct ement-event
   id sender content origin-server-ts type unsigned state-key
+  receipts
   ;; The local slot is an alist used by the local client only.
   local)
 
