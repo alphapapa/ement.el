@@ -775,12 +775,6 @@ Also used for left rooms, in which case TYPE should be set to
                       ;; inexplicably, it sometimes returns nil, even when every single value it's comparing
                       ;; is a number.  It's absolutely bizarre, but I have to do the equivalent manually.
                       ts)))
-      (when (map-elt (ement-room-local room) 'buffer)
-        ;; Only use ephemeral events if the room has a buffer, and don't use the
-        ;; `push-events' macro because we don't use these events' timestamps.
-        (cl-loop for event across (alist-get 'events ephemeral)
-                 for event-struct = (ement--make-event event)
-                 do (push event-struct (ement-room-ephemeral room))))
       ;; FIXME: This is a bit convoluted and hacky now.  Refactor it.
       (setf latest-timestamp
             (max (push-events state ement-room-state)
@@ -805,6 +799,11 @@ Also used for left rooms, in which case TYPE should be set to
              do (run-hook-with-args 'ement-event-hook event room session)
              (when (ement--sync-messages-p session)
                (ement-progress-update)))
+    ;; Ephemeral events (do this after state and timeline hooks, so those events will be
+    ;; in the hash tables).
+    (cl-loop for event across (alist-get 'events ephemeral)
+             for event-struct = (ement--make-event event)
+             do (ement--process-event event-struct room session))
     (when (ement-session-has-synced-p session)
       ;; NOTE: We don't fill gaps in "limited" requests on initial
       ;; sync, only in subsequent syncs, e.g. after the system has
@@ -1108,6 +1107,21 @@ and `session' to the session.  Adds function to
   (pcase-let* (((cl-struct ement-event (content (map topic))) event))
     (when topic
       (setf (ement-room-topic room) topic))))
+
+(ement-defevent "m.receipt"
+  (ignore session)
+  (pcase-let (((cl-struct ement-event content) event)
+              ((cl-struct ement-room (receipts room-receipts)) room))
+    (cl-loop for (event-id . receipts) in content
+             do (cl-loop for (user-id . receipt) in (alist-get 'm.read receipts)
+                         ;; Users may not have been "seen" yet, so although we'd
+                         ;; prefer to key on the user struct, we key on the user ID.
+                         ;; Same for events, unfortunately.
+                         ;; NOTE: The JSON map keys are converted to symbols by `json-read'.
+                         ;; MAYBE: (Should we keep them that way?  It would use less memory, I guess.)
+                         do (puthash (symbol-name user-id)
+                                     (cons (symbol-name event-id) (alist-get 'ts receipt))
+                                     room-receipts)))))
 
 ;;;; Footer
 
