@@ -181,18 +181,20 @@
                       'mouse-face 'highlight))
         "")))
 
-(ement-taxy-define-column "Topic" (:max-width 35)
-  (pcase-let ((`[,(cl-struct ement-room topic) ,_session] item))
-    (or topic "")))
-
-(ement-taxy-define-column "Members" (:align 'right)
-  (pcase-let ((`[,(cl-struct ement-room
-                             (summary (map ('m.joined_member_count member-count))))
-                 ,_session]
-               item))
-    (if member-count
-        (number-to-string member-count)
-      "")))
+(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights")) (:align 'right)
+  (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
+               ((map notification_count highlight_count) unread-notifications))
+    (if (or (not unread-notifications)
+            (and (equal 0 notification_count)
+                 (equal 0 highlight_count)))
+        ""
+      (concat (propertize (number-to-string notification_count)
+                          'face 'highlight)
+              ":"
+              (propertize (number-to-string highlight_count)
+                          'face (if (zerop highlight_count)
+                                    'default
+                                  'ement-room-mention))))))
 
 (ement-taxy-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
@@ -209,20 +211,18 @@
           (propertize formatted-ts 'face face))
       "")))
 
-(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights")) (:align 'right)
-  (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
-               ((map notification_count highlight_count) unread-notifications))
-    (if (or (not unread-notifications)
-            (and (equal 0 notification_count)
-                 (equal 0 highlight_count)))
-        ""
-      (concat (propertize (number-to-string notification_count)
-                          'face 'highlight)
-              ":"
-              (propertize (number-to-string highlight_count)
-                          'face (if (zerop highlight_count)
-                                    'default
-                                  'ement-room-mention))))))
+(ement-taxy-define-column "Topic" (:max-width 35)
+  (pcase-let ((`[,(cl-struct ement-room topic) ,_session] item))
+    (or topic "")))
+
+(ement-taxy-define-column "Members" (:align 'right)
+  (pcase-let ((`[,(cl-struct ement-room
+                             (summary (map ('m.joined_member_count member-count))))
+                 ,_session]
+               item))
+    (if member-count
+        (number-to-string member-count)
+      "")))
 
 (ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
