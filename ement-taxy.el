@@ -251,14 +251,15 @@
     (unless (alist-get session-id ement-sessions nil nil #'equal)
       ;; MAYBE: Automatically connect.
       (user-error "Session %s not connected: call `ement-connect' first" session-id))
-    (ement-taxy)))
+    (ement-taxy-room-list)))
 
 ;;;; Commands
 
 ;;;###autoload
 (cl-defun ement-taxy-room-list (&key (buffer-name "*Ement Taxy*")
                                      (keys ement-taxy-default-keys)
-                                     display-buffer-action visibility-fn)
+                                     (display-buffer-action '(display-buffer-same-window))
+                                     visibility-fn)
   "Show a buffer listing Ement rooms, grouped with Taxy."
   (interactive)
   (let (format-table column-sizes)
@@ -338,7 +339,7 @@
 (defun ement-taxy-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Taxy buffer."
   (interactive)
-  (ement-taxy :display-buffer-action '((display-buffer-same-window))))
+  (ement-taxy-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
 
 (defun ement-taxy-mouse-1 (event)
   (interactive "e")
