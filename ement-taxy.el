@@ -103,31 +103,34 @@
 (ement-taxy-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-session rooms) session)
-               ((cl-struct ement-room type (local (map parents))) room))
+               ((cl-struct ement-room type (local (map parents))) room)
+               (key))
     (cl-labels ((format-space
-                 (id)
-                 (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
-                        (space-name (if parent-room
-                                        (ement-room-display-name parent-room)
-                                      id)))
-                   (concat "[Space: " space-name  "]"))))
-      (when-let ((key (cond ((and id
-                                  (equal id (car parents)))
-                             ;; Specific space.
-                             (or name (format-space (car parents))))
-                            ((equal type "m.space")
-                             ;; A space room itself.
-                             (or name (concat "[Space: " (ement-room-display-name room) "]")))
-                            (parents
-                             ;; A room in a space.
-                             (pcase (length parents)
-                               (0 nil)
-                               (1
-                                ;; TODO: Make the rooms list a hash table to avoid this lookup.
-                                (or name (format-space (car parents))) )
-                               (_
-                                ;; TODO: How to handle this better?  (though it should be very rare)
-                                (or name "[multiple spaces]")))))))
+                 (id) (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
+                             (space-name (if parent-room
+                                             (ement-room-display-name parent-room)
+                                           id)))
+                        (concat "[Space: " space-name  "]"))))
+      (when-let ((key (if id
+                          ;; ID specified.
+                          (cond ((or (member id parents)
+                                     (equal id (ement-room-id room)))
+                                 ;; Room is in specified space.
+                                 (or name (format-space id)))
+                                ((and (equal type "m.space")
+                                      (equal id (ement-room-id room)))
+                                 ;; Room is a specified space.
+                                 (or name (concat "[Space: " (ement-room-display-name room) "]"))
+                                 ))
+                        ;; ID not specified. 
+                        (pcase (length parents)
+                          (0 nil)
+                          (1
+                           ;; TODO: Make the rooms list a hash table to avoid this lookup.
+                           (format-space (car parents)))
+                          (_
+                           ;; TODO: How to handle this better?  (though it should be very rare)
+                           (string-join (mapcar #'format-space parents) ", "))))))
         (propertize key 'face 'ement-room-list-space)))))
 
 (ement-taxy-define-key name (&key name regexp)
