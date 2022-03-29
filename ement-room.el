@@ -908,6 +908,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
 (defalias 'ement-join-room #'ement-room-join)
 
 (declare-function ement-complete-room "ement")
+(declare-function ement--format-room "ement")
 (defun ement-room-leave (room session)
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
