@@ -364,8 +364,11 @@ new one automatically if necessary."
                 (message "Room \"%s\" created for user %s.  Sending message..."
 	                 room-id user-id))))))
 
-(cl-defun ement-create-room (session &key name alias topic invite direct-p then
-                                     (visibility 'private))
+(cl-defun ement-create-room
+    (session &key name alias topic invite direct-p
+             (then (lambda (data)
+                     (message "Created new room: %s" (alist-get 'room_id data))))
+             (visibility 'private))
   "Create new room on SESSION with given arguments."
   ;; TODO: Document other arguments.
   ;; SPEC: 10.1.1.
@@ -391,8 +394,7 @@ new one automatically if necessary."
 			 (when direct-p
 			   (push (cons "is_direct" t) it)))))
       (ement-api session endpoint :method 'post :data (json-encode data)
-                 :then (lambda (data)
-                         (message "Created new room: %s" (alist-get 'room_id data)))))))
+        :then then))))
 
 (defalias 'ement-room-forget #'ement-forget-room)
 (defun ement-forget-room (room session)
