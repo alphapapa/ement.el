@@ -1659,24 +1659,8 @@ data slot."
                       (setf (map-elt (ement-room-local room) 'buffer) nil))
                     nil 'local)
           (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
-          (setf
-           ;; Clear new-events, because those only matter when a buffer is already open.
-           (alist-get 'new-events (ement-room-local room)) nil
-           ;; Set the new buffer in the room's local alist so that it
-           ;; can be used by event-inserting functions before this
-           ;; function returns, e.g. `ement-room--add-member-face'.
-           (alist-get 'buffer (ement-room-local room)) new-buffer)
-          ;; We don't use `ement-room--insert-events' to avoid extra
-          ;; calls to `ement-room--insert-ts-headers'.
-          (ement-room--handle-events (ement-room-state room))
-          (ement-room--handle-events (ement-room-timeline room))
-          (ement-room--insert-ts-headers)
-          (ement-room-move-read-markers room
-            :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
-                          (map-nested-elt event '(content event_id)))
-            :fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data room) nil nil #'equal)))
-                                (map-nested-elt event '(content event_id))))
-          ;; Set initial header and footer.
+          ;; Set initial header and footer.  (Do this before processing events, which
+          ;; might cause the header/footer to be changed (e.g. a tombstone event).
           (let ((header (if (cl-find-if (apply-partially #'equal "m.room.encryption")
                                         (ement-room-invite-state ement-room)
                                         :key #'ement-event-type)
@@ -1702,7 +1686,24 @@ data slot."
                                                            (message "Joining room... (buffer will be reopened after joining)")
                                                            (ement-room-join (ement-room-id room) session))))))
                           (_ ""))))
-            (ewoc-set-hf ement-ewoc header footer)))
+            (ewoc-set-hf ement-ewoc header footer))
+          (setf
+           ;; Clear new-events, because those only matter when a buffer is already open.
+           (alist-get 'new-events (ement-room-local room)) nil
+           ;; Set the new buffer in the room's local alist so that it
+           ;; can be used by event-inserting functions before this
+           ;; function returns, e.g. `ement-room--add-member-face'.
+           (alist-get 'buffer (ement-room-local room)) new-buffer)
+          ;; We don't use `ement-room--insert-events' to avoid extra
+          ;; calls to `ement-room--insert-ts-headers'.
+          (ement-room--handle-events (ement-room-state room))
+          (ement-room--handle-events (ement-room-timeline room))
+          (ement-room--insert-ts-headers)
+          (ement-room-move-read-markers room
+            :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
+                          (map-nested-elt event '(content event_id)))
+            :fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data room) nil nil #'equal)))
+                                (map-nested-elt event '(content event_id)))))
         ;; Return the buffer!
         new-buffer)))
 
