@@ -50,6 +50,12 @@
   "Automatically update the taxy-based room list buffer."
   :type 'boolean)
 
+;;;;; Faces
+
+(defface ement-room-list-space '((t (:inherit font-lock-keyword-face)))
+  "Space rooms."
+  :group 'ement-room-list)
+
 ;;;; Keys
 
 ;; Since some of these keys need access to the session, and room
@@ -94,6 +100,36 @@
     (when (ement-room--direct-p room session)
       "[People]")))
 
+(ement-taxy-define-key space (&key name id)
+  (pcase-let* ((`[,room ,session] item)
+               ((cl-struct ement-session rooms) session)
+               ((cl-struct ement-room type (local (map parents))) room))
+    (cl-labels ((format-space
+                 (id)
+                 (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
+                        (space-name (if parent-room
+                                        (ement-room-display-name parent-room)
+                                      id)))
+                   (concat "[Space: " space-name  "]"))))
+      (when-let ((key (cond ((and id
+                                  (equal id (car parents)))
+                             ;; Specific space.
+                             (or name (format-space (car parents))))
+                            ((equal type "m.space")
+                             ;; A space room itself.
+                             (or name (concat "[Space: " (ement-room-display-name room) "]")))
+                            (parents
+                             ;; A room in a space.
+                             (pcase (length parents)
+                               (0 nil)
+                               (1
+                                ;; TODO: Make the rooms list a hash table to avoid this lookup.
+                                (or name (format-space (car parents))) )
+                               (_
+                                ;; TODO: How to handle this better?  (though it should be very rare)
+                                (or name "[multiple spaces]")))))))
+        (propertize key 'face 'ement-room-list-space)))))
+
 (ement-taxy-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
                (display-name (ement-room--room-display-name room)))
@@ -125,10 +161,7 @@
 (defcustom ement-taxy-default-keys
   '((membership :status 'leave)
     (people-p)
-    ((name :name "Matrix"
-           :regexp (rx (or "#matrix" "TWIM"))))
-    ((name :name "Emacs"
-           :regexp (rx (or "Emacs" "ement.el" "org-mode" "magit" "spacemacs" "systemcrafters")))))
+    (space))
   "Default keys."
   :type 'sexp)
 
@@ -158,6 +191,7 @@
 
 (ement-taxy-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
+               ((cl-struct ement-room type) room)
                (display-name (ement-room--room-display-name room))
                (face))
     (or (when display-name
@@ -169,6 +203,9 @@
             ;; For some reason, `push' doesn't work with `map-elt'.
             (setf (map-elt face :inherit)
                   (cons 'ement-room-list-unread (map-elt face :inherit))))
+          (when (equal "m.space" type)
+            (setf (map-elt face :inherit)
+                  (cons 'ement-room-list-space (map-elt face :inherit))))
           (when (ement-room--direct-p room session)
             (setf (map-elt face :inherit)
                   (cons 'ement-room-list-direct (map-elt face :inherit))))
@@ -288,6 +325,9 @@
                 (taxy-unread-p
                  (taxy) (or (cl-some #'room-unread-p (taxy-items taxy))
                             (cl-some #'taxy-unread-p (taxy-taxys taxy))))
+                (room-space-p
+                 (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
+                          (equal "m.space" type)))
                 (visible-p
                  ;; This is very confusing and doesn't currently work.
                  (section) (let ((value (oref section value)))
@@ -323,12 +363,13 @@
                         :take (taxy-make-take-function keys ement-taxy-keys))
                        (taxy-fill room-session-vectors)
                        (taxy-sort #'> #'latest-ts)
-                       (taxy-sort* #'string< #'taxy-name)
                        (taxy-sort #'t<nil #'room-unread-p)
+                       (taxy-sort* #'string< #'taxy-name)
                        (taxy-sort* #'t<nil (lambda (taxy)
                                              (room-unread-p (car (taxy-items taxy)))))
                        (taxy-sort* #'t<nil (lambda (taxy)
-                                             (not (room-left-p (car (taxy-items taxy))))))))
+                                             (not (room-left-p (car (taxy-items taxy))))))
+                       (taxy-sort #'t<nil #'room-space-p)))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items

@@ -1148,6 +1148,12 @@ and `session' to the session.  Adds function to
       (setf (ement-room-avatar room) nil
             (alist-get 'room-list-avatar (ement-room-local room)) nil))))
 
+(ement-defevent "m.room.create"
+  (ignore session)
+  (pcase-let* (((cl-struct ement-event (content (map type))) event))
+    (when type
+      (setf (ement-room-type room) type))))
+
 (ement-defevent "m.room.name"
   (ignore session)
   (pcase-let* (((cl-struct ement-event (content (map name))) event))
@@ -1175,6 +1181,17 @@ and `session' to the session.  Adds function to
                          do (puthash (symbol-name user-id)
                                      (cons (symbol-name event-id) (alist-get 'ts receipt))
                                      room-receipts)))))
+
+(ement-defevent "m.space.child"
+  ;; SPEC: v1.2/11.35.
+  (pcase-let* (((cl-struct ement-session rooms) session)
+               ((cl-struct ement-room (id parent-id)) room)
+               ((cl-struct ement-event state-key) event))
+    ;; TODO: Ensure the "via" field is valid (the spec doesn't explain how to do this).
+    (push state-key (alist-get 'children (ement-room-local room)))
+    (when-let ((child-room (cl-find state-key rooms :key #'ement-room-id :test #'equal)))
+      ;; The user is also in the child room: link the parent room in it.
+      (push parent-id (alist-get 'parents (ement-room-local child-room))))))
 
 ;;;; Footer
 
