@@ -218,9 +218,13 @@
             (and (equal 0 notification_count)
                  (equal 0 highlight_count)))
         ""
-      (propertize (format #("%s:%s" 0 5 (help-echo "Notifications:Highlights"))
-                          notification_count highlight_count)
-                  'face 'highlight))))
+      (concat (propertize (number-to-string notification_count)
+                          'face 'highlight)
+              ":"
+              (propertize (number-to-string highlight_count)
+                          'face (if (zerop highlight_count)
+                                    'default
+                                  'ement-room-mention))))))
 
 (ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
