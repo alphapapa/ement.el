@@ -130,23 +130,25 @@
 
 ;;;; Columns
 
+(defvar ement-taxy-room-avatar-cache (make-hash-table)
+  "Hash table caching room avatars for the `ement-taxy' room list.")
+
 (taxy-magit-section-define-column-definer "ement-taxy")
 
 (ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
-  ;; FIXME: The images tend to break alignment; not sure why.
-  (pcase-let ((`[,(cl-struct ement-room avatar (local (map room-list-avatar)))
-                 ,_session]
-               item))
+  (pcase-let* ((`[,room ,_session] item)
+               ((cl-struct ement-room avatar) room))
     (if (and ement-room-list-avatars avatar)
-        (or room-list-avatar
+        ;; NOTE: We resize every avatar to be suitable for this buffer, rather than using
+        ;; the one cached in the room's struct.  If the buffer's faces change height, this
+        ;; will need refreshing, but it should be worth it to avoid resizing the images on
+        ;; every update.
+        (or (gethash room ement-taxy-room-avatar-cache)
             (let ((new-avatar
                    (propertize " " 'display
                                (ement--resize-image (get-text-property 0 'display avatar)
-                                                    (frame-char-width) nil))))
-              ;; alist-get doesn't seem to return the new value when used with setf?
-              (setf (alist-get 'room-list-avatar (ement-room-local room))
-                    new-avatar)
-              new-avatar))
+                                                    nil (frame-char-height)))))
+              (puthash room new-avatar ement-taxy-room-avatar-cache)))
       " ")))
 
 (ement-taxy-define-column "Name" (:max-width 25)
