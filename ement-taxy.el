@@ -43,6 +43,12 @@
     (define-key map [mouse-1] #'ement-taxy-mouse-1)
     map))
 
+;;;; Customization
+
+(defcustom ement-taxy-auto-update t
+  "Automatically update the taxy-based room list buffer."
+  :type 'boolean)
+
 ;;;; Keys
 
 ;; Since some of these keys need access to the session, and room
@@ -338,6 +344,18 @@
   :global nil
   (setq-local bookmark-make-record-function #'ement-taxy--bookmark-make-record
               revert-buffer-function #'ement-taxy-revert))
+
+;;;; Functions
+
+;;;###autoload
+(defun ement-taxy-auto-update (_session)
+  "Automatically update the room list buffer.
++Does so when variable `ement-taxy-auto-update' is non-nil.
++To be called in `ement-sync-callback-hook'."
+  (when (and ement-taxy-auto-update
+             (buffer-live-p (get-buffer "*Ement Taxy*")))
+    (with-current-buffer (get-buffer "*Ement Taxy*")
+      (revert-buffer))))
 
 ;;;; Footer
 
