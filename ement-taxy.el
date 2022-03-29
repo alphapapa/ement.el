@@ -40,6 +40,7 @@
 (defvar ement-taxy-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ement-taxy-RET)
+    (define-key map (kbd "SPC") #'ement-taxy-next-unread)
     (define-key map [mouse-1] #'ement-taxy-mouse-1)
     map))
 
@@ -359,6 +360,34 @@
               (ement-view-room room session)))
     (taxy-magit-section (call-interactively #'magit-section-cycle))
     (null nil)))
+
+(defun ement-taxy-next-unread ()
+  "Show next unread room."
+  (interactive)
+  (unless (button-at (point))
+    (call-interactively #'forward-button))
+  (cl-labels ((room-unread-p
+               () (pcase-let* ((`[,room ,_session] (oref (magit-current-section) value))
+                               ((cl-struct ement-room unread-notifications local) room)
+                               ((map notification_count highlight_count) unread-notifications)
+                               ((map buffer) local))
+                    ;; For now, we test both unread count and whether the buffer is
+                    ;; modified; later, we might do only the former (still to be worked
+                    ;; out how canonical notifications are handled).
+                    (or (and (buffer-live-p buffer) (buffer-modified-p buffer))
+                        (and unread-notifications
+                             (or (not (zerop notification_count))
+                                 (not (zerop highlight_count))))))))
+    (unless (cl-loop with starting-line = (line-number-at-pos)
+                     if (room-unread-p)
+                     do (progn
+                          (goto-char (button-end (button-at (point))))
+                          (push-button (1- (point)))
+                          (cl-return t))
+                     else do (call-interactively #'forward-button)
+                     while (> (line-number-at-pos) starting-line))
+      ;; No more unread rooms.
+      (message "No more unread rooms"))))
 
 (define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
   :global nil
