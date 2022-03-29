@@ -60,16 +60,16 @@
   (taxy-define-key-definer ement-taxy-define-key
     ement-taxy-keys "ement-taxy" "FIXME: Docstring."))
 
-(ement-taxy-define-key membership (&key name type)
-  ;; FIXME: Docstring: type should be a symbol of either `invite', `join', `leave'.
+(ement-taxy-define-key membership (&key name status)
+  ;; FIXME: Docstring: status should be a symbol of either `invite', `join', `leave'.
   (cl-labels ((format-membership (membership)
                                  (pcase membership
                                    ('join "Joined")
                                    ('invite "Invited")
                                    ('leave "[Left]"))))
-    (pcase-let ((`[,(cl-struct ement-room (type membership)) ,_session] item))
-      (if type
-          (when (equal type membership)
+    (pcase-let ((`[,(cl-struct ement-room (status membership)) ,_session] item))
+      (if status
+          (when (equal status membership)
             (or name (format-membership membership)))
         (format-membership membership)))))
 
@@ -123,7 +123,7 @@
       "Unread")))
 
 (defcustom ement-taxy-default-keys
-  '((membership :type 'leave)
+  '((membership :status 'leave)
     (people-p)
     ((name :name "Matrix"
            :regexp (rx (or "#matrix" "TWIM"))))
@@ -283,8 +283,8 @@
                           (and (buffer-live-p buffer)
                                (buffer-modified-p buffer))))
                 (room-left-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
-                          (equal 'leave type)))
+                 (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
+                          (equal 'leave status)))
                 (taxy-unread-p
                  (taxy) (or (cl-some #'room-unread-p (taxy-items taxy))
                             (cl-some #'taxy-unread-p (taxy-taxys taxy))))

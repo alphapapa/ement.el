@@ -61,7 +61,7 @@
 (cl-defstruct ement-room
   id display-name prev-batch
   summary state timeline ephemeral account-data unread-notifications
-  latest-ts topic canonical-alias avatar type invite-state
+  latest-ts topic canonical-alias avatar status type invite-state
   ;; The local slot is an alist used by the local client only.
   local
   (receipts (make-hash-table)))

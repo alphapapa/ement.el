@@ -714,9 +714,9 @@ To be called in `ement-sync-callback-hook'."
             (ement-room--handle-events new-events)
             (setf (alist-get 'new-account-data-events (ement-room-local ement-room)) nil)))))))
 
-(cl-defun ement--push-joined-room-events (session joined-room &optional (type 'join))
+(cl-defun ement--push-joined-room-events (session joined-room &optional (status 'join))
   "Push events for JOINED-ROOM into that room in SESSION.
-Also used for left rooms, in which case TYPE should be set to
+Also used for left rooms, in which case STATUS should be set to
 `leave'."
   (pcase-let* ((`(,id . ,event-types) joined-room)
                (id (symbol-name id)) ; Really important that the ID is a STRING!
@@ -730,7 +730,7 @@ Also used for left rooms, in which case TYPE should be set to
                      ('unread_notifications unread-notifications))
                 event-types)
                (latest-timestamp))
-    (setf (ement-room-type room) type
+    (setf (ement-room-status room) status
           (ement-room-unread-notifications room) unread-notifications)
     ;; NOTE: The idea is that, assuming that events in the sync reponse are in
     ;; chronological order, we push them to the lists in the room slots in that order,
