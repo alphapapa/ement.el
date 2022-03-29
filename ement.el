@@ -980,7 +980,7 @@ is not at the latest known message event."
   (pcase-let* (((cl-struct ement-room timeline account-data unread-notifications receipts
                            (local (map buffer)))
                 room)
-               ((cl-struct ement-session user events) session)
+               ((cl-struct ement-session user) session)
                ((cl-struct ement-user (id our-id)) user)
                ((map notification_count highlight_count) unread-notifications)
                (fully-read-event-id (map-nested-elt (alist-get "m.fully_read" account-data nil nil #'equal)
