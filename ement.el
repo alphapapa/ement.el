@@ -987,6 +987,9 @@ is not at the latest known message event."
                ((map notification_count highlight_count) unread-notifications)
                (fully-read-event-id (map-nested-elt (alist-get "m.fully_read" account-data nil nil #'equal)
                                                     '(content event_id))))
+    ;; MAYBE: Ignore whether the buffer is modified.  Since we have a better handle on how
+    ;; Matrix does notifications/unreads/highlights, maybe that's not needed, and it would
+    ;; be more consistent to ignore it.
     (or (and buffer (buffer-modified-p buffer))
         (and unread-notifications
              (or (not (zerop notification_count))
