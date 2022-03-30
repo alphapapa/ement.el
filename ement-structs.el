@@ -64,7 +64,7 @@
   latest-ts topic canonical-alias avatar status type invite-state
   ;; The local slot is an alist used by the local client only.
   local
-  (receipts (make-hash-table)))
+  (receipts (make-hash-table :test #'equal)))
 
 ;;;; Variables
 
