@@ -244,7 +244,9 @@
                           (+ 24 (truncate (/ difference-seconds 86400 7)))))))
                (face (list :foreground (elt ement-room-list-timestamp-colors n)))
                (formatted-ts (ts-human-format-duration difference-seconds 'abbreviate)))
-          (propertize formatted-ts 'face face))
+          (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
+          (propertize (match-string 0 formatted-ts) 'face face
+                      'help-echo formatted-ts))
       "")))
 
 (ement-taxy-define-column "Topic" (:max-width 35)
