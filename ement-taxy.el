@@ -106,18 +106,28 @@
                ((cl-struct ement-session rooms) session)
                ((cl-struct ement-room type (local (map parents))) room)
                (key))
-    (cl-labels ((format-space
-                 (id) (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
-                             (space-name (if parent-room
-                                             (ement-room-display-name parent-room)
-                                           id)))
-                        (concat "[Space: " space-name  "]"))))
+    (cl-labels ((format-key
+                 (parent-id) (let* ((parent-room (cl-find parent-id rooms :key #'ement-room-id :test #'equal))
+                                    (space-name (if parent-room
+                                                    (ement-room-display-name parent-room)
+                                                  parent-id))
+                                    (parent-room-parents (alist-get 'parents (ement-room-local parent-room))))
+                               (if parent-room-parents
+                                   ;; FIXME: We only use the first parent for now (this gets too complicated).
+                                   (progn
+                                     (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                                                  parent-room-parents (list (format-key (car parent-room-parents)) (concat "[Space: " space-name  "]")))
+                                     (list (format-key (car parent-room-parents)) (concat "[Space: " space-name  "]")))
+                                 (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                                              (concat "[Space: " space-name  "]"))
+                                 (concat "[Space: " space-name  "]"))
+                               )))
       (when-let ((key (if id
                           ;; ID specified.
                           (cond ((or (member id parents)
                                      (equal id (ement-room-id room)))
                                  ;; Room is in specified space.
-                                 (or name (format-space id)))
+                                 (or name (format-key id)))
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
@@ -125,14 +135,27 @@
                                  ))
                         ;; ID not specified. 
                         (pcase (length parents)
-                          (0 nil)
+                          (0
+                           (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                                        (length parents) nil)
+                           nil)
                           (1
                            ;; TODO: Make the rooms list a hash table to avoid this lookup.
-                           (format-space (car parents)))
+                           (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                                        (length parents) (format-key (car parents)))
+                           (format-key (car parents)))
                           (_
                            ;; TODO: How to handle this better?  (though it should be very rare)
-                           (string-join (mapcar #'format-space parents) ", "))))))
-        (propertize key 'face 'ement-room-list-space)))))
+                           (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                                        (length parents) (string-join (mapcar #'format-key parents) ", "))
+                           (string-join (mapcar #'format-key parents) ", "))))))
+        (ement-debug :buffer "*SPACE*" (ement-room-display-name room)
+                     (cl-typecase key
+                       (list key)
+                       (string (propertize key 'face 'ement-room-list-space))))
+        (cl-typecase key
+          (list key)
+          (string (propertize key 'face 'ement-room-list-space)))))))
 
 (ement-taxy-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
@@ -360,16 +383,17 @@
                (taxy (thread-last
                        (make-fn
                         :name "Ement Rooms"
-                        :take (taxy-make-take-function keys ement-taxy-keys))
+                        :take (taxy-make-take-function-nested* keys ement-taxy-keys))
                        (taxy-fill room-session-vectors)
-                       (taxy-sort #'> #'latest-ts)
-                       (taxy-sort #'t<nil #'room-unread-p)
-                       (taxy-sort* #'string< #'taxy-name)
-                       (taxy-sort* #'t<nil (lambda (taxy)
-                                             (room-unread-p (car (taxy-items taxy)))))
-                       (taxy-sort* #'t<nil (lambda (taxy)
-                                             (not (room-left-p (car (taxy-items taxy))))))
-                       (taxy-sort #'t<nil #'room-space-p)))
+                       ;; (taxy-sort #'> #'latest-ts)
+                       ;; (taxy-sort #'t<nil #'room-unread-p)
+                       ;; (taxy-sort* #'string< #'taxy-name)
+                       ;; (taxy-sort* #'t<nil (lambda (taxy)
+                       ;;                       (room-unread-p (car (taxy-items taxy)))))
+                       ;; (taxy-sort* #'t<nil (lambda (taxy)
+                       ;;                       (not (room-left-p (car (taxy-items taxy))))))
+                       ;; (taxy-sort #'t<nil #'room-space-p)
+                       ))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
