@@ -1184,14 +1184,25 @@ and `session' to the session.  Adds function to
 
 (ement-defevent "m.space.child"
   ;; SPEC: v1.2/11.35.
-  (pcase-let* (((cl-struct ement-session rooms) session)
-               ((cl-struct ement-room (id parent-id)) room)
-               ((cl-struct ement-event state-key) event))
-    ;; TODO: Ensure the "via" field is valid (the spec doesn't explain how to do this).
-    (push state-key (alist-get 'children (ement-room-local room)))
-    (when-let ((child-room (cl-find state-key rooms :key #'ement-room-id :test #'equal)))
-      ;; The user is also in the child room: link the parent room in it.
-      (push parent-id (alist-get 'parents (ement-room-local child-room))))))
+  (pcase-let* ((space-room room)
+               ((cl-struct ement-session rooms) session)
+               ((cl-struct ement-room (id parent-room-id)) space-room)
+               ((cl-struct ement-event (state-key child-room-id) (content (map via))) event)
+               (child-room (cl-find child-room-id rooms :key #'ement-room-id :test #'equal)))
+    (if via
+        ;; Child being declared: add it.
+        (progn
+          (push child-room-id (alist-get 'children (ement-room-local space-room)))
+          (when child-room
+            ;; The user is also in the child room: link the parent space-room in it.
+            (push parent-room-id (alist-get 'parents (ement-room-local child-room)))))
+      ;; Child being disowned: remove it.
+      (setf (alist-get 'children (ement-room-local space-room))
+            (delete child-room-id (alist-get 'children (ement-room-local space-room))))
+      (when child-room
+        ;; The user is also in the child room: unlink the parent space-room in it.
+        (setf (alist-get 'parents (ement-room-local child-room))
+              (delete parent-room-id (alist-get 'parents (ement-room-local child-room))))))))
 
 ;;;; Footer
 
