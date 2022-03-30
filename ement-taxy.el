@@ -104,8 +104,7 @@
 (ement-taxy-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-session rooms) session)
-               ((cl-struct ement-room type (local (map parents))) room)
-               (key))
+               ((cl-struct ement-room type (local (map parents))) room))
     (cl-labels ((format-space
                  (id) (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
                              (space-name (if parent-room
