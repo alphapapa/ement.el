@@ -204,19 +204,15 @@
           ;; In concert with the "Unread" column, this is roughly equivalent to the
           ;; "red/gray/bold/idle" states listed in <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
           (when (ement--room-unread-p room session)
-            ;; For some reason, `push' doesn't work with `map-elt'.
-            (setf (map-elt face :inherit)
-                  (cons 'ement-room-list-unread (map-elt face :inherit))))
+            ;; For some reason, `push' doesn't work with `map-elt'...or does it?
+            (push 'ement-room-list-unread (map-elt face :inherit)))
           (when (equal "m.space" type)
-            (setf (map-elt face :inherit)
-                  (cons 'ement-room-list-space (map-elt face :inherit))))
+            (push 'ement-room-list-space (map-elt face :inherit)))
           (when (ement-room--direct-p room session)
-            (setf (map-elt face :inherit)
-                  (cons 'ement-room-list-direct (map-elt face :inherit))))
+            (push 'ement-room-list-direct (map-elt face :inherit)))
           (pcase (ement-room-type room)
             ('invite
-             (setf (map-elt face :inherit) (cons 'ement-room-list-invited
-                                                 (map-elt face :inherit)))))
+             (push 'ement-room-list-invited (map-elt face :inherit))))
           (propertize (button-buttonize display-name #'ement-taxy-mouse-1)
                       'face face
                       'mouse-face 'highlight))
