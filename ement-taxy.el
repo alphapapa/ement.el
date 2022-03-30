@@ -24,6 +24,7 @@
 
 ;;; Code:
 
+(require 'button)
 (require 'rx)
 
 (require 'taxy)
