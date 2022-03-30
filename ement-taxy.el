@@ -53,7 +53,7 @@
 
 ;;;;; Faces
 
-(defface ement-room-list-space '((t (:inherit font-lock-keyword-face)))
+(defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
   "Space rooms."
   :group 'ement-room-list)
 
