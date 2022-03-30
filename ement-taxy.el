@@ -217,7 +217,7 @@
                       'mouse-face 'highlight))
         "")))
 
-(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights")) (:align 'right)
+(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
   (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
                ((map notification_count highlight_count) unread-notifications))
     (if (or (not unread-notifications)
