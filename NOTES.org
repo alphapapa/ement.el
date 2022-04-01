@@ -97,6 +97,7 @@ Like the "notifications" buffer in ~matrix-client~.
 
 [2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
 
+** TODO Notifications for "@room" messages
 ** DONE Sending direct messages
 :LOGBOOK:
 - State "DONE"       from "PROJECT"    [2022-03-25 Fri 23:14]
