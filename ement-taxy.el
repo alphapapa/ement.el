@@ -212,7 +212,7 @@
           (pcase (ement-room-type room)
             ('invite
              (push 'ement-room-list-invited (map-elt face :inherit))))
-          (propertize (button-buttonize display-name #'ement-taxy-mouse-1)
+          (propertize (ement--button-buttonize display-name #'ement-taxy-mouse-1)
                       'face face
                       'mouse-face 'highlight))
         "")))

@@ -433,6 +433,23 @@ new one automatically if necessary."
 
 ;;;; Functions
 
+(defalias 'ement--button-buttonize
+  (if (version< emacs-version "28.1")
+      (lambda (string callback &optional data)
+        "Make STRING into a button and return it.
+When clicked, CALLBACK will be called with the DATA as the
+function argument.  If DATA isn't present (or is nil), the button
+itself will be used instead as the function argument."
+        (propertize string
+                    'face 'button
+                    'button t
+                    'follow-link t
+                    'category t
+                    'button-data data
+                    'keymap button-map
+                    'action callback))
+    #'button-buttonize))
+
 (defun ement-view-initial-rooms (session)
   "View rooms for SESSION configured in `ement-auto-view-rooms'."
   (when-let (rooms (alist-get (ement-user-id (ement-session-user session))
