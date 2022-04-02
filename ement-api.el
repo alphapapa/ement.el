@@ -59,7 +59,7 @@
                              (else #'ement-api-error) (method 'get)
                              ;; FIXME: What's the right term for the URL part after "/_matrix/"?
                              (endpoint-category "client")
-                             (json-read-fn #'json-read)
+                             (json-read-fn #'ement-api--json-read-and-log)
                              ;; NOTE: Hard to say what the default timeouts
                              ;; should be.  Sometimes the matrix.org homeserver
                              ;; can get slow and respond a minute or two later.
@@ -87,6 +87,21 @@
     (plz method url :headers headers :body data :body-type data-type
       :as json-read-fn :then then :else else
       :connect-timeout connect-timeout :timeout timeout :noquery t)))
+
+(defun ement-api--json-read-and-log ()
+  (let ((json-buffer (current-buffer)))
+    (with-current-buffer (get-buffer-create "*Ement API Log*")
+      (save-excursion
+        (goto-char (point-max))
+        (let ((beg (point))
+              end)
+          (insert-buffer-substring json-buffer)
+          (setf end (point))
+          (insert "\n")
+          (save-restriction
+            (narrow-to-region beg end)
+            (json-pretty-print-buffer))))))
+  (json-read))
 
 (define-error 'ement-api-error "Ement API error" 'error)
 

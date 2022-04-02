@@ -616,7 +616,7 @@ a filter ID).  When unspecified, the value of
                                                      (- (time-to-seconds) sync-start-time)
                                                      (file-size-human-readable (buffer-size))))
                                           (let ((start-time (time-to-seconds)))
-                                            (prog1 (json-read)
+                                            (prog1 (ement-api--json-read-and-log)
                                               (when (ement--sync-messages-p session)
                                                 (message "Ement: Reading JSON took %.2f seconds"
                                                          (- (time-to-seconds) start-time)))))))))
