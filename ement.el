@@ -1204,9 +1204,18 @@ and `session' to the session.  Adds function to
                          ;; Same for events, unfortunately.
                          ;; NOTE: The JSON map keys are converted to symbols by `json-read'.
                          ;; MAYBE: (Should we keep them that way?  It would use less memory, I guess.)
-                         do (puthash (symbol-name user-id)
-                                     (cons (symbol-name event-id) (alist-get 'ts receipt))
-                                     room-receipts)))))
+
+                         ;; FIXME: Temporary workaround for apparently malformed m.receipt
+                         ;; events.  See <https://github.com/alphapapa/ement.el/pull/61>.
+                         do (condition-case nil
+                                (puthash (symbol-name user-id)
+                                         (cons (symbol-name event-id) (alist-get 'ts receipt))
+                                         room-receipts)
+                              (error (message "Ement: Malformed m.receipt event?  ROOM:%S  EVENT:%S  (See <https://github.com/alphapapa/ement.el/pull/61>)"
+                                              (list (ement-room-id room)
+                                                    (ement-room-canonical-alias room)
+                                                    (ement-room-display-name room))
+                                              event)))))))
 
 (ement-defevent "m.space.child"
   ;; SPEC: v1.2/11.35.
