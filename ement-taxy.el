@@ -376,7 +376,9 @@
                (format-cons (taxy-magit-section-format-items
                              ement-taxy-columns ement-taxy-column-formatters taxy))
                (pos (point))
-               (window-start (window-start (get-buffer-window))))
+               (window-start (if (get-buffer-window)
+                                 (window-start (get-buffer-window))
+                               0)))
           (setf format-table (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
