@@ -1019,35 +1019,39 @@ is not at the latest known message event."
                  (not (zerop highlight_count))))
         ;; NOTE: This is *WAY* too complicated, but it seems roughly equivalent to doesRoomHaveUnreadMessages() from
         ;; <https://github.com/matrix-org/matrix-react-sdk/blob/7fa01ffb068f014506041bce5f02df4f17305f02/src/Unread.ts#L52>.
-        (cl-labels ((event-counts-toward-unread-p
-                     (event) (not (member (ement-event-type event) '("m.room.member" "m.reaction")))))
-          (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
-                (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
-            (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
-                   ;; The fully-read marker is at the last known event: not unread.
-                   nil)
-                  ((and (not our-read-receipt-event-id)
-                        (when first-counting-event
-                          (and (not (equal fully-read-event-id (ement-event-id first-counting-event)))
-                               (not (equal our-id (ement-user-id (ement-event-sender first-counting-event)))))))
-                   ;; A missing read-receipt failsafes to marking the
-                   ;; room unread, unless the fully-read marker is at
-                   ;; the latest counting event or we sent the latest
-                   ;; counting event.
-                   t)
-                  ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
-                   ;; If we sent the last event in the room, the room is not unread.
-                   nil)
-                  ((and first-counting-event
-                        (equal our-id (ement-user-id (ement-event-sender first-counting-event))))
-                   ;; If we sent the last counting event in the room,
-                   ;; the room is not unread.
-                   nil)
-                  ((cl-loop for event in timeline
-                            when (event-counts-toward-unread-p event)
-                            return (and (not (equal our-read-receipt-event-id (ement-event-id event)))
-                                        (not (equal fully-read-event-id (ement-event-id event)))))
-                   t)))))))
+        (when timeline
+          ;; A room should rarely, if ever, have a nil timeline, but in case it does
+          ;; (which apparently can happen, given user reports), it should not be
+          ;; considered unread.
+          (cl-labels ((event-counts-toward-unread-p
+                       (event) (not (member (ement-event-type event) '("m.room.member" "m.reaction")))))
+            (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
+                  (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
+              (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
+                     ;; The fully-read marker is at the last known event: not unread.
+                     nil)
+                    ((and (not our-read-receipt-event-id)
+                          (when first-counting-event
+                            (and (not (equal fully-read-event-id (ement-event-id first-counting-event)))
+                                 (not (equal our-id (ement-user-id (ement-event-sender first-counting-event)))))))
+                     ;; A missing read-receipt failsafes to marking the
+                     ;; room unread, unless the fully-read marker is at
+                     ;; the latest counting event or we sent the latest
+                     ;; counting event.
+                     t)
+                    ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
+                     ;; If we sent the last event in the room, the room is not unread.
+                     nil)
+                    ((and first-counting-event
+                          (equal our-id (ement-user-id (ement-event-sender first-counting-event))))
+                     ;; If we sent the last counting event in the room,
+                     ;; the room is not unread.
+                     nil)
+                    ((cl-loop for event in timeline
+                              when (event-counts-toward-unread-p event)
+                              return (and (not (equal our-read-receipt-event-id (ement-event-id event)))
+                                          (not (equal fully-read-event-id (ement-event-id event)))))
+                     t))))))))
 
 ;;;;; Reading/writing sessions
 
