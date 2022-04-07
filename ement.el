@@ -1134,9 +1134,16 @@ whether a room has a live buffer.")
 (defun ement--process-event (event room session)
   "Process EVENT for ROOM in SESSION.
 Uses handlers defined in `ement-event-handlers'.  If no handler
-is defined for EVENT's type, does nothing and returns nil."
-  (when-let ((handler (alist-get (ement-event-type event) ement-event-handlers nil nil #'string=)))
-    (funcall handler event room session)))
+is defined for EVENT's type, does nothing and returns nil.  Any
+errors signaled during processing are demoted in order to prevent
+unexpected errors from arresting event processing and syncing."
+  (when-let ((handler (alist-get (ement-event-type event) ement-event-handlers nil nil #'equal)))
+    ;; We demote any errors that happen while processing events, because it's possible for
+    ;; events to be malformed in unexpected ways, and that could cause an error, which
+    ;; would stop processing of other events and prevent further syncing.  See,
+    ;; e.g. <https://github.com/alphapapa/ement.el/pull/61>.
+    (with-demoted-errors "Ement (ement--process-event): Error processing event: %S"
+      (funcall handler event room session))))
 
 (defmacro ement-defevent (type &rest body)
   "Define an event handling function for events of TYPE, a string.
@@ -1208,18 +1215,9 @@ and `session' to the session.  Adds function to
                          ;; Same for events, unfortunately.
                          ;; NOTE: The JSON map keys are converted to symbols by `json-read'.
                          ;; MAYBE: (Should we keep them that way?  It would use less memory, I guess.)
-
-                         ;; FIXME: Temporary workaround for apparently malformed m.receipt
-                         ;; events.  See <https://github.com/alphapapa/ement.el/pull/61>.
-                         do (condition-case nil
-                                (puthash (symbol-name user-id)
-                                         (cons (symbol-name event-id) (alist-get 'ts receipt))
-                                         room-receipts)
-                              (error (message "Ement: Malformed m.receipt event?  ROOM:%S  EVENT:%S  (See <https://github.com/alphapapa/ement.el/pull/61>)"
-                                              (list (ement-room-id room)
-                                                    (ement-room-canonical-alias room)
-                                                    (ement-room-display-name room))
-                                              event)))))))
+                         do (puthash (symbol-name user-id)
+                                     (cons (symbol-name event-id) (alist-get 'ts receipt))
+                                     room-receipts)))))
 
 (ement-defevent "m.space.child"
   ;; SPEC: v1.2/11.35.

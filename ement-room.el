@@ -1878,7 +1878,12 @@ buffer."
 Uses handlers defined in `ement-room-event-fns'.  The current
 buffer should be a room's buffer."
   (when-let ((handler (alist-get (ement-event-type event) ement-room-event-fns nil nil #'equal)))
-    (funcall handler event)))
+    ;; We demote any errors that happen while processing events, because it's possible for
+    ;; events to be malformed in unexpected ways, and that could cause an error, which
+    ;; would stop processing of other events and prevent further syncing.  See,
+    ;; e.g. <https://github.com/alphapapa/ement.el/pull/61>.
+    (with-demoted-errors "Ement (ement-room--handle-event): Error processing event: %S"
+      (funcall handler event))))
 
 ;;;;;; Event handlers
 
