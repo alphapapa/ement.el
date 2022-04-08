@@ -546,14 +546,15 @@ buffer to another)."
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (defun ement--format-room (room)
-  "Return ROOM formatted with name, alias, and ID.
+  "Return ROOM formatted with name, alias, ID, and topic.
 Suitable for use in completion, etc."
-  (format "%s <%s> (<%s>)"
+  (format "%s <%s> (<%s>): \"%s\""
           (or (ement-room-display-name room)
               (setf (ement-room-display-name room)
                     (ement-room--room-display-name room)))
           (ement-room-canonical-alias room)
-          (ement-room-id room)))
+          (ement-room-id room)
+          (ement-room-topic room)))
 
 (cl-defun ement--sync (session &key force quiet
                                (timeout 40) ;; Give the server an extra 10 seconds.
