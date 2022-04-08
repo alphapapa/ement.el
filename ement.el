@@ -1229,10 +1229,11 @@ and `session' to the session.  Adds function to
     (if via
         ;; Child being declared: add it.
         (progn
-          (push child-room-id (alist-get 'children (ement-room-local space-room)))
+          (cl-pushnew child-room-id (alist-get 'children (ement-room-local space-room)) :test #'equal)
           (when child-room
             ;; The user is also in the child room: link the parent space-room in it.
-            (push parent-room-id (alist-get 'parents (ement-room-local child-room)))))
+            ;; FIXME: On initial sync, if the child room hasn't been processed yet, this will fail.
+            (cl-pushnew parent-room-id (alist-get 'parents (ement-room-local child-room)) :test #'equal)))
       ;; Child being disowned: remove it.
       (setf (alist-get 'children (ement-room-local space-room))
             (delete child-room-id (alist-get 'children (ement-room-local space-room))))
