@@ -124,7 +124,7 @@ Writes the session file when Emacs is killed."
   :type 'boolean)
 
 (defcustom ement-after-initial-sync-hook
-  '(ement-list-rooms ement-view-initial-rooms)
+  '(ement-list-rooms ement-view-initial-rooms ement--link-children)
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)
@@ -1241,6 +1241,19 @@ and `session' to the session.  Adds function to
         ;; The user is also in the child room: unlink the parent space-room in it.
         (setf (alist-get 'parents (ement-room-local child-room))
               (delete parent-room-id (alist-get 'parents (ement-room-local child-room))))))))
+
+(defun ement--link-children (session)
+  "Link child rooms in SESSION.
+To be called after initial sync."
+  ;; On initial sync, when processing m.space.child events, the child rooms may not have
+  ;; been processed yet, so we link them again here.
+  (pcase-let (((cl-struct ement-session rooms) session))
+    (dolist (room rooms)
+      (pcase-let (((cl-struct ement-room (id parent-id) (local (map children))) room))
+        (when children
+          (dolist (child-id children)
+            (when-let ((child-room (cl-find child-id rooms :key #'ement-room-id :test #'equal)))
+              (cl-pushnew parent-id (alist-get 'parents (ement-room-local child-room)) :test #'equal))))))))
 
 ;;;; Footer
 
