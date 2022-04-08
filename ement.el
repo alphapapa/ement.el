@@ -49,12 +49,21 @@
 
 ;; Third-party.
 
+(require 'magit-section)
+
 ;; This package.
 (require 'ement-api)
 (require 'ement-macros)
 (require 'ement-structs)
 (require 'ement-room)
 (require 'ement-notify)
+
+;;;;; Compilation
+
+;; To avoid compilation warnings.
+
+(eval-when-compile
+  (require 'taxy-magit-section))
 
 ;;;; Variables
 
@@ -273,7 +282,7 @@ in them won't work."
   "Switch to a buffer showing ROOM on SESSION.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
-  (interactive (ement-complete-room (ement-complete-session) nil))
+  (interactive (ement-complete-room :session (ement-complete-session) :suggest nil))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
       (setf buffer (ement-room--buffer session room
@@ -419,7 +428,7 @@ new one automatically if necessary."
   (interactive
    (let* ((session (ement-complete-session))
           (user-id (ement-complete-user-id))
-          (room (car (ement-complete-room session))))
+          (room (car (ement-complete-room :session session))))
      (list user-id room session)))
   (pcase-let* ((endpoint (format "rooms/%s/invite"
                                  (url-hexify-string (ement-room-id room))))
@@ -546,12 +555,17 @@ If no URI is found, prompt the user for the hostname."
                      (alist-get selected-id ement-sessions nil nil #'equal)))
     (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
 
-(cl-defun ement-complete-room (&optional session (suggest t))
+(cl-defun ement-complete-room (&key session predicate
+                                    (prompt "Room: ") (suggest t))
   "Return a (room session) list selected from SESSION with completion.
 If SESSION is nil, select from rooms in all of `ement-sessions'.
-When SUGGEST, suggest current buffer's room as initial
-input (i.e. it should be set to nil when switching from one room
-buffer to another)."
+When SUGGEST, suggest current buffer's room (or a room at point
+in a room list buffer) as initial input (i.e. it should be set to
+nil when switching from one room buffer to another).  PROMPT may
+override the default prompt.  PREDICATE may be a function to
+select which rooms are offered; it is also applied to the
+suggested room."
+  (declare (indent defun))
   (pcase-let* ((sessions (if session
                              (list session)
                            (mapcar #'cdr ement-sessions)))
@@ -561,11 +575,27 @@ buffer to another)."
                                          collect (cons (ement--format-room room)
                                                        (list room session)))))
                (names (mapcar #'car name-to-room-session))
-               (selected-name (completing-read "Room: " names nil t
-                                               (when (and suggest (equal major-mode 'ement-room-mode))
-                                                 ;; Suggest current buffer's room.
-                                                 (ement--format-room ement-room)))))
+               (selected-name (completing-read
+                               prompt names nil t
+                               (when suggest
+                                 (when-let ((suggestion (ement--room-at-point)))
+                                   (when (or (not predicate)
+                                             (funcall predicate suggestion))
+                                     suggestion))))))
     (alist-get selected-name name-to-room-session nil nil #'string=)))
+
+(defun ement--room-at-point ()
+  "Return room at point.
+Works in major-modes `ement-room-mode', `ement-room-list-mode',
+and `ement-taxy-mode'."
+  (pcase major-mode
+    ('ement-room-mode (ement--format-room ement-room))
+    ('ement-room-list-mode (ement--format-room (tabulated-list-get-id)))
+    ('ement-taxy-mode
+     (cl-typecase (oref (magit-current-section) value)
+       (taxy-magit-section nil)
+       (t (pcase (oref (magit-current-section) value)
+            (`[,room ,_session] (ement--format-room room))))))))
 
 (defun ement--format-room (room)
   "Return ROOM formatted with name, alias, ID, and topic.

@@ -840,6 +840,8 @@ Interactively, set the current buffer's ROOM's TOPIC."
                     :then (apply-partially #'ement-room-send-event-callback
                                            :room room :session session :content content :data))))))))
 
+(declare-function ement-room-list-next-unread "ement-room-list")
+(declare-function ement-taxy-next-unread "ement-taxy")
 (defun ement-room-scroll-up-mark-read ()
   "Scroll buffer up, marking read and burying when at end."
   (interactive)
@@ -930,7 +932,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
 string."
-  (interactive (ement-complete-room (ement-complete-session)))
+  (interactive (ement-complete-room :session (ement-complete-session)))
   (cl-assert room) (cl-assert session)
   (cl-etypecase room
     (ement-room)
