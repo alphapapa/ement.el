@@ -804,6 +804,7 @@ Also used for left rooms, in which case STATUS should be set to
                  (push-events timeline ement-room-timeline)))
       ;; NOTE: We also append the new events to the new-events list in the room's local
       ;; slot, which is used by `ement--update-room-buffers' to insert only new events.
+      ;; FIXME: Does this also need to be done for invite-state events?
       (cl-callf2 append (cl-coerce (alist-get 'events timeline) 'list)
                  (alist-get 'new-events (ement-room-local room)))
       ;; Update room's latest-timestamp slot.
