@@ -431,6 +431,28 @@ new one automatically if necessary."
                        (ement-room-display-name room)
                        (ement-room-id room))))))
 
+(defun ement-tag-room (tag room session &optional delete)
+  "Add TAG to ROOM on SESSION.
+If DELETE (interactively, with prefix), delete it."
+  (interactive
+   (pcase-let* ((`(,room ,session) (ement-complete-room))
+                (prompt (if current-prefix-arg "Delete tag: " "Add tag: "))
+                (default-tags (ement-alist "Favourite" "m.favourite"
+                                           "Low-priority" "m.lowpriority"))
+                (input (completing-read prompt default-tags))
+                (tag (alist-get input default-tags (concat "u." input) nil #'string=)))
+     (list tag room session current-prefix-arg)))
+  (pcase-let* (((cl-struct ement-session user) session)
+               ((cl-struct ement-user (id user-id)) user)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "user/%s/rooms/%s/tags/%s"
+                                 (url-hexify-string user-id) (url-hexify-string room-id) (url-hexify-string tag)))
+               (method (if delete 'delete 'put)))
+    ;; TODO: "order".
+    (ement-api session endpoint :version "v3" :method method :data (unless delete "{}")
+      :then (lambda (data)
+              (ement-debug "Changed tag on room" method tag data room)))))
+
 ;;;; Functions
 
 (defalias 'ement--button-buttonize

@@ -106,6 +106,7 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-join-room~ to join a room.
       -  ~ement-leave-room~ to leave a room.
       -  ~ement-forget-room~ to forget a room.
+      -  ~ement-tag-room~ to add (or with interactive prefix, remove) a tag on a room (including favorite/low-priority status).
       -  ~ement-send-direct-message~ to send a direct message to a user (in an existing direct room, or creating a new one automatically).
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
