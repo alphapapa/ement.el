@@ -315,7 +315,10 @@
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
                 (latest-ts
-                 (item) (ement-room-latest-ts (elt item 0)))
+                 (item) (or (ement-room-latest-ts (elt item 0))
+                            ;; Room has no latest timestamp.  FIXME: This shouldn't
+                            ;; happen, but it can, maybe due to oversights elsewhere.
+                            0))
                 (room-unread-p
                  (item) (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
                           (and (buffer-live-p buffer)
