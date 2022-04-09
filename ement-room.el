@@ -1695,8 +1695,12 @@ data slot."
            (alist-get 'buffer (ement-room-local room)) new-buffer)
           ;; We don't use `ement-room--insert-events' to avoid extra
           ;; calls to `ement-room--insert-ts-headers'.
-          (ement-room--handle-events (ement-room-state room))
-          (ement-room--handle-events (ement-room-timeline room))
+          ;; NOTE: We handle the events in chronological order (i.e. the reverse of the
+          ;; stored order, which is latest-first), because some logic depends on this
+          ;; (e.g. processing a message-edit event before the edited event would mean the
+          ;; edited event would not yet be in the buffer).
+          (ement-room--handle-events (reverse (ement-room-state room)))
+          (ement-room--handle-events (reverse (ement-room-timeline room)))
           (ement-room--insert-ts-headers)
           (ement-room-move-read-markers room
             :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
