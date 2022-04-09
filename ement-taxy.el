@@ -227,9 +227,11 @@
             (push 'ement-room-list-favourite (map-elt face :inherit)))
           (when (ement--room-low-priority-p room)
             (push 'ement-room-list-low-priority (map-elt face :inherit)))
-          (pcase (ement-room-type room)
+          (pcase (ement-room-status room)
             ('invite
-             (push 'ement-room-list-invited (map-elt face :inherit))))
+             (push 'ement-room-list-invited (map-elt face :inherit)))
+            ('leave
+             (push 'ement-room-list-left (map-elt face :inherit))))
           (propertize (ement--button-buttonize display-name #'ement-taxy-mouse-1)
                       'face face
                       'mouse-face 'highlight))
