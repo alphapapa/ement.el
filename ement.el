@@ -692,7 +692,9 @@ Runs `ement-sync-callback-hook' with SESSION."
                                      :key #'ement-room-id)
                          (car (push (make-ement-room :id invited-room-id)
                                     (ement-session-rooms session))))))
-    (setf (ement-room-type room) 'invite)
+    ;; TODO: Do we need both of these?
+    (setf (ement-room-type room) 'invite
+          (ement-room-status room) 'invite)
     ;; Push the StrippedState events to the room's invite-state.
     ;; (These events have no timestamp data.)
     (cl-loop for event across-ref events do
