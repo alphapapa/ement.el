@@ -63,14 +63,15 @@
                              ;; NOTE: Hard to say what the default timeouts
                              ;; should be.  Sometimes the matrix.org homeserver
                              ;; can get slow and respond a minute or two later.
-                             (connect-timeout 10) (timeout 60))
+                             (connect-timeout 10) (timeout 60)
+                             (version "r0"))
   "FIXME: Docstring."
   ;; TODO: Remind users to json-encode data when needed.
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-session server token) session)
                ((cl-struct ement-server uri-prefix) server)
                ((cl-struct url type host portspec) (url-generic-parse-url uri-prefix))
-               (path (format "/_matrix/%s/r0/%s" endpoint-category endpoint))
+               (path (format "/_matrix/%s/%s/%s" endpoint-category version endpoint))
                (query (url-build-query-string params))
                (filename (concat path "?" query))
                (url (url-recreate-url
