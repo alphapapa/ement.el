@@ -685,21 +685,7 @@ Runs `ement-sync-callback-hook' with SESSION."
 (defun ement--push-invite-room-events (session invited-room)
   "Push events for INVITED-ROOM into that room in SESSION."
   ;; TODO: Make ement-session-rooms a hash-table.
-  (pcase-let* ((`(,invited-room-id . ,(map ('invite_state (map events)))) invited-room)
-               (invited-room-id (symbol-name invited-room-id))
-               (room (or (cl-find-if (apply-partially #'equal invited-room-id)
-                                     (ement-session-rooms session)
-                                     :key #'ement-room-id)
-                         (car (push (make-ement-room :id invited-room-id)
-                                    (ement-session-rooms session))))))
-    ;; TODO: Do we need both of these?
-    (setf (ement-room-type room) 'invite
-          (ement-room-status room) 'invite)
-    ;; Push the StrippedState events to the room's invite-state.
-    ;; (These events have no timestamp data.)
-    (cl-loop for event across-ref events do
-             (setf event (ement--make-event event))
-             (push event (ement-room-invite-state room)))))
+  (ement--push-joined-room-events session invited-room 'invite))
 
 (defun ement--auto-sync (session)
   "If `ement-auto-sync' is non-nil, sync SESSION again."
@@ -752,6 +738,7 @@ Also used for left rooms, in which case STATUS should be set to
                                      (ement-session-rooms session))
                          (car (push (make-ement-room :id id) (ement-session-rooms session)))))
                ((map summary state ephemeral timeline
+                     ('invite_state (map ('events invite-state-events)))
                      ('account_data (map ('events account-data-events)))
                      ('unread_notifications unread-notifications))
                 event-types)
@@ -767,6 +754,14 @@ Also used for left rooms, in which case STATUS should be set to
 
     ;; MAYBE: Use queue.el to store the events in a DLL, so they could
     ;; be accessed from either end.  Could be useful.
+
+    ;; Push the StrippedState events to the room's invite-state.  (These events have no
+    ;; timestamp data.)  We also run the event hook, because for invited rooms, the
+    ;; invite-state events include room name, topic, etc.
+    (cl-loop for event across-ref invite-state-events do
+             (setf event (ement--make-event event))
+             (push event (ement-room-invite-state room))
+             (run-hook-with-args 'ement-event-hook event room session))
 
     ;; Save room summary.
     (dolist (parameter '(m.heroes m.joined_member_count m.invited_member_count))
