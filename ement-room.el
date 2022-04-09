@@ -1906,9 +1906,9 @@ function to `ement-room-event-fns', which see."
     (pcase rel-type
       ("m.annotation"
        ;; Look for related event in timeline.
-       (if-let ((related-event (cl-loop for event in (ement-room-timeline ement-room)
-                                        when (equal related-id (ement-event-id event))
-                                        return event)))
+       (if-let ((related-event (cl-loop for timeline-event in (ement-room-timeline ement-room)
+                                        when (ement--events-equal-p event timeline-event)
+                                        return timeline-event)))
            ;; Found related event: add reaction to local slot and invalidate node.
            (progn
              ;; Every time a room buffer is made, these reaction events are processed again, so we use pushnew to
@@ -1921,7 +1921,7 @@ function to `ement-room-event-fns', which see."
                (ewoc-invalidate ement-ewoc nodes)))
          ;; No known related event: discard.
          ;; TODO: Is this the correct thing to do?
-         nil)))))
+         (ement-debug "No known related event for" event))))))
 
 (ement-room-defevent "m.typing"
   (pcase-let* (((cl-struct ement-session user) ement-session)
@@ -1955,7 +1955,7 @@ function to `ement-room-event-fns', which see."
     (if (and ement-room-replace-edited-messages
              replaces-event-id (equal "m.replace" rel-type))
         ;; Event replaces existing event: find and replace it in buffer if possible, otherwise insert it.
-        (or (ement-room--replace-event replaces-event-id event)
+        (or (ement-room--replace-event event)
             (progn
               (ement-debug "Unable to replace event ID: inserting instead." replaces-event-id)
               (ement-room--insert-event event)))
@@ -2383,18 +2383,14 @@ the first and last nodes in the buffer, respectively."
                 (ement-debug "Event after from different sender: insert its sender before it.")
                 (ewoc-enter-before ewoc next-node (ement-event-sender (ewoc-data next-node)))))))))))
 
-(defun ement-room--replace-event (old-event-id new-event)
-  "Replace event having or replacing OLD-EVENT-ID with NEW-EVENT in current buffer.
-If OLD-EVENT-ID is not found, return nil, otherwise non-nil."
+(defun ement-room--replace-event (new-event)
+  "Replace appropriate event with NEW-EVENT in current buffer.
+If replaced event is not found, return nil, otherwise non-nil."
   (let* ((ewoc ement-ewoc)
          (old-event-node (ement-room--ewoc-last-matching ewoc
                            (lambda (data)
                              (cl-typecase data
-                               (ement-event (or (equal old-event-id (ement-event-id data))
-                                                (pcase-let* (((cl-struct ement-event content) data)
-                                                             ((map ('m.relates_to (map rel_type event_id))) content))
-                                                  (and (equal "m.replace" rel_type)
-                                                       (equal old-event-id event_id))))))))))
+                               (ement-event (ement--events-equal-p data new-event)))))))
     (when old-event-node
       ;; TODO: Record old events in new event's local data, and make it accessible when inspecting the new event.
       (let ((node-before (ewoc-prev ewoc old-event-node))

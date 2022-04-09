@@ -867,6 +867,34 @@ Adds sender to `ement-users' when necessary."
   "Put EVENT on SESSION's events table."
   (puthash (ement-event-id event) event (ement-session-events session)))
 
+(defun ement--events-equal-p (a b)
+  "Return non-nil if events A and B are essentially equal.
+That is, A and B are either the same event (having the same event
+ID), or one event replaces the other (in their m.relates_to and
+m.replace metadata)."
+  (or (equal (ement-event-id a) (ement-event-id b))
+      (ement--event-replaces-p a b)
+      (ement--event-replaces-p b a)))
+
+(defun ement--event-replaces-p (a b)
+  "Return non-nil if event A replaces event B.
+That is, event A replaces B in their m.relates_to/m.relations and
+m.replace metadata."
+  (pcase-let* (((cl-struct ement-event (id a-id)
+                           (content (map ('m.relates_to
+                                          (map ('rel_type a-rel-type)
+                                               ('event_id a-replaces-event-id))))))
+                a)
+               ((cl-struct ement-event (id b-id)
+                           ;; Not sure why this ends up in the unsigned key, but it does.
+                           (unsigned (map ('m.relations
+                                           (map ('m.replace
+                                                 (map ('event_id b-replaced-by-event-id))))))))
+                b))
+    (or (and (equal "m.replace" a-rel-type)
+             (equal a-replaces-event-id b-id))
+        (equal a-id b-replaced-by-event-id))))
+
 ;; FIXME: These functions probably need to compare timestamps to
 ;; ensure that older events that are inserted at the head of the
 ;; events lists aren't used instead of newer ones.
