@@ -1907,8 +1907,9 @@ function to `ement-room-event-fns', which see."
     (pcase rel-type
       ("m.annotation"
        ;; Look for related event in timeline.
-       (if-let ((related-event (cl-loop for timeline-event in (ement-room-timeline ement-room)
-                                        when (ement--events-equal-p event timeline-event)
+       (if-let ((related-event (cl-loop with fake-event = (make-ement-event :id related-id)
+                                        for timeline-event in (ement-room-timeline ement-room)
+                                        when (ement--events-equal-p fake-event timeline-event)
                                         return timeline-event)))
            ;; Found related event: add reaction to local slot and invalidate node.
            (progn
