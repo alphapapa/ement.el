@@ -769,14 +769,16 @@ Also used for left rooms, in which case STATUS should be set to
         ;; These fields are only included when they change.
         (setf (alist-get parameter (ement-room-summary room)) (alist-get parameter summary))))
 
-    ;; Update account data.  The spec doesn't seem very clear about this, but I gather that
-    ;; only the latest event of each type of account data event matters, so rather than
-    ;; storing all of the events in a list, we'll store the latest of each type we care about.
-    (dolist (type '("m.read" "m.fully_read"))
-      (when-let ((event (seq-find (lambda (event) (equal type (alist-get 'type event)))
-                                  account-data-events)))
-        (setf (alist-get type (ement-room-account-data room) nil nil #'equal) event)))
-    ;; But we also need to track just the new events so we can process those in a room buffer.
+    ;; Update account data.  According to the spec, only one of each event type is
+    ;; supposed to be present in a room's account data, so we store them as an alist keyed
+    ;; on their type.  (NOTE: We don't currently make them into event structs, but maybe
+    ;; we should in the future.)
+    (cl-loop for event across account-data-events
+             for type = (alist-get 'type event)
+             do (setf (alist-get type (ement-room-account-data room) nil nil #'equal) event))
+    ;; But we also need to track just the new events so we can process those in a room
+    ;; buffer (and for some reason, we do make them into structs here, but I don't
+    ;; remember why).  FIXME: Unify this.
     (cl-callf2 append (mapcar #'ement--make-event account-data-events)
                (alist-get 'new-account-data-events (ement-room-local room)))
 
