@@ -488,6 +488,10 @@ When disabled, the room's buffer will remain open, but
 Matrix-related commands in it will fail."
   :type 'boolean)
 
+;; Other function declarations (seems better to have them all in one place, otherwise they
+;; litter the code).
+(declare-function ement--events-equal-p "ement")
+
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
