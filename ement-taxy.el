@@ -340,6 +340,9 @@
                                    (ement-room nil))
                                  'show
                                'hide)))
+                (room-invited-p
+                 (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
+                          (equal 'invite status)))
                 (t<nil (a b) (and a (not b)))
                 (make-fn (&rest args)
                          (apply #'make-taxy-magit-section
@@ -368,6 +371,7 @@
                        (taxy-fill room-session-vectors)
                        (taxy-sort #'> #'latest-ts)
                        (taxy-sort #'t<nil #'room-unread-p)
+                       (taxy-sort #'t<nil #'room-invited-p)
                        (taxy-sort* #'string< #'taxy-name)
                        (taxy-sort* #'t<nil (lambda (taxy)
                                              (room-unread-p (car (taxy-items taxy)))))
