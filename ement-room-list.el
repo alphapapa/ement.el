@@ -112,6 +112,12 @@ For example, \"1h54m3s\" becomes \"1h\"."
   '((t (:inherit bold ement-room-list-name)))
   "Unread rooms.")
 
+(defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
+  "Favourite rooms.")
+
+(defface ement-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-room-list-name))))
+  "Low-priority rooms.")
+
 (defface ement-room-list-recent
   '((t (:inherit font-lock-warning-face)))
   "Latest timestamp of recently updated rooms.
@@ -181,7 +187,9 @@ call `pop-to-buffer'."
   "Ement-Room-List"
   :group 'ement
   (setf tabulated-list-format (vector
-                               '("U" 1 t) '("B" 1 t)
+                               '("U" 1 t)
+                               '(#("P" 0 1 (help-echo "Priority (favorite/low)")) 1 t)
+                               '("B" 1 t)
                                ;; '("U" 1 t)
                                '("d" 1 t) ; Direct
                                (list (propertize "🐱"
@@ -230,7 +238,7 @@ call `pop-to-buffer'."
   (interactive "e")
   (mouse-set-point event)
   (pcase-let* ((room (tabulated-list-get-id))
-               (`[,_unread ,_buffer ,_direct ,_avatar ,_name ,_topic ,_latest ,_members ,user-id]
+               (`[,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name ,_topic ,_latest ,_members ,user-id]
                 (tabulated-list-get-entry))
                (session (alist-get user-id ement-sessions nil nil #'equal)))
     (ement-view-room room session)))
@@ -349,9 +357,9 @@ To be called in `ement-sync-callback-hook'."
                (e-direct-p (if (ement-room--direct-p room session)
                                (propertize "d" 'help-echo "Direct room")
                              ""))
-               ;; (e-priority (cond (favorite-p "F")
-               ;;                   (low-priority-p "l")
-               ;;                   ("N")))
+               (e-priority (cond ((ement--room-favourite-p room) "F")
+                                 ((ement--room-low-priority-p room) "l")
+                                 (" ")))
                (e-members (if member-count (number-to-string member-count) "")))
     (when ement-room-list-simplify-timestamps
       (setf e-latest (replace-regexp-in-string
@@ -365,6 +373,10 @@ To be called in `ement-sync-callback-hook'."
     (when (ement-room--direct-p room session)
       (setf (map-elt name-face :inherit)
             (cons 'ement-room-list-direct (map-elt name-face :inherit))))
+    (when (ement--room-favourite-p room)
+      (push 'ement-room-list-favourite (map-elt name-face :inherit)))
+    (when (ement--room-low-priority-p room)
+      (push 'ement-room-list-low-priority (map-elt name-face :inherit)))
     (pcase (ement-room-type room)
       ('invite
        (setf e-topic (concat (propertize "[invited]"
@@ -378,9 +390,9 @@ To be called in `ement-sync-callback-hook'."
                              " " e-topic)
              (map-elt name-face :inherit) (cons (map-elt name-face :inherit)
                                                 'ement-room-list-left))))
-    (list room (vector e-unread e-buffer e-direct-p
+    (list room (vector e-unread e-priority e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
-                       ;; e-priority e-tags
+                       ;; e-tags
                        e-session
                        ;; e-avatar
                        ))))
@@ -390,8 +402,8 @@ To be called in `ement-sync-callback-hook'."
 (defun ement-room-list-members< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
-               (`(,_room [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
+  (pcase-let* ((`(,_room [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
+               (`(,_room [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,b-members ,_session]) b))
     (when (and a-members b-members)
       ;; Invited rooms may have no member count (I think).
       (< (string-to-number a-members) (string-to-number b-members)))))
@@ -399,8 +411,8 @@ A and B should be entries from `tabulated-list-mode'."
 (defun ement-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
-  (pcase-let* ((`(,_room-a [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
-               (`(,_room-b [,_unread ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b)
+  (pcase-let* ((`(,_room-a [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
+               (`(,_room-b [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,b-latest ,_b-members ,_session]) b)
                (a-latest (get-text-property 0 'value a-latest))
                (b-latest (get-text-property 0 'value b-latest)))
     (cond ((and a-latest b-latest)

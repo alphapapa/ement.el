@@ -161,8 +161,22 @@
                (buffer-modified-p buffer))
       "Unread")))
 
+(ement-taxy-define-key favourite ()
+  :then #'identity
+  (pcase-let ((`[,room ,_session] item))
+    (when (ement--room-favourite-p room)
+      "Favourite")))
+
+(ement-taxy-define-key low-priority ()
+  :then #'identity
+  (pcase-let ((`[,room ,_session] item))
+    (when (ement--room-low-priority-p room)
+      "Low-priority")))
+
 (defcustom ement-taxy-default-keys
-  '((membership :status 'leave)
+  '((low-priority)
+    (favourite)
+    (membership :status 'leave)
     (people-p)
     (space))
   "Default keys."
@@ -209,6 +223,10 @@
             (push 'ement-room-list-space (map-elt face :inherit)))
           (when (ement-room--direct-p room session)
             (push 'ement-room-list-direct (map-elt face :inherit)))
+          (when (ement--room-favourite-p room)
+            (push 'ement-room-list-favourite (map-elt face :inherit)))
+          (when (ement--room-low-priority-p room)
+            (push 'ement-room-list-low-priority (map-elt face :inherit)))
           (pcase (ement-room-type room)
             ('invite
              (push 'ement-room-list-invited (map-elt face :inherit))))
@@ -340,6 +358,12 @@
                 (room-space-p
                  (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
                           (equal "m.space" type)))
+                (room-favourite-p
+                 (item) (pcase-let ((`[,room ,_session] item))
+                          (ement--room-favourite-p room)))
+                (room-low-priority-p
+                 (item) (pcase-let ((`[,room ,_session] item))
+                          (ement--room-low-priority-p room)))
                 (visible-p
                  ;; This is very confusing and doesn't currently work.
                  (section) (let ((value (oref section value)))
@@ -352,6 +376,7 @@
                  (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
                           (equal 'invite status)))
                 (t<nil (a b) (and a (not b)))
+                (t>nil (a b) (and (not a) b))
                 (make-fn (&rest args)
                          (apply #'make-taxy-magit-section
                                 :make #'make-fn
@@ -380,9 +405,15 @@
                        (taxy-sort #'> #'latest-ts)
                        (taxy-sort #'t<nil #'room-unread-p)
                        (taxy-sort #'t<nil #'room-invited-p)
+                       (taxy-sort #'t<nil #'room-favourite-p)
+                       (taxy-sort #'t>nil #'room-low-priority-p)
                        (taxy-sort* #'string< #'taxy-name)
                        (taxy-sort* #'t<nil (lambda (taxy)
                                              (room-unread-p (car (taxy-items taxy)))))
+                       (taxy-sort* #'t<nil (lambda (taxy)
+                                             (room-favourite-p (car (taxy-items taxy)))))
+                       (taxy-sort* #'t>nil (lambda (taxy)
+                                             (room-low-priority-p (car (taxy-items taxy)))))
                        (taxy-sort* #'t<nil (lambda (taxy)
                                              (not (room-left-p (car (taxy-items taxy))))))
                        (taxy-sort #'t<nil #'room-space-p)))

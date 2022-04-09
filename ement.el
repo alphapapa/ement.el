@@ -1082,6 +1082,26 @@ is not at the latest known message event."
                                           (not (equal fully-read-event-id (ement-event-id event)))))
                      t))))))))
 
+(defun ement--room-favourite-p (room)
+  "Return non-nil if ROOM is tagged as favourite."
+  (ement--room-tagged-p "m.favourite" room))
+
+(defun ement--room-low-priority-p (room)
+  "Return non-nil if ROOM is tagged as low-priority."
+  (ement--room-tagged-p "m.lowpriority" room))
+
+(defun ement--room-tagged-p (tag room)
+  "Return non-nil if ROOM has TAG."
+  ;; TODO: Use `make-ement-event' on account-data events.
+  (pcase-let* (((cl-struct ement-room account-data) room)
+               (tag-event (alist-get "m.tag" account-data nil nil #'equal)))
+    (when tag-event
+      (pcase-let (((map ('content (map tags))) tag-event))
+        (cl-typecase tag
+          ;; Tags are symbols internally, because `json-read' converts map keys to them.
+          (string (setf tag (intern tag))))
+        (assoc tag tags)))))
+
 ;;;;; Reading/writing sessions
 
 (defun ement--read-sessions ()
