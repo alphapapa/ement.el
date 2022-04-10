@@ -272,6 +272,8 @@
 (ement-taxy-define-column "Topic" (:max-width 35)
   (pcase-let ((`[,(cl-struct ement-room topic status) ,_session] item))
     ;; FIXME: Can the status and type unified, or is this inherent to the spec?
+    (when topic
+      (setf topic (replace-regexp-in-string "\n" " " topic 'fixedcase 'literal)))
     (pcase status
       ('invite (concat (propertize "[invited]"
                                    'face 'ement-room-list-invited)
