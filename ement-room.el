@@ -3317,7 +3317,7 @@ Web-compatible HTML output, using HTML like:
 			      src-block info nil #'org-html--has-caption-p)))))
 		      (format "<label class=\"org-src-name\">%s%s</label>"
 			      listing-number
-			      (org-trim (org-export-data caption info))))))
+			      (string-trim (org-export-data caption info))))))
 		;; Contents.
 		(format "<pre><code class=\"src language-%s\"%s>%s</code></pre>"
 			lang label code))))))
