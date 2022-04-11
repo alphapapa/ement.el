@@ -428,7 +428,9 @@
                (pos (point))
                (window-start (if (get-buffer-window)
                                  (window-start (get-buffer-window))
-                               0)))
+                               0))
+               (section-ident (when (magit-current-section)
+                                (magit-section-ident (magit-current-section)))))
           (setf format-table (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
@@ -440,6 +442,8 @@
               ;; :blank-between-depth bufler-taxy-blank-between-depth
               :initial-depth 0))
           (goto-char pos)
+          (when (and section-ident (magit-get-section section-ident))
+            (goto-char (oref (magit-get-section section-ident) start)))
           (display-buffer buffer-name (if current-prefix-arg
                                           '((display-buffer-same-window))
                                         display-buffer-action))
