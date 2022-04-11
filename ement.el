@@ -736,16 +736,16 @@ To be called in `ement-sync-callback-hook'."
           (cl-assert ement-room)
           (when (ement-room-ephemeral ement-room)
             ;; Ephemeral events.
-            (ement-room--handle-events (ement-room-ephemeral ement-room))
+            (ement-room--process-events (ement-room-ephemeral ement-room))
             (setf (ement-room-ephemeral ement-room) nil))
           (when-let ((new-events (alist-get 'new-events (ement-room-local ement-room))))
             ;; HACK: Process these events in reverse order, so that later events (like reactions)
             ;; which refer to earlier events can find them.  (Not sure if still necessary.)
-            (ement-room--handle-events (reverse new-events))
+            (ement-room--process-events (reverse new-events))
             (setf (alist-get 'new-events (ement-room-local ement-room)) nil))
           (when-let ((new-events (alist-get 'new-account-data-events (ement-room-local ement-room))))
             ;; Account data events.  Do this last so, e.g. read markers can refer to message events we've seen.
-            (ement-room--handle-events new-events)
+            (ement-room--process-events new-events)
             (setf (alist-get 'new-account-data-events (ement-room-local ement-room)) nil)))))))
 
 (cl-defun ement--push-joined-room-events (session joined-room &optional (status 'join))

@@ -1473,7 +1473,7 @@ before the earliest-seen message)."
             (when-let ((buffer-window (get-buffer-window buffer)))
               (select-window buffer-window))
             ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
-            (ement-room--handle-events chunk)
+            (ement-room--process-events chunk)
             (when set-prev-batch
               ;; This feels a little hacky, but maybe not too bad.
               (setf (ement-room-prev-batch room) end))
@@ -1505,7 +1505,7 @@ the previously oldest event."
       (when buffer-window
         (select-window buffer-window))
       (cl-loop for event being the elements of events
-               do (ement-room--handle-event event)
+               do (ement-room--process-event event)
                do (ement-progress-update)))
     ;; Since events can be received in any order, we have to check the whole buffer
     ;; for where to insert new timestamp headers.  (Avoiding that would require
@@ -1703,8 +1703,8 @@ data slot."
           ;; stored order, which is latest-first), because some logic depends on this
           ;; (e.g. processing a message-edit event before the edited event would mean the
           ;; edited event would not yet be in the buffer).
-          (ement-room--handle-events (reverse (ement-room-state room)))
-          (ement-room--handle-events (reverse (ement-room-timeline room)))
+          (ement-room--process-events (reverse (ement-room-state room)))
+          (ement-room--process-events (reverse (ement-room-timeline room)))
           (ement-room--insert-ts-headers)
           (ement-room-move-read-markers room
             :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
@@ -1866,7 +1866,7 @@ For use as `imenu-create-index-function'."
 ;; otherwise the events may be inserted at the wrong place.  (I'm not
 ;; sure if this is a bug in EWOC or in my code, but doing this fixes it.)
 
-(defun ement-room--handle-events (events)
+(defun ement-room--process-events (events)
   "Process EVENTS in current buffer.
 Calls `ement-progress-update' for each event.  Calls
 `ement-room--insert-ts-headers' when done.  Uses handlers defined
@@ -1882,7 +1882,7 @@ buffer."
            do (ement-progress-update))
   (ement-room--insert-ts-headers))
 
-(defun ement-room--handle-event (event)
+(defun ement-room--process-event (event)
   "Process EVENT in current buffer.
 Uses handlers defined in `ement-room-event-fns'.  The current
 buffer should be a room's buffer."
@@ -1891,7 +1891,7 @@ buffer should be a room's buffer."
     ;; events to be malformed in unexpected ways, and that could cause an error, which
     ;; would stop processing of other events and prevent further syncing.  See,
     ;; e.g. <https://github.com/alphapapa/ement.el/pull/61>.
-    (with-demoted-errors "Ement (ement-room--handle-event): Error processing event: %S"
+    (with-demoted-errors "Ement (ement-room--process-event): Error processing event: %S"
       (funcall handler event))))
 
 ;;;;;; Event handlers
