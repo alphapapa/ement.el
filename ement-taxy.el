@@ -401,26 +401,27 @@
                 (cl-loop for (_id . session) in ement-sessions
                          append (cl-loop for room in (ement-session-rooms session)
                                          collect (vector room session))))
-               (taxy (thread-last
-                       (make-fn
-                        :name "Ement Rooms"
-                        :take (taxy-make-take-function keys ement-taxy-keys))
-                       (taxy-fill room-session-vectors)
-                       (taxy-sort #'> #'latest-ts)
-                       (taxy-sort #'t<nil #'room-unread-p)
-                       (taxy-sort #'t<nil #'room-invited-p)
-                       (taxy-sort #'t<nil #'room-favourite-p)
-                       (taxy-sort #'t>nil #'room-low-priority-p)
-                       (taxy-sort* #'string< #'taxy-name)
-                       (taxy-sort* #'t<nil (lambda (taxy)
-                                             (room-unread-p (car (taxy-items taxy)))))
-                       (taxy-sort* #'t<nil (lambda (taxy)
-                                             (room-favourite-p (car (taxy-items taxy)))))
-                       (taxy-sort* #'t>nil (lambda (taxy)
-                                             (room-low-priority-p (car (taxy-items taxy)))))
-                       (taxy-sort* #'t<nil (lambda (taxy)
-                                             (not (room-left-p (car (taxy-items taxy))))))
-                       (taxy-sort #'t<nil #'room-space-p)))
+               (taxy (cl-macrolet ((first-item-p
+                                    (pred) `(lambda (taxy)
+                                              (,pred (car (taxy-items taxy))))))
+                       (thread-last
+                         (make-fn
+                          :name "Ement Rooms"
+                          :take (taxy-make-take-function keys ement-taxy-keys))
+                         (taxy-fill room-session-vectors)
+                         (taxy-sort #'> #'latest-ts)
+                         (taxy-sort #'t<nil #'room-unread-p)
+                         (taxy-sort #'t<nil #'room-invited-p)
+                         (taxy-sort #'t<nil #'room-favourite-p)
+                         (taxy-sort #'t>nil #'room-low-priority-p)
+                         (taxy-sort #'t>nil #'room-left-p)
+                         (taxy-sort #'t<nil #'room-space-p)
+                         (taxy-sort* #'string< #'taxy-name)
+                         (taxy-sort* #'t<nil (first-item-p room-unread-p))
+                         (taxy-sort* #'t<nil (first-item-p room-invited-p))
+                         (taxy-sort* #'t<nil (first-item-p room-favourite-p))
+                         (taxy-sort* #'t>nil (first-item-p room-low-priority-p))
+                         (taxy-sort* #'t>nil (first-item-p room-left-p)))))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
