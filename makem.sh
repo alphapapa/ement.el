@@ -3,11 +3,11 @@
 # * makem.sh --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.5
+# Version: 0.6-pre
 
 # * Commentary:
 
-# makem.sh is a script helps to build, lint, and test Emacs Lisp
+# makem.sh is a script that helps to build, lint, and test Emacs Lisp
 # packages.  It aims to make linting and testing as simple as possible
 # without requiring per-package configuration.
 
@@ -134,6 +134,27 @@ function elisp-buttercup-file {
 (advice-add #'buttercup-run :around #'makem-buttercup-run)
 EOF
     echo $file
+}
+
+function elisp-elint-file {
+    local file=$(mktemp)
+    cat >$file <<EOF
+(require 'cl-lib)
+(require 'elint)
+(defun makem-elint-file (file)
+  (let ((errors 0))
+    (cl-letf (((symbol-function 'orig-message) (symbol-function 'message))
+              ((symbol-function 'message) (symbol-function 'ignore))
+              ((symbol-function 'elint-output)
+               (lambda (string)
+                 (cl-incf errors)
+                 (orig-message "%s" string))))
+      (elint-file file)
+      ;; NOTE: \`errors' is not actually the number of errors, because
+      ;; it's incremented for non-error header strings as well.
+      (kill-emacs errors))))
+EOF
+    echo "$file"
 }
 
 function elisp-checkdoc-file {
@@ -452,8 +473,7 @@ function ert-tests-p {
 }
 
 function package-main-file {
-    # Echo the package's main file.  Helpful for setting package-lint-main-file.
-
+    # Echo the package's main file.
     file_pkg=$(git ls-files ./*-pkg.el 2>/dev/null)
 
     if [[ $file_pkg ]]
@@ -535,6 +555,8 @@ function sandbox {
     args_sandbox=(
         --title "makem.sh: $(basename $(pwd)) (sandbox: $sandbox_dir)"
         --eval "(setq user-emacs-directory (file-truename \"$sandbox_dir\"))"
+        --load package
+        --eval "(setq package-user-dir (expand-file-name \"elpa\" user-emacs-directory))"
         --eval "(setq user-init-file (file-truename \"$init_file\"))"
     )
 
@@ -820,6 +842,9 @@ function lint {
     lint-checkdoc
     lint-compile
     lint-declare
+    # NOTE: Elint doesn't seem very useful at the moment.  See comment
+    # in lint-elint function.
+    # lint-elint
     lint-indent
     lint-package
     lint-regexps
@@ -874,6 +899,28 @@ function lint-elsa {
         "${files_project_feature[@]}" \
         && success "Linting with Elsa finished without errors." \
             || error "Linting with Elsa failed."
+}
+
+function lint-elint {
+    # NOTE: Elint gives a lot of spurious warnings, apparently because it doesn't load files
+    # that are `require'd, so its output isn't very useful.  But in case it's improved in
+    # the future, and since this wrapper code already works, we might as well leave it in.
+    verbose 1 "Linting with Elint..."
+
+    local errors=0
+    for file in "${files_project_feature[@]}"
+    do
+        verbose 2 "Linting with Elint: $file..."
+        run_emacs \
+            --load "$(elisp-elint-file)" \
+            --eval "(makem-elint-file \"$file\")" \
+            && verbose 3 "Linting with Elint found no errors." \
+                || { error "Linting with Elint failed: $file"; ((errors++)) ; }
+    done
+
+    [[ $errors = 0 ]] \
+        && success "Linting with Elint finished without errors." \
+            || error "Linting with Elint failed."
 }
 
 function lint-indent {
