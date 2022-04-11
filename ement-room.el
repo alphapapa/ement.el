@@ -3084,7 +3084,7 @@ a copy of the local keymap, and sets `header-line-format'."
                    (image-transforms-p)))
              (set-default option value)
            (set-default option nil)
-           (when value
+           (when (and value (display-images-p))
              (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
 (defcustom ement-room-image-initial-height 0.2
