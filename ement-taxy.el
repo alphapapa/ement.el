@@ -41,9 +41,13 @@
 
 (defvar ement-taxy-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "v") #'ement-taxy-view)
+    (define-key map (kbd "k") #'ement-taxy-kill)
+    (define-key map (kbd "t") #'ement-taxy-tag)
+    (define-key map (kbd "s") #'ement-taxy-space)
+    (define-key map [mouse-1] #'ement-taxy-mouse-1)
     (define-key map (kbd "RET") #'ement-taxy-RET)
     (define-key map (kbd "SPC") #'ement-taxy-next-unread)
-    (define-key map [mouse-1] #'ement-taxy-mouse-1)
     map))
 
 ;;;; Customization
@@ -352,6 +356,61 @@
   ;; TODO: Automate this or document it
   (setq-default ement-taxy-columns
                 (get 'ement-taxy-columns 'standard-value)))
+
+;;;; Commands
+
+(eval-and-compile
+  (taxy-magit-section-define-command-definer "ement-taxy"))
+
+(defmacro ement-taxy-command (&rest body)
+  "Internal wrapper macro.
+Expands to a lambda having BODY, around which are bound `room'
+and `session' to the lambda's sole argument (which should be a
+section's value)."
+  (declare (indent defun))
+  `(lambda (item)
+     (pcase-let ((`[,room ,session] item))
+       ,@body)))
+
+(ement-taxy-define-command kill
+  "Kill buffers of selected rooms."
+  (ement-taxy-command
+    (ignore session)
+    (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(ement-taxy-define-command view
+  "View selected rooms."
+  (ement-taxy-command
+    (ement-view-room room session)))
+
+(ement-taxy-define-command leave
+  "Leave selected rooms."
+  (ement-taxy-command
+    (ement-leave-room room session)))
+
+(ement-taxy-define-command tag
+  "Tag selected rooms.
+With prefix, delete tag from rooms."
+  (ement-taxy-command
+    (ement-tag-room tag room session current-prefix-arg))
+  :let* ((prompt (if current-prefix-arg "Delete tag: " "Add tag: "))
+         (tag (ement-complete-tag :prompt prompt))))
+
+(ement-taxy-define-command space
+  "Add/remove selected rooms to/from a space.
+With prefix, remove rooms from space."
+  (ement-taxy-command
+    (ignore session)
+    (ement-space-room room space session current-prefix-arg))
+  :let* ((number-of-rooms (length (taxy-magit-section-values)))
+         (prompt (if current-prefix-arg
+                     (format "Remove from space (%s rooms): " number-of-rooms)
+                   (format "Add to space (%s rooms): " number-of-rooms)))
+         (space (ement-complete-room :prompt prompt
+                  :predicate (lambda (room)
+                               (equal "m.space" (ement-room-type room)))))))
 
 ;;;; Bookmark support
 
