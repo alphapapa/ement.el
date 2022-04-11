@@ -65,7 +65,7 @@
 
 (eval-and-compile
   (taxy-define-key-definer ement-taxy-define-key
-    ement-taxy-keys "ement-taxy" "FIXME: Docstring."))
+    ement-taxy-keys "ement-taxy-key" "FIXME: Docstring."))
 
 (ement-taxy-define-key membership (&key name status)
   ;; FIXME: Docstring: status should be a symbol of either `invite', `join', `leave'.
