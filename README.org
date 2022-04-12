@@ -111,6 +111,7 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
       -  ~ement-room-set-topic~ to set a room's topic.
+      -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
       -  ~ement-room-set-message-format~ to set a room's message format buffer-locally.
 4.  Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
       -  See all new events that mention you in the =*Ement Mentions*= buffer.

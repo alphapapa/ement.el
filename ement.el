@@ -1048,6 +1048,27 @@ Also handle the echoed-back event."
     (ement-api session endpoint :method 'put :data (json-encode data)
       :then then)))
 
+(defun ement-ignore-user (user-id session &optional unignore-p)
+  "Ignore USER-ID on SESSION.
+If UNIGNORE-P (interactively, with prefix), un-ignore USER."
+  (interactive (list (ement-complete-user-id)
+                     (ement-complete-session)
+                     current-prefix-arg))
+  (pcase-let* (((cl-struct ement-session account-data) session)
+               ;; TODO: Store session account-data events in an alist keyed on type.
+               ((map ('content (map ('ignored_users ignored-users))))
+                (cl-find "m.ignored_user_list" account-data
+                         :key (lambda (event) (alist-get 'type event)) :test #'equal)))
+    (if unignore-p
+        ;; Being map keys, the user IDs have been interned by `json-read'.
+        (setf ignored-users (map-delete ignored-users (intern user-id)))
+      ;; Empty maps are used to list ignored users.
+      (setf (map-elt ignored-users user-id) nil))
+    (ement-put-account-data session "m.ignored_user_list" (ement-alist "ignored_users" ignored-users)
+      :then (lambda (data)
+              (ement-debug "PUT successful" data)
+              (message "Ement: User %s %s." user-id (if unignore-p "unignored" "ignored"))))))
+
 (defun ement--room-unread-p (room session)
   "Return non-nil if ROOM is considered unread for SESSION.
 The room is unread if it has a modified, live buffer; if it has
