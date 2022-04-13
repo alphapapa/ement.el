@@ -845,6 +845,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
   (interactive)
   (if (= (window-point) (point-max))
       (progn
+        ;; At the bottom of the buffer: mark read and show next unread room.
         (when ement-room-mark-rooms-read
           (ement-room-mark-read ement-room ement-session
             :read-event (ewoc-data (ement-room--ewoc-last-matching ement-ewoc
@@ -852,10 +853,22 @@ Interactively, set the current buffer's ROOM's TOPIC."
             :fully-read-event (ewoc-data (ement-room--ewoc-last-matching ement-ewoc
                                            (lambda (data) (ement-event-p data))))))
         (set-buffer-modified-p nil)
-        (bury-buffer)
+        (if-let ((rooms-window (cl-find-if (lambda (window)
+                                             (member (buffer-name (window-buffer window))
+                                                     '("*Ement Taxy*" "*Ement Rooms*")))
+                                           (window-list))))
+            ;; Rooms buffer already displayed: select its window and move to next unread room.
+            (with-selected-window rooms-window
+              (funcall (pcase-exhaustive major-mode
+                         ('ement-room-list-mode #'ement-room-list-next-unread)
+                         ('ement-taxy-mode #'ement-taxy-next-unread))))
+          ;; Rooms buffer not displayed: bury this room buffer, which should usually
+          ;; result in another room buffer or the rooms list buffer being displayed.
+          (bury-buffer))
         (when (member major-mode '(ement-room-list-mode ement-taxy-room-list-mode))
           ;; Back in the room-list buffer: revert it.
           (revert-buffer)))
+    ;; Not at the bottom of the buffer: scroll.
     (condition-case _err
         (scroll-up-command)
       (end-of-buffer (set-window-point nil (point-max))))))
