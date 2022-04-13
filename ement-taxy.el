@@ -86,17 +86,17 @@
       (when (string-match-p regexp canonical-alias)
         name))))
 
-(ement-taxy-define-key buffer-p ()
+(ement-taxy-define-key buffer ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (when buffer
       "Buffer")))
 
-(ement-taxy-define-key direct-p ()
+(ement-taxy-define-key direct ()
   (pcase-let ((`[,room ,session] item))
     (when (ement-room--direct-p room session)
       "Direct")))
 
-(ement-taxy-define-key people-p ()
+(ement-taxy-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement-room--direct-p room session)
       (propertize "People" 'face 'ement-room-list-direct))))
@@ -140,6 +140,37 @@
       (when (string-match-p regexp display-name)
         (or name regexp)))))
 
+(ement-taxy-define-key latest (&key name newer-than older-than)
+  (pcase-let* ((`[,room ,_session] item)
+               ((cl-struct ement-room latest-ts) room)
+               (age))
+    (when latest-ts
+      (setf age (ts-diff (ts-now) (make-ts :unix (/ latest-ts 1000))))
+      (cond (newer-than
+             (when (<= age newer-than)
+               (or name (format "Newer than %s seconds" newer-than))))
+            (older-than
+             (when (>= age older-than)
+               (or name (format "Older than %s seconds" newer-than))))
+            (t
+             ;; Default to rooms with traffic in the last day.
+             (if (<= age 86400)
+                 "Last 24 hours"
+               "Older than 24 hours"))))))
+
+(ement-taxy-define-key freshness
+  (&key (intervals '((86400 . "Past 24h")
+                     (604800 . "Past week")
+                     (2419200 . "Past month")
+                     (31536000 . "Past year"))))
+  (pcase-let* ((`[,room ,_session] item)
+               ((cl-struct ement-room latest-ts) room)
+               (age))
+    (when latest-ts
+      (setf age (- (ts-unix (ts-now)) (/ latest-ts 1000)))
+      (or (alist-get age intervals nil nil #'>)
+          "Older than a year"))))
+
 (ement-taxy-define-key session (&optional user-id)
   (pcase-let ((`[,_room ,(cl-struct ement-session
                                     (user (cl-struct ement-user id)))]
@@ -155,10 +186,9 @@
       (when (string-match-p regexp topic)
         name))))
 
-(ement-taxy-define-key unread-p ()
-  (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
-    (when (and buffer
-               (buffer-modified-p buffer))
+(ement-taxy-define-key unread ()
+  (pcase-let ((`[,room ,session] item))
+    (when (ement--room-unread-p room session)
       "Unread")))
 
 (ement-taxy-define-key favourite ()
@@ -175,10 +205,14 @@
 
 (defcustom ement-taxy-default-keys
   '((membership :status 'invite)
-    (low-priority)
     (favourite)
-    (membership :status 'leave)
-    (people-p)
+    ((membership :status 'leave))
+    (low-priority)
+    (unread)
+    ((latest :name "Last 24h" :newer-than 86400))
+    (latest :name "Old" :older-than (* 86400 90))
+    (people)
+    freshness
     (space))
   "Default keys."
   :type 'sexp)
@@ -345,39 +379,40 @@
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
-                (latest-ts
+                ;; NOTE: Since these functions take an "item" (which is a [room session]
+                ;; vector), they're prefixed "item-" rather than "room-".
+                (item-latest-ts
                  (item) (or (ement-room-latest-ts (elt item 0))
                             ;; Room has no latest timestamp.  FIXME: This shouldn't
                             ;; happen, but it can, maybe due to oversights elsewhere.
                             0))
-                (room-unread-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
-                          (and (buffer-live-p buffer)
-                               (buffer-modified-p buffer))))
-                (room-left-p
+                (item-unread-p
+                 (item) (pcase-let ((`[,room ,session] item))
+                          (ement--room-unread-p room session)))
+                (item-left-p
                  (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
                           (equal 'leave status)))
                 (taxy-unread-p
-                 (taxy) (or (cl-some #'room-unread-p (taxy-items taxy))
+                 (taxy) (or (cl-some #'item-unread-p (taxy-items taxy))
                             (cl-some #'taxy-unread-p (taxy-taxys taxy))))
-                (room-space-p
+                (item-space-p
                  (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
                           (equal "m.space" type)))
-                (room-favourite-p
+                (item-favourite-p
                  (item) (pcase-let ((`[,room ,_session] item))
                           (ement--room-favourite-p room)))
-                (room-low-priority-p
+                (item-low-priority-p
                  (item) (pcase-let ((`[,room ,_session] item))
                           (ement--room-low-priority-p room)))
                 (visible-p
                  ;; This is very confusing and doesn't currently work.
                  (section) (let ((value (oref section value)))
                              (if (cl-typecase value
-                                   (taxy-magit-section (taxy-unread-p value))
+                                   (taxy-magit-section (item-unread-p value))
                                    (ement-room nil))
                                  'show
                                'hide)))
-                (room-invited-p
+                (item-invited-p
                  (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
                           (equal 'invite status)))
                 (t<nil (a b) (and a (not b)))
@@ -402,27 +437,32 @@
                 (cl-loop for (_id . session) in ement-sessions
                          append (cl-loop for room in (ement-session-rooms session)
                                          collect (vector room session))))
-               (taxy (cl-macrolet ((first-item-p
+               (taxy (cl-macrolet ((first-item
                                     (pred) `(lambda (taxy)
-                                              (,pred (car (taxy-items taxy))))))
+                                              (when (taxy-items taxy)
+                                                (,pred (car (taxy-items taxy)))))))
                        (thread-last
                          (make-fn
                           :name "Ement Rooms"
                           :take (taxy-make-take-function keys ement-taxy-keys))
                          (taxy-fill room-session-vectors)
-                         (taxy-sort #'> #'latest-ts)
-                         (taxy-sort #'t<nil #'room-unread-p)
-                         (taxy-sort #'t<nil #'room-invited-p)
-                         (taxy-sort #'t<nil #'room-favourite-p)
-                         (taxy-sort #'t>nil #'room-low-priority-p)
-                         (taxy-sort #'t>nil #'room-left-p)
-                         (taxy-sort #'t<nil #'room-space-p)
+                         (taxy-sort #'> #'item-latest-ts)
+                         (taxy-sort #'t<nil #'item-invited-p)
+                         (taxy-sort #'t<nil #'item-favourite-p)
+                         (taxy-sort #'t>nil #'item-low-priority-p)
+                         (taxy-sort #'t>nil #'item-left-p)
+                         (taxy-sort #'t<nil #'item-unread-p)
+                         (taxy-sort #'t<nil #'item-space-p)
                          (taxy-sort* #'string< #'taxy-name)
-                         (taxy-sort* #'t<nil (first-item-p room-unread-p))
-                         (taxy-sort* #'t<nil (first-item-p room-invited-p))
-                         (taxy-sort* #'t<nil (first-item-p room-favourite-p))
-                         (taxy-sort* #'t>nil (first-item-p room-low-priority-p))
-                         (taxy-sort* #'t>nil (first-item-p room-left-p)))))
+                         (taxy-sort* #'> (lambda (taxy)
+                                           (if (taxy-items taxy)
+                                               (item-latest-ts (car (taxy-items taxy)))
+                                             most-negative-fixnum)))
+                         (taxy-sort* #'t<nil (first-item item-unread-p))
+                         (taxy-sort* #'t<nil (first-item item-invited-p))
+                         (taxy-sort* #'t<nil (first-item item-favourite-p))
+                         (taxy-sort* #'t>nil (first-item item-low-priority-p))
+                         (taxy-sort* #'t>nil (first-item item-left-p)))))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
