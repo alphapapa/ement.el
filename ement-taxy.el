@@ -99,7 +99,7 @@
 (ement-taxy-define-key people-p ()
   (pcase-let ((`[,room ,session] item))
     (when (ement-room--direct-p room session)
-      "[People]")))
+      (propertize "People" 'face 'ement-room-list-direct))))
 
 (ement-taxy-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
@@ -110,7 +110,7 @@
                              (space-name (if parent-room
                                              (ement-room-display-name parent-room)
                                            id)))
-                        (concat "[Space: " space-name  "]"))))
+                        (concat "Space: " space-name))))
       (when-let ((key (if id
                           ;; ID specified.
                           (cond ((or (member id parents)
@@ -120,7 +120,7 @@
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
-                                 (or name (concat "[Space: " (ement-room-display-name room) "]"))
+                                 (or name (concat "Space: " (ement-room-display-name room)))
                                  ))
                         ;; ID not specified. 
                         (pcase (length parents)
@@ -165,7 +165,7 @@
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
-      "Favourite")))
+      (propertize "Favourite" 'face 'ement-room-list-favourite))))
 
 (ement-taxy-define-key low-priority ()
   :then #'identity
