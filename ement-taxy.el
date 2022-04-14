@@ -450,17 +450,21 @@
                          (taxy-sort #'t<nil #'item-invited-p)
                          (taxy-sort #'t<nil #'item-favourite-p)
                          (taxy-sort #'t>nil #'item-low-priority-p)
-                         (taxy-sort #'t>nil #'item-left-p)
                          (taxy-sort #'t<nil #'item-unread-p)
                          (taxy-sort #'t<nil #'item-space-p)
+                         ;; Within each taxy, left rooms should be sorted last so that one
+                         ;; can never be the first room in the taxy (unless it's the taxy
+                         ;; of left rooms), which would cause the taxy to be incorrectly
+                         ;; sorted last.
+                         (taxy-sort #'t>nil #'item-left-p)
                          (taxy-sort* #'string< #'taxy-name)
                          (taxy-sort* #'> (lambda (taxy)
                                            (if (taxy-items taxy)
                                                (item-latest-ts (car (taxy-items taxy)))
                                              most-negative-fixnum)))
                          (taxy-sort* #'t<nil (first-item item-unread-p))
-                         (taxy-sort* #'t<nil (first-item item-invited-p))
                          (taxy-sort* #'t<nil (first-item item-favourite-p))
+                         (taxy-sort* #'t<nil (first-item item-invited-p))
                          (taxy-sort* #'t>nil (first-item item-low-priority-p))
                          (taxy-sort* #'t>nil (first-item item-left-p)))))
                (taxy-magit-section-insert-indent-items nil)
