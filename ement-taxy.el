@@ -27,6 +27,7 @@
 (require 'button)
 (require 'rx)
 
+(require 'svg-lib)
 (require 'taxy)
 (require 'taxy-magit-section)
 
@@ -227,18 +228,28 @@
 
 (ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
-               ((cl-struct ement-room avatar) room))
-    (if (and ement-room-list-avatars avatar)
-        ;; NOTE: We resize every avatar to be suitable for this buffer, rather than using
-        ;; the one cached in the room's struct.  If the buffer's faces change height, this
-        ;; will need refreshing, but it should be worth it to avoid resizing the images on
-        ;; every update.
+               ((cl-struct ement-room avatar display-name) room))
+    (if ement-room-list-avatars
         (or (gethash room ement-taxy-room-avatar-cache)
             (let ((new-avatar
-                   (propertize " " 'display
-                               (ement--resize-image (get-text-property 0 'display avatar)
-                                                    nil (frame-char-height)))))
+                   (if avatar
+                       ;; NOTE: We resize every avatar to be suitable for this buffer, rather than using
+                       ;; the one cached in the room's struct.  If the buffer's faces change height, this
+                       ;; will need refreshing, but it should be worth it to avoid resizing the images on
+                       ;; every update.
+                       (propertize " " 'display
+                                   (ement--resize-image (get-text-property 0 'display avatar)
+                                                        nil (frame-char-height)))
+                     ;; Room has no avatar: make one.
+                     (let* ((string (or display-name (ement-room--room-display-name room)))
+                            (_ (when (string-match (rx bos (or "#" "!" "@")) string)
+                                 (setf string (substring string 1))))
+                            (color (ement-prism-color string)))
+                       (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
+                                                             :background color :foreground "white"
+                                                             :stroke 0))))))
               (puthash room new-avatar ement-taxy-room-avatar-cache)))
+      ;; Avatars disabled: use a two-space string.
       " ")))
 
 (ement-taxy-define-column "Name" (:max-width 25)

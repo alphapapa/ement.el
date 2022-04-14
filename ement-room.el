@@ -2837,6 +2837,50 @@ ROOM defaults to the value of `ement-room'."
                                            (color-name-to-rgb (face-foreground 'default)))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
+(defun ement-prism-color (string)
+  "Return a computed color for STRING.
+Useful for user messages, generated room avatars, etc."
+  ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
+  ;; string as argument.)
+  (cl-labels ((relative-luminance
+               ;; Copy of `modus-themes-wcag-formula', an elegant
+               ;; implementation by Protesilaos Stavrou.  Also see
+               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
+                              for x in rgb
+                              sum (* k (if (<= x 0.03928)
+                                           (/ x 12.92)
+                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
+              (contrast-ratio
+               ;; Copy of `modus-themes-contrast'; see above.
+               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
+                                  (+ (relative-luminance b) 0.05))))
+                       (max ct (/ ct))))
+              (increase-contrast
+               (color against target toward)
+               (let ((gradient (cdr (color-gradient color toward 20)))
+                     new-color)
+                 (cl-loop do (setf new-color (pop gradient))
+                          while new-color
+                          until (>= (contrast-ratio new-color against) target)
+                          ;; Avoid infinite loop in case of weirdness
+                          ;; by returning color as a fallback.
+                          finally return (or new-color color)))))
+    (let* ((id string)
+           (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
+           ;; TODO: Wrap-around the value to get the color I want.
+           (ratio (/ id-hash (float most-positive-fixnum)))
+           (color-num (round (* (* 255 255 255) ratio)))
+           (color-rgb (list (/ (float (logand color-num 255)) 255)
+                            (/ (float (lsh (logand color-num 65280) -8)) 255)
+                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
+           (background-rgb (color-name-to-rgb (face-background 'default))))
+      (when (< (contrast-ratio color-rgb background-rgb) ement-room-prism-minimum-contrast)
+        (setf color-rgb (increase-contrast color-rgb background-rgb ement-room-prism-minimum-contrast
+                                           (color-name-to-rgb (face-foreground 'default)))))
+      (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
+
 ;;;;; Compose buffer
 
 ;; Compose messages in a separate buffer, like `org-edit-special'.
