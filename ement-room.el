@@ -2674,19 +2674,20 @@ If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
-                     ('m.new_content (map ('body new-body) ('formatted_body new-formatted-body))))
+                     ('m.new_content (map ('body new-body) ('formatted_body new-formatted-body)
+                                          ('format new-content-format))))
                 content)
                (body (or new-body main-body))
                (formatted-body (or new-formatted-body formatted-body))
                (body (if (or (not formatted-p) (not formatted-body))
                          ;; Copy the string so as not to add face properties to the one in the struct.
                          (copy-sequence body)
-                       (pcase content-format
+                       (pcase (or new-content-format content-format)
                          ("org.matrix.custom.html"
                           (save-match-data
                             (ement-room--render-html formatted-body)))
                          (_ (format "[unknown body format: %s] %s"
-                                    content-format body)))))
+                                    (or new-content-format content-format) body)))))
                (appendix (pcase msgtype
                            ("m.image" (ement-room--format-m.image event))
                            (_ nil))))
