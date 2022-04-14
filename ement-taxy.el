@@ -204,7 +204,7 @@
       "Low-priority")))
 
 (defcustom ement-taxy-default-keys
-  '((membership :status 'invite)
+  '(((membership :status 'invite))
     (favourite)
     ((membership :status 'leave))
     (low-priority)
