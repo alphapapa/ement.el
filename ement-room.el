@@ -1683,7 +1683,7 @@ data slot."
                             (propertize "This appears to be an encrypted room, which is not natively supported by Ement.el.  (See information about using Pantalaimon in Ement.el documentation.)"
                                         'face 'font-lock-warning-face)
                           ""))
-                (footer (pcase (ement-room-type ement-room)
+                (footer (pcase (ement-room-status ement-room)
                           ;; Set header and footer for an invited room.
                           ('invite
                            (concat (propertize "You've been invited to this room.  "
