@@ -219,8 +219,14 @@ this one automatically.")
                                                  (char-to-string
                                                   (char-from-name "BOX DRAWINGS HEAVY VERTICAL"))
                                                  " ")
-  "String to insert before lines in URL preview."
+  "String to insert before lines in URL previews."
   :type 'string)
+
+;; (defcustom ement-room-url-preview-max 10
+;;   "Maximum number of URL previews to fetch.
+;; This is to prevent crashing when sending too many urls,
+;; or can be useful if you are getting rate limited by your homeserver."
+;;   :type 'integer)
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
@@ -2348,13 +2354,12 @@ the first and last nodes in the buffer, respectively."
                         (ement-event-origin-server-ts b))))
            (node-before (ement-room--ewoc-node-before ewoc event event< :pred #'ement-event-p))
            new-node)
-      ;; HACK: Insert after any read markers and link previews.
+      ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc node-before)
                while node-after-node-before
                while (pcase (ewoc-data node-after-node-before)
                        ;; MAYBE: Invert this and test that it's *not* an event node.
-                       ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t)
-                       ((app car-safe 'url-preview) t))
+                       ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t))
                do (setf node-before node-after-node-before))
       (setf new-node (if (not node-before)
                          (progn
@@ -2479,7 +2484,7 @@ If replaced event is not found, return nil, otherwise non-nil."
 To be used as the pretty-printer for `ewoc-create'.  THING may be
 an `ement-event' or `ement-user' struct, or a list like `(ts
 TIMESTAMP)', where TIMESTAMP is a Unix timestamp number of
-seconds. It is also used for printing url previews."
+seconds."
   ;; TODO: Use handlers to insert so e.g. membership events can be inserted silently.
   (pcase-exhaustive thing
     ((pred ement-event-p)
@@ -2499,9 +2504,7 @@ seconds. It is also used for printing url previews."
     ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker)
      (insert (propertize " "
                          'display '(space :width text :height (1))
-                         'face thing)))
-    (`(url-preview ,(and (pred listp) url-preview))
-     (insert (ement-room--format-url-preview url-preview)))))
+                         'face thing)))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."
@@ -2684,6 +2687,21 @@ Format defaults to `ement-room-message-format-spec', which see."
             (insert-and-inherit
              (propertize " "
                          'display `((margin right-margin) ,string))))))
+      (when-let* ((data (map-elt (ement-event-local event) (intern (concat "url-previews-"
+                                                                           (ement-event-id event)))))
+                  (num (or 1 (map-elt data
+                                      (intern (concat "url-previews-" (ement-event-id event)))))))
+        ;; (when-let ((inner-data (map-elt data 'preview-1)))
+        ;; (insert (ement-room--format-url-preview inner-data)))
+        ;; (message "yes")
+        (goto-char (point-max))
+        (unless (looking-at-p "^\n")
+          (insert "\n"))
+        (cl-loop repeat num
+                 do (when-let ((inner-data (map-elt data (intern (concat "preview-"
+                                                                         (number-to-string num))))))
+                      (insert (ement-room--format-url-preview inner-data))))
+        )
       (buffer-string))))
 
 (cl-defun ement-room--format-message-body (event &key (formatted-p t))
@@ -2819,40 +2837,77 @@ MSG is the message STRING was contained in."
   "Get preview of LINK. BUF is the ement room buffer this link is from.
 MSG is the message this link is from. NUM is the index for this link."
   (with-current-buffer buf
-    (ement-api ement-session "preview_url"
-      :endpoint-category "media" :params `((url ,link))
-      :then (lambda (data)
-              (ement-room--insert-preview buf msg data num))
-      :else (lambda (why)
-              (ement-debug "Error in fetching preview: " why)))))
+    (let* ((id (ement-event-id msg))
+           (related-event
+            (cl-loop with match = (make-ement-event :id id)
+                     for e in (ement-room-timeline ement-room)
+                     if (ement--events-equal-p match e)
+                     return e)))
+      (unless (map-elt (map-elt (ement-event-local related-event)
+                                (intern (concat "url-previews-" id)))
+                       'url-preview-n)
+        (ement-api ement-session "preview_url"
+          :endpoint-category "media" :params `((url ,link))
+          :then (lambda (data)
+                  (ement-room--insert-preview buf msg related-event data num))
+          :else (lambda (why)
+                  (ement-debug "Error in fetching preview: " why)))))))
 
-(defun ement-room--insert-preview (buf msg data num)
-  "Insert link preview for DATA into MSG, if it isn't already present.
+;; (defun ement-room--insert-preview (buf msg data num)
+;;   "Insert link preview for DATA into MSG, if it isn't already present.
+;; BUF is the room buffer this link is from. NUM is the index for this link."
+;;   (cond ((alist-get 'errcode data) (message "Ement: You are being rate limited."))
+;;         (data (with-current-buffer buf
+;;                 (let* ((node (ement-room--ewoc-node-before ement-ewoc
+;;                                                            msg
+;;                                                            (lambda (a b)
+;;                                                              (string= (ement-event-id a)
+;;                                                                       (ement-event-id b)))
+;;                                                            :pred #'ement-event-p))
+;;                        (next? (cl-loop with w = (ewoc-next ement-ewoc node)
+;;                                        repeat num
+;;                                        if (or (not w)
+;;                                               (not (listp (ewoc-data w)))
+;;                                               (not (eq (car (ewoc-data w))
+;;                                                        'url-preview))
+;;                                               (not (equal (cadr (ewoc-data w))
+;;                                                           data)))
+;;                                        return t
+;;                                        do (setf w (ewoc-next ement-ewoc w))
+;;                                        finally return nil)))
+;;                   (when next?
+;;                     (with-silent-modifications
+;;                       (ewoc-enter-after ement-ewoc
+;;                                         node
+;;                                         `(url-preview ,data)))))))))
+
+(defun ement-room--insert-preview (buf msg related data num)
+  "Insert link preview for DATA into MSG from node RELATED, if it isn't already present.
 BUF is the room buffer this link is from. NUM is the index for this link."
   (cond ((alist-get 'errcode data) (message "Ement: You are being rate limited."))
-        (data (with-current-buffer buf
-                (let* ((node (ement-room--ewoc-node-before ement-ewoc
-                                                           msg
-                                                           (lambda (a b)
-                                                             (string= (ement-event-id a)
-                                                                      (ement-event-id b)))
-                                                           :pred #'ement-event-p))
-                       (next? (cl-loop with w = (ewoc-next ement-ewoc node)
-                                       repeat num
-                                       if (or (not w)
-                                              (not (listp (ewoc-data w)))
-                                              (not (eq (car (ewoc-data w))
-                                                       'url-preview))
-                                              (not (equal (cadr (ewoc-data w))
-                                                          data)))
-                                       return t
-                                       do (setf w (ewoc-next ement-ewoc w))
-                                       finally return nil)))
-                  (when next?
-                    (with-silent-modifications
-                      (ewoc-enter-after ement-ewoc
-                                        node
-                                        `(url-preview ,data)))))))))
+        (data
+         (with-current-buffer buf
+           (let* ((id (ement-event-id msg))
+                  (related-node
+                   (ement-room--ewoc-node-before ement-ewoc
+                                                 msg
+                                                 (lambda (a b)
+                                                   (string= (ement-event-id a)
+                                                            (ement-event-id b)))
+                                                 :pred #'ement-event-p))
+                  (key (intern (concat "preview-" (number-to-string num)))))
+             (unless (alist-get (cons key data) (map-elt (ement-event-local related)
+                                                         (intern (concat "url-previews-" id))))
+               (cl-pushnew (cons key data) (map-elt (ement-event-local related)
+                                                    (intern (concat "url-previews-" id)))))
+             (unless (> num (or (map-elt (map-elt (ement-event-local related)
+                                                  (intern (concat "url-previews-" id)))
+                                         'url-preview-n)
+                                0))
+               (push `(url-preview-n ,num)
+                     (map-elt (ement-event-local related)
+                              (intern (concat "url-previews-" id)))))
+             (ewoc-invalidate ement-ewoc related-node))))))
 
 (defun ement-room--format-url-preview (data)
   "Format a pretty-printed preview for DATA."
