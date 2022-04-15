@@ -151,6 +151,7 @@ Calls `ement-notify--notifications-notify'."
 (defun ement-notify--notifications-notify (event room _session)
   "Call `notifications-notify' for EVENT in ROOM on SESSION."
   (pcase-let* (((cl-struct ement-event sender content) event)
+               ((cl-struct ement-room avatar) room)
                ((map body) content)
                (room-name (ement-room-display-name room))
                (sender-name (ement-room--user-display-name sender room))
@@ -166,6 +167,9 @@ Calls `ement-notify--notifications-notify'."
                          ""))))
     (notifications-notify :title title :body body
                           :app-name "Ement.el"
+                          :app-icon (when avatar
+                                      (ement-notify--temp-file
+                                       (plist-get (cdr (get-text-property 0 'display avatar)) :data)))
                           :category "im.received"
                           :timeout 5000
                           ;; FIXME: Using :sound-file seems to do nothing, ever.  Maybe a bug in notifications-notify?
@@ -179,6 +183,16 @@ Calls `ement-notify--notifications-notify'."
                           ;; :actions '("default" "Show")
                           ;; :on-action #'ement-notify-show
                           )))
+
+(cl-defun ement-notify--temp-file (content &key (timeout 5))
+  "Return a filename holding CONTENT, and delete it after TIMEOUT seconds."
+  (let ((filename (make-temp-file "ement-notify--temp-file-"))
+        (coding-system-for-write 'no-conversion))
+    (with-temp-file filename
+      (insert content))
+    (run-at-time timeout nil (lambda ()
+                               (delete-file filename)))
+    filename))
 
 (defun ement-notify--log-if-mention (event room session)
   "Log EVENT in ROOM to \"*Ement Mentions*\" buffer if it mentions SESSION's user."
