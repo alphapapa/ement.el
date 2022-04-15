@@ -1061,20 +1061,25 @@ IMAGE should be one as created by, e.g. `create-image'."
                       (> (latest-event-in a) (latest-event-in b))))))))
 
 (cl-defun ement-put-account-data
-    (session type data
-             &key (then (lambda (received-data)
-                          ;; Handle echoed-back account data event (the spec does not explain this,
-                          ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
-                          ;; FIXME: Make session account-data a map instead of a list of events.
-                          (push received-data (ement-session-account-data session))
-                          (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
-                                       (ement-user-id (ement-session-user session)) (json-encode data) received-data))))
+    (session type data &key
+             (then (lambda (received-data)
+                     ;; Handle echoed-back account data event (the spec does not explain this,
+                     ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
+                     ;; FIXME: Make session account-data a map instead of a list of events.
+                     (push received-data (ement-session-account-data session))
+
+                     ;; NOTE: Commenting out this ement-debug form because a bug in Emacs
+                     ;; causes this long string to be interpreted as the function's
+                     ;; docstring and cause a too-long-docstring warning.
+
+                     ;; (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
+                     ;;              (ement-user-id (ement-session-user session)) (json-encode data) received-data)
+                     )))
   "Put account data of TYPE with DATA on SESSION.
 Also handle the echoed-back event."
   (declare (indent defun))
-  (let ((endpoint (format "user/%s/account_data/%s"
-                          (url-hexify-string (ement-user-id (ement-session-user session)))
-                          type)))
+  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))))
+               (endpoint (format "user/%s/account_data/%s" (url-hexify-string user-id) type)))
     (ement-api session endpoint :method 'put :data (json-encode data)
       :then then)))
 
