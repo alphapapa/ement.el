@@ -62,14 +62,16 @@ room, and the session (each the respective struct)."
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
-  '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer)
+  '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer
+                                    ement-notify--notify-if-unread)
   "Call these functions to send notifications for events.
 These functions are called when the `ement-notify-predicates'
 have already indicated that a notification should be sent.  Each
 function is called with three arguments: the event, the room, and
 the session (each the respective struct)."
   :type 'hook
-  :options '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer))
+  :options '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer
+                                             ement-notify--notify-if-unread))
 
 (defcustom ement-notify-sound nil
   "Sound to play for notifications."
@@ -141,6 +143,15 @@ anything if session hasn't finished initial sync."
              (cl-loop for pred in ement-notify-ignore-predicates
                       never (funcall pred event room session)))
     (run-hook-with-args 'ement-notify-functions event room session)))
+
+(defun ement-notify--notify-if-unread (event room session)
+  "Send desktop notification for EVENT if ROOM has unread notifications.
+According to the room's notification configuration on the server."
+  (pcase-let* (((cl-struct ement-room unread-notifications) room)
+               ((map notification_count highlight_count) unread-notifications))
+    (unless (and (equal 0 notification_count)
+                 (equal 0 highlight_count))
+      (ement-notify--notifications-notify event room session))))
 
 (defun ement-notify--notify-if-mention (event room session)
   "Send desktop notification if EVENT in ROOM mention's SESSION's user.
