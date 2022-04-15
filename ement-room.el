@@ -2691,9 +2691,6 @@ Format defaults to `ement-room-message-format-spec', which see."
                                                                            (ement-event-id event)))))
                   (num (or 1 (map-elt data
                                       (intern (concat "url-previews-" (ement-event-id event)))))))
-        ;; (when-let ((inner-data (map-elt data 'preview-1)))
-        ;; (insert (ement-room--format-url-preview inner-data)))
-        ;; (message "yes")
         (goto-char (point-max))
         (unless (looking-at-p "^\n")
           (insert "\n"))
@@ -2843,9 +2840,22 @@ MSG is the message this link is from. NUM is the index for this link."
                      for e in (ement-room-timeline ement-room)
                      if (ement--events-equal-p match e)
                      return e)))
-      (unless (map-elt (map-elt (ement-event-local related-event)
-                                (intern (concat "url-previews-" id)))
-                       'url-preview-n)
+      (unless ;;(or
+          (map-elt (map-elt (ement-event-local related-event)
+                            (intern (concat "url-previews-" id)))
+                   'url-preview-n)
+        ;; (< num (with-temp-buffer
+        ;;          (insert string)
+        ;;          (goto-char (point-min))
+        ;;          (cl-loop with in-preview? = nil
+        ;;                   while (< (point) (point-max))
+        ;;                   do (if (looking-at-p (concat "^" (regexp-quote ement-room-url-preview-prefix) ".*"))
+        ;;                          (setf in-preview? t)
+        ;;                        (setf in-preview? nil))
+        ;;                   if in-preview?
+        ;;                   count (looking-at-p "^\n")
+        ;;                   do (beginning-of-line 2))))
+        ;; )
         (ement-api ement-session "preview_url"
           :endpoint-category "media" :params `((url ,link))
           :then (lambda (data)
@@ -2882,7 +2892,7 @@ MSG is the message this link is from. NUM is the index for this link."
 ;;                                         `(url-preview ,data)))))))))
 
 (defun ement-room--insert-preview (buf msg related data num)
-  "Insert link preview for DATA into MSG from node RELATED, if it isn't already present.
+  "Insert link preview for DATA into MSG from node RELATED if it isn't already present.
 BUF is the room buffer this link is from. NUM is the index for this link."
   (cond ((alist-get 'errcode data) (message "Ement: You are being rate limited."))
         (data
@@ -2896,17 +2906,17 @@ BUF is the room buffer this link is from. NUM is the index for this link."
                                                             (ement-event-id b)))
                                                  :pred #'ement-event-p))
                   (key (intern (concat "preview-" (number-to-string num)))))
-             (unless (alist-get (cons key data) (map-elt (ement-event-local related)
-                                                         (intern (concat "url-previews-" id))))
+             (unless (alist-get key (map-elt (ement-event-local related)
+                                             (intern (concat "url-previews-" id))))
                (cl-pushnew (cons key data) (map-elt (ement-event-local related)
                                                     (intern (concat "url-previews-" id)))))
-             (unless (> num (or (map-elt (map-elt (ement-event-local related)
-                                                  (intern (concat "url-previews-" id)))
-                                         'url-preview-n)
-                                0))
-               (push `(url-preview-n ,num)
-                     (map-elt (ement-event-local related)
-                              (intern (concat "url-previews-" id)))))
+             (unless (> num (or (car-safe (map-elt (map-elt (ement-event-local related)
+                                                            (intern (concat "url-previews-" id)))
+                                                   'url-preview-n))
+                                most-positive-fixnum))
+               (cl-pushnew `(url-preview-n ,num)
+                           (map-elt (ement-event-local related)
+                                    (intern (concat "url-previews-" id)))))
              (ewoc-invalidate ement-ewoc related-node))))))
 
 (defun ement-room--format-url-preview (data)
