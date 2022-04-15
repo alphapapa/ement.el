@@ -59,7 +59,7 @@
 ;;;; Functions
 
 (cl-defun ement-api (session endpoint
-                             &key then data params
+                             &key then data params queue
                              (content-type "application/json")
                              (data-type 'text)
                              (else #'ement-api-error) (method 'get)
@@ -82,18 +82,23 @@
                (filename (concat path "?" query))
                (url (url-recreate-url
                      (url-parse-make-urlobj type nil nil host portspec filename nil data t)))
-               (headers (ement-alist "Content-Type" content-type)))
+               (headers (ement-alist "Content-Type" content-type))
+               (plz-args))
     (when token
       ;; Almost every request will require a token (only a few, like checking login flows, don't),
       ;; so we simplify the API by using the token automatically when the session has one.
       (push (cons "Authorization" (concat "Bearer " token)) headers))
+    (setf plz-args (list method url :headers headers :body data :body-type data-type
+                         :as json-read-fn :then then :else else
+                         :connect-timeout connect-timeout :timeout timeout :noquery t))
     ;; Omit `then' from debugging because if it's a partially applied
     ;; function on the session object, which may be very large, it
     ;; will take a very long time to print into the warnings buffer.
     ;;  (ement-debug (current-time) method url headers)
-    (plz method url :headers headers :body data :body-type data-type
-      :as json-read-fn :then then :else else
-      :connect-timeout connect-timeout :timeout timeout :noquery t)))
+    (if queue
+        (plz-run
+         (apply #'plz-queue queue plz-args))
+      (apply #'plz plz-args))))
 
 (define-error 'ement-api-error "Ement API error" 'error)
 
