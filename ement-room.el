@@ -996,11 +996,11 @@ see."
   "Scroll according to EVENT, loading earlier messages when at top."
   (interactive "e")
   (with-selected-window (posn-window (event-start event))
-    (condition-case _err
-        (mwheel-scroll event)
-      (beginning-of-buffer
-       (when (call-interactively #'ement-room-retro)
-         (message "Loading earlier messages..."))))))
+    (let ((start (window-start)))
+      (mwheel-scroll event)
+      (when (= start (window-start))
+        (when (call-interactively #'ement-room-retro)
+          (message "Loading earlier messages..."))))))
 
 ;; TODO: Unify these retro-loading functions.
 
