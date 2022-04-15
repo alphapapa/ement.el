@@ -1601,7 +1601,7 @@ DATA is an unsent message event's data alist."
   (cl-labels ((content-contains-room-id
                (content room-id) (cl-loop for (_user-id . room-ids) in content
                                           ;; NOTE: room-ids is a vector.
-                                          thereis (seq-contains room-ids room-id))))
+                                          thereis (seq-contains-p room-ids room-id))))
     (pcase-let* (((cl-struct ement-session account-data) session)
                  ((cl-struct ement-room id) room))
       (or (cl-loop for event in account-data

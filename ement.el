@@ -6,7 +6,7 @@
 ;; Keywords: comm
 ;; URL: https://github.com/alphapapa/ement.el
 ;; Package-Version: 0.1-pre
-;; Package-Requires: ((emacs "26.3") (map "2.1") (plz "0.1-pre") (taxy "0.9") (taxy-magit-section "0.9") (svg-lib "0.2.5") (ts "0.2.1"))
+;; Package-Requires: ((emacs "27.1") (map "2.1") (plz "0.1-pre") (taxy "0.9") (taxy-magit-section "0.9") (svg-lib "0.2.5") (ts "0.2.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
