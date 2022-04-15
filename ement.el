@@ -382,11 +382,15 @@ new one automatically if necessary."
   ;; TODO: Document other arguments.
   ;; SPEC: 10.1.1.
   (declare (indent defun))
-  (interactive (list (ement-complete-session)
-		     :name (read-string "New room name: ")
-		     :alias (read-string "New room alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
-		     :topic (read-string "New room topic: ")
-		     :visibility (completing-read "New room type: " '(private public))))
+  (interactive (let ((session (ement-complete-session)))
+                 (list session
+                       :name (read-string "New room name: ")
+                       :alias (read-string (concat "New room alias (\"foo\" for \"#foo:"
+                                                   (replace-regexp-in-string "\\<https?://\\|/$" ""
+                                                                             (ement-server-uri-prefix (ement-session-server session)))
+                                                   "\"): "))
+                       :topic (read-string "New room topic: ")
+                       :visibility (completing-read "New room type: " '(private public)))))
   (cl-labels ((given-p
 	       (var) (and var (not (string-empty-p var)))))
     (pcase-let* ((endpoint "createRoom")
