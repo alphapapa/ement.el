@@ -811,22 +811,26 @@ Interactively, set the current buffer's ROOM's TOPIC."
                         (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
                                                       (file-name-nondirectory file) nil nil 'inherit-input-method)))
                    (list file body ement-room ement-session))))
+
+  (pcase-let* ((extension (file-name-extension file))
+               (mime-type (mailcap-extension-to-mime extension))
+               (data (with-temp-buffer
+                       ;; NOTE: Using (set-buffer-multibyte nil) doesn't
+                       ;; seem to be necessary, but I don't know why not.
+                       (insert-file-contents file)
+                       (buffer-string))))
+    (ement-room--upload data file mime-type body room session)))
+
+(defun ement-room--upload (data file mime-type body room session)
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
   (when (yes-or-no-p (format "Upload file %S to room %S? "
                              file (ement-room-display-name room)))
-    (pcase-let* ((extension (file-name-extension file))
-                 (mime-type (mailcap-extension-to-mime extension))
-                 (data (with-temp-buffer
-                         ;; NOTE: Using (set-buffer-multibyte nil) doesn't
-                         ;; seem to be necessary, but I don't know why not.
-                         (insert-file-contents file)
-                         (buffer-string)))
-                 (size (length data)))
       (ement-upload session :data data :content-type mime-type
         :then (lambda (data)
                 (message "Uploaded file %S.  Sending message..." file)
                 (pcase-let* (((map ('content_uri content-uri)) data)
+                             (size (length data))
                              ((cl-struct ement-room (id room-id)) room)
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
                                                "m.room.message" (ement-room-update-transaction-id session)))
@@ -838,7 +842,12 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                                                        "size" size))))
                   (ement-api session endpoint :method 'put :data (json-encode content)
                     :then (apply-partially #'ement-room-send-event-callback
-                                           :room room :session session :content content :data))))))))
+                                           :room room :session session :content content :data)))))))
+
+(defun ement-room-image-yank-handler (type image)
+  (let ((body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                      nil nil nil 'inherit-input-method)))
+    (ement-room--upload image "Image from clipboard" type body ement-room ement-session)))
 
 (declare-function ement-room-list-next-unread "ement-room-list")
 (declare-function ement-taxy-next-unread "ement-taxy")
@@ -1632,6 +1641,10 @@ and erases the buffer."
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
+  (if (version< emacs-version "29")
+      nil
+      (yank-media-handler "image/.*" #'ement-room-image-yank-handler))
+
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local window-scroll-functions
