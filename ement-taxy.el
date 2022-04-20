@@ -303,8 +303,10 @@
     (if latest-ts
         (let* ((difference-seconds (- (float-time) (/ latest-ts 1000)))
                (n (cl-typecase difference-seconds
-                    ((number 0 86400) ;; 1 day
-                     (truncate (/ difference-seconds 3600)))
+                    ((number 0 3599) ;; <1 hour: 10-minute periods.
+                     (truncate (/ difference-seconds 600)))
+                    ((number 3600 86400) ;; 1 hour to 1 day: 24 1-hour periods.
+                     (+ 6 (truncate (/ difference-seconds 3600))))
                     (otherwise ;; Difference in weeks.
                      (min (/ (length ement-room-list-timestamp-colors) 2)
                           (+ 24 (truncate (/ difference-seconds 86400 7)))))))

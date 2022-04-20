@@ -123,7 +123,13 @@ For example, \"1h54m3s\" becomes \"1h\"."
   "Latest timestamp of recently updated rooms.
 The foreground color is used to generate a gradient of colors
 from recent to non-recent for rooms updated in the past 24
-hours.")
+hours but at least one hour ago.")
+
+(defface ement-room-list-very-recent
+  '((t (:inherit error)))
+  "Latest timestamp of very recently updated rooms.
+The foreground color is used to generate a gradient of colors
+from recent to non-recent for rooms updated in the past hour.")
 
 ;;;; Bookmark support
 
@@ -183,6 +189,42 @@ call `pop-to-buffer'."
 ;;;###autoload
 (defalias 'ement-list-rooms 'ement-room-list)
 
+(defun ement-room-list--timestamp-colors ()
+  "Return a vector of generated latest-timestamp colors for rooms.
+Used in `ement-room-list' and `ement-taxy-room-list'."
+  (cl-coerce
+   (append (mapcar
+            ;; One face per 10-minute period, from "recent" to 1-hour.
+            (lambda (rgb)
+              (pcase-let ((`(,r ,g ,b) rgb))
+                (color-rgb-to-hex r g b 2)))
+            (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-very-recent
+                                                                nil 'default))
+                            (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                nil 'default))
+                            6))
+           (mapcar
+            ;; One face per hour, from "recent" to default.
+            (lambda (rgb)
+              (pcase-let ((`(,r ,g ,b) rgb))
+                (color-rgb-to-hex r g b 2)))
+            (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                nil 'default))
+                            (color-name-to-rgb (face-foreground 'default))
+                            24))
+           (mapcar
+            ;; One face per week for the last year (actually we
+            ;; generate colors for the past two years' worth so
+            ;; that the face for one-year-ago is halfway to
+            ;; invisible, and we don't use colors past that point).
+            (lambda (rgb)
+              (pcase-let ((`(,r ,g ,b) rgb))
+                (color-rgb-to-hex r g b 2)))
+            (color-gradient (color-name-to-rgb (face-foreground 'default))
+                            (color-name-to-rgb (face-background 'default))
+                            104)))
+   'vector))
+
 (define-derived-mode ement-room-list-mode tabulated-list-mode
   "Ement-Room-List"
   :group 'ement
@@ -205,29 +247,7 @@ call `pop-to-buffer'."
                                ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
         tabulated-list-sort-key '("Latest" . t)
-        ement-room-list-timestamp-colors
-        (cl-coerce
-         (append (mapcar
-                  ;; One face per hour, from "recent" to default.
-                  (lambda (rgb)
-                    (pcase-let ((`(,r ,g ,b) rgb))
-                      (color-rgb-to-hex r g b 2)))
-                  (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
-                                                                      nil 'default))
-                                  (color-name-to-rgb (face-foreground 'default))
-                                  24))
-                 (mapcar
-                  ;; One face per week for the last year (actually we
-                  ;; generate colors for the past two years' worth so
-                  ;; that the face for one-year-ago is halfway to
-                  ;; invisible, and we don't use colors past that point).
-                  (lambda (rgb)
-                    (pcase-let ((`(,r ,g ,b) rgb))
-                      (color-rgb-to-hex r g b 2)))
-                  (color-gradient (color-name-to-rgb (face-foreground 'default))
-                                  (color-name-to-rgb (face-background 'default))
-                                  104)))
-         'vector))
+        ement-room-list-timestamp-colors (ement-room-list--timestamp-colors))
   (add-hook 'tabulated-list-revert-hook #'ement-room-list--set-entries nil 'local)
   (tabulated-list-init-header)
   (ement-room-list--set-entries)
@@ -339,8 +359,10 @@ To be called in `ement-sync-callback-hook'."
                (latest-face (when latest-ts
                               (let* ((difference-seconds (- (float-time) (/ latest-ts 1000))  )
                                      (n (cl-typecase difference-seconds
-                                          ((number 0 86400) ;; 1 day
-                                           (truncate (/ difference-seconds 3600)))
+                                          ((number 0 3599) ;; 1 hour to 1 day: 24 1-hour periods.
+                                           (truncate (/ difference-seconds 600)))
+                                          ((number 3600 86400) ;; 1 day
+                                           (+ 6 (truncate (/ difference-seconds 3600))))
                                           (otherwise ;; Difference in weeks.
                                            (min (/ (length ement-room-list-timestamp-colors) 2)
                                                 (+ 24 (truncate (/ difference-seconds 86400 7))))))))
