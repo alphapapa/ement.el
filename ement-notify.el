@@ -62,17 +62,40 @@ room, and the session (each the respective struct)."
                          (function-item ement-notify--event-from-session-user-p)
                          (function :tag "Custom predicate"))))
 
-(defcustom ement-notify-functions
-  '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer
-                                    ement-notify--notify-if-unread)
-  "Call these functions to send notifications for events.
-These functions are called when the `ement-notify-predicates'
-have already indicated that a notification should be sent.  Each
-function is called with three arguments: the event, the room, and
-the session (each the respective struct)."
+(defcustom ement-notify-log-predicates
+  '(ement-notify--event-mentions-session-user-p
+    ement-notify--event-mentions-room-p
+    ement-notify--room-buffer-live-p
+    ement-notify--room-unread-p)
+  "Predicates to determine whether to log an event to the notifications buffer.
+If one of these returns non-nil for an event, the event is logged."
   :type 'hook
-  :options '(ement-notify--notify-if-mention ement-notify--log-if-mention ement-notify--log-if-buffer
-                                             ement-notify--notify-if-unread))
+  :options '(ement-notify--event-mentions-session-user-p
+             ement-notify--event-mentions-room-p
+             ement-notify--room-buffer-live-p
+             ement-notify--room-unread-p))
+
+(defcustom ement-notify-mention-predicates
+  '(ement-notify--event-mentions-session-user-p
+    ement-notify--event-mentions-room-p)
+  "Predicates to determine whether to log an event to the mentions buffer.
+If one of these returns non-nil for an event, the event is logged."
+  :type 'hook
+  :options '(ement-notify--event-mentions-session-user-p
+             ement-notify--event-mentions-room-p))
+
+(defcustom ement-notify-notification-predicates
+  '(ement-notify--event-mentions-session-user-p
+    ement-notify--event-mentions-room-p
+    ement-notify--room-buffer-live-p
+    ement-notify--room-unread-p)
+  "Predicates to determine whether to send a desktop notification.
+If one of these returns non-nil for an event, the notification is sent."
+  :type 'hook
+  :options '(ement-notify--event-mentions-session-user-p
+             ement-notify--event-mentions-room-p
+             ement-notify--room-buffer-live-p
+             ement-notify--room-unread-p))
 
 (defcustom ement-notify-sound nil
   "Sound to play for notifications."
@@ -143,22 +166,12 @@ anything if session hasn't finished initial sync."
   (when (and (ement-session-has-synced-p session)
              (cl-loop for pred in ement-notify-ignore-predicates
                       never (funcall pred event room session)))
-    (run-hook-with-args 'ement-notify-functions event room session)))
-
-(defun ement-notify--notify-if-unread (event room session)
-  "Send desktop notification for EVENT if ROOM has unread notifications.
-According to the room's notification configuration on the server."
-  (pcase-let* (((cl-struct ement-room unread-notifications) room)
-               ((map notification_count highlight_count) unread-notifications))
-    (unless (and (equal 0 notification_count)
-                 (equal 0 highlight_count))
-      (ement-notify--notifications-notify event room session))))
-
-(defun ement-notify--notify-if-mention (event room session)
-  "Send desktop notification if EVENT in ROOM mention's SESSION's user.
-Calls `ement-notify--notifications-notify'."
-  (when (ement-notify--event-mentions-session-user-p event room session)
-    (ement-notify--notifications-notify event room session)))
+    (when (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session)
+      (ement-notify--notifications-notify event room session))
+    (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
+      (ement-notify--log-to-buffer event room session))
+    (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
+      (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))))
 
 (defun ement-notify--notifications-notify (event room _session)
   "Call `notifications-notify' for EVENT in ROOM on SESSION."
@@ -200,16 +213,6 @@ Calls `ement-notify--notifications-notify'."
     (run-at-time timeout nil (lambda ()
                                (delete-file filename)))
     filename))
-
-(defun ement-notify--log-if-mention (event room session)
-  "Log EVENT in ROOM to \"*Ement Mentions*\" buffer if it mentions SESSION's user."
-  (when (ement-notify--event-mentions-session-user-p event room session)
-    (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*")))
-
-(defun ement-notify--log-if-buffer (event room session)
-  "Log EVENT in ROOM on SESSION to notifications buffer if ROOM has a buffer."
-  (when (ement-notify--room-buffer-live-p event room session)
-    (ement-notify--log-to-buffer event room session)))
 
 (cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
@@ -346,6 +349,14 @@ If EVENT's sender is SESSION's user, returns nil."
   "Return non-nil if ROOM has a live buffer."
   (buffer-live-p (alist-get 'buffer (ement-room-local room))))
 
+(defun ement-notify--room-unread-p (_event room _session)
+  "Return non-nil if ROOM has unread notifications.
+According to the room's notification configuration on the server."
+  (pcase-let* (((cl-struct ement-room unread-notifications) room)
+               ((map notification_count highlight_count) unread-notifications))
+    (not (and (equal 0 notification_count)
+              (equal 0 highlight_count)))))
+
 (defun ement-notify--event-message-p (event _room _session)
   "Return non-nil if EVENT is an \"m.room.message\" event."
   (equal "m.room.message" (ement-event-type event)))
@@ -358,6 +369,12 @@ If EVENT's sender is SESSION's user, returns nil."
   "Return non-nil if EVENT is sent by SESSION's user."
   (equal (ement-user-id (ement-session-user session))
          (ement-user-id (ement-event-sender event))))
+
+(defun ement-notify--event-mentions-room-p (event _room _session)
+  "Return non-nil if EVENT is sent by SESSION's user."
+  (pcase-let (((cl-struct ement-event (content (map body))) event))
+    (when body
+      (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
 
 ;;;; Footer
 
