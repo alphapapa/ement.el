@@ -3798,6 +3798,7 @@ STRUCT should be an `ement-room-membership-events' struct."
 
 (defvar ement-room-image-keymap
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map image-map)
     ;; TODO: Make RET work for showing images too.
     ;; (define-key map (kbd "RET") #'ement-room-image-show)
     (define-key map [mouse-1] #'ement-room-image-scale-mouse)
@@ -3841,14 +3842,18 @@ height."
       (pcase-let* ((image (get-text-property pos 'display))
                    (window-width (window-body-width nil t))
                    (window-height (window-body-height nil t))
-                   (new-height (if (= window-height (image-property image :max-height))
+                   ;; Image scaling commands set :max-height and friends to nil so use the
+                   ;; impossible dummy value -1.  See <https://github.com/alphapapa/ement.el/issues/39>.
+                   (new-height (if (= window-height (or (image-property image :max-height) -1))
                                    (/ window-height 10)
                                  window-height)))
         (when (fboundp 'imagemagick-types)
           ;; Only do this when ImageMagick is supported.
           ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
           (setf (image-property image :type) 'imagemagick))
-        (setf (image-property image :max-width) window-width
+        ;; Set :scale to nil since image scaling commands might have changed it.
+        (setf (image-property image :scale) nil
+              (image-property image :max-width) window-width
               (image-property image :max-height) new-height)))))
 
 (defun ement-room-image-show (event)
