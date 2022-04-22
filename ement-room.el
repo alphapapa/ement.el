@@ -378,6 +378,14 @@ When nil, edited messages are displayed as new messages, leaving
 the original messages visible."
   :type 'boolean)
 
+(defcustom ement-room-shr-use-fonts nil
+  "Enable `shr' variable-pitch fonts for formatted bodies.
+If non-nil, `shr' may use variable-pitch fonts for formatted
+bodies (which include most replies), which means that some
+messages won't display in the same font as others."
+  :type '(choice (const :tag "Disable variable-pitch fonts" nil)
+                 (const :tag "Enable variable-pitch fonts" t)))
+
 (defcustom ement-room-prism 'name
   "Display users' names and messages in unique colors."
   :type '(choice (const :tag "Name only" name)
@@ -2719,7 +2727,8 @@ HTML is rendered to Emacs text using `shr-insert-document'."
       ;; seems to work.  It even seems to work properly when a window is
       ;; resized (i.e. the wrapping is adjusted automatically by redisplay
       ;; rather than requiring the message to be re-rendered to HTML).
-      (let ((old-fn (symbol-function 'shr-tag-blockquote))) ;; Bind to a var to avoid unknown-function linting errors.
+      (let ((shr-use-fonts ement-room-shr-use-fonts)
+            (old-fn (symbol-function 'shr-tag-blockquote))) ;; Bind to a var to avoid unknown-function linting errors.
         (cl-letf (((symbol-function 'shr-fill-line) #'ignore)
                   ((symbol-function 'shr-tag-blockquote)
                    (lambda (dom)
