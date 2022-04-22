@@ -496,6 +496,16 @@ When disabled, the room's buffer will remain open, but
 Matrix-related commands in it will fail."
   :type 'boolean)
 
+(defcustom ement-room-warn-for-already-seen-messages nil
+  "Warn when a sent message has already been seen.
+Such a case could very rarely indicate a reused transaction ID,
+which would prevent further messages from being sent (and would
+be solved by logging in with a new session, generating a new
+token), but most often it happens when the server echoes back a
+sent message before acknowledging the sending of the
+message (which is harmless and can be ignored)."
+  :type 'boolean)
+
 ;; Other function declarations (seems better to have them all in one place, otherwise they
 ;; litter the code).
 (declare-function ement--events-equal-p "ement")
@@ -1260,13 +1270,14 @@ DATA is the parsed JSON object.  If DATA's event ID is already
 present in SESSION's events table, show an appropriate warning
 mentioning the ROOM and CONTENT."
   (pcase-let* (((map ('event_id event-id)) data))
-    (if (gethash event-id (ement-session-events session))
-        (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which could mean that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-sessions-file', and connect again to start a new session.  Alternatively, this can happen if the event's sent-confirmation is received after the event itself is received in the next sync response, in which case no action is needed."
-                               event-id (ement-user-id (ement-session-user session))
-                               (ement-room-display-name room))))
-          (when content
-            (setf message (concat message (format " Event content: %S" content))))
-          (display-warning 'ement-room-send-event-callback message)))
+    (when (and ement-room-warn-for-already-seen-messages
+               (gethash event-id (ement-session-events session)))
+      (let ((message (format "Event ID %S already seen in session %S.  This may indicate a reused transaction ID, which could mean that the event was not sent to the room (%S).  You may need to disconnect, delete the `ement-sessions-file', and connect again to start a new session.  Alternatively, this can happen if the event's sent-confirmation is received after the event itself is received in the next sync response, in which case no action is needed."
+                             event-id (ement-user-id (ement-session-user session))
+                             (ement-room-display-name room))))
+        (when content
+          (setf message (concat message (format " Event content: %S" content))))
+        (display-warning 'ement-room-send-event-callback message)))
     (when (eq 'send ement-room-mark-rooms-read)
       ;; Move read markers.
       (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
