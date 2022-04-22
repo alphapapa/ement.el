@@ -166,34 +166,29 @@ Calls `ement-notify--notifications-notify'."
                ((map body) content)
                (room-name (ement-room-display-name room))
                (sender-name (ement-room--user-display-name sender room))
-               (title (format "%s in %s" sender-name room-name))
-               ;; TODO: Encode HTML entities.
-               (body (if (stringp body)
-                         (truncate-string-to-width body 60)
-                       (progn
-                         (display-warning 'ement-notify--notifications-notify
-                                          (format "Event has no body.  Please report this bug.  ID:%S  ROOM:%S  TYPE:%S"
-                                                  (ement-event-id room)
-                                                  room-name (ement-event-type event)))
-                         ""))))
-    (notifications-notify :title title :body body
-                          :app-name "Ement.el"
-                          :app-icon (when avatar
-                                      (ement-notify--temp-file
-                                       (plist-get (cdr (get-text-property 0 'display avatar)) :data)))
-                          :category "im.received"
-                          :timeout 5000
-                          ;; FIXME: Using :sound-file seems to do nothing, ever.  Maybe a bug in notifications-notify?
-                          :sound-file (when (and ement-notify-sound
-                                                 (file-name-absolute-p ement-notify-sound))
-                                        ement-notify-sound)
-                          :sound-name (when (and ement-notify-sound
-                                                 (not (file-name-absolute-p ement-notify-sound)))
-                                        ement-notify-sound)
-                          ;; TODO: Show when action used.
-                          ;; :actions '("default" "Show")
-                          ;; :on-action #'ement-notify-show
-                          )))
+               (title (format "%s in %s" sender-name room-name)))
+    ;; TODO: Encode HTML entities.
+    (when (stringp body)
+      ;; If event has no body, it was probably redacted or something, so don't notify.
+      (truncate-string-to-width body 60)
+      (notifications-notify :title title :body body
+                            :app-name "Ement.el"
+                            :app-icon (when avatar
+                                        (ement-notify--temp-file
+                                         (plist-get (cdr (get-text-property 0 'display avatar)) :data)))
+                            :category "im.received"
+                            :timeout 5000
+                            ;; FIXME: Using :sound-file seems to do nothing, ever.  Maybe a bug in notifications-notify?
+                            :sound-file (when (and ement-notify-sound
+                                                   (file-name-absolute-p ement-notify-sound))
+                                          ement-notify-sound)
+                            :sound-name (when (and ement-notify-sound
+                                                   (not (file-name-absolute-p ement-notify-sound)))
+                                          ement-notify-sound)
+                            ;; TODO: Show when action used.
+                            ;; :actions '("default" "Show")
+                            ;; :on-action #'ement-notify-show
+                            ))))
 
 (cl-defun ement-notify--temp-file (content &key (timeout 5))
   "Return a filename holding CONTENT, and delete it after TIMEOUT seconds."
