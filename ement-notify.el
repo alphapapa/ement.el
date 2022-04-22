@@ -54,11 +54,12 @@
   :group 'ement)
 
 (defcustom ement-notify-ignore-predicates
-  '(ement-notify--event-not-message-p)
+  '(ement-notify--event-not-message-p ement-notify--event-from-session-user-p)
   "Display notification if none of these return non-nil for an event.
 Each predicate is called with three arguments: the event, the
 room, and the session (each the respective struct)."
   :type '(repeat (choice (function-item ement-notify--event-not-message-p)
+                         (function-item ement-notify--event-from-session-user-p)
                          (function :tag "Custom predicate"))))
 
 (defcustom ement-notify-functions
@@ -352,6 +353,11 @@ If EVENT's sender is SESSION's user, returns nil."
 (defun ement-notify--event-not-message-p (event _room _session)
   "Return non-nil if EVENT is not an \"m.room.message\" event."
   (not (equal "m.room.message" (ement-event-type event))))
+
+(defun ement-notify--event-from-session-user-p (event _room session)
+  "Return non-nil if EVENT is sent by SESSION's user."
+  (equal (ement-user-id (ement-session-user session))
+         (ement-user-id (ement-event-sender event))))
 
 ;;;; Footer
 
