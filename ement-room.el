@@ -1199,6 +1199,10 @@ the content. (e.g. see `ement-room-send-org-filter')."
                    (list room session :body body))))
   (cl-assert (not (string-empty-p body)))
   (cl-assert (or (not formatted-body) (not (string-empty-p formatted-body))))
+  ;; Linkify mentions.
+  (unless ement-room-send-message-filter
+    ;; A filter should take care of this itself.
+    (setf formatted-body (ement-room--format-body-mentions (or formatted-body body) room)))
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
                (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
@@ -1207,11 +1211,12 @@ the content. (e.g. see `ement-room-send-org-filter')."
                             (ement-alist "msgtype" "m.text"
                                          "body" body)
                           (when formatted-body
-                            (push (cons "formatted_body" formatted-body) it)))))
+                            (push (cons "formatted_body" formatted-body) it)
+                            (push (cons "format" "org.matrix.custom.html") it)))))
     (when replying-to-event
       (setf content (ement-room--add-reply content replying-to-event)))
     (when ement-room-send-message-filter
-      (setf content (funcall ement-room-send-message-filter content)))
+      (setf content (funcall ement-room-send-message-filter content room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
                              :content content :data)) ;; Data is added when calling back.
@@ -1226,6 +1231,34 @@ the content. (e.g. see `ement-room-send-org-filter')."
           ;; the user might have point on that event for a reason, but I think in most
           ;; cases, it will be what's expected and most helpful.)
           (setf (window-point) (point-max)))))))
+
+(cl-defun ement-room--format-body-mentions
+    (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))
+  "Return string for BODY with mentions in ROOM linkified with TEMPLATE."
+  (declare (indent defun))
+  (let ((members (ement-room--members-alist room))
+        (pos 0)
+        replacement)
+    (while (setf pos (string-match (rx (or bos bow)
+                                       (group "@" (group (1+ (not blank)) (or eow (seq ":" (1+ blank))))))
+                                   body pos))
+      (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
+                                  ;; Found user ID: use it as replacement.
+                                  (format template (match-string 1 body) (car member)))
+                                (when-let (user-id (alist-get (match-string 2 body) members nil nil #'equal))
+                                  ;; Found displayname: use it and MXID as replacement.
+                                  (format template user-id (match-string 2 body)))))
+          (progn
+            ;; Found member: replace and move to end of replacement.
+            (setf body (replace-match replacement t t body 0))
+            (let ((difference (- (length replacement) (length (match-string 0 body)))))
+              (setf pos (if (/= 0 difference)
+                            ;; Replacement of a different length: adjust POS accordingly.
+                            (+ pos difference)
+                          (match-end 0)))))
+        ;; No replacement: move to end of match.
+        (setf pos (match-end 0))))
+    body))
 
 (cl-defun ement-room-send-emote (room session &key body)
   "Send emote to ROOM on SESSION with BODY.
@@ -3341,8 +3374,8 @@ the Org buffer's contents."
     (ement-room-init-compose-buffer room session))
   (setq-local ement-room-send-message-filter #'ement-room-send-org-filter))
 
-(defun ement-room-send-org-filter (content)
-  "Return event CONTENT having processed its Org content.
+(defun ement-room-send-org-filter (content room)
+  "Return event CONTENT for ROOM having processed its Org content.
 The CONTENT's body is exported with
 `org-html-export-as-html' (with some adjustments for
 compatibility), and the result is added to the CONTENT as
@@ -3353,7 +3386,8 @@ compatibility), and the result is added to the CONTENT as
                (formatted-body
                 (save-window-excursion
                   (with-temp-buffer
-                    (insert body)
+                    (insert (ement-room--format-body-mentions body room
+                              :template "[[https://matrix.to/#/%s][%s]]"))
                     (cl-letf (((symbol-function 'org-html-src-block)
                                (symbol-function 'ement-room--org-html-src-block)))
                       (let ((org-export-with-toc nil)
@@ -3441,6 +3475,8 @@ For use in `completion-at-point-functions'."
                           (ement-room--room-aliases-and-ids)))))
     (list beg end collection-fn :exclusive 'no)))
 
+;; TODO: Use `cl-pushnew' in these two functions instead of `delete-dups'.
+
 (defun ement-room--member-names-and-ids ()
   "Return a list of member names and IDs seen in current room.
 For use in `completion-at-point-functions'."
@@ -3473,6 +3509,21 @@ For use in `completion-at-point-functions'."
      (delq nil (cl-loop for room in (ement-session-rooms session)
                         collect (ement-room-id room)
                         collect (ement-room-canonical-alias room))))))
+
+(defun ement-room--members-alist (room)
+  "Return alist of member displaynames mapped to IDs seen in ROOM."
+  ;; We map displaynames to IDs because `ement-room--format-body-mentions' needs to find
+  ;; MXIDs from displaynames.
+  (pcase-let* (((cl-struct ement-room timeline) room)
+               (members-seen (mapcar #'ement-event-sender timeline))
+               (members-alist))
+    (dolist (member members-seen)
+      ;; Testing with `benchmark-run-compiled', it appears that using `cl-pushnew' is
+      ;; about 10x faster than using `delete-dups'.
+      (cl-pushnew (cons (ement-room--user-display-name member room)
+                        (ement-user-id member))
+                  members-alist))
+    members-alist))
 
 ;;;; Footer
 
