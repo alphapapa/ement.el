@@ -989,7 +989,12 @@ string."
 (defun ement-room-goto-prev ()
   "Go to the previous message in buffer."
   (interactive)
-  (ement-room-goto-next :next-fn #'ewoc-prev))
+  (if (>= (point) (- (point-max) 2))
+      ;; Point is actually on the last event, but it doesn't appear to be: move point to
+      ;; the beginning of that event.
+      (ewoc-goto-node ement-ewoc (ewoc-locate ement-ewoc))
+    ;; Go to previous event.
+    (ement-room-goto-next :next-fn #'ewoc-prev)))
 
 (cl-defun ement-room-goto-next (&key (next-fn #'ewoc-next))
   "Go to the next message in buffer.
