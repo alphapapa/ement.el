@@ -962,21 +962,20 @@ string."
                  (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
       (ement-api session endpoint :method 'post :data ""
         :then (lambda (_data)
-                ;; NOTE: This generates a symbol and sets its function value to a lambda
-                ;; which removes the symbol from the hook, removing itself from the hook.
-                ;; TODO: When requiring Emacs 27, use `letrec'.
-                (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
-                       (leave-fn
-                        (lambda (_session)
-                          (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
-                          ;; FIXME: Probably need to unintern the symbol.
-                          (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
-                            (when (buffer-live-p buffer)
-                              (kill-buffer buffer))))))
-                  (setf (symbol-function leave-fn-symbol) leave-fn)
-                  (when ement-room-leave-kill-buffer
-                    (add-hook 'ement-sync-callback-hook leave-fn-symbol))
-                  (message "Left room: %s" (ement--format-room room))))
+                (when ement-room-leave-kill-buffer
+                  ;; NOTE: This generates a symbol and sets its function value to a lambda
+                  ;; which removes the symbol from the hook, removing itself from the hook.
+                  ;; TODO: When requiring Emacs 27, use `letrec'.
+                  (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
+                         (leave-fn (lambda (_session)
+                                     (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                                     ;; FIXME: Probably need to unintern the symbol.
+                                     (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
+                                       (when (buffer-live-p buffer)
+                                         (kill-buffer buffer))))))
+                    (setf (symbol-function leave-fn-symbol) leave-fn)
+                    (add-hook 'ement-sync-callback-hook leave-fn-symbol)))
+                (message "Left room: %s" (ement--format-room room)))
         :else (lambda (plz-error)
                 (pcase-let* (((cl-struct plz-error response) plz-error)
                              ((cl-struct plz-response status body) response)
