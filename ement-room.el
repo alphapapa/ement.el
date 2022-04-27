@@ -1244,10 +1244,10 @@ the content. (e.g. see `ement-room-send-org-filter')."
                                    body pos))
       (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
                                   ;; Found user ID: use it as replacement.
-                                  (format template (match-string 1 body) (car member)))
+                                  (format template (match-string 1 body) (ement--xml-escape-string (car member))))
                                 (when-let (user-id (alist-get (match-string 2 body) members nil nil #'equal))
                                   ;; Found displayname: use it and MXID as replacement.
-                                  (format template user-id (match-string 2 body)))))
+                                  (format template user-id (ement--xml-escape-string (match-string 2 body))))))
           (progn
             ;; Found member: replace and move to end of replacement.
             (setf body (replace-match replacement t t body 0))

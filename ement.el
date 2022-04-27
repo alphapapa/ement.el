@@ -46,6 +46,7 @@
 (require 'dns)
 (require 'files)
 (require 'map)
+(require 'xml)
 
 ;; Third-party.
 
@@ -1181,6 +1182,20 @@ is not at the latest known message event."
           ;; Tags are symbols internally, because `json-read' converts map keys to them.
           (string (setf tag (intern tag))))
         (assoc tag tags)))))
+
+(defun ement--xml-escape-string (string)
+  "Return STRING having been escaped with `xml-escape-string'.
+Before Emacs 28, ignores `xml-invalid-character' errors (and any
+invalid characters cause STRING to remain unescaped).  After
+Emacs 28, uses the NOERROR argument to `xml-escape-string'."
+  (condition-case _
+      (xml-escape-string string 'noerror)
+    (wrong-number-of-arguments
+     (condition-case _
+         (xml-escape-string string)
+       (xml-invalid-character
+        ;; We still don't want to error on this, so just return the string.
+        string)))))
 
 ;;;;; Reading/writing sessions
 
