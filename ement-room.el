@@ -2394,9 +2394,7 @@ the first and last nodes in the buffer, respectively."
       ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc node-before)
                while node-after-node-before
-               while (pcase (ewoc-data node-after-node-before)
-                       ;; MAYBE: Invert this and test that it's *not* an event node.
-                       ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t))
+               while (not (ement-event-p (ewoc-data node-after-node-before)))
                do (setf node-before node-after-node-before))
       (setf new-node (if (not node-before)
                          (progn
@@ -2454,7 +2452,9 @@ the first and last nodes in the buffer, respectively."
                           (pcase-exhaustive (ewoc-data node-before-ts)
                             ((pred ement-event-p)
                              (ement-event-sender (ewoc-data node-before)))
-                            ((pred ement-user-p)
+                            ((or (pred ement-user-p)
+                                 'ement-room-fully-read-marker
+                                 'ement-room-read-receipt-marker)
                              (ewoc-data node-before)))))))
               (ement-debug "Same sender.")
             (ement-debug "Different sender: insert new sender node.")
