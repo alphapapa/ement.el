@@ -2358,21 +2358,29 @@ the first and last nodes in the buffer, respectively."
                          (> (ewoc-location node-b) end-pos))))
       ;; This starts to get a little messy, accounting for the
       ;; different types of nodes.  EIEIO would probably help here.
-      (let* ((a-data (ewoc-data node-a))
-             (b-data (ewoc-data node-b))
-             (a-sender (when (ement-event-p a-data)
-                         (ement-event-sender a-data)))
-             (b-sender (when (ement-event-p b-data)
-                         (ement-event-sender b-data))))
-        (unless (or (when (ement-event-p b-data)
-                      ;; B is a membership event: don't insert sender header.
-                      (equal "m.room.member" (ement-event-type b-data)))
-                    (when-let ((node-after-a (ewoc-next ewoc node-a)))
-                      ;; Node after A (regardless of type) is a sender header: don't insert another.
-                      (ement-user-p (ewoc-data node-after-a))))
-          (unless (equal a-sender b-sender)
-            (when b-sender
-              (ewoc-enter-before ewoc node-b b-sender))))))))
+      (let ((a-data (ewoc-data node-a))
+            (b-data (ewoc-data node-b)))
+        (cond ((and (ement-event-p b-data)
+                    (equal "m.room.member" (ement-event-type b-data)))
+               ;; B is a membership event: don't insert sender header.
+               nil)
+              ((when-let ((node-after-a (ewoc-next ewoc node-a)))
+                 (pcase (ewoc-data node-after-a)
+                   ((or (pred ement-user-p)
+                        'ement-room-fully-read-marker
+                        'ement-room-read-receipt-marker)
+                    t)))
+               ;; Node after A is a sender header: don't insert another.
+               nil)
+              ((and (ement-event-p a-data)
+                    (ement-event-p b-data)
+                    (equal (ement-event-sender a-data)
+                           (ement-event-sender b-data)))
+               ;; Each node is an event and their senders are the same: don't insert another header.
+               nil)
+              ((ement-event-p b-data)
+               ;; Node B is an event with a different sender: insert header.
+               (ewoc-enter-before ewoc node-b (ement-event-sender b-data))))))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
