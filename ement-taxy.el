@@ -134,6 +134,13 @@
                            (string-join (mapcar #'format-space parents) ", "))))))
         (propertize key 'face 'ement-room-list-space)))))
 
+(ement-taxy-define-key space-p ()
+  "Groups rooms that are themselves spaces."
+  (pcase-let* ((`[,room ,_session] item)
+               ((cl-struct ement-room type) room))
+    (when (equal "m.space" type)
+      "Spaces")))
+
 (ement-taxy-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
                (display-name (ement-room--room-display-name room)))
@@ -205,7 +212,8 @@
       "Low-priority")))
 
 (defcustom ement-taxy-default-keys
-  '(((membership :status 'invite))
+  '((space-p space)
+    ((membership :status 'invite))
     (favourite)
     ((membership :status 'leave))
     (low-priority)
