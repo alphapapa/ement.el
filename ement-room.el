@@ -797,7 +797,9 @@ option."
                            choice))))
   (cl-assert ement-ewoc)
   (ement-room-message-format-spec-setter 'ement-room-message-format-spec format-spec 'local)
-  (set-window-margins nil ement-room-left-margin-width ement-room-right-margin-width)
+  (setf left-margin-width ement-room-left-margin-width
+        right-margin-width ement-room-right-margin-width)
+  (set-window-margins nil left-margin-width right-margin-width)
   (if ement-room-sender-in-headers
       (ement-room--insert-sender-headers)
     (ewoc-filter ement-ewoc (lambda (node-data)
