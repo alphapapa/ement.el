@@ -1127,6 +1127,7 @@ see."
   "Retrieve messages in ROOM on SESSION back to EVENT-ID.
 When event is found, call function THEN.  Search in batches of
 BATCH-SIZE events up to a total of LIMIT."
+  (declare (indent defun))
   (cl-assert
    ;; Ensure the event hasn't already been retrieved.
    (not (gethash event-id (ement-session-events session))))
