@@ -1234,6 +1234,7 @@ the content. (e.g. see `ement-room-send-org-filter')."
           ;; cases, it will be what's expected and most helpful.)
           (setf (window-point) (point-max)))))))
 
+(declare-function ement--xml-escape-string "ement")
 (cl-defun ement-room--format-body-mentions
     (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))
   "Return string for BODY with mentions in ROOM linkified with TEMPLATE."
