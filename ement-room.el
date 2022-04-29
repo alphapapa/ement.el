@@ -120,6 +120,14 @@ In that case, sender names are aligned to the margin edge.")
 (defvar ement-room-typing-timer nil
   "Timer used to send notifications while typing.")
 
+(defvar ement-room-matrix.to-url-regexp
+  (rx "http" (optional "s") "://"
+      "matrix.to" "/#/"
+      (group (or "!" "#") (1+ (not (any "/"))))
+      (optional "/" (group "$" (1+ (not (any "?" "/")))))
+      (optional "?" (group (1+ anything))))
+  "Regexp matching \"matrix.to\" URLs.")
+
 ;; Variables from other files.
 (defvar ement-sessions)
 (defvar ement-users)
@@ -781,6 +789,65 @@ of the string."
     (ement-view-room room session)))
 
 ;;;; Commands
+
+(defun ement-room-browse-url (url &rest args)
+  "Browse URL, using Ement for matrix.to URLs when possible.
+Otherwise, fall back to `browse-url'.  When called outside of an
+`ement-room' buffer, the variable `ement-session' must be bound
+to the session in which to look for URL's room and event."
+  (interactive)
+  (when (string-match ement-room-matrix.to-url-regexp url)
+    (let ((room-id (when (string-prefix-p "!" (match-string 1 url))
+                     (match-string 1 url)))
+          (room-alias (when (string-prefix-p "#" (match-string 1 url))
+                        (match-string 1 url)))
+          (event-id (match-string 2 url)))
+      (if (and (equal major-mode 'ement-room-mode)
+               (or (and room-id (equal room-id (ement-room-id ement-room)))
+                   (and room-alias (equal room-alias (ement-room-canonical-alias ement-room)))))
+          ;; Event is in current buffer's room: try to find it.
+          (ement-room-find-event event-id)
+        ;; Event is not in current buffer's room: try to find it in the session.
+        (if-let ((room (or (and room-id (cl-find room-id (ement-session-rooms ement-session)
+                                                 :key #'ement-room-id))
+                           (and room-alias (cl-find room-alias (ement-session-rooms ement-session)
+                                                    :key #'ement-room-canonical-alias)))))
+            (progn
+              ;; Found room in current session: view it and find the event.
+              (ement-view-room room ement-session)
+              (ement-room-find-event event-id))
+          (when (yes-or-no-p (format "Room %s not joined on current session.  Load URL for event %s with browser?"
+                                     (or room-alias room-id) event-id))
+            (apply #'browse-url url args)))))))
+
+(defun ement-room-find-event (event-id)
+  "Go to EVENT-ID in current buffer."
+  (interactive)
+  (if-let ((event (cl-find event-id (ement-room-timeline ement-room)
+                           :key #'ement-event-id :test #'equal)))
+      ;; Found event in timeline: it should be in the EWOC, so go to it.
+      (progn
+        (push-mark)
+        (goto-char
+         (ewoc-location
+          (ement-room--ewoc-last-matching ement-ewoc
+            (lambda (data)
+              (eq event data))))))
+    ;; Event not found in timeline: try to retro-load it.
+    (message "Event %s not seen in current room.  Looking in history..." event-id)
+    (let ((room ement-room))
+      (ement-room-retro-to ement-room ement-session event-id
+        ;; TODO: Add an ELSE argument to `ement-room-retro-to' and use it to give
+        ;; a useful error here.
+        :then (lambda ()
+                (with-current-buffer (alist-get 'buffer (ement-room-local room))
+                  (push-mark)
+                  (goto-char
+                   (ewoc-location
+                    (ement-room--ewoc-last-matching ement-ewoc
+                      (lambda (data)
+                        (and (ement-event-p data)
+                             (equal event-id (ement-event-id data)))))))))))))
 
 (defun ement-room-set-message-format (format-spec)
   "Set `ement-room-message-format-spec' in current buffer to FORMAT-SPEC.
@@ -1693,6 +1760,8 @@ and erases the buffer."
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
+  (setq-local browse-url-handlers (cons (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)
+                                        browse-url-handlers))
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local window-scroll-functions
