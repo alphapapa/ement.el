@@ -65,7 +65,7 @@ Used to avoid overlapping requests.")
 Used by `ement-room-send-message'.")
 
 (defvar-local ement-room-replying-to-overlay nil
-  "Used by ement-room-send-reply.")
+  "Used by `ement-room-send-reply'.")
 
 (defvar ement-room-compose-hook nil
   "Hook run in compose buffers when created.
@@ -1057,7 +1057,9 @@ see."
       (setf ement-room-retro-loading t))))
 
 (cl-defun ement-room-retro-to (room session event-id &key then (batch-size 100) (limit 1000))
-  "Retrieve messages in ROOM on SESSION back to EVENT-ID."
+  "Retrieve messages in ROOM on SESSION back to EVENT-ID.
+When event is found, call function THEN.  Search in batches of
+BATCH-SIZE events up to a total of LIMIT."
   (cl-assert
    ;; Ensure the event hasn't already been retrieved.
    (not (gethash event-id (ement-session-events session))))
@@ -1189,7 +1191,7 @@ message will reference it appropriately.
 If `ement-room-send-message-filter' is non-nil, the message's
 content alist is passed through it before sending.  This may be
 used to, e.g. process the BODY into another format and add it to
-the content. (e.g. see `ement-room-send-org-filter')."
+the content (e.g. see `ement-room-send-org-filter')."
   (interactive (progn
                  (cl-assert ement-room) (cl-assert ement-session)
                  (let* ((room ement-room)
@@ -1269,7 +1271,7 @@ the content. (e.g. see `ement-room-send-org-filter')."
 If `ement-room-send-message-filter' is non-nil, the message's
 content alist is passed through it before sending.  This may be
 used to, e.g. process the BODY into another format and add it to
-the content. (e.g. see `ement-room-send-org-filter')."
+the content (e.g. see `ement-room-send-org-filter')."
   (interactive (progn
                  (cl-assert ement-room) (cl-assert ement-session)
                  (let* ((room ement-room)
@@ -2213,7 +2215,7 @@ Interactively, mark both types as read up to event at point."
                         (map-nested-elt event '(content event_id))))
           (fully-read-event (when-let ((event (alist-get "m.fully_read" (ement-room-account-data room) nil nil #'equal)))
                               (map-nested-elt event '(content event_id)))))
-  "Move read markers in ROOM to given events.
+  "Move read markers in ROOM to READ-EVENT and FULLY-READ-EVENT.
 Each event may be an `ement-event' struct or an event ID.  This
 updates the markers in ROOM's buffer, not on the server; see
 `ement-room-mark-read' for that."
@@ -2514,7 +2516,8 @@ If replaced event is not found, return nil, otherwise non-nil."
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
-  "Return node in EWOC that matches PRED and goes before DATA by COMPARATOR."
+  "Return node in EWOC that matches PRED and goes before DATA by <-FN.
+Search from FROM (either `first' or `last')."
   (cl-assert (member from '(first last)))
   (if (null (ewoc-nth ewoc 0))
       (ement-debug "EWOC is empty: returning nil.")
@@ -2839,7 +2842,7 @@ ROOM defaults to the value of `ement-room'."
                 'help-echo (ement-user-id user))))
 
 (cl-defun ement-room--event-mentions-user-p (event user &optional (room ement-room))
-  "Return non-nil if EVENT mentions USER."
+  "Return non-nil if EVENT in ROOM mentions USER."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body formatted_body) content)
                (body (or formatted_body body)))
