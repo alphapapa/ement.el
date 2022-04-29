@@ -80,6 +80,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "a") #'ement-room-send-reaction)
     (define-key map (kbd "e") #'ement-room-send-emote)
     (define-key map (kbd "g") #'ement-room-sync)
+    (define-key map (kbd "o") #'ement-view-occur)
     (define-key map (kbd "r") #'ement-view-room)
     (define-key map (kbd "R") #'ement-room-list)
     (define-key map (kbd "q") #'quit-window)
@@ -1982,6 +1983,97 @@ For use as `imenu-create-index-function'."
                          ((`(ts ,timestamp) (ewoc-data node))
                           (formatted (format-time-string ts-format timestamp)))
                        (cons formatted (ewoc-location node))))))
+
+;;;;; Occur
+
+(defvar-local ement-room-occur-pred nil
+  "Predicate used to refresh `ement-room-occur' buffers.")
+
+(define-derived-mode ement-room-occur-mode ement-room-mode "Ement-Room-Occur")
+
+(progn
+  (define-key ement-room-occur-mode-map [remap ement-room-send-message]  #'ement-room-occur-find-event)
+  (define-key ement-room-occur-mode-map (kbd "g") #'revert-buffer)
+  (define-key ement-room-occur-mode-map (kbd "n") #'ement-room-occur-next)
+  (define-key ement-room-occur-mode-map (kbd "p") #'ement-room-occur-prev))
+
+(cl-defun ement-room-occur (&key user-id regexp pred header)
+  "Show known events in current buffer matching args in a new buffer.
+If REGEXP, show events whose sender or body content match it.  Or
+if USER-ID, show events from that user.  Or if PRED, show events
+matching it.  HEADER is used if given, or set according to other
+arguments."
+  (interactive (let* ((regexp (read-regexp "Regexp (leave empty to select user instead)"))
+                      (user-id (when (string-empty-p regexp)
+                                 (ement-complete-user-id))))
+                 (list :regexp regexp :user-id user-id)))
+  (let* ((session ement-session)
+         (room ement-room)
+         (occur-buffer (get-buffer-create (format "*Ement Room Occur: %s*" (ement-room-display-name room))))
+         (pred (cond (pred)
+                     ((not (string-empty-p regexp))
+                      (lambda (data)
+                        (and (ement-event-p data)
+                             (or (string-match regexp (ement-user-id (ement-event-sender data)))
+                                 (when-let ((room-display-name
+                                             (gethash room (ement-user-room-display-names (ement-event-sender data)))))
+                                   (string-match regexp room-display-name))
+                                 (when-let ((body (alist-get 'body (ement-event-content data))))
+                                   (string-match regexp body))))))
+                     (user-id
+                      (lambda (data)
+                        (and (ement-event-p data)
+                             (equal user-id (ement-user-id (ement-event-sender data))))))))
+         (header (cond (header)
+                       ((not (string-empty-p regexp))
+                        (format "Events matching %S in %s" regexp (ement-room-display-name room)))
+                       (user-id
+                        (format "Events from %s in %s" user-id (ement-room-display-name room))))))
+    (with-current-buffer occur-buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (ement-room-occur-mode)
+      (setf header-line-format header
+            ement-session session
+            ement-room room
+            revert-buffer-function (lambda (&rest _)
+                                     (interactive)
+                                     (let ((event-at-point (ewoc-data (ewoc-locate ement-ewoc))))
+                                       (with-current-buffer (alist-get 'buffer (ement-room-local room))
+                                         (ement-room-occur :pred pred :header header)
+                                         (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                                                            (lambda (data)
+                                                              (eq event-at-point data)))))
+                                           (ewoc-goto-node ement-ewoc node))))))
+      (ement-room--process-events (reverse (ement-room-state room)))
+      (ement-room--process-events (reverse (ement-room-timeline room)))
+      (ement-room--insert-ts-headers)
+      (ewoc-filter ement-ewoc pred))
+    (pop-to-buffer occur-buffer)))
+
+(defun ement-room-occur-find-event (event)
+  "Find EVENT in room's main buffer."
+  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
+  (pcase-let* (((cl-struct ement-room (local (map buffer))) ement-room)
+               ((cl-struct ement-event id) event))
+    (display-buffer buffer)
+    (with-selected-window (get-buffer-window buffer)
+      (ement-room-find-event id))))
+
+(cl-defun ement-room-occur-next (&optional (n 1))
+  "Go to Nth next event."
+  (interactive)
+  (let ((command (if (> n 0)
+                     #'ement-room-goto-next
+                   #'ement-room-goto-prev)))
+    (cl-loop for i below (abs n)
+             do (call-interactively command))
+    (ement-room-occur-find-event (ewoc-data (ewoc-locate ement-ewoc)))))
+
+(cl-defun ement-room-occur-prev (&optional (n 1))
+  "Go to Nth previous event."
+  (interactive)
+  (ement-room-occur-next (- n)))
 
 ;;;;; Events
 

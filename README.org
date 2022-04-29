@@ -111,6 +111,7 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-room-edit-message~ to edit a message at point.
       -  ~ement-room-send-image~ to send an image message.
       -  ~ement-room-set-topic~ to set a room's topic.
+      -  ~ement-room-occur~ to search in a room's known events.
       -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
       -  ~ement-room-set-message-format~ to set a room's message format buffer-locally.
 4.  Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
@@ -144,6 +145,7 @@ These bindings are common to all of the following buffer types:
 +  Scroll up: ~S-SPC~
 +  Move to the fully-read marker: ~M-SPC~
 +  Load older messages: at top of buffer, scroll up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
++  Search messages (~occur~-style): ~o~
 +  Show source of event at point: ~v~
 +  Show another room: ~r~
 +  Show room list buffer: ~R~
