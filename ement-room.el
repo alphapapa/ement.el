@@ -823,31 +823,30 @@ to the session in which to look for URL's room and event."
 (defun ement-room-find-event (event-id)
   "Go to EVENT-ID in current buffer."
   (interactive)
-  (if-let ((event (cl-find event-id (ement-room-timeline ement-room)
-                           :key #'ement-event-id :test #'equal)))
-      ;; Found event in timeline: it should be in the EWOC, so go to it.
-      (progn
-        (push-mark)
-        (goto-char
-         (ewoc-location
-          (ement-room--ewoc-last-matching ement-ewoc
-            (lambda (data)
-              (eq event data))))))
-    ;; Event not found in timeline: try to retro-load it.
-    (message "Event %s not seen in current room.  Looking in history..." event-id)
-    (let ((room ement-room))
-      (ement-room-retro-to ement-room ement-session event-id
-        ;; TODO: Add an ELSE argument to `ement-room-retro-to' and use it to give
-        ;; a useful error here.
-        :then (lambda ()
-                (with-current-buffer (alist-get 'buffer (ement-room-local room))
-                  (push-mark)
-                  (goto-char
-                   (ewoc-location
-                    (ement-room--ewoc-last-matching ement-ewoc
-                      (lambda (data)
-                        (and (ement-event-p data)
-                             (equal event-id (ement-event-id data)))))))))))))
+  (cl-labels ((goto-event
+               (event-id) (progn
+                            (push-mark)
+                            (goto-char
+                             (ewoc-location
+                              (ement-room--ewoc-last-matching ement-ewoc
+                                (lambda (data)
+                                  (and (ement-event-p data)
+                                       (equal event-id (ement-event-id data))))))))))
+    (if (or (cl-find event-id (ement-room-timeline ement-room)
+                     :key #'ement-event-id :test #'equal)
+            (cl-find event-id (ement-room-state ement-room)
+                     :key #'ement-event-id :test #'equal))
+        ;; Found event in timeline: it should be in the EWOC, so go to it.
+        (goto-event event-id)
+      ;; Event not found in timeline: try to retro-load it.
+      (message "Event %s not seen in current room.  Looking in history..." event-id)
+      (let ((room ement-room))
+        (ement-room-retro-to ement-room ement-session event-id
+          ;; TODO: Add an ELSE argument to `ement-room-retro-to' and use it to give
+          ;; a useful error here.
+          :then (lambda ()
+                  (with-current-buffer (alist-get 'buffer (ement-room-local room))
+                    (goto-event event-id))))))))
 
 (defun ement-room-set-message-format (format-spec)
   "Set `ement-room-message-format-spec' in current buffer to FORMAT-SPEC.
