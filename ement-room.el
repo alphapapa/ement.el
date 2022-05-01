@@ -527,21 +527,29 @@ message (which is harmless and can be ignored)."
   (declare (indent 1))
   `(let* ((node (ewoc-locate ement-ewoc ,position))
           (event (ewoc-data node))
+          (limit
+           ;; NOTE: It doesn't seem possible to get the end position of
+           ;; a node, so if there is no next node, we use point-max.
+           ;; But this might break if we were to use an EWOC footer.
+           (if (ewoc-next ement-ewoc node)
+               (ewoc-location (ewoc-next ement-ewoc node))
+             (point-max)))
           ement-room-replying-to-event ement-room-replying-to-overlay)
      (unless (and (ement-event-p event)
                   (ement-event-id event))
        (error "No event at point"))
      (unwind-protect
-         (progn
+         (let* ((body-start (next-single-property-change (ewoc-location node)
+                                                         'ement-body
+                                                         (current-buffer)
+                                                         limit))
+                (body-end (next-single-property-change body-start
+                                                       'ement-body
+                                                       (current-buffer)
+                                                       limit)))
            (setf ement-room-replying-to-event event
                  ement-room-replying-to-overlay
-                 (make-overlay (ewoc-location node)
-                               ;; NOTE: It doesn't seem possible to get the end position of
-                               ;; a node, so if there is no next node, we use point-max.
-                               ;; But this might break if we were to use an EWOC footer.
-                               (if (ewoc-next ement-ewoc node)
-                                   (ewoc-location (ewoc-next ement-ewoc node))
-                                 (point-max))))
+                 (make-overlay body-start body-end))
            (overlay-put ement-room-replying-to-overlay 'face 'highlight)
            ,@body)
        (when (overlayp ement-room-replying-to-overlay)
@@ -2946,12 +2954,12 @@ If FORMATTED-P, return the formatted body content, when available."
                            (_ nil))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
-      (setf body (ement-room--linkify-urls body)))
+      (setf body (propertize (ement-room--linkify-urls body) 'ement-body t)))
     ;; HACK: Ensure body isn't nil (e.g. redacted messages can have empty bodies).
     (unless body
       (setf body "[message has no body content]"))
     (when appendix
-      (setf body (concat body " " appendix)))
+      (setf body (propertize (concat body " " appendix) 'ement-body t)))
     (when (equal "m.replace" rel-type)
       ;; Message is an edit.
       (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
