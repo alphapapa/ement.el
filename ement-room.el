@@ -854,7 +854,8 @@ to the session in which to look for URL's room and event."
   "Set `ement-room-message-format-spec' in current buffer to FORMAT-SPEC.
 Interactively, prompts for the spec using suggested values of the
 option."
-  (interactive (list (let* ((choices (thread-last (get 'ement-room-message-format-spec 'custom-type)
+  (interactive (list (let* ((choices (thread-last
+                                       (get 'ement-room-message-format-spec 'custom-type)
                                        cdr
                                        (seq-filter (lambda (it)
                                                      (eq (car it) 'const)))
@@ -2330,11 +2331,11 @@ WINDOW's end is beyond the marker.  For use in
           (let ((buffer (current-buffer)))
             (message "Searching for first unread event...")
             (ement-room-retro-to ement-room ement-session fully-read-event-id
-                                 :then (lambda ()
-                                         (with-current-buffer buffer
-                                           ;; HACK: Should probably call this function elsewhere, in a hook or something.
-                                           (ement-room-move-read-markers ement-room)
-                                           (ement-room-goto-fully-read-marker)))))
+              :then (lambda ()
+                      (with-current-buffer buffer
+                        ;; HACK: Should probably call this function elsewhere, in a hook or something.
+                        (ement-room-move-read-markers ement-room)
+                        (ement-room-goto-fully-read-marker)))))
         (error "Room has no fully-read event")))))
 
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
