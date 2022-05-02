@@ -3606,7 +3606,6 @@ Then invalidate EVENT's node to show the image."
 (declare-function org-html--translate "ox-html")
 (declare-function org-html-export-as-html "ox-html")
 (declare-function org-html-format-code "ox-html")
-(declare-function org-trim "org")
 
 (defun ement-room-compose-org ()
   "Activate `org-mode' in current compose buffer.
