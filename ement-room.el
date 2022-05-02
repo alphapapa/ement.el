@@ -2948,7 +2948,9 @@ If FORMATTED-P, return the formatted body content, when available."
                                     (or new-content-format content-format) body)))))
                (appendix (pcase msgtype
                            ("m.image" (ement-room--format-m.image event))
-                           (_ nil))))
+                           ("m.text" nil)
+                           ("m.file" (ement-room--format-m.file event))
+                           (_ (format "[unrecognized msgtype: %s]" msgtype )))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
@@ -3542,6 +3544,31 @@ Then invalidate EVENT's node to show the image."
         (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
                                       (lambda (node-data)
                                         (eq node-data event))))))))
+
+(defun ement-room--format-m.file (event)
+  "Return \"m.file\" EVENT formatted as a string."
+  ;; TODO: Insert thumbnail images when enabled.
+  (pcase-let* (((cl-struct ement-event
+                           (content (map filename
+                                         ('info (map mimetype size))
+                                         ('url mxc-url))))
+                event)
+               (url (when mxc-url
+                      (ement--mxc-to-url mxc-url ement-session)))
+               (human-size (file-size-human-readable size))
+               (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
+    (concat (propertize string
+                        'action #'browse-url
+                        'button t
+                        'button-data url
+                        'category t
+                        'face 'button
+                        'follow-link t
+                        'help-echo url
+                        'keymap button-map
+                        'mouse-face 'highlight)
+            (propertize " "
+                        'display '(space :relative-height 1.5)))))
 
 ;;;;; Org format sending
 
