@@ -3516,11 +3516,16 @@ show it in the buffer."
           (error (format "\n [error inserting image: %s]" (error-message-string err))))
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
-          (with-temp-buffer
-            (insert-text-button (or url "[no URL for image]")
-                                'face 'link
-                                'follow-link t)
-            (buffer-string))
+          (propertize "[image]"
+                      'action #'browse-url
+                      'button t
+                      'button-data url
+                      'category t
+                      'face 'button
+                      'follow-link t
+                      'help-echo url
+                      'keymap button-map
+                      'mouse-face 'highlight)
         (when (and ement-room-images url)
           ;; Images enabled and URL present: download it.
           (plz 'get url :as 'binary
