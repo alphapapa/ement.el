@@ -2961,10 +2961,11 @@ If FORMATTED-P, return the formatted body content, when available."
                          (_ (format "[unknown body format: %s] %s"
                                     (or new-content-format content-format) body)))))
                (appendix (pcase msgtype
+                           ;; TODO: Face for m.notices.
+                           ((or "m.text" "m.emote" "m.notice") nil)
                            ("m.image" (ement-room--format-m.image event))
-                           ("m.text" nil)
                            ("m.file" (ement-room--format-m.file event))
-                           (_ (format "[unrecognized msgtype: %s]" msgtype )))))
+                           (_ (format "[unsupported msgtype: %s]" msgtype )))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
