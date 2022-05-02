@@ -299,12 +299,12 @@ call `pop-to-buffer'."
   "Upload DATA with FILENAME to content repository on SESSION.
 THEN and ELSE are passed to `ement-api', which see."
   (declare (indent defun))
-  (pcase-let* ((endpoint (if filename
-                             (format "upload?filename=%s" (url-hexify-string filename))
-                           "upload")))
-    (ement-api session endpoint :method 'post :endpoint-category "media"
-      :content-type content-type :data data :data-type 'binary
-      :then then :else else)))
+  (ement-api session "upload" :method 'post :endpoint-category "media"
+    ;; NOTE: Element currently uses "r0" not "v3", so so do we.
+    :params (when filename
+              (list (list "filename" filename)))
+    :content-type content-type :data data :data-type 'binary
+    :then then :else else))
 
 (defun ement-complete-user-id ()
   "Return a user-id selected with completion.
