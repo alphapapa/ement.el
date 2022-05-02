@@ -255,20 +255,23 @@ Exits non-zero if mis-indented lines are found.  Checks files in
   (let ((errors-p))
     (cl-labels ((lint-file (file)
                            (find-file file)
-                           (let ((tick (buffer-modified-tick)))
-                             (let ((inhibit-message t))
-                               (indent-region (point-min) (point-max)))
-                             (when (/= tick (buffer-modified-tick))
-                               ;; Indentation changed: warn for each line.
-                               (dolist (line (undo-lines buffer-undo-list))
-                                 (message "%s:%s: Indentation mismatch" (buffer-name) line))
-                               (setf errors-p t))))
+                           (let ((inhibit-message t))
+                             (indent-region (point-min) (point-max)))
+                           (when buffer-undo-list
+                             ;; Indentation changed: warn for each line.
+                             (dolist (line (undo-lines buffer-undo-list))
+                               (message "%s:%s: Indentation mismatch" (buffer-name) line))
+                             (setf errors-p t)))
+                (undo-pos (entry)
+                           (cl-typecase (car entry)
+                             (number (car entry))
+                             (string (abs (cdr entry)))))
                 (undo-lines (undo-list)
                             ;; Return list of lines changed in UNDO-LIST.
                             (nreverse (cl-loop for elt in undo-list
-                                               when (and (consp elt)
-                                                         (numberp (car elt)))
-                                               collect (line-number-at-pos (car elt))))))
+                                               for pos = (undo-pos elt)
+                                               when pos
+                                               collect (line-number-at-pos pos)))))
       (mapc #'lint-file (mapcar #'expand-file-name command-line-args-left))
       (when errors-p
         (kill-emacs 1)))))
