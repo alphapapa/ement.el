@@ -3524,7 +3524,10 @@ show it in the buffer."
                 ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
                 (setf (image-property image :type) 'imagemagick))
               (setf (image-property image :max-width) max-width
-                    (image-property image :max-height) max-height)
+                    (image-property image :max-height) max-height
+                    (image-property image :relief) 2
+                    (image-property image :margin) 5
+                    (image-property image :pointer) 'hand)
               (concat "\n"
                       (propertize " " 'display image
                                   'keymap ement-room-image-keymap)))
