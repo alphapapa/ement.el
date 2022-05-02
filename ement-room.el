@@ -1997,6 +1997,7 @@ For use as `imenu-create-index-function'."
   (define-key ement-room-occur-mode-map (kbd "n") #'ement-room-occur-next)
   (define-key ement-room-occur-mode-map (kbd "p") #'ement-room-occur-prev))
 
+(declare-function ement-complete-user-id "ement")
 (cl-defun ement-room-occur (&key user-id regexp pred header)
   "Show known events in current buffer matching args in a new buffer.
 If REGEXP, show events whose sender or body content match it.  Or
