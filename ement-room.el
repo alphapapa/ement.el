@@ -518,6 +518,7 @@ message (which is harmless and can be ignored)."
 ;; Other function declarations (seems better to have them all in one place, otherwise they
 ;; litter the code).
 (declare-function ement--events-equal-p "ement")
+(declare-function ement-upload "ement" t t)
 
 ;;;; Macros
 
@@ -888,7 +889,46 @@ Interactively, set the current buffer's ROOM's TOPIC."
       :then (lambda (_data)
               (message "Topic set (%s): %s" display-name topic)))))
 
-(declare-function ement-upload "ement" t t)
+(cl-defun ement-room-send-file (file body room session &key (msgtype "m.file"))
+  "Send FILE to ROOM on SESSION, using message BODY and MSGTYPE."
+  ;; TODO: Support URLs to remote files.
+  (interactive (ement-room-with-typing
+                 (let* ((file (read-file-name (format "Send file (%s): " (ement-room-display-name ement-room))
+                                              nil nil 'confirm))
+                        (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                                      (file-name-nondirectory file) nil nil 'inherit-input-method)))
+                   (list file body ement-room ement-session))))
+  ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
+  ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
+  (when (yes-or-no-p (format "Upload file %S to room %S? "
+                             file (ement-room-display-name room)))
+    (pcase-let* ((filename (file-name-nondirectory file))
+                 (extension (or (file-name-extension file) ""))
+                 (mime-type (mailcap-extension-to-mime extension))
+                 (data (with-temp-buffer
+                         ;; NOTE: Using (set-buffer-multibyte nil) doesn't
+                         ;; seem to be necessary, but I don't know why not.
+                         (insert-file-contents file)
+                         (buffer-string)))
+                 (size (length data)))
+      (ement-upload session :data data :filename filename :content-type mime-type
+        :then (lambda (data)
+                (message "Uploaded file %S.  Sending message..." file)
+                (pcase-let* (((map ('content_uri content-uri)) data)
+                             ((cl-struct ement-room (id room-id)) room)
+                             (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
+                                               "m.room.message" (ement-room-update-transaction-id session)))
+                             ;; TODO: Image height/width (maybe not easy to get in Emacs).
+                             (content (ement-alist "msgtype" msgtype
+                                                   "url" content-uri
+                                                   "body" body
+                                                   "filename" filename
+                                                   "info" (ement-alist "mimetype" mime-type
+                                                                       "size" size))))
+                  (ement-api session endpoint :method 'put :data (json-encode content)
+                    :then (apply-partially #'ement-room-send-event-callback
+                                           :room room :session session :content content :data))))))))
+
 (defun ement-room-send-image (file body room session)
   "Send image FILE to ROOM on SESSION, using message BODY."
   ;; TODO: Support URLs to remote files.
@@ -898,34 +938,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                         (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
                                                       (file-name-nondirectory file) nil nil 'inherit-input-method)))
                    (list file body ement-room ement-session))))
-  ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
-  ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
-  (when (yes-or-no-p (format "Upload file %S to room %S? "
-                             file (ement-room-display-name room)))
-    (pcase-let* ((extension (file-name-extension file))
-                 (mime-type (mailcap-extension-to-mime extension))
-                 (data (with-temp-buffer
-                         ;; NOTE: Using (set-buffer-multibyte nil) doesn't
-                         ;; seem to be necessary, but I don't know why not.
-                         (insert-file-contents file)
-                         (buffer-string)))
-                 (size (length data)))
-      (ement-upload session :data data :content-type mime-type
-        :then (lambda (data)
-                (message "Uploaded file %S.  Sending message..." file)
-                (pcase-let* (((map ('content_uri content-uri)) data)
-                             ((cl-struct ement-room (id room-id)) room)
-                             (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                               "m.room.message" (ement-room-update-transaction-id session)))
-                             ;; TODO: Image height/width (maybe not easy to get in Emacs).
-                             (content (ement-alist "msgtype" "m.image"
-                                                   "url" content-uri
-                                                   "body" body
-                                                   "info" (ement-alist "mimetype" mime-type
-                                                                       "size" size))))
-                  (ement-api session endpoint :method 'put :data (json-encode content)
-                    :then (apply-partially #'ement-room-send-event-callback
-                                           :room room :session session :content content :data))))))))
+  (ement-room-send-file file body room session :msgtype "m.image"))
 
 (declare-function ement-room-list-next-unread "ement-room-list")
 (declare-function ement-taxy-next-unread "ement-taxy")

@@ -109,7 +109,8 @@ If you want to install it manually, it's simple enough, but you should know what
       -  ~ement-tag-room~ to add (or with interactive prefix, remove) a tag on a room (including favorite/low-priority status).
       -  ~ement-send-direct-message~ to send a direct message to a user (in an existing direct room, or creating a new one automatically).
       -  ~ement-room-edit-message~ to edit a message at point.
-      -  ~ement-room-send-image~ to send an image message.
+      -  ~ement-room-send-file~ to send a file.
+      -  ~ement-room-send-image~ to send an image.
       -  ~ement-room-set-topic~ to set a room's topic.
       -  ~ement-room-occur~ to search in a room's known events.
       -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
