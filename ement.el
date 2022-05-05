@@ -913,7 +913,7 @@ Also used for left rooms, in which case STATUS should be set to
 (defun ement--make-event (event)
   "Return `ement-event' struct for raw EVENT list.
 Adds sender to `ement-users' when necessary."
-  (pcase-let* (((map content type unsigned
+  (pcase-let* (((map content type unsigned redacts
                      ('event_id id) ('origin_server_ts ts)
                      ('sender sender-id) ('state_key state-key))
                 event)
@@ -923,7 +923,12 @@ Adds sender to `ement-users' when necessary."
                                     ement-users))))
     ;; MAYBE: Handle other keys in the event, such as "room_id" in "invite" events.
     (make-ement-event :id id :sender sender :type type :content content :state-key state-key
-                      :origin-server-ts ts :unsigned unsigned)))
+                      :origin-server-ts ts :unsigned unsigned
+                      ;; Since very few events will be redactions and have this key, we
+                      ;; record it in the local slot alist rather than as another slot on
+                      ;; the struct.
+                      :local (when redacts
+                               (ement-alist 'redacts redacts)))))
 
 (defun ement--put-event (event _room session)
   "Put EVENT on SESSION's events table."
