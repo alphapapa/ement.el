@@ -2230,7 +2230,8 @@ buffer should be a room's buffer."
 Around the BODY, the variable `event' is bound to the event being
 processed.  The function is called in the room's buffer.  Adds
 function to `ement-room-event-fns', which see."
-  (declare (indent defun))
+  (declare (debug (stringp def-body))
+           (indent defun))
   `(setf (alist-get ,type ement-room-event-fns nil nil #'string=)
          (lambda (event)
            ,(concat "`ement-room' handler function for " type " events.")
