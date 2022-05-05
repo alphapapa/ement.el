@@ -45,6 +45,27 @@
 (require 'ement-macros)
 (require 'ement-structs)
 
+;;;; Structs
+
+(cl-defstruct ement-room-membership-events
+  "Struct grouping membership events.
+After adding events, use `ement-room-membership-events--update'
+to sort events and update other slots."
+  (events nil :documentation "Membership events, latest first.")
+  (earliest-ts nil :documentation "Timestamp of earliest event.")
+  (latest-ts nil :documentation "Timestamp of latest event."))
+
+(defun ement-room-membership-events--update (struct)
+  "Return STRUCT having sorted its events and updated its slots."
+  ;; Like the room timeline slot, events are sorted latest-first.
+  (setf (ement-room-membership-events-events struct) (cl-sort (ement-room-membership-events-events struct) #'>
+                                                              :key #'ement-event-origin-server-ts)
+        (ement-room-membership-events-earliest-ts struct) (ement-event-origin-server-ts
+                                                           (car (last (ement-room-membership-events-events struct))))
+        (ement-room-membership-events-latest-ts struct) (ement-event-origin-server-ts
+                                                         (car (ement-room-membership-events-events struct))))
+  struct)
+
 ;;;; Variables
 
 (defvar-local ement-ewoc nil
@@ -219,6 +240,13 @@ this one automatically.")
 (defcustom ement-room-avatar-max-height 32
   "Maximum height in pixels of room avatars shown in header lines."
   :type 'integer)
+
+(defcustom ement-room-coalesce-events t
+  "Coalesce certain events in room buffers.
+For example, membership events can be overwhelming in large
+rooms, especially ones bridged to IRC.  This option groups them
+together so they take less space."
+  :type 'boolean)
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
@@ -1262,25 +1290,34 @@ sync requests."
   (ement--sync session :force force))
 
 (defun ement-room-view-event (event)
-  "Pop up buffer showing details of EVENT (interactively, the one at point)."
+  "Pop up buffer showing details of EVENT (interactively, the one at point).
+EVENT should be an `ement-event' or `ement-room-membership-events' struct."
   (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
   (require 'pp)
-  (let* ((buffer-name (format "*Ement event: %s*" (ement-event-id event)))
-         (event (ement-alist :id (ement-event-id event)
-                             :sender (ement-user-id (ement-event-sender event))
-                             :content (ement-event-content event)
-                             :origin-server-ts (ement-event-origin-server-ts event)
-                             :type (ement-event-type event)
-                             :state-key (ement-event-state-key event)
-                             :unsigned (ement-event-unsigned event)
-                             :receipts (ement-event-receipts event)
-                             :local (ement-event-local event)))
-         (inhibit-read-only t))
-    (with-current-buffer (get-buffer-create buffer-name)
-      (erase-buffer)
-      (pp event (current-buffer))
-      (view-mode)
-      (pop-to-buffer (current-buffer)))))
+  (cl-labels ((event-alist
+               (event) (ement-alist :id (ement-event-id event)
+                                    :sender (ement-user-id (ement-event-sender event))
+                                    :content (ement-event-content event)
+                                    :origin-server-ts (ement-event-origin-server-ts event)
+                                    :type (ement-event-type event)
+                                    :state-key (ement-event-state-key event)
+                                    :unsigned (ement-event-unsigned event)
+                                    :receipts (ement-event-receipts event)
+                                    :local (ement-event-local event))))
+    (let* ((buffer-name (format "*Ement event: %s*"
+                                (cl-typecase event
+                                  (ement-room-membership-events "[multiple events]")
+                                  (ement-event (ement-event-id event)))))
+           (event (cl-typecase event
+                    (ement-room-membership-events
+                     (mapcar #'event-alist (ement-room-membership-events-events event)))
+                    (ement-event (event-alist event))))
+           (inhibit-read-only t))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (pp event (current-buffer))
+        (view-mode)
+        (pop-to-buffer (current-buffer))))))
 
 (cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
@@ -2589,6 +2626,28 @@ the first and last nodes in the buffer, respectively."
                ;; Node B is an event with a different sender: insert header.
                (ewoc-enter-before ewoc node-b (ement-event-sender b-data))))))))
 
+(defun ement-room--coalesce-nodes (a b ewoc)
+  "Try to coalesce events in nodes A and B in EWOC, returning non-nil if done."
+  (cl-labels ((coalescable-p
+               (node) (or (and (ement-event-p (ewoc-data node))
+                               (member (ement-event-type (ewoc-data node)) '("m.room.member")))
+                          (ement-room-membership-events-p (ewoc-data node)))))
+    (when (and (coalescable-p a) (coalescable-p b))
+      (let* ((absorbing-node (if (or (ement-room-membership-events-p (ewoc-data a))
+                                     (not (ement-room-membership-events-p (ewoc-data b))))
+                                 a b))
+             (absorbed-node (if (eq absorbing-node a) b a)))
+        (cl-etypecase (ewoc-data absorbing-node)
+          (ement-room-membership-events nil)
+          (ement-event (setf (ewoc-data absorbing-node) (ement-room-membership-events--update
+                                                         (make-ement-room-membership-events
+                                                          :events (list (ewoc-data absorbing-node)))))))
+        (push (ewoc-data absorbed-node) (ement-room-membership-events-events (ewoc-data absorbing-node)))
+        (ement-room-membership-events--update (ewoc-data absorbing-node))
+        (ewoc-delete ewoc absorbed-node)
+        (ewoc-invalidate ewoc absorbing-node)
+        t))))
+
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
   (cl-labels ((format-event
@@ -2606,14 +2665,21 @@ the first and last nodes in the buffer, respectively."
                (cl-loop for node = start then (funcall move ewoc node)
                         while node
                         when (funcall pred (ewoc-data node))
-                        return node)))
+                        return node))
+              (event-node-p (data)
+                            (or (ement-event-p data)
+                                (ement-room-membership-events-p data)))
+              (node-ts (data)
+                       (cl-etypecase data
+                         (ement-event (ement-event-origin-server-ts data))
+                         ;; Not sure whether to use earliest or latest ts; let's try this for now.
+                         (ement-room-membership-events (ement-room-membership-events-earliest-ts data))))
+              (node< (a b)
+                     "Return non-nil if event A's timestamp is before B's."
+                     (< (node-ts a) (node-ts b))))
     (ement-debug "INSERTING NEW EVENT: " (format-event event))
     (let* ((ewoc ement-ewoc)
-           (event< (lambda (a b)
-                     "Return non-nil if event A's timestamp is before B's."
-                     (< (ement-event-origin-server-ts a)
-                        (ement-event-origin-server-ts b))))
-           (event-node-before (ement-room--ewoc-node-before ewoc event event< :pred #'ement-event-p))
+           (event-node-before (ement-room--ewoc-node-before ewoc event #'node< :pred #'event-node-p))
            new-node)
       ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc event-node-before)
@@ -2655,6 +2721,12 @@ the first and last nodes in the buffer, respectively."
                                     ;; (ewoc-data event-node-before)
                                     )
                        (ewoc-enter-after ewoc event-node-before event)))
+      (when ement-room-coalesce-events
+        ;; Try to coalesce events.
+        (or (when event-node-before
+              (ement-room--coalesce-nodes event-node-before new-node ewoc))
+            (when (ewoc-next ewoc new-node)
+              (ement-room--coalesce-nodes new-node (ewoc-next ewoc new-node) ewoc))))
       (when ement-room-sender-headers
         ;; Insert header for new event when necessary.
         ;; TODO: Make `ement-room--insert-sender-headers' work for this case and use it
@@ -2779,7 +2851,12 @@ seconds."
     ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker)
      (insert (propertize " "
                          'display '(space :width text :height (1))
-                         'face thing)))))
+                         'face thing)))
+    ((pred ement-room-membership-events-p)
+     (insert ement-room-wrap-prefix
+             (propertize (ement-room--format-membership-events thing ement-room)
+                         'face 'ement-room-membership
+                         'wrap-prefix ement-room-wrap-prefix)))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."
@@ -2831,14 +2908,18 @@ Formats according to `ement-room-message-format-spec', which see."
              ;; Handled by defevent-based handler.
              "")
             ("m.room.avatar"
-             (propertize (format " %s changed the room's avatar"
-                                 (propertize (ement-room--user-display-name (ement-event-sender event) room)
-                                             'help-echo (ement-user-id (ement-event-sender event))))
-                         'face 'ement-room-membership))
-            (_ (propertize (format "[sender:%s type:%s]"
-                                   (ement-user-id (ement-event-sender event))
-                                   (ement-event-type event))
-                           'help-echo (format "%S" (ement-event-content event)))))
+             (concat ement-room-wrap-prefix
+                     (propertize (format "%s changed the room's avatar."
+                                         (propertize (ement-room--user-display-name (ement-event-sender event) room)
+                                                     'help-echo (ement-user-id (ement-event-sender event))))
+                                 'face 'ement-room-membership
+                                 'wrap-prefix ement-room-wrap-prefix)))
+            (_ (concat ement-room-wrap-prefix
+                       (propertize (format "[sender:%s type:%s]"
+                                           (ement-user-id (ement-event-sender event))
+                                           (ement-event-type event))
+                                   'help-echo (format "%S" (ement-event-content event))
+                                   'wrap-prefix ement-room-wrap-prefix))))
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
@@ -3306,7 +3387,9 @@ a copy of the local keymap, and sets `header-line-format'."
   :sample-face 'ement-room-membership
   :value-create (lambda (widget)
                   (pcase-let* ((event (widget-value widget)))
-                    (insert (ement-room--format-member-event event)))))
+                    (insert ement-room-wrap-prefix
+                            (propertize (ement-room--format-member-event event)
+                                        'wrap-prefix ement-room-wrap-prefix)))))
 
 (defun ement-room--format-member-event (event)
   "Return formatted string for \"m.room.member\" EVENT."
@@ -3417,6 +3500,71 @@ a copy of the local keymap, and sets `header-line-format'."
                       (sender-name-id-string)
                       (propertize (or prev-displayname state-key)
                                   'help-echo state-key)))))))))
+
+;; NOTE: Widgets are only currently used for single membership events, not grouped ones.
+
+(defun ement-room--format-membership-events (struct room)
+  "Return string for STRUCT in ROOM.
+STRUCT should be an `ement-room-membership-events' struct."
+  (cl-labels ((membership-types
+               (event) (pcase-let* (((cl-struct ement-event
+                                                (content (map ('membership new-membership)
+                                                              ;; ('displayname new-displayname)
+                                                              ))
+                                                (unsigned (map ('prev_content
+                                                                (map ('membership prev-membership)
+                                                                     ;; ('displayname prev-displayname)
+                                                                     )))))
+                                     event))
+                         (cons prev-membership new-membership)))
+              (event-user
+               (event) (if-let (user (gethash (ement-event-state-key event) ement-users))
+                           (ement-room--user-display-name user room)
+                         (ement-event-state-key event))))
+    (pcase-let* (((cl-struct ement-room-membership-events events) struct))
+      (pcase (length events)
+        (0 (warn "No events in `ement-room-membership-events' struct"))
+        (1 (ement-room--format-member-event (car events)))
+        (_ (let* ((left-events (cl-remove-if-not (lambda (event)
+                                                   (equal "leave" (cdr (membership-types event))))
+                                                 events))
+                  (join-events (cl-remove-if-not (lambda (event)
+                                                   (pcase-let ((`(,old . ,new) (membership-types event)))
+                                                     (and (equal "join" new)
+                                                          (not (equal "join" old)))))
+                                                 events))
+                  (rejoin-events (cl-remove-if-not (lambda (event)
+                                                     (pcase-let ((`(,old . ,new) (membership-types event)))
+                                                       (and (equal "join" new)
+                                                            (equal "leave" old))))
+                                                   events))
+                  (invite-events (cl-remove-if-not (lambda (event)
+                                                     (equal "invite" (cdr (membership-types event))))
+                                                   events))
+                  (ban-events (cl-remove-if-not (lambda (event)
+                                                  (equal "ban" (cdr (membership-types event))))
+                                                events)))
+             ;; Remove apparent duplicates between join/rejoin events.
+             (setf join-events (cl-delete-if (lambda (event)
+                                               (cl-find (ement-event-state-key event) rejoin-events
+                                                        :test #'equal :key #'ement-event-state-key))
+                                             join-events)
+                   rejoin-events (cl-delete-if (lambda (event)
+                                                 (cl-find (ement-event-state-key event) join-events
+                                                          :test #'equal :key #'ement-event-state-key))
+                                               rejoin-events))
+             (format "Membership: %s"
+                     (string-join (cl-loop for (type . events)
+                                           in (ement-alist "rejoined" rejoin-events
+                                                           "joined" join-events
+                                                           "left" left-events
+                                                           "invited" invite-events
+                                                           "banned" ban-events)
+                                           for users = (delete-dups (mapcar #'event-user events))
+                                           for number = (length users)
+                                           when events
+                                           collect (format "%s %s (%s)." number type (string-join users ", ")))
+                                  "; "))))))))
 
 ;;;;; Images
 
