@@ -2350,14 +2350,21 @@ Interactively, mark both types as read up to event at point."
      (cl-assert (equal 'ement-room-mode major-mode) nil
                 "This command is to be used in `ement-room-mode' buffers")
      (let* ((node (ewoc-locate ement-ewoc))
-            (event (cl-typecase (ewoc-data node)
-                     (ement-event (ewoc-data node))
-                     (t (when-let ((prev-event-node (ement-room--ewoc-next-matching ement-ewoc node
-                                                      #'ement-event-p #'ewoc-prev)))
-                          (ewoc-data prev-event-node))))))
+            (event-at-point (cl-typecase (ewoc-data node)
+                              (ement-event (ewoc-data node))
+                              (t (when-let ((prev-event-node (ement-room--ewoc-next-matching ement-ewoc node
+                                                               #'ement-event-p #'ewoc-prev)))
+                                   (ewoc-data prev-event-node)))))
+            (last-event (ewoc-data (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p)))
+            (event-to-mark-read (if (eq event-at-point last-event)
+                                    ;; The node is at the end of the buffer: use the last event in the timeline
+                                    ;; instead of the last node in the EWOC, because the last event in the timeline
+                                    ;; might not be the last event in the EWOC (e.g. a reaction to an earlier event).
+                                    (car (ement-room-timeline ement-room))
+                                  event-at-point)))
        (list ement-room ement-session
-             :read-event event
-             :fully-read-event event))))
+             :read-event event-to-mark-read
+             :fully-read-event event-to-mark-read))))
   (cl-assert room) (cl-assert session) (cl-assert (or read-event fully-read-event))
   (if (not fully-read-event)
       ;; Sending only a read receipt, which uses a different endpoint
