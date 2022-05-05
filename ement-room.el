@@ -569,6 +569,7 @@ apply the face to the string themselves, if desired."
 ;; Other function declarations (seems better to have them all in one place, otherwise they
 ;; litter the code).
 (declare-function ement--events-equal-p "ement")
+(declare-function ement-redact "ement" t t)
 (declare-function ement-upload "ement" t t)
 
 ;;;; Macros
@@ -1528,18 +1529,7 @@ The message must be one sent by the local user."
                            ement-room ement-session (read-string "Reason (optional): " nil nil nil 'inherit-input-method))
                    ;; HACK: This isn't really an error, but is there a cleaner way to cancel?
                    (user-error "Message not deleted"))))
-  (pcase-let* (((cl-struct ement-event (id event-id)) event)
-               ((cl-struct ement-room (id room-id)) room)
-               (endpoint (format "rooms/%s/redact/%s/%s"
-                                 (url-hexify-string room-id) (url-hexify-string event-id)
-                                 (ement-room-update-transaction-id ement-session)))
-               (content (if reason
-                            (ement-alist "reason" reason)
-                          ;; To get an empty JSON object, we use an empty hash table.
-                          (make-hash-table))))
-    (ement-api session endpoint :method 'put :data (json-encode content)
-      :then (lambda (_data)
-              (message "Event %S deleted." event-id)))))
+  (ement-redact event room session reason))
 
 (defun ement-room-send-reply ()
   "Send a reply to event at point."

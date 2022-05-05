@@ -447,6 +447,17 @@ new one automatically if necessary."
                        (ement-room-display-name room)
                        (ement-room-id room))))))
 
+(defun ement-redact (event room session &optional reason)
+  "Redact EVENT in ROOM on SESSION, optionally for REASON."
+  (pcase-let* (((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/redact/%s/%s"
+                                 room-id event-id (ement-room-update-transaction-id session)))
+               (content (ement-alist "reason" reason)))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (lambda (_data)
+              (message "Event %s redacted." event-id)))))
+
 (defun ement-tag-room (tag room session &optional delete)
   "Add TAG to ROOM on SESSION.
 If DELETE (interactively, with prefix), delete it."
