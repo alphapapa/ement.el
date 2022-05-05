@@ -3007,7 +3007,12 @@ Formats according to `ement-room-message-format-spec', which see."
                                                                (concat
                                                                 (when (= 1 (length key))
                                                                   (concat (get-char-code-property (string-to-char key) 'name) ": "))
-                                                                (senders-names senders (buffer-local-value 'ement-room buffer)))))))
+                                                                (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                                     (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
+                                                              :key #'ement-user-id :test #'equal)))
+                          (when local-user-p
+                            (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
+                                                    nil string))
                           (ement--remove-face-property string 'button)
                           string))
                   (senders-names
