@@ -3003,7 +3003,10 @@ Formats according to `ement-room-message-format-spec', which see."
                                                   'action #'ement-room-reaction-button-action
                                                   'follow-link t
                                                   'help-echo (lambda (_window buffer _pos)
-                                                               (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                                                               (concat
+                                                                (when (= 1 (length key))
+                                                                  (concat (get-char-code-property (string-to-char key) 'name) ": "))
+                                                                (senders-names senders (buffer-local-value 'ement-room buffer)))))))
                           (ement--remove-face-property string 'button)
                           string))
                   (senders-names
