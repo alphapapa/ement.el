@@ -208,6 +208,10 @@ normal text.")
   '((t (:inherit italic)))
   "Emote message bodies.")
 
+(defface ement-room-redacted
+  '((t (:strike-through t)))
+  "Redacted messages.")
+
 (defface ement-room-self-message
   '((t (:inherit (font-lock-variable-name-face))))
   "Oneself's message bodies.
@@ -766,7 +770,9 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                                 (or (ement-user-color sender)
                                     (setf (ement-user-color sender)
                                           (ement-room--user-color sender))))))
-               (body-face (list :inherit (delq nil (list context-face type-face)))))
+               (redacted-face (when (or local-redacted-by unsigned-redacted-by)
+                                'ement-room-redacted))
+               (body-face (list :inherit (delq nil (list redacted-face context-face type-face)))))
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))
