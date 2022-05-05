@@ -198,6 +198,10 @@ this one automatically.")
     '((t (:inverse-video t :extend t))))
   "Messages that mention the local user.")
 
+(defface ement-room-wrap-prefix
+  `((t :inherit highlight))
+  "Face applied to `ement-room-wrap-prefix', which see.")
+
 ;;;;; Options
 
 (defcustom ement-room-ellipsis "⋮"
@@ -514,6 +518,19 @@ token), but most often it happens when the server echoes back a
 sent message before acknowledging the sending of the
 message (which is harmless and can be ignored)."
   :type 'boolean)
+
+(defcustom ement-room-wrap-prefix
+  (concat (propertize " "
+                      'face 'ement-room-wrap-prefix)
+          " ")
+  "String prefixing certain events in room buffers.
+Events include membership events, image attachments, etc.
+Generally users should prefer to customize the face
+`ement-room-wrap-prefix' rather than this option, because this
+option's default value has that face applied to it where
+appropriate; if users customize this option, they will need to
+apply the face to the string themselves, if desired."
+  :type 'string)
 
 ;; Other function declarations (seems better to have them all in one place, otherwise they
 ;; litter the code).
@@ -3538,21 +3555,24 @@ show it in the buffer."
                     (image-property image :margin) 5
                     (image-property image :pointer) 'hand)
               (concat "\n"
+                      ement-room-wrap-prefix
                       (propertize " " 'display image
-                                  'keymap ement-room-image-keymap)))
+                                  'keymap ement-room-image-keymap
+                                  'wrap-prefix ement-room-wrap-prefix)))
           (error (format "\n [error inserting image: %s]" (error-message-string err))))
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
-          (propertize "[image]"
-                      'action #'browse-url
-                      'button t
-                      'button-data url
-                      'category t
-                      'face 'button
-                      'follow-link t
-                      'help-echo url
-                      'keymap button-map
-                      'mouse-face 'highlight)
+          (concat ement-room-wrap-prefix
+                  (propertize "[image]"
+                              'action #'browse-url
+                              'button t
+                              'button-data url
+                              'category t
+                              'face 'button
+                              'follow-link t
+                              'help-echo url
+                              'keymap button-map
+                              'mouse-face 'highlight))
         (when (and ement-room-images url)
           ;; Images enabled and URL present: download it.
           (plz 'get url :as 'binary
