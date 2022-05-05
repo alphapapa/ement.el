@@ -2235,6 +2235,46 @@ function to `ement-room-event-fns', which see."
          ;; TODO: Is this the correct thing to do?
          (ement-debug "No known related event for" event))))))
 
+(ement-room-defevent "m.room.redaction"
+  ;; We handle redaction events here rather than an `ement-defevent' handler.  This way we
+  ;; do less work for events in rooms that the user isn't looking at, at the cost of doing
+  ;; a bit more work when a room's buffer is prepared.
+  (pcase-let* (((cl-struct ement-event (local (map ('redacts redacted-id)))) event)
+               ((cl-struct ement-room timeline) ement-room)
+               (redacted-event (cl-find redacted-id timeline
+                                        :key #'ement-event-id :test #'equal)))
+    (when redacted-event
+      (pcase-let* (((cl-struct ement-event (content
+                                            (map ('m.relates_to
+                                                  (map ('event_id related-id)
+                                                       ('rel_type rel-type))))))
+                    redacted-event))
+        ;; Record the redaction in the redacted event's local slot.
+        (cl-pushnew event (alist-get 'redacted-by (ement-event-local redacted-event)))
+        (pcase rel-type
+          ("m.annotation"
+           ;; Redacted annotation/reaction.  NOTE: Since we link annotations in a -room
+           ;; event handler (rather than in a non-room handler), we also unlink redacted
+           ;; ones here.
+           (when-let (annotated-event (cl-find related-id timeline
+                                               :key #'ement-event-id :test #'equal))
+             ;; Remove it from the related event's local slot.
+             (setf (map-elt (ement-event-local annotated-event) 'reactions)
+                   (cl-remove redacted-id (map-elt (ement-event-local annotated-event) 'reactions)
+                              :key #'ement-event-id :test #'equal))
+             ;; Invalidate the related event's node.
+             (when-let (node (ement-room--ewoc-last-matching ement-ewoc
+                               (lambda (data)
+                                 (and (ement-event-p data)
+                                      (equal related-id (ement-event-id data))))))
+               (ewoc-invalidate ement-ewoc node)))))
+        ;; Invalidate the redacted event's node.
+        (when-let (node (ement-room--ewoc-last-matching ement-ewoc
+                          (lambda (data)
+                            (and (ement-event-p data)
+                                 (equal redacted-id (ement-event-id data))))))
+          (ewoc-invalidate ement-ewoc node))))))
+
 (ement-room-defevent "m.typing"
   (pcase-let* (((cl-struct ement-session user) ement-session)
                ((cl-struct ement-user (id local-user-id)) user)
