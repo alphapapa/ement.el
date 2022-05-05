@@ -1555,7 +1555,31 @@ The message must be one sent by the local user."
   "Send reaction of KEY to event at POSITION.
 Interactively, send reaction to event at point.  KEY should be a
 reaction string, e.g. \"👍\"."
+  (interactive
+   (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
+         (point)))
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
+  ;; HACK: We could simplify this by storing the key in a text property...
+  (ement-room-with-highlighted-event-at position
+    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+                            (user-error "No event at point")))
+                 ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
+                 ;; hl-line-mode is enabled, it only returns the hl-line face.
+                 ((cl-struct ement-event (id event-id)) event)
+                 ((cl-struct ement-room (id room-id)) ement-room)
+                 (endpoint (format "rooms/%s/send/m.reaction/%s" (url-hexify-string room-id)
+                                   (ement-room-update-transaction-id ement-session)))
+                 (content (ement-alist "m.relates_to"
+                                       (ement-alist "rel_type" "m.annotation"
+                                                    "event_id" event-id
+                                                    "key" key))))
+      (ement-api ement-session endpoint :method 'put :data (json-encode content)
+        :then (apply-partially #'ement-room-send-event-callback
+                               :room ement-room :session ement-session :content content
+                               :data)))))
+
+(defun ement-room-toggle-reaction (key event room session)
+  "Toggle reaction of KEY to EVENT in ROOM on SESSION."
   (interactive
    (cl-labels
        ((face-at-point-p
@@ -1580,35 +1604,28 @@ reaction string, e.g. \"👍\"."
                       (buffer-substring-while
                        (button-start (button-at pos))
                        (lambda () (face-at-point-p 'ement-room-reactions-key)))))))
-     (list
-      (or (key-at (point))
-          (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
-      (point))))
-  ;; HACK: We could simplify this by storing the key in a text property...
-  (ement-room-with-highlighted-event-at position
-    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
-                            (user-error "No event at point")))
-                 ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
-                 ;; hl-line-mode is enabled, it only returns the hl-line face.
-                 ((cl-struct ement-event (id event-id)) event)
-                 ((cl-struct ement-room (id room-id)) ement-room)
-                 (endpoint (format "rooms/%s/send/m.reaction/%s" (url-hexify-string room-id)
-                                   (ement-room-update-transaction-id ement-session)))
-                 (content (ement-alist "m.relates_to"
-                                       (ement-alist "rel_type" "m.annotation"
-                                                    "event_id" event-id
-                                                    "key" key))))
-      (ement-api ement-session endpoint :method 'put :data (json-encode content)
-        :then (apply-partially #'ement-room-send-event-callback
-                               :room ement-room :session ement-session :content content
-                               :data)))))
+     (list (or (key-at (point))
+               (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+           (ewoc-data (ewoc-locate ement-ewoc))
+           ement-room ement-session)))
+  (pcase-let* (((cl-struct ement-event (local (map reactions))) event)
+               ((cl-struct ement-session user) session)
+               ((cl-struct ement-user (id user-id)) user))
+    (if-let (reaction-event (cl-find-if (lambda (event)
+                                          (and (equal user-id (ement-user-id (ement-event-sender event)))
+                                               (equal key (map-nested-elt (ement-event-content event) '(m.relates_to key)))))
+                                        reactions))
+        ;; Already sent this reaction: redact it.
+        (ement-redact reaction-event room session)
+      ;; Send reaction.
+      (ement-room-send-reaction key (point)))))
 
 (defun ement-room-reaction-button-action (button)
   "Push reaction BUTTON at point."
   ;; TODO: Toggle reactions off with redactions (not in spec yet, but Element does it).
   (save-excursion
     (goto-char (button-start button))
-    (call-interactively #'ement-room-send-reaction)))
+    (call-interactively #'ement-room-toggle-reaction)))
 
 ;;;; Functions
 
