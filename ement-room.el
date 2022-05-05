@@ -753,12 +753,16 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   (ignore room)  ;; Unused for now, but keeping for consistency.
   ;; This used to be a macro in --format-message, which is probably better for
   ;; performance, but using a function is clearer, and avoids premature optimization.
-  (pcase-let* (((cl-struct ement-event sender content) event)
+  (pcase-let* (((cl-struct ement-event sender
+                           (content (map msgtype))
+                           (unsigned (map ('redacted_by unsigned-redacted-by)))
+                           (local (map ('redacted-by local-redacted-by))))
+                event)
                ((cl-struct ement-user (id sender-id)) sender)
                ((cl-struct ement-session user) session)
                ((cl-struct ement-user (id user-id)) user)
                (self-message-p (equal sender-id user-id))
-               (type-face (pcase (alist-get 'msgtype content)
+               (type-face (pcase msgtype
                             ("m.emote" 'ement-room-message-emote)
                             (_ 'ement-room-message-text)))
                (context-face (cond (self-message-p
@@ -3107,7 +3111,10 @@ Format defaults to `ement-room-message-format-spec', which see."
 (cl-defun ement-room--format-message-body (event &key (formatted-p t))
   "Return formatted body of \"m.room.message\" EVENT.
 If FORMATTED-P, return the formatted body content, when available."
-  (pcase-let* (((cl-struct ement-event content) event)
+  (pcase-let* (((cl-struct ement-event content
+                           (unsigned (map ('redacted_by unsigned-redacted-by)))
+                           (local (map ('redacted-by local-redacted-by))))
+                event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
                      ('m.new_content (map ('body new-body) ('formatted_body new-formatted-body)
@@ -3129,13 +3136,23 @@ If FORMATTED-P, return the formatted body content, when available."
                            ((or "m.text" "m.emote" "m.notice") nil)
                            ("m.image" (ement-room--format-m.image event))
                            ("m.file" (ement-room--format-m.file event))
-                           (_ (format "[unsupported msgtype: %s]" msgtype )))))
+                           (_ (if (or local-redacted-by unsigned-redacted-by)
+                                  nil
+                                (format "[unsupported msgtype: %s]" msgtype ))))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
     ;; HACK: Ensure body isn't nil (e.g. redacted messages can have empty bodies).
     (unless body
-      (setf body "[message has no body content]"))
+      (setf body (copy-sequence
+                  ;; Yes, copying this string is necessary here too, otherwise a single
+                  ;; string will be used across every call to this function, whose face
+                  ;; properties will be added to every time in other functions, which will
+                  ;; make a very big mess of face properties if a room's buffer is opened
+                  ;; and closed a few times.
+                  (if (or local-redacted-by unsigned-redacted-by)
+                      "[redacted]"
+                    "[message has no body content]"))))
     (when appendix
       (setf body (concat body " " appendix)))
     (when (equal "m.replace" rel-type)
