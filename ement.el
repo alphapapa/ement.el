@@ -34,10 +34,16 @@
 
 ;;;; Debugging
 
-(eval-and-compile
-  (require 'warnings)
-  (setq-local warning-minimum-log-level nil)
-  (setq-local warning-minimum-log-level :debug))
+;; NOTE: Uncomment this form and `emacs-lisp-byte-compile-and-load' the file to enable
+;; `ement-debug' messages.  This is commented out by default because, even though the
+;; messages are only displayed when `warning-minimum-log-level' is `:debug' at runtime, if
+;; that is so at expansion time, the expanded macro calls format the message and check the
+;; log level at runtime, which is not zero-cost.
+
+;; (eval-and-compile
+;;   (require 'warnings)
+;;   (setq-local warning-minimum-log-level nil)
+;;   (setq-local warning-minimum-log-level :debug))
 
 ;;;; Requirements
 

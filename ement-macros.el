@@ -30,18 +30,26 @@
 
 ;;;; Debugging
 
-(eval-and-compile
-  (setq-local warning-minimum-log-level nil)
-  (setq-local warning-minimum-log-level :debug))
+(require 'warnings)
+
+;; NOTE: Uncomment this form and `emacs-lisp-byte-compile-and-load' the file to enable
+;; `ement-debug' messages.  This is commented out by default because, even though the
+;; messages are only displayed when `warning-minimum-log-level' is `:debug' at runtime, if
+;; that is so at expansion time, the expanded macro calls format the message and check the
+;; log level at runtime, which is not zero-cost.
+
+;; (eval-and-compile
+;;   (setq-local warning-minimum-log-level nil)
+;;   (setq-local warning-minimum-log-level :debug))
 
 (cl-defmacro ement-debug (&rest args)
   "Display a debug warning showing the runtime value of ARGS.
 The warning automatically includes the name of the containing
 function, and it is only displayed if `warning-minimum-log-level'
-is `:debug' at expansion time (otherwise the macro expands to nil
-and is eliminated by the byte-compiler).  When debugging, the
-form also returns nil so, e.g. it may be used in a conditional in
-place of nil.
+is `:debug' at expansion time (otherwise the macro expands to a
+call to `ignore' with ARGS and is eliminated by the
+byte-compiler).  When debugging, the form also returns nil so,
+e.g. it may be used in a conditional in place of nil.
 
 Each of ARGS may be a string, which is displayed as-is, or a
 symbol, the value of which is displayed prefixed by its name, or
@@ -77,20 +85,21 @@ keywords are supported:
                                                     (1 ")")
                                                     (_ "...)"))
                                                   ":%S "))))))
-    (when (eq :debug warning-minimum-log-level)
-      `(let ((fn-name ,(if fn-name
-                           `',fn-name
-                         ;; In an interpreted function: use `backtrace-frame' to get the
-                         ;; function name (we have to use a little hackery to figure out
-                         ;; how far up the frame to look, but this seems to work).
-                         `(cl-loop for frame in (backtrace-frames)
-                                   for fn = (cl-second frame)
-                                   when (not (or (subrp fn)
-                                                 (special-form-p fn)
-                                                 (eq 'backtrace-frames fn)))
-                                   return (make-symbol (format "%s [interpreted]" fn))))))
-         (display-warning fn-name (format ,string ,@args) ,level ,buffer)
-         nil))))
+    (if (eq :debug warning-minimum-log-level)
+        `(let ((fn-name ,(if fn-name
+                             `',fn-name
+                           ;; In an interpreted function: use `backtrace-frame' to get the
+                           ;; function name (we have to use a little hackery to figure out
+                           ;; how far up the frame to look, but this seems to work).
+                           `(cl-loop for frame in (backtrace-frames)
+                                     for fn = (cl-second frame)
+                                     when (not (or (subrp fn)
+                                                   (special-form-p fn)
+                                                   (eq 'backtrace-frames fn)))
+                                     return (make-symbol (format "%s [interpreted]" fn))))))
+           (display-warning fn-name (format ,string ,@args) ,level ,buffer)
+           nil)
+      `(ignore ,@args))))
 
 ;;;; Macros
 
