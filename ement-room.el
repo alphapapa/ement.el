@@ -1443,7 +1443,7 @@ the content (e.g. see `ement-room-send-org-filter')."
                             (ement-alist "msgtype" "m.emote"
                                          "body" body))))
     (when ement-room-send-message-filter
-      (setf content (funcall ement-room-send-message-filter content)))
+      (setf content (funcall ement-room-send-message-filter content room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially #'ement-room-send-event-callback :room room :session session
                              :content content :data)) ;; Data is added when calling back.
@@ -1517,7 +1517,7 @@ The message must be one sent by the local user."
          (new-content (ement-alist "body" body
                                    "msgtype" "m.text"))
          (_ (when ement-room-send-message-filter
-              (setf new-content (funcall ement-room-send-message-filter new-content))))
+              (setf new-content (funcall ement-room-send-message-filter new-content room))))
          (content (ement-alist "msgtype" "m.text"
                                "body" body
                                "m.new_content" new-content
