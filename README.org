@@ -123,6 +123,7 @@ If you want to install it manually, it's simple enough, but you should know what
 
 These bindings are common to all of the following buffer types:
 
++  Switch to a room buffer: ~M-g M-r~
 +  Switch to the room list buffer: ~M-g M-l~
 +  Switch to the mentions buffer: ~M-g M-m~
 +  Switch to the notifications buffer: ~M-g M-n~
@@ -131,33 +132,67 @@ These bindings are common to all of the following buffer types:
 
 +  Show command menu: ~?~
 
-*Sending messages*
+[[images/transient.png]]
 
-+  Write new message: ~RET~
-+  Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
-+  Complete members and rooms at point: ~C-M-i~ (standard ~completion-at-point~ command).
-+  Compose message in a separate buffer (while writing in minibuffer): ~C-c '~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
-+  Send emote: ~e~
-+  Send reaction (a type of annotation) to event at point, or send same reaction at point: ~a~
-+  Delete message at point: ~C-k~
+*Movement*
 
-*Viewing rooms*
++ Next event: ~TAB~
++ Previous event: ~<backtab>~
++ Scroll up and mark read: ~SPC~
++ Scroll down: ~S-SPC~
++ Jump to fully-read marker: ~M-SPC~
++ Load older messages: at top of buffer, scroll contents up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
 
-+  Move between events: ~TAB~ / ~<backtab>~
-+  Scroll down (at the end of a room buffer, mark it as read and bury it): ~SPC~
-+  Scroll up: ~S-SPC~
-+  Move to the fully-read marker: ~M-SPC~
-+  Load older messages: at top of buffer, scroll up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
-+  Search messages (~occur~-style): ~o~
-+  Show source of event at point: ~v~
-+  Show another room: ~r~
-+  Show room list buffer: ~R~
-+  Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
+*Switching*
 
-*Viewing images*
++ List rooms: ~M-g M-l~
++ Switch to other room: ~M-g M-r~
++ Switch to mentions buffer: ~M-g M-m~
++ Switch to notifications buffer: ~M-g M-n~
++ Quit window: ~q~
 
-+  Toggle scale of image at point (between fit-to-window and thumbnail): ~mouse-1~
+*Messages*
+
++ Write message: ~RET~
++ Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
++ Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c ')~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
++ Edit message: ~<insert>~
++ Delete message: ~C-k~
++ Send reaction to event at point, or send same reaction at point: ~s r~
++ Send emote: ~s e~
++ Send file: ~s f~
++ Send image: ~s i~
++ View event source: ~v~
++ Complete members and rooms at point: ~C-M-i~ (standard ~completion-at-point~ command).
+
+*Images*
+
++  Toggle scale of image (between fit-to-window and thumbnail): ~mouse-1~
 +  Show image in new buffer at full size: ~double-mouse-1~
+
+*Users*
+
++ Send direct message: ~u RET~
++ Invite user: ~u i~
++ Ignore user: ~u I~
+
+*Room*
+
++ Occur search in room: ~M-s o~
++ Set topic: ~r t~
++ Set message format: ~r f~
++ Tag/untag room: ~r T~
+
+*Room membership*
+
++ Create room: ~R c~
++ Join room: ~R j~
++ Leave room: ~R l~
++ Forget room: ~R F~
+
+*Other*
+
++  Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
 
 *** Room list buffer
 
@@ -202,7 +237,7 @@ Emacs may not display certain symbols and emojis well by default.  Based on [[ht
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]].  After configuring it according to its documentation, call ~ement-connect~ with the appropriate hostname and port, like:
 
 #+BEGIN_SRC elisp
-  (ement-connect :uri-prefix "http://localhost:8009")
+  http://localhost:8009: ment-connect :uri-prefix "")
 #+END_SRC
 
 * Rationale

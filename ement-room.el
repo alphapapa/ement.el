@@ -105,27 +105,54 @@ Used to, e.g. call `ement-room-compose-org'.")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "?") #'ement-room-transient)
-    (define-key map (kbd "a") #'ement-room-send-reaction)
-    (define-key map (kbd "e") #'ement-room-send-emote)
-    (define-key map (kbd "g") #'ement-room-sync)
-    (define-key map (kbd "o") #'ement-room-occur)
-    (define-key map (kbd "r") #'ement-view-room)
-    (define-key map (kbd "R") #'ement-room-list)
-    (define-key map (kbd "q") #'quit-window)
-    (define-key map (kbd "v") #'ement-room-view-event)
-    (define-key map (kbd "RET") #'ement-room-send-message)
+
+    ;; Movement
+    (define-key map (kbd "TAB") #'ement-room-goto-next)
+    (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
     (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
     (define-key map (kbd "S-SPC") #'ement-room-scroll-down-command)
     (define-key map (kbd "M-SPC") #'ement-room-goto-fully-read-marker)
-    (define-key map (kbd "S-<return>") #'ement-room-send-reply)
-    (define-key map (kbd "<backtab>") #'ement-room-goto-prev)
-    (define-key map (kbd "TAB") #'ement-room-goto-next)
-    (define-key map (kbd "C-k") #'ement-room-delete-message)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
+
+    ;; Switching
     (define-key map (kbd "M-g M-l") #'ement-room-list)
+    (define-key map (kbd "M-g M-r") #'ement-view-room)
     (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
+    (define-key map (kbd "q") #'quit-window)
+
+    ;; Messages
+    (define-key map (kbd "RET") #'ement-room-send-message)
+    (define-key map (kbd "S-<return>") #'ement-room-send-reply)
+    (define-key map (kbd "M-RET") #'ement-room-compose-message)
+    (define-key map (kbd "<insert>") #'ement-room-edit-message)
+    (define-key map (kbd "C-k") #'ement-room-delete-message)
+    (define-key map (kbd "s r") #'ement-room-send-reaction)
+    (define-key map (kbd "s e") #'ement-room-send-emote)
+    (define-key map (kbd "s f") #'ement-room-send-file)
+    (define-key map (kbd "s i") #'ement-room-send-image)
+    (define-key map (kbd "v") #'ement-room-view-event)
+
+    ;; Users
+    (define-key map (kbd "u RET") #'ement-send-direct-message)
+    (define-key map (kbd "u i") #'ement-invite)
+    (define-key map (kbd "u I") #'ement-ignore-user)
+
+    ;; Room
+    (define-key map (kbd "M-s o") #'ement-room-occur)
+    (define-key map (kbd "r t") #'ement-room-set-topic)
+    (define-key map (kbd "r f") #'ement-room-set-message-format)
+    (define-key map (kbd "r T") #'ement-tag-room)
+
+    ;; Room membership
+    (define-key map (kbd "R c") #'ement-create-room)
+    (define-key map (kbd "R j") #'ement-join-room)
+    (define-key map (kbd "R l") #'ement-leave-room)
+    (define-key map (kbd "R f") #'ement-forget-room)
+
+    ;; Other
+    (define-key map (kbd "g") #'ement-room-sync)
     map)
   "Keymap for Ement room buffers.")
 
@@ -4039,40 +4066,56 @@ For use in `completion-at-point-functions'."
 
 (require 'transient)
 
-(transient-define-prefix ement-room-transient  ()
+(transient-define-prefix ement-room-transient ()
   "Transient for Ement Room buffers."
-  ["Messaging"
-   ("RET" "Write message" ement-room-send-message)
-   ("S-RET" "Write reply" ement-room-send-reply)
-   ("c" "Compose message in buffer" ement-room-compose-message)
-   ("e" "Edit message at point" ement-room-edit-message)
-   ("C-k" "Delete message at point" ement-room-delete-message)
-   ("s e" "Send emote" ement-room-send-emote)
-   ("s r" "Send reaction" ement-room-send-reaction)
-   ("s f" "Send file" ement-room-send-file)
-   ("s i" "Send image" ement-room-send-image)]
-  ["Room"
-   ("r c" "Create room" ement-create-room)
-   ("r j" "Join room" ement-join-room)
-   ("r l" "Leave room" ement-leave-room)
-   ("r F" "Forget room" ement-forget-room)
-   ("r o" "Occur search in room" ement-room-occur)
-   ("r t" "Tag/untag room" ement-tag-room)
-   ("r T" "Set topic" ement-room-set-topic
-    :description (lambda ()
-                   (format "Set topic: %s" (propertize (ement-room-topic ement-room)
-                                                       'face 'font-lock-doc-face))))
-   ("r f" "Set message format" ement-room-set-message-format
-    :description (lambda ()
-                   (format "Set message format: %s" (propertize ement-room-message-format-spec
-                                                                'face 'font-lock-doc-face))))]
-  ["Rooms"
-   ("R l" "List rooms" ement-taxy-room-list)
-   ("R v" "View other room" ement-view-room)]
-  ["Users"
-   ("u RET" "Send direct message to user" ement-send-direct-message)
-   ("u i" "Invite user" ement-invite)
-   ("u I" "Ignore user" ement-ignore-user)])
+  [:pad-keys t
+             ["Movement"
+              ("TAB" "Next event" ement-room-goto-next)
+              ("<backtab>" "Previous event" ement-room-goto-prev)
+              ("SPC" "Scroll up and mark read" ement-room-scroll-up-mark-read)
+              ("S-SPC" "Scroll down" ement-room-scroll-down-command)
+              ("M-SPC" "Jump to fully-read marker" ement-room-goto-fully-read-marker)]
+             ["Switching"
+              ("M-g M-l" "List rooms" ement-taxy-room-list)
+              ("M-g M-r" "Switch to other room" ement-view-room)
+              ("M-g M-m" "Switch to mentions buffer" ement-notify-switch-to-mentions-buffer)
+              ("M-g M-n" "Switch to notifications buffer" ement-notify-switch-to-notifications-buffer)
+              ("q" "Quit window" quit-window)]]
+  [:pad-keys t
+             ["Messages"
+              ("RET" "Write message" ement-room-send-message)
+              ("S-RET" "Write reply" ement-room-send-reply)
+              ("M-RET" "Compose message in buffer" ement-room-compose-message)
+              ("<insert>" "Edit message" ement-room-edit-message)
+              ("C-k" "Delete message" ement-room-delete-message)
+              ("s r" "Send reaction" ement-room-send-reaction)
+              ("s e" "Send emote" ement-room-send-emote)
+              ("s f" "Send file" ement-room-send-file)
+              ("s i" "Send image" ement-room-send-image)
+              ("v" "View event" ement-room-view-event)]
+             ["Users"
+              ("u RET" "Send direct message" ement-send-direct-message)
+              ("u i" "Invite user" ement-invite)
+              ("u I" "Ignore user" ement-ignore-user)]
+             ]
+  [:pad-keys t
+             ["Room"
+              ("M-s o" "Occur search in room" ement-room-occur)
+              ("r t" "Set topic" ement-room-set-topic)
+              ("r f" "Set message format" ement-room-set-message-format)
+              ("r T" "Tag/untag room" ement-tag-room)]
+             ["Room membership"
+              ("R c" "Create room" ement-create-room)
+              ("R j" "Join room" ement-join-room)
+              ("R l" "Leave room" ement-leave-room)
+              ("R F" "Forget room" ement-forget-room)]
+             ]
+  ["Other"
+   ("g" "Sync new messages" ement-room-sync
+    :if (lambda ()
+          (interactive)
+          (or (not ement-auto-sync)
+              (not (map-elt ement-syncs ement-session)))))])
 
 ;;;; Footer
 
