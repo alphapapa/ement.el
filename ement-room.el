@@ -4043,8 +4043,12 @@ For use in `completion-at-point-functions'."
   "Transient for Ement Room buffers."
   ["Messaging"
    ("RET" "Write message" ement-room-send-message)
+   ("S-RET" "Write reply" ement-room-send-reply)
    ("c" "Compose message in buffer" ement-room-compose-message)
    ("e" "Edit message at point" ement-room-edit-message)
+   ("C-k" "Delete message at point" ement-room-delete-message)
+   ("s e" "Send emote" ement-room-send-emote)
+   ("s r" "Send reaction" ement-room-send-reaction)
    ("s f" "Send file" ement-room-send-file)
    ("s i" "Send image" ement-room-send-image)]
   ["Room"
