@@ -462,7 +462,9 @@ new one automatically if necessary."
   "Add TAG to ROOM on SESSION.
 If DELETE (interactively, with prefix), delete it."
   (interactive
-   (pcase-let* ((`(,room ,session) (ement-complete-room))
+   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
+                                         (list ement-room ement-session))
+                                       (ement-complete-room)))
                 (prompt (if current-prefix-arg "Delete tag: " "Add tag: "))
                 (default-tags (ement-alist "Favourite" "m.favourite"
                                            "Low-priority" "m.lowpriority"))
