@@ -104,6 +104,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "?") #'ement-room-transient)
     (define-key map (kbd "a") #'ement-room-send-reaction)
     (define-key map (kbd "e") #'ement-room-send-emote)
     (define-key map (kbd "g") #'ement-room-sync)
@@ -4033,6 +4034,41 @@ For use in `completion-at-point-functions'."
                         (ement-user-id member))
                   members-alist))
     members-alist))
+
+;;;;; Transient
+
+(require 'transient)
+
+(transient-define-prefix ement-room-transient  ()
+  "Transient for Ement Room buffers."
+  ["Messaging"
+   ("RET" "Write message" ement-room-send-message)
+   ("c" "Compose message in buffer" ement-room-compose-message)
+   ("e" "Edit message at point" ement-room-edit-message)
+   ("s f" "Send file" ement-room-send-file)
+   ("s i" "Send image" ement-room-send-image)]
+  ["Room"
+   ("r c" "Create room" ement-create-room)
+   ("r j" "Join room" ement-join-room)
+   ("r l" "Leave room" ement-leave-room)
+   ("r F" "Forget room" ement-forget-room)
+   ("r o" "Occur search in room" ement-room-occur)
+   ("r t" "Tag/untag room" ement-tag-room)
+   ("r T" "Set topic" ement-room-set-topic
+    :description (lambda ()
+                   (format "Set topic: %s" (propertize (ement-room-topic ement-room)
+                                                       'face 'font-lock-doc-face))))
+   ("r f" "Set message format" ement-room-set-message-format
+    :description (lambda ()
+                   (format "Set message format: %s" (propertize ement-room-message-format-spec
+                                                                'face 'font-lock-doc-face))))]
+  ["Rooms"
+   ("R l" "List rooms" ement-taxy-room-list)
+   ("R v" "View other room" ement-view-room)]
+  ["Users"
+   ("u RET" "Send direct message to user" ement-send-direct-message)
+   ("u i" "Invite user" ement-invite)
+   ("u I" "Ignore user" ement-ignore-user)])
 
 ;;;; Footer
 

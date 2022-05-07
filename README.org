@@ -129,6 +129,8 @@ These bindings are common to all of the following buffer types:
 
 *** Room buffers
 
++  Show command menu: ~?~
+
 *Sending messages*
 
 +  Write new message: ~RET~
