@@ -3639,7 +3639,7 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                  (cl-find (ement-event-state-key event) join-events
                                                           :test #'equal :key #'ement-event-state-key))
                                                rejoin-events))
-             (format "Membership: %s"
+             (format "Membership: %s."
                      (string-join (cl-loop for (type . events)
                                            in (ement-alist "rejoined" rejoin-events
                                                            "joined" join-events
@@ -3649,7 +3649,7 @@ STRUCT should be an `ement-room-membership-events' struct."
                                            for users = (delete-dups (mapcar #'event-user events))
                                            for number = (length users)
                                            when events
-                                           collect (format "%s %s (%s)." number type (string-join users ", ")))
+                                           collect (format "%s %s (%s)" number type (string-join users ", ")))
                                   "; "))))))))
 
 ;;;;; Images
