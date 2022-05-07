@@ -136,7 +136,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 
     ;; Users
     (define-key map (kbd "u RET") #'ement-send-direct-message)
-    (define-key map (kbd "u i") #'ement-invite)
+    (define-key map (kbd "u i") #'ement-invite-user)
     (define-key map (kbd "u I") #'ement-ignore-user)
 
     ;; Room
@@ -4095,7 +4095,7 @@ For use in `completion-at-point-functions'."
               ("v" "View event" ement-room-view-event)]
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
-              ("u i" "Invite user" ement-invite)
+              ("u i" "Invite user" ement-invite-user)
               ("u I" "Ignore user" ement-ignore-user)]
              ]
   [:pad-keys t

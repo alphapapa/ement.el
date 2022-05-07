@@ -429,7 +429,7 @@ new one automatically if necessary."
                 ;; TODO: Indicate forgotten in footer in room buffer.
                 (message "Room \"%s\" (%s) forgotten." display-name id))))))
 
-(defun ement-invite (user-id room session)
+(defun ement-invite-user (user-id room session)
   "Invite USER-ID to ROOM on SESSION."
   ;; SPEC: 10.4.2.1.
   (interactive
