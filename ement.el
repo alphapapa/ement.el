@@ -158,6 +158,13 @@ Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
   :type '(alist :key-type (string :tag "Local user ID")
                 :value-type (repeat (string :tag "Room alias/ID"))))
 
+(defcustom ement-read-reaction #'ement-read-reaction
+  "Function that prompts the user for reaction string.
+The function is called with no arguments and should return a
+string to be used as the reaction."
+  :type '(choice (const :tag "Default function" #'ement-read-reaction)
+                 (const :tag "Custom function" function)))
+
 ;;;; Commands
 
 ;;;###autoload
@@ -1422,6 +1429,10 @@ To be called after initial sync."
           (dolist (child-id children)
             (when-let ((child-room (cl-find child-id rooms :key #'ement-room-id :test #'equal)))
               (cl-pushnew parent-id (alist-get 'parents (ement-room-local child-room)) :test #'equal))))))))
+
+(defun ement-read-reaction ()
+  "Prompt user for reaction and return it."
+  (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
 
 ;;;; Footer
 

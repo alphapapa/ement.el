@@ -188,6 +188,7 @@ In that case, sender names are aligned to the margin edge.")
 (defvar ement-sessions)
 (defvar ement-users)
 (defvar ement-notify-limit-room-name-width)
+(defvar ement-read-reaction)
 
 ;;;; Customization
 
@@ -1651,7 +1652,7 @@ reaction string, e.g. \"👍\"."
                        (button-start (button-at pos))
                        (lambda () (face-at-point-p 'ement-room-reactions-key)))))))
      (list (or (key-at (point))
-               (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
+               (funcall ement-read-reaction))
            (ewoc-data (ewoc-locate ement-ewoc))
            ement-room ement-session)))
   (pcase-let* (((cl-struct ement-event (local (map reactions))) event)
