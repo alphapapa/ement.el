@@ -122,7 +122,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     (define-key map (kbd "q") #'quit-window)
 
-    ;; Events
+    ;; Messages
     (define-key map (kbd "RET") #'ement-room-send-message)
     (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "M-RET") #'ement-room-compose-message)
@@ -4137,7 +4137,15 @@ For use in `completion-at-point-functions'."
               ("M-g M-n" "Switch to notifications buffer" ement-notify-switch-to-notifications-buffer)
               ("q" "Quit window" quit-window)]]
   [:pad-keys t
-             ["Events"
+             ["Messages"
+              ("c" "Composition format" ement-room-set-composition-format
+    :description (lambda ()
+                   (concat "Composition format: "
+                           (propertize (car (cl-rassoc ement-room-send-message-filter
+                                                       (list (cons "Plain-text" nil)
+                                                             (cons "Org-mode" 'ement-room-send-org-filter))
+                                                       :test #'equal))
+                                       'face 'transient-value))))
               ("RET" "Write message" ement-room-send-message)
               ("S-RET" "Write reply" ement-room-send-reply)
               ("M-RET" "Compose message in buffer" ement-room-compose-message)
@@ -4146,13 +4154,11 @@ For use in `completion-at-point-functions'."
               ("s r" "Send reaction" ement-room-send-reaction)
               ("s e" "Send emote" ement-room-send-emote)
               ("s f" "Send file" ement-room-send-file)
-              ("s i" "Send image" ement-room-send-image)
-              ("v" "View event" ement-room-view-event)]
+              ("s i" "Send image" ement-room-send-image)]
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
-              ("u I" "Ignore user" ement-ignore-user)]
-             ]
+              ("u I" "Ignore user" ement-ignore-user)]]
   [:pad-keys t
              ["Room"
               ("M-s o" "Occur search in room" ement-room-occur)
@@ -4163,17 +4169,9 @@ For use in `completion-at-point-functions'."
               ("R c" "Create room" ement-create-room)
               ("R j" "Join room" ement-join-room)
               ("R l" "Leave room" ement-leave-room)
-              ("R F" "Forget room" ement-forget-room)]
-             ]
+              ("R F" "Forget room" ement-forget-room)]]
   ["Other"
-   ("c" "Composition format" ement-room-set-composition-format
-    :description (lambda ()
-                   (concat "Composition format: "
-                           (propertize (car (cl-rassoc ement-room-send-message-filter
-                                                       (list (cons "Plain-text" nil)
-                                                             (cons "Org-mode" 'ement-room-send-org-filter))
-                                                       :test #'equal))
-                                       'face 'transient-value))))
+   ("v" "View event" ement-room-view-event)
    ("g" "Sync new messages" ement-room-sync
     :if (lambda ()
           (interactive)
