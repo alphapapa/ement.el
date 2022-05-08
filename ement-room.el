@@ -4140,13 +4140,13 @@ For use in `completion-at-point-functions'."
   [:pad-keys t
              ["Messages"
               ("c" "Composition format" ement-room-set-composition-format
-    :description (lambda ()
-                   (concat "Composition format: "
-                           (propertize (car (cl-rassoc ement-room-send-message-filter
-                                                       (list (cons "Plain-text" nil)
-                                                             (cons "Org-mode" 'ement-room-send-org-filter))
-                                                       :test #'equal))
-                                       'face 'transient-value))))
+               :description (lambda ()
+                              (concat "Composition format: "
+                                      (propertize (car (cl-rassoc ement-room-send-message-filter
+                                                                  (list (cons "Plain-text" nil)
+                                                                        (cons "Org-mode" 'ement-room-send-org-filter))
+                                                                  :test #'equal))
+                                                  'face 'transient-value))))
               ("RET" "Write message" ement-room-send-message)
               ("S-RET" "Write reply" ement-room-send-reply)
               ("M-RET" "Compose message in buffer" ement-room-compose-message)
