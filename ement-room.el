@@ -4165,7 +4165,15 @@ For use in `completion-at-point-functions'."
               ("M-s o" "Occur search in room" ement-room-occur)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
-              ("r T" "Tag/untag room" ement-tag-room)]
+              ("r T" "Tag/untag room" ement-tag-room
+               :description (lambda ()
+                              (format "Tag/untag room (%s/%s)"
+                                      (propertize "Fav"
+                                                  'face (if (ement--room-tagged-p "m.favourite" ement-room)
+                                                            'transient-value 'transient-inactive-value))
+                                      (propertize "Low-prio"
+                                                  'face (if (ement--room-tagged-p "m.lowpriority" ement-room)
+                                                            'transient-value 'transient-inactive-value)))))]
              ["Room membership"
               ("R c" "Create room" ement-create-room)
               ("R j" "Join room" ement-join-room)
