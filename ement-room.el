@@ -2181,8 +2181,9 @@ arguments."
                                            (ewoc-goto-node ement-ewoc node))))))
       (ement-room--process-events (reverse (ement-room-state room)))
       (ement-room--process-events (reverse (ement-room-timeline room)))
-      (ement-room--insert-ts-headers)
-      (ewoc-filter ement-ewoc pred))
+      (ewoc-filter ement-ewoc pred)
+      ;; TODO: Insert date header before first event.
+      (ement-room--insert-ts-headers))
     (pop-to-buffer occur-buffer)))
 
 (defun ement-room-occur-find-event (event)
