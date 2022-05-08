@@ -1425,7 +1425,7 @@ the content (e.g. see `ement-room-send-org-filter')."
   (let ((members (ement-room--members-alist room))
         (pos 0)
         replacement)
-    (while (setf pos (string-match (rx (or bos bow)
+    (while (setf pos (string-match (rx (or bos bow (1+ blank))
                                        (group "@" (group (1+ (not blank)) (or eow (seq ":" (1+ blank))))))
                                    body pos))
       (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
@@ -1436,7 +1436,7 @@ the content (e.g. see `ement-room-send-org-filter')."
                                   (format template user-id (ement--xml-escape-string (match-string 2 body))))))
           (progn
             ;; Found member: replace and move to end of replacement.
-            (setf body (replace-match replacement t t body 0))
+            (setf body (replace-match replacement t t body 1))
             (let ((difference (- (length replacement) (length (match-string 0 body)))))
               (setf pos (if (/= 0 difference)
                             ;; Replacement of a different length: adjust POS accordingly.
