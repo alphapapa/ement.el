@@ -122,7 +122,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     (define-key map (kbd "q") #'quit-window)
 
-    ;; Messages
+    ;; Events
     (define-key map (kbd "RET") #'ement-room-send-message)
     (define-key map (kbd "S-<return>") #'ement-room-send-reply)
     (define-key map (kbd "M-RET") #'ement-room-compose-message)
@@ -4123,7 +4123,7 @@ For use in `completion-at-point-functions'."
               ("M-g M-n" "Switch to notifications buffer" ement-notify-switch-to-notifications-buffer)
               ("q" "Quit window" quit-window)]]
   [:pad-keys t
-             ["Messages"
+             ["Events"
               ("RET" "Write message" ement-room-send-message)
               ("S-RET" "Write reply" ement-room-send-reply)
               ("M-RET" "Compose message in buffer" ement-room-compose-message)
