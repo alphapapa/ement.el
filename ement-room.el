@@ -2291,6 +2291,45 @@ function to `ement-room-event-fns', which see."
          ;; TODO: Is this the correct thing to do?
          (ement-debug "No known related event for" event))))))
 
+(ement-room-defevent "m.room.power_levels"
+  (ement-room--insert-event event))
+
+(defun ement-room--format-power-levels-event (event room _session)
+  (pcase-let (((cl-struct ement-event sender
+                          (content (map ('users new-users)))
+                          (unsigned (map ('prev_content (map ('users old-users))))))
+               event))
+    (when old-users
+      (pcase-let* ((sender-id (ement-user-id sender))
+                   (sender-displayname (gethash room (ement-user-room-display-names sender)))
+                   (`(,changed-user-id-symbol . ,new-level)
+                    (cl-find-if (lambda (new-user)
+                                  (let ((old-user (cl-find (car new-user) old-users
+                                                           :key #'car)))
+                                    (or (not old-user)
+                                        (not (equal (cdr new-user) (cdr old-user))))))
+                                new-users))
+                   (changed-user-id (symbol-name changed-user-id-symbol))
+                   (changed-user (when changed-user-id-symbol
+                                   (gethash changed-user-id ement-users)))
+                   (user-displayname (if changed-user
+                                         (or (gethash room (ement-user-room-display-names changed-user))
+                                             (ement-user-displayname changed-user)
+                                             (ement-user-id changed-user))
+                                       changed-user-id)))
+        (concat ement-room-wrap-prefix
+                (propertize (if (not changed-user)
+                                (format "%s sent a power-level event"
+                                        (propertize sender-displayname
+                                                    'help-echo sender-id))
+                              (format "%s set %s's power level to %s"
+                                      (propertize sender-displayname
+                                                  'help-echo sender-id)
+                                      (propertize user-displayname 'help-echo changed-user-id)
+                                      new-level))
+                            'face 'ement-room-membership
+                            'wrap-prefix ement-room-wrap-prefix))))))
+
 (ement-room-defevent "m.room.redaction"
   ;; We handle redaction events here rather than an `ement-defevent' handler.  This way we
   ;; do less work for events in rooms that the user isn't looking at, at the cost of doing
@@ -3006,6 +3045,8 @@ Formats according to `ement-room-message-format-spec', which see."
                                                      'help-echo (ement-user-id (ement-event-sender event))))
                                  'face 'ement-room-membership
                                  'wrap-prefix ement-room-wrap-prefix)))
+            ("m.room.power_levels"
+             (ement-room--format-power-levels-event event room session))
             (_ (concat ement-room-wrap-prefix
                        (propertize (format "[sender:%s type:%s]"
                                            (ement-user-id (ement-event-sender event))
