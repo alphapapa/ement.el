@@ -940,6 +940,20 @@ to the session in which to look for URL's room and event."
                   (with-current-buffer (alist-get 'buffer (ement-room-local room))
                     (goto-event event-id))))))))
 
+(defun ement-room-set-composition-format (&optional localp)
+  "Set message composition format.
+If LOCALP (interactively, with prefix), set in current room's
+buffer.  Sets `ement-room-send-message-filter'."
+  (interactive (list current-prefix-arg))
+  (let* ((formats (list (cons "Plain-text" nil)
+                        (cons "Org-mode" #'ement-room-send-org-filter)))
+         (selected-name (completing-read "Composition format: " formats nil 'require-match nil nil
+                                         ement-room-send-message-filter))
+         (selected-filter (alist-get selected-name formats nil nil #'equal)))
+    (if localp
+        (setq-local ement-room-send-message-filter selected-filter)
+      (setq ement-room-send-message-filter selected-filter))))
+
 (defun ement-room-set-message-format (format-spec)
   "Set `ement-room-message-format-spec' in current buffer to FORMAT-SPEC.
 Interactively, prompts for the spec using suggested values of the
@@ -4152,6 +4166,14 @@ For use in `completion-at-point-functions'."
               ("R F" "Forget room" ement-forget-room)]
              ]
   ["Other"
+   ("c" "Composition format" ement-room-set-composition-format
+    :description (lambda ()
+                   (concat "Composition format: "
+                           (propertize (car (cl-rassoc ement-room-send-message-filter
+                                                       (list (cons "Plain-text" nil)
+                                                             (cons "Org-mode" 'ement-room-send-org-filter))
+                                                       :test #'equal))
+                                       'face 'transient-value))))
    ("g" "Sync new messages" ement-room-sync
     :if (lambda ()
           (interactive)
