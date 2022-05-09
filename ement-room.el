@@ -3685,9 +3685,11 @@ STRUCT should be an `ement-room-membership-events' struct."
                                      event))
                          (cons prev-membership new-membership)))
               (event-user
-               (event) (if-let (user (gethash (ement-event-state-key event) ement-users))
-                           (ement-room--user-display-name user room)
-                         (ement-event-state-key event))))
+               (event) (propertize (if-let (user (gethash (ement-event-state-key event) ement-users))
+                                       (ement-room--user-display-name user room)
+                                     (ement-event-state-key event))
+                                   'help-echo (concat (ement-room--format-member-event event)
+                                                      " <" (ement-event-state-key event) ">"))))
     (pcase-let* (((cl-struct ement-room-membership-events events) struct))
       (pcase (length events)
         (0 (warn "No events in `ement-room-membership-events' struct"))
@@ -3727,7 +3729,9 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                            "left" left-events
                                                            "invited" invite-events
                                                            "banned" ban-events)
-                                           for users = (delete-dups (mapcar #'event-user events))
+                                           for users = (mapcar #'event-user
+                                                               (cl-delete-duplicates
+                                                                events :key #'ement-event-sender))
                                            for number = (length users)
                                            when events
                                            collect (format "%s %s (%s)" number type (string-join users ", ")))
