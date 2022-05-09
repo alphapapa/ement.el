@@ -2169,16 +2169,16 @@ arguments."
       (ement-room-occur-mode)
       (setf header-line-format header
             ement-session session
-            ement-room room
-            revert-buffer-function (lambda (&rest _)
-                                     (interactive)
-                                     (let ((event-at-point (ewoc-data (ewoc-locate ement-ewoc))))
-                                       (with-current-buffer (alist-get 'buffer (ement-room-local room))
-                                         (ement-room-occur :pred pred :header header)
-                                         (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
-                                                            (lambda (data)
-                                                              (eq event-at-point data)))))
-                                           (ewoc-goto-node ement-ewoc node))))))
+            ement-room room)
+      (setq-local revert-buffer-function (lambda (&rest _)
+                                           (interactive)
+                                           (let ((event-at-point (ewoc-data (ewoc-locate ement-ewoc))))
+                                             (with-current-buffer (alist-get 'buffer (ement-room-local room))
+                                               (ement-room-occur :pred pred :header header)
+                                               (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                                                                  (lambda (data)
+                                                                    (eq event-at-point data)))))
+                                                 (ewoc-goto-node ement-ewoc node))))))
       (ement-room--process-events (reverse (ement-room-state room)))
       (ement-room--process-events (reverse (ement-room-timeline room)))
       (ewoc-filter ement-ewoc pred)
