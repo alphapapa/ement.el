@@ -901,7 +901,8 @@ Also used for left rooms, in which case STATUS should be set to
     ;; in the hash tables).
     (cl-loop for event across (alist-get 'events ephemeral)
              for event-struct = (ement--make-event event)
-             do (ement--process-event event-struct room session))
+             do (push event-struct (ement-room-ephemeral room))
+             (ement--process-event event-struct room session))
     (when (ement-session-has-synced-p session)
       ;; NOTE: We don't fill gaps in "limited" requests on initial
       ;; sync, only in subsequent syncs, e.g. after the system has
