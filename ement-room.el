@@ -2316,7 +2316,7 @@ function to `ement-room-event-fns', which see."
                event))
     (when old-users
       (pcase-let* ((sender-id (ement-user-id sender))
-                   (sender-displayname (gethash room (ement-user-room-display-names sender)))
+                   (sender-displayname (ement-room--user-display-name sender room))
                    (`(,changed-user-id-symbol . ,new-level)
                     (cl-find-if (lambda (new-user)
                                   (let ((old-user (cl-find (car new-user) old-users
@@ -2328,9 +2328,7 @@ function to `ement-room-event-fns', which see."
                    (changed-user (when changed-user-id-symbol
                                    (gethash changed-user-id ement-users)))
                    (user-displayname (if changed-user
-                                         (or (gethash room (ement-user-room-display-names changed-user))
-                                             (ement-user-displayname changed-user)
-                                             (ement-user-id changed-user))
+                                         (ement-room--user-display-name changed-user room)
                                        changed-user-id)))
         (concat ement-room-wrap-prefix
                 (propertize (if (not changed-user)
