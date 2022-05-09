@@ -3,7 +3,6 @@
 ;; Copyright (C) 2021  Adam Porter
 
 ;; Author: Adam Porter <adam@alphapapa.net>
-;; Keywords: 
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -94,12 +93,12 @@
 
 (ement-taxy-define-key direct ()
   (pcase-let ((`[,room ,session] item))
-    (when (ement-room--direct-p room session)
+    (when (ement--room-direct-p room session)
       "Direct")))
 
 (ement-taxy-define-key people ()
   (pcase-let ((`[,room ,session] item))
-    (when (ement-room--direct-p room session)
+    (when (ement--room-direct-p room session)
       (propertize "People" 'face 'ement-room-list-direct))))
 
 (ement-taxy-define-key space (&key name id)
@@ -143,7 +142,7 @@
 
 (ement-taxy-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
-               (display-name (ement-room--room-display-name room)))
+               (display-name (ement--room-display-name room)))
     (when display-name
       (when (string-match-p regexp display-name)
         (or name regexp)))))
@@ -249,7 +248,7 @@
                                    (ement--resize-image (get-text-property 0 'display avatar)
                                                         nil (frame-char-height)))
                      ;; Room has no avatar: make one.
-                     (let* ((string (or display-name (ement-room--room-display-name room)))
+                     (let* ((string (or display-name (ement--room-display-name room)))
                             (_ (when (string-match (rx bos (or "#" "!" "@")) string)
                                  (setf string (substring string 1))))
                             (color (ement-prism-color string)))
@@ -263,7 +262,7 @@
 (ement-taxy-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-room type) room)
-               (display-name (ement-room--room-display-name room))
+               (display-name (ement--room-display-name room))
                (face))
     (or (when display-name
           ;; TODO: Use code from ement-room-list and put in a dedicated function.
@@ -275,7 +274,7 @@
             (push 'ement-room-list-unread (map-elt face :inherit)))
           (when (equal "m.space" type)
             (push 'ement-room-list-space (map-elt face :inherit)))
-          (when (ement-room--direct-p room session)
+          (when (ement--room-direct-p room session)
             (push 'ement-room-list-direct (map-elt face :inherit)))
           (when (ement--room-favourite-p room)
             (push 'ement-room-list-favourite (map-elt face :inherit)))
@@ -394,7 +393,9 @@
                                      (display-buffer-action '(display-buffer-same-window))
                                      ;; visibility-fn
                                      )
-  "Show a buffer listing Ement rooms, grouped with Taxy."
+  "Show a buffer listing Ement rooms, grouped with Taxy KEYS.
+The buffer is named BUFFER-NAME and is shown with
+DISPLAY-BUFFER-ACTION."
   (interactive)
   (let (format-table column-sizes)
     (cl-labels (;; (heading-face
@@ -523,11 +524,13 @@
   (ement-taxy-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
 
 (defun ement-taxy-mouse-1 (event)
+  "Call `ement-taxy-RET' at point."
   (interactive "e")
   (mouse-set-point event)
   (call-interactively #'ement-taxy-RET))
 
 (defun ement-taxy-RET ()
+  "View room at point, or cycle section at point."
   (interactive)
   (cl-etypecase (oref (magit-current-section) value)
     (vector (pcase-let ((`[,room ,session] (oref (magit-current-section) value)))
@@ -578,6 +581,8 @@
   (when (and ement-taxy-auto-update
              (buffer-live-p (get-buffer "*Ement Taxy*")))
     (with-current-buffer (get-buffer "*Ement Taxy*")
+      ;; FIXME: This seems to redisplay the buffer even when it's buried.  But it
+      ;; shouldn't, because the revert function uses `display-buffer-no-window'.
       (revert-buffer))))
 
 ;;;; Footer

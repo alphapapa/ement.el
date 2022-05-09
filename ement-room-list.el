@@ -343,7 +343,7 @@ To be called in `ement-sync-callback-hook'."
                ;; later causes its value to be mutated for every entry.
                (name-face (cl-copy-list '(:inherit (ement-room-list-name))))
                (e-name (list (propertize (or display-name
-                                             (ement-room--room-display-name room))
+                                             (ement--room-display-name room))
                                          ;; HACK: Apply face here, otherwise tabulated-list overrides it.
                                          'face name-face
                                          'help-echo e-alias)
@@ -376,7 +376,7 @@ To be called in `ement-sync-callback-hook'."
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
                ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
-               (e-direct-p (if (ement-room--direct-p room session)
+               (e-direct-p (if (ement--room-direct-p room session)
                                (propertize "d" 'help-echo "Direct room")
                              ""))
                (e-priority (cond ((ement--room-favourite-p room) "F")
@@ -392,7 +392,7 @@ To be called in `ement-sync-callback-hook'."
       ;; For some reason, `push' doesn't work with `map-elt'.
       (setf (map-elt name-face :inherit)
             (cons 'ement-room-list-unread (map-elt name-face :inherit))))
-    (when (ement-room--direct-p room session)
+    (when (ement--room-direct-p room session)
       (setf (map-elt name-face :inherit)
             (cons 'ement-room-list-direct (map-elt name-face :inherit))))
     (when (ement--room-favourite-p room)

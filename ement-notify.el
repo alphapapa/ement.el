@@ -30,6 +30,7 @@
 (require 'map)
 (require 'notifications)
 
+(require 'ement-lib)
 (require 'ement-room)
 
 (eval-when-compile
@@ -126,7 +127,6 @@ margins in Emacs.  But it's useful, anyway."
 
 ;;;; Commands
 
-(declare-function ement-view-room "ement")
 (declare-function ement-room-goto-event "ement-room")
 (defun ement-notify-button-action (button)
   "Show BUTTON's event in its room buffer."
@@ -179,7 +179,7 @@ anything if session hasn't finished initial sync."
                ((cl-struct ement-room avatar) room)
                ((map body) content)
                (room-name (ement-room-display-name room))
-               (sender-name (ement-room--user-display-name sender room))
+               (sender-name (ement--user-displayname-in room sender))
                (title (format "%s in %s" sender-name room-name)))
     ;; TODO: Encode HTML entities.
     (when (stringp body)
@@ -237,7 +237,7 @@ anything if session hasn't finished initial sync."
                                   (min (+ avatar-width (string-width (ement-room-display-name room)))
                                        ement-notify-limit-room-name-width)
                                 (+ avatar-width (string-width (ement-room-display-name room)))))
-             (sender-name-width (string-width (ement-room--user-display-name (ement-event-sender event) room)))
+             (sender-name-width (string-width (ement--user-displayname-in room (ement-event-sender event))))
              (new-left-margin-width
               (max (buffer-local-value 'left-margin-width buffer)
                    (+ room-name-width sender-name-width 2)))

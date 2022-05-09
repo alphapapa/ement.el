@@ -20,6 +20,8 @@
 
 ;;; Commentary:
 
+;; This library implements buffers displaying events in a room.
+
 ;; EWOC is a great library.  If I had known about it and learned it
 ;; sooner, it would have saved me a lot of time in other projects.
 ;; I'm glad I decided to try it for this one.
@@ -48,6 +50,7 @@
 (require 'mwheel)
 
 (require 'ement-api)
+(require 'ement-lib)
 (require 'ement-macros)
 (require 'ement-structs)
 
@@ -98,7 +101,6 @@ Used by `ement-room-send-message'.")
   "Hook run in compose buffers when created.
 Used to, e.g. call `ement-room-compose-org'.")
 
-(declare-function ement-view-room "ement.el")
 (declare-function ement-room-list "ement-room-list.el")
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
@@ -598,12 +600,6 @@ appropriate; if users customize this option, they will need to
 apply the face to the string themselves, if desired."
   :type 'string)
 
-;; Other function declarations (seems better to have them all in one place, otherwise they
-;; litter the code).
-(declare-function ement--events-equal-p "ement")
-(declare-function ement-redact "ement" t t)
-(declare-function ement-upload "ement" t t)
-
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
@@ -726,7 +722,7 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   "Room display name."
   (ignore event session)
   (let ((room-name (propertize (or (ement-room-display-name room)
-                                   (ement-room--room-display-name room))
+                                   (ement--room-display-name room))
                                'face 'ement-room-name
                                'help-echo (or (ement-room-canonical-alias room)
                                               (ement-room-id room)))))
@@ -1041,7 +1037,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                 (pcase-let* (((map ('content_uri content-uri)) data)
                              ((cl-struct ement-room (id room-id)) room)
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
-                                               "m.room.message" (ement-room-update-transaction-id session)))
+                                               "m.room.message" (ement--update-transaction-id session)))
                              ;; TODO: Image height/width (maybe not easy to get in Emacs).
                              (content (ement-alist "msgtype" msgtype
                                                    "url" content-uri
@@ -1099,7 +1095,6 @@ Interactively, set the current buffer's ROOM's TOPIC."
         (scroll-up-command)
       (end-of-buffer (set-window-point nil (point-max))))))
 
-(declare-function ement-complete-session "ement")
 (defun ement-room-join (id-or-alias session)
   "Join room by ID-OR-ALIAS on SESSION."
   (interactive (list (read-string "Join room (ID or alias): ")
@@ -1150,8 +1145,6 @@ Interactively, set the current buffer's ROOM's TOPIC."
                   (_ (error "Unable to join room %s: %s %S" id-or-alias status plz-error))))))))
 (defalias 'ement-join-room #'ement-room-join)
 
-(declare-function ement-complete-room "ement")
-(declare-function ement--format-room "ement")
 (defun ement-room-leave (room session)
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
@@ -1415,69 +1408,21 @@ the content (e.g. see `ement-room-send-org-filter')."
                                 (ement-room-read-string prompt nil nil nil
                                                         'inherit-input-method))))
                    (list room session :body body))))
-  (cl-assert (not (string-empty-p body)))
-  (cl-assert (or (not formatted-body) (not (string-empty-p formatted-body))))
-  ;; Linkify mentions.
-  (unless ement-room-send-message-filter
-    ;; A filter should take care of this itself.
-    (setf formatted-body (ement-room--format-body-mentions (or formatted-body body) room)))
-  (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
-               (window (when buffer (get-buffer-window buffer)))
-               (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
-                                 (ement-room-update-transaction-id session)))
-               (content (ement-aprog1
-                            (ement-alist "msgtype" "m.text"
-                                         "body" body)
-                          (when formatted-body
-                            (push (cons "formatted_body" formatted-body) it)
-                            (push (cons "format" "org.matrix.custom.html") it)))))
-    (when replying-to-event
-      (setf content (ement-room--add-reply content replying-to-event)))
-    (when ement-room-send-message-filter
-      (setf content (funcall ement-room-send-message-filter content room)))
-    (ement-api session endpoint :method 'put :data (json-encode content)
-      :then (apply-partially #'ement-room-send-event-callback :room room :session session
-                             :content content :data)) ;; Data is added when calling back.
-    ;; NOTE: This assumes that the selected window is the buffer's window.  For now
-    ;; this is almost surely the case, but in the future, we might let the function
-    ;; send messages to other rooms more easily, so this assumption might not hold.
-    (when window
-      (with-selected-window window
-        (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
-          ;; Point is on last event: advance it to eob so that when the event is received
-          ;; back, the window will scroll.  (This might not always be desirable, because
-          ;; the user might have point on that event for a reason, but I think in most
-          ;; cases, it will be what's expected and most helpful.)
-          (setf (window-point) (point-max)))))))
-
-(declare-function ement--xml-escape-string "ement")
-(cl-defun ement-room--format-body-mentions
-    (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))
-  "Return string for BODY with mentions in ROOM linkified with TEMPLATE."
-  (declare (indent defun))
-  (let ((members (ement-room--members-alist room))
-        (pos 0)
-        replacement)
-    (while (setf pos (string-match (rx (or bos bow (1+ blank))
-                                       (group "@" (group (1+ (not blank)) (or eow eos (seq ":" (1+ blank))))))
-                                   body pos))
-      (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
-                                  ;; Found user ID: use it as replacement.
-                                  (format template (match-string 1 body) (ement--xml-escape-string (car member))))
-                                (when-let (user-id (alist-get (match-string 2 body) members nil nil #'equal))
-                                  ;; Found displayname: use it and MXID as replacement.
-                                  (format template user-id (ement--xml-escape-string (match-string 2 body))))))
-          (progn
-            ;; Found member: replace and move to end of replacement.
-            (setf body (replace-match replacement t t body 1))
-            (let ((difference (- (length replacement) (length (match-string 0 body)))))
-              (setf pos (if (/= 0 difference)
-                            ;; Replacement of a different length: adjust POS accordingly.
-                            (+ pos difference)
-                          (match-end 0)))))
-        ;; No replacement: move to end of match.
-        (setf pos (match-end 0))))
-    body))
+  (ement-send-message room session :body body :formatted-body formatted-body
+    :replying-to-event replying-to-event :filter ement-room-send-message-filter
+    :then #'ement-room-send-event-callback)
+  ;; NOTE: This assumes that the selected window is the buffer's window.  For now
+  ;; this is almost surely the case, but in the future, we might let the function
+  ;; send messages to other rooms more easily, so this assumption might not hold.
+  (when-let* ((buffer (alist-get 'buffer (ement-room-local room)))
+              (window (get-buffer-window buffer)))
+    (with-selected-window window
+      (when (>= (window-point) (ewoc-location (ewoc-nth ement-ewoc -1)))
+        ;; Point is on last event: advance it to eob so that when the event is received
+        ;; back, the window will scroll.  (This might not always be desirable, because
+        ;; the user might have point on that event for a reason, but I think in most
+        ;; cases, it will be what's expected and most helpful.)
+        (setf (window-point) (point-max))))))
 
 (cl-defun ement-room-send-emote (room session &key body)
   "Send emote to ROOM on SESSION with BODY.
@@ -1499,7 +1444,7 @@ the content (e.g. see `ement-room-send-org-filter')."
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
                (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
-                                 (ement-room-update-transaction-id session)))
+                                 (ement--update-transaction-id session)))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.emote"
                                          "body" body))))
@@ -1574,7 +1519,7 @@ The message must be one sent by the local user."
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
                          (list event ement-room ement-session body)))))))
   (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
-                           "m.room.message" (ement-room-update-transaction-id session)))
+                           "m.room.message" (ement--update-transaction-id session)))
          (new-content (ement-alist "body" body
                                    "msgtype" "m.text"))
          (_ (when ement-room-send-message-filter
@@ -1633,7 +1578,7 @@ reaction string, e.g. \"👍\"."
                  ((cl-struct ement-event (id event-id)) event)
                  ((cl-struct ement-room (id room-id)) ement-room)
                  (endpoint (format "rooms/%s/send/m.reaction/%s" (url-hexify-string room-id)
-                                   (ement-room-update-transaction-id ement-session)))
+                                   (ement--update-transaction-id ement-session)))
                  (content (ement-alist "m.relates_to"
                                        (ement-alist "rel_type" "m.annotation"
                                                     "event_id" event-id
@@ -1694,18 +1639,28 @@ reaction string, e.g. \"👍\"."
 
 ;;;; Functions
 
-(defun ement-room-update-transaction-id (session)
-  "Return SESSION's incremented transaction ID formatted for sending.
-Increments ID and appends current timestamp to avoid reuse
-problems."
-  ;; TODO: Naming things is hard.
-  ;; In the event that Emacs isn't killed cleanly and the session isn't saved to disk, the
-  ;; transaction ID would get reused the next time the user connects.  To avoid that, we
-  ;; append the current time to the ID.  (IDs are just strings, and Element does something
-  ;; similar, so this seems reasonable.)
-  (format "%s-%s"
-          (cl-incf (ement-session-transaction-id session))
-          (format-time-string "%s")))
+(defun ement-room-view (room session)
+  "Switch to a buffer showing ROOM on SESSION.
+Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
+call `pop-to-buffer'."
+  (interactive (ement-complete-room :session (ement-complete-session) :suggest nil))
+  (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
+    (unless (buffer-live-p buffer)
+      (setf buffer (ement-room--buffer session room (ement-room--buffer-name room))
+            (alist-get 'buffer (ement-room-local room))  buffer))
+    ;; FIXME: There must be a better way to handle this.
+    (funcall (if current-prefix-arg
+                 #'pop-to-buffer #'pop-to-buffer-same-window)
+             buffer)))
+(defalias 'ement-view-room #'ement-room-view)
+
+(defun ement-room--buffer-name (room)
+  "Return name for ROOM's buffer."
+  (concat ement-room-buffer-name-prefix
+          (or (ement-room-display-name room)
+              (setf (ement-room-display-name room)
+                    (ement--room-display-name room)))
+          ement-room-buffer-name-suffix))
 
 (defun ement-room-goto-event (event)
   "Go to EVENT in current buffer."
@@ -1818,53 +1773,6 @@ the previously oldest event."
                      (forward-line -1)))
             (point-max-p (set-window-point buffer-window (point-max)))))))
 
-(defun ement-room--add-reply (data replying-to-event)
-  "Return DATA adding reply data for REPLYING-TO-EVENT in current buffer's room.
-DATA is an unsent message event's data alist."
-  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#id351> "13.2.2.6.1  Rich replies"
-  ;; FIXME: Rename DATA.
-  (pcase-let* (((cl-struct ement-event (id replying-to-event-id)
-                           content (sender replying-to-sender))
-                replying-to-event)
-               ((cl-struct ement-user (id replying-to-sender-id)) replying-to-sender)
-               ((map ('body replying-to-body) ('formatted_body replying-to-formatted-body)) content)
-               (replying-to-body (if (use-region-p)
-                                     (buffer-substring-no-properties (region-beginning) (region-end))
-                                   replying-to-body))
-               (replying-to-formatted-body (if (use-region-p)
-                                               replying-to-body
-                                             replying-to-formatted-body))
-               (replying-to-sender-name (ement-room--user-display-name replying-to-sender ement-room))
-               (quote-string (format "> <%s> %s\n\n" replying-to-sender-name replying-to-body))
-               (reply-body (alist-get "body" data nil nil #'string=))
-               (reply-body-with-quote (concat quote-string reply-body))
-               (reply-formatted-body-with-quote
-                (format "<mx-reply>
-  <blockquote>
-    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
-    <a href=\"https://matrix.to/#/%s\">%s</a>
-    <br />
-    %s
-  </blockquote>
-</mx-reply>
-%s"
-                        (ement-room-id ement-room) replying-to-event-id replying-to-sender-id replying-to-sender-name
-                        ;; TODO: Encode HTML special characters.  Not as straightforward in Emacs as one
-                        ;; might hope: there's `web-mode-html-entities' and `org-entities'.  See also
-                        ;; <https://emacs.stackexchange.com/questions/8166/encode-non-html-characters-to-html-equivalent>.
-                        (or replying-to-formatted-body replying-to-body)
-                        reply-body)))
-    (when (use-region-p)
-      (deactivate-mark))
-    ;; NOTE: map-elt doesn't work with string keys, so we use `alist-get'.
-    (setf (alist-get "body" data nil nil #'string=) reply-body-with-quote
-          (alist-get "formatted_body" data nil nil #'string=) reply-formatted-body-with-quote
-          data (append (ement-alist "m.relates_to" (ement-alist "m.in_reply_to"
-                                                                (ement-alist "event_id" replying-to-event-id))
-                                    "format" "org.matrix.custom.html")
-                       data))
-    data))
-
 (cl-defun ement-room--send-typing (session room &key (typing t))
   "Send a typing notification for ROOM on SESSION."
   (pcase-let* (((cl-struct ement-session user) session)
@@ -1876,23 +1784,6 @@ DATA is an unsent message event's data alist."
     (ement-api session endpoint :method 'put :data (json-encode data)
       ;; We don't really care about the response, I think.
       :then #'ignore)))
-
-(defun ement-room--direct-p (room session)
-  "Return non-nil if ROOM on SESSION is a direct chat."
-  (cl-labels ((content-contains-room-id
-               (content room-id) (cl-loop for (_user-id . room-ids) in content
-                                          ;; NOTE: room-ids is a vector.
-                                          thereis (seq-contains-p room-ids room-id))))
-    (pcase-let* (((cl-struct ement-session account-data) session)
-                 ((cl-struct ement-room id) room))
-      (or (cl-loop for event in account-data
-                   when (equal "m.direct" (alist-get 'type event))
-                   thereis (content-contains-room-id (alist-get 'content event) id))
-          (cl-loop
-           ;; Invited rooms have no account-data yet, and their
-           ;; directness flag is in invite-state events.
-           for event in (ement-room-invite-state room)
-           thereis (alist-get 'is_direct (ement-event-content event)))))))
 
 (define-derived-mode ement-room-mode fundamental-mode
   `("Ement-Room"
@@ -2012,98 +1903,6 @@ data slot."
         ;; Return the buffer!
         new-buffer)))
 
-(defun ement-room--room-display-name (room)
-  "Return the displayname for ROOM."
-  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-room>.
-  ;; NOTE: The spec seems incomplete, because the algorithm it recommends does not say how
-  ;; or when to use "m.room.member" events for rooms without heroes (e.g. invited rooms).
-  ;; TODO: Add SESSION argument and use it to remove local user from names.
-  (cl-labels ((latest-event (type content-field)
-                            (or (cl-loop for event in (ement-room-timeline room)
-                                         when (and (equal type (ement-event-type event))
-                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
-                                         return (alist-get content-field (ement-event-content event)))
-                                (cl-loop for event in (ement-room-state room)
-                                         when (and (equal type (ement-event-type event))
-                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
-                                         return (alist-get content-field (ement-event-content event)))))
-              (member-events-name
-               () (when-let ((member-events (cl-loop for accessor in '(ement-room-timeline ement-room-state ement-room-invite-state)
-                                                     append (cl-remove-if-not (apply-partially #'equal "m.room.member")
-                                                                              (funcall accessor room)
-                                                                              :key #'ement-event-type))))
-                    (string-join (delete-dups
-                                  (mapcar (lambda (event)
-                                            (ement-room--user-display-name (ement-event-sender event) room))
-                                          member-events))
-                                 ", ")))
-              (heroes-name
-               () (pcase-let* (((cl-struct ement-room summary) room)
-                               ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
-                                     ('m.invited_member_count invited-count))
-                                summary))
-                    ;; TODO: Disambiguate hero display names.
-                    (when hero-ids
-                      (cond ((<= (+ joined-count invited-count) 1)
-                             ;; Empty room.
-                             (empty-room hero-ids joined-count))
-                            ((>= (length hero-ids) (1- (+ joined-count invited-count)))
-                             ;; Members == heroes.
-                             (hero-names hero-ids))
-                            ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
-                                  (> (+ joined-count invited-count) 1))
-                             ;; More members than heroes.
-                             (heroes-and-others hero-ids joined-count))))))
-              (hero-names
-               (heroes) (string-join (mapcar #'hero-name heroes) ", "))
-              (hero-name
-               (id) (if-let ((user (gethash id ement-users)))
-                        (ement-room--user-display-name user room)
-                      id))
-              (heroes-and-others
-               (heroes joined)
-               (format "%s, and %s others" (hero-names heroes)
-                       (- joined (length heroes))))
-              (empty-room
-               (heroes joined) (cl-etypecase (length heroes)
-                                 ((satisfies zerop) "Empty room")
-                                 ((number 1 5) (format "Empty room (was %s)"
-                                                       (hero-names heroes)))
-                                 (t (format "Empty room (was %s)"
-                                            (heroes-and-others heroes joined))))))
-    (or (latest-event "m.room.name" 'name)
-        (latest-event "m.room.canonical_alias" 'alias)
-        (heroes-name)
-        (member-events-name)
-        (ement-room-id room))))
-
-(defun ement-room--user-display-name (user room)
-  "Return the displayname for USER in ROOM."
-  ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-user>.
-  ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
-
-  ;; NOTE: Both state and timeline events must be searched.  (A helpful user
-  ;; in #matrix-dev:matrix.org, Michael (t3chguy), clarified this for me).
-  (if-let ((cached-name (gethash room (ement-user-room-display-names user))))
-      cached-name
-    ;; Put timeline events before state events, because IIUC they should be more recent.
-    (cl-labels ((join-displayname-event-p
-                 (event) (and (equal "m.room.member" (ement-event-type event))
-                              (equal "join" (alist-get 'membership (ement-event-content event)))
-                              (equal user (ement-event-sender event))
-                              (alist-get 'displayname (ement-event-content event)))))
-      (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
-                                          when (join-displayname-event-p event)
-                                          return (alist-get 'displayname (ement-event-content event)))
-                                 (cl-loop for event in (ement-room-state room)
-                                          when (join-displayname-event-p event)
-                                          return (alist-get 'displayname (ement-event-content event)))))
-                (calculated-name displayname))
-          (puthash room calculated-name (ement-user-room-display-names user))
-        ;; No membership state event: use pre-calculated displayname or ID.
-        (or (ement-user-displayname user)
-            (ement-user-id user))))))
-
 (defun ement-room--event-data (id)
   "Return event struct for event ID in current buffer."
   ;; Search from bottom, most likely to be faster.
@@ -2149,7 +1948,6 @@ For use as `imenu-create-index-function'."
   (define-key ement-room-occur-mode-map (kbd "n") #'ement-room-occur-next)
   (define-key ement-room-occur-mode-map (kbd "p") #'ement-room-occur-prev))
 
-(declare-function ement-complete-user-id "ement")
 (cl-defun ement-room-occur (&key user-id regexp pred header)
   "Show known events in current buffer matching args in a new buffer.
 If REGEXP, show events whose sender or body content match it.  Or
@@ -2329,13 +2127,14 @@ function to `ement-room-event-fns', which see."
   (ement-room--insert-event event))
 
 (defun ement-room--format-power-levels-event (event room _session)
+  "Return power-levels EVENT in ROOM formatted as a string."
   (pcase-let (((cl-struct ement-event sender
                           (content (map ('users new-users)))
                           (unsigned (map ('prev_content (map ('users old-users))))))
                event))
     (when old-users
       (pcase-let* ((sender-id (ement-user-id sender))
-                   (sender-displayname (ement-room--user-display-name sender room))
+                   (sender-displayname (ement--user-displayname-in room sender))
                    (`(,changed-user-id-symbol . ,new-level)
                     (cl-find-if (lambda (new-user)
                                   (let ((old-user (cl-find (car new-user) old-users
@@ -2347,7 +2146,7 @@ function to `ement-room-event-fns', which see."
                    (changed-user (when changed-user-id-symbol
                                    (gethash changed-user-id ement-users)))
                    (user-displayname (if changed-user
-                                         (ement-room--user-display-name changed-user room)
+                                         (ement--user-displayname-in room changed-user)
                                        changed-user-id)))
         (concat ement-room-wrap-prefix
                 (propertize (if (not changed-user)
@@ -2414,7 +2213,7 @@ function to `ement-room-event-fns', which see."
       (setf usernames (cl-loop for id across user-ids
                                for user = (gethash id ement-users)
                                if user
-                               collect (ement-room--user-display-name user ement-room)
+                               collect (ement--user-displayname-in ement-room user)
                                else collect id)
             footer (propertize (concat "Typing: " (string-join usernames ", "))
                                'face 'font-lock-comment-face)))
@@ -2955,7 +2754,7 @@ If replaced event is not found, return nil, otherwise non-nil."
 
 (cl-defun ement-room--ewoc-node-before (ewoc data <-fn
                                              &key (from 'last) (pred #'identity))
-  "Return node in EWOC that matches PRED and goes before DATA by <-FN.
+  "Return node in EWOC that matches PRED and belongs before DATA by <-FN.
 Search from FROM (either `first' or `last')."
   (cl-assert (member from '(first last)))
   (if (null (ewoc-nth ewoc 0))
@@ -3073,7 +2872,7 @@ Formats according to `ement-room-message-format-spec', which see."
             ("m.room.avatar"
              (concat ement-room-wrap-prefix
                      (propertize (format "%s changed the room's avatar."
-                                         (propertize (ement-room--user-display-name (ement-event-sender event) room)
+                                         (propertize (ement--user-displayname-in room (ement-event-sender event))
                                                      'help-echo (ement-user-id (ement-event-sender event))))
                                  'face 'ement-room-membership
                                  'wrap-prefix ement-room-wrap-prefix)))
@@ -3088,7 +2887,6 @@ Formats according to `ement-room-message-format-spec', which see."
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
-(declare-function ement--remove-face-property "ement")
 (defun ement-room--format-reactions (event)
   "Return formatted reactions to EVENT."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
@@ -3118,7 +2916,7 @@ Formats according to `ement-room-message-format-spec', which see."
                           string))
                   (senders-names
                    (senders room) (cl-loop for sender in senders
-                                           collect (ement-room--user-display-name sender room)
+                                           collect (ement--user-displayname-in room sender)
                                            into names
                                            finally return (string-join names ", "))))
         (cl-loop with keys-senders
@@ -3311,7 +3109,7 @@ ROOM defaults to the value of `ement-room'."
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents
     ;; the display name from being used if the state event arrives later.
-    (propertize (ement-room--user-display-name user room)
+    (propertize (ement--user-displayname-in room user)
                 'face face
                 'help-echo (ement-user-id user))))
 
@@ -3320,7 +3118,7 @@ ROOM defaults to the value of `ement-room'."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body formatted_body) content)
                (body (or formatted_body body)))
-    ;; FIXME: `ement-room--user-display-name' may not be returning the
+    ;; FIXME: `ement--user-displayname-in' may not be returning the
     ;; right result for the local user, so test the displayname slot too.
     ;; HACK: So we use the username slot, which was created just for this, for now.
     (when body
@@ -3328,7 +3126,7 @@ ROOM defaults to the value of `ement-room'."
                      (form) `(when-let ((string ,form))
                                (string-match-p (regexp-quote string) body))))
         (or (matches-body-p (ement-user-username user))
-            (matches-body-p (ement-room--user-display-name user room))
+            (matches-body-p (ement--user-displayname-in room user))
             (matches-body-p (ement-user-id user)))))))
 
 (defun ement-room--linkify-urls (string)
@@ -3462,7 +3260,7 @@ use it as the initial message contents."
   (interactive (progn
                  (cl-assert ement-room) (cl-assert ement-session)
                  (list ement-room ement-session)))
-  (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement-room--room-display-name ement-room))))
+  (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement--room-display-name ement-room))))
          (send-message-filter ement-room-send-message-filter))
     (with-current-buffer compose-buffer
       (ement-room-init-compose-buffer room session)
@@ -3585,7 +3383,7 @@ a copy of the local keymap, and sets `header-line-format'."
                            (unsigned (map ('prev_content (map ('membership prev-membership)
                                                               ('displayname prev-displayname))))))
                 event)
-               (sender-name (ement-room--user-display-name sender ement-room)))
+               (sender-name (ement--user-displayname-in ement-room sender)))
     (cl-macrolet ((sender-name-id-string
                    () `(propertize sender-name
                                    'help-echo (ement-user-id sender)))
@@ -3705,7 +3503,7 @@ STRUCT should be an `ement-room-membership-events' struct."
                          (cons prev-membership new-membership)))
               (event-user
                (event) (propertize (if-let (user (gethash (ement-event-state-key event) ement-users))
-                                       (ement-room--user-display-name user room)
+                                       (ement--user-displayname-in room user)
                                      (ement-event-state-key event))
                                    'help-echo (concat (ement-room--format-member-event event)
                                                       " <" (ement-event-state-key event) ">"))))
@@ -3838,7 +3636,6 @@ height."
         (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
         (set-frame-parameter nil 'fullscreen 'maximized)))))
 
-(declare-function ement--mxc-to-url "ement.el")
 (defun ement-room--format-m.image (event)
   "Return \"m.image\" EVENT formatted as a string.
 When `ement-room-images' is non-nil, also download it and then
@@ -4000,7 +3797,7 @@ compatibility), and the result is added to the CONTENT as
                (formatted-body
                 (save-window-excursion
                   (with-temp-buffer
-                    (insert (ement-room--format-body-mentions body room
+                    (insert (ement--format-body-mentions body room
                               :template "[[https://matrix.to/#/%s][%s]]"))
                     (cl-letf (((symbol-function 'org-html-src-block)
                                (symbol-function 'ement-room--org-html-src-block)))
@@ -4110,7 +3907,7 @@ For use in `completion-at-point-functions'."
     (delete-dups
      (cl-loop for member in members-seen
               collect (ement-user-id member)
-              collect (ement-room--user-display-name member room)))))
+              collect (ement--user-displayname-in room member)))))
 
 (defun ement-room--room-aliases-and-ids ()
   "Return a list of room names and aliases seen in current session.
@@ -4123,21 +3920,6 @@ For use in `completion-at-point-functions'."
      (delq nil (cl-loop for room in (ement-session-rooms session)
                         collect (ement-room-id room)
                         collect (ement-room-canonical-alias room))))))
-
-(defun ement-room--members-alist (room)
-  "Return alist of member displaynames mapped to IDs seen in ROOM."
-  ;; We map displaynames to IDs because `ement-room--format-body-mentions' needs to find
-  ;; MXIDs from displaynames.
-  (pcase-let* (((cl-struct ement-room timeline) room)
-               (members-seen (mapcar #'ement-event-sender timeline))
-               (members-alist))
-    (dolist (member members-seen)
-      ;; Testing with `benchmark-run-compiled', it appears that using `cl-pushnew' is
-      ;; about 10x faster than using `delete-dups'.
-      (cl-pushnew (cons (ement-room--user-display-name member room)
-                        (ement-user-id member))
-                  members-alist))
-    members-alist))
 
 ;;;;; Transient
 
