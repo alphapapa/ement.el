@@ -1440,7 +1440,7 @@ the content (e.g. see `ement-room-send-org-filter')."
         (pos 0)
         replacement)
     (while (setf pos (string-match (rx (or bos bow (1+ blank))
-                                       (group "@" (group (1+ (not blank)) (or eow (seq ":" (1+ blank))))))
+                                       (group "@" (group (1+ (not blank)) (or eow eos (seq ":" (1+ blank))))))
                                    body pos))
       (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
                                   ;; Found user ID: use it as replacement.
