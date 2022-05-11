@@ -664,6 +664,17 @@ the `wrap-prefix' property.  Also applies any PROPERTIES."
                        'wrap-prefix ement-room-wrap-prefix
                        ,@properties)))
 
+(defsubst ement-room--concat-property (string property value &optional append)
+  "Return STRING having concatted VALUE with PROPERTY on it.
+If APPEND, append it; otherwise prepend.  Assumes PROPERTY is
+constant throughout STRING."
+  (declare (indent defun))
+  (let* ((old-value (get-text-property 0 property string))
+         (new-value (if append
+                        (concat old-value value)
+                      (concat value old-value))))
+    (propertize string property new-value)))
+
 ;;;;; Event formatting
 
 ;; NOTE: When adding specs, also add them to docstring
@@ -770,7 +781,9 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                                      ? )
                         sender)
               ;; String wider than margin: truncate it.
-              (truncate-string-to-width sender ement-room-left-margin-width nil nil "…"))))
+              (ement-room--concat-property
+                (truncate-string-to-width sender ement-room-left-margin-width nil nil "…")
+                'help-echo (concat sender " ")))))
     ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
     ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
     ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
