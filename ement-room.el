@@ -749,14 +749,19 @@ BODY is wrapped in a lambda form that binds `event', `room', and
 (ement-room-define-event-formatter ?S
   "Sender display name."
   (ignore session)
-  (let ((sender (ement-room--format-user (ement-event-sender event) room)))
-    (when (and (not ement-room-sender-in-headers)
-               (< (string-width sender) ement-room-left-margin-width))
-      ;; Using :align-to or :width space display properties doesn't
-      ;; seem to have any effect in the margin, so we make a string.
-      (setf sender (concat (make-string (- ement-room-left-margin-width (string-width sender))
-                                        ? )
-                           sender)))
+  (pcase-let ((sender (ement-room--format-user (ement-event-sender event) room))
+              ((cl-struct ement-room (local (map buffer))) room))
+    (with-current-buffer buffer
+      (setf sender
+            (if (and (not ement-room-sender-in-headers)
+                     (< (string-width sender) ement-room-left-margin-width))
+                ;; Using :align-to or :width space display properties doesn't
+                ;; seem to have any effect in the margin, so we make a string.
+                (concat (make-string (- ement-room-left-margin-width (string-width sender))
+                                     ? )
+                        sender)
+              ;; String wider than margin: truncate it.
+              (truncate-string-to-width sender ement-room-left-margin-width nil nil "…"))))
     ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
     ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
     ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
