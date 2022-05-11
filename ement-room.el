@@ -654,6 +654,16 @@ sends a not-typing notification."
        ;; spec doesn't say whether this is needed, but it seems to be.)
        (ement-room--send-typing ement-session ement-room :typing nil))))
 
+(defmacro ement-room-wrap-prefix (string-form &rest properties)
+  "Wrap STRING-FORM with `ement-room-wrap-prefix'.
+Concats `ement-room-wrap-prefix' to STRING-FORM and applies it as
+the `wrap-prefix' property.  Also applies any PROPERTIES."
+  (declare (indent defun))
+  `(concat ement-room-wrap-prefix
+           (propertize ,string-form
+                       'wrap-prefix ement-room-wrap-prefix
+                       ,@properties)))
+
 ;;;;; Event formatting
 
 ;; NOTE: When adding specs, also add them to docstring
@@ -2148,18 +2158,17 @@ function to `ement-room-event-fns', which see."
                    (user-displayname (if changed-user
                                          (ement--user-displayname-in room changed-user)
                                        changed-user-id)))
-        (concat ement-room-wrap-prefix
-                (propertize (if (not changed-user)
-                                (format "%s sent a power-level event"
-                                        (propertize sender-displayname
-                                                    'help-echo sender-id))
-                              (format "%s set %s's power level to %s"
-                                      (propertize sender-displayname
-                                                  'help-echo sender-id)
-                                      (propertize user-displayname 'help-echo changed-user-id)
-                                      new-level))
-                            'face 'ement-room-membership
-                            'wrap-prefix ement-room-wrap-prefix))))))
+        (ement-room-wrap-prefix
+          (if (not changed-user)
+              (format "%s sent a power-level event"
+                      (propertize sender-displayname
+                                  'help-echo sender-id))
+            (format "%s set %s's power level to %s"
+                    (propertize sender-displayname
+                                'help-echo sender-id)
+                    (propertize user-displayname 'help-echo changed-user-id)
+                    new-level))
+          'face 'ement-room-membership)))))
 
 (ement-room-defevent "m.room.redaction"
   ;; We handle redaction events here rather than an `ement-defevent' handler.  This way we
@@ -2815,10 +2824,9 @@ seconds."
                          'display '(space :width text :height (1))
                          'face thing)))
     ((pred ement-room-membership-events-p)
-     (insert ement-room-wrap-prefix
-             (propertize (ement-room--format-membership-events thing ement-room)
-                         'face 'ement-room-membership
-                         'wrap-prefix ement-room-wrap-prefix)))))
+     (insert (ement-room-wrap-prefix
+               (ement-room--format-membership-events thing ement-room)
+               'face 'ement-room-membership)))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."
@@ -2870,20 +2878,18 @@ Formats according to `ement-room-message-format-spec', which see."
              ;; Handled by defevent-based handler.
              "")
             ("m.room.avatar"
-             (concat ement-room-wrap-prefix
-                     (propertize (format "%s changed the room's avatar."
-                                         (propertize (ement--user-displayname-in room (ement-event-sender event))
-                                                     'help-echo (ement-user-id (ement-event-sender event))))
-                                 'face 'ement-room-membership
-                                 'wrap-prefix ement-room-wrap-prefix)))
+             (ement-room-wrap-prefix
+               (format "%s changed the room's avatar."
+                       (propertize (ement--user-displayname-in room (ement-event-sender event))
+                                   'help-echo (ement-user-id (ement-event-sender event))))
+               'face 'ement-room-membership))
             ("m.room.power_levels"
              (ement-room--format-power-levels-event event room session))
-            (_ (concat ement-room-wrap-prefix
-                       (propertize (format "[sender:%s type:%s]"
-                                           (ement-user-id (ement-event-sender event))
-                                           (ement-event-type event))
-                                   'help-echo (format "%S" (ement-event-content event))
-                                   'wrap-prefix ement-room-wrap-prefix))))
+            (_ (ement-room-wrap-prefix
+                 (format "[sender:%s type:%s]"
+                         (ement-user-id (ement-event-sender event))
+                         (ement-event-type event))
+                 'help-echo (format "%S" (ement-event-content event)))))
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
@@ -3371,9 +3377,8 @@ a copy of the local keymap, and sets `header-line-format'."
   :sample-face 'ement-room-membership
   :value-create (lambda (widget)
                   (pcase-let* ((event (widget-value widget)))
-                    (insert ement-room-wrap-prefix
-                            (propertize (ement-room--format-member-event event)
-                                        'wrap-prefix ement-room-wrap-prefix)))))
+                    (insert (ement-room-wrap-prefix
+                              (ement-room--format-member-event event))))))
 
 (defun ement-room--format-member-event (event)
   "Return formatted string for \"m.room.member\" EVENT."
@@ -3690,24 +3695,22 @@ show it in the buffer."
                     (image-property image :margin) 5
                     (image-property image :pointer) 'hand)
               (concat "\n"
-                      ement-room-wrap-prefix
-                      (propertize " " 'display image
-                                  'keymap ement-room-image-keymap
-                                  'wrap-prefix ement-room-wrap-prefix)))
+                      (ement-room-wrap-prefix " "
+                        'display image
+                        'keymap ement-room-image-keymap)))
           (error (format "\n [error inserting image: %s]" (error-message-string err))))
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
-          (concat ement-room-wrap-prefix
-                  (propertize "[image]"
-                              'action #'browse-url
-                              'button t
-                              'button-data url
-                              'category t
-                              'face 'button
-                              'follow-link t
-                              'help-echo url
-                              'keymap button-map
-                              'mouse-face 'highlight))
+          (ement-room-wrap-prefix "[image]"
+            'action #'browse-url
+            'button t
+            'button-data url
+            'category t
+            'face 'button
+            'follow-link t
+            'help-echo url
+            'keymap button-map
+            'mouse-face 'highlight)
         (when (and ement-room-images url)
           ;; Images enabled and URL present: download it.
           (plz 'get url :as 'binary
