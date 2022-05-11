@@ -467,52 +467,6 @@ messages won't display in the same font as others."
   :type '(choice (const :tag "Disable variable-pitch fonts" nil)
                  (const :tag "Enable variable-pitch fonts" t)))
 
-(defcustom ement-room-prism 'name
-  "Display users' names and messages in unique colors."
-  :type '(choice (const :tag "Name only" name)
-                 (const :tag "Name and message" both)
-                 (const :tag "Neither" nil)))
-
-(defcustom ement-room-prism-addressee t
-  "Show addressees' names in their respective colors.
-Applies to room member names at the beginning of messages,
-preceded by a colon or comma.
-
-Note that a limitation applies to the current implementation: if
-a message from the addressee is not yet visible in a room at the
-time the addressed message is formatted, the color may not be
-applied."
-  ;; FIXME: When we keep a hash table of members in a room, make this
-  ;; smarter.
-  :type 'boolean)
-
-(defcustom ement-room-prism-color-adjustment 0
-  "Number used to tweak computed username colors.
-This may be used to adjust your favorite users' colors if you
-don't like the default ones.  (The only way to do it is by
-experimentation--there is no direct mapping available, nor a
-per-user setting.)
-
-The number is added to the hashed user ID before converting it to
-a color.  Note that, since user ID hashes are ratioed against
-`most-positive-fixnum', this number must be very large in order
-to have any effect; it should be at least 1e13.
-
-After changing this option, a room's buffer must be killed and
-recreated to see the effect."
-  :type 'number
-  :set (lambda (option value)
-         (unless (or (= 0 value) (>= value 1e13))
-           (user-error "This option must be a very large number, at least 1e13"))
-         (set-default option value)))
-
-(defcustom ement-room-prism-minimum-contrast 6
-  "Attempt to enforce this minimum contrast ratio for user faces.
-This should be a reasonable number from, e.g. 0-7 or so."
-  ;; Prot would almost approve of this default.  :) I would go all the way
-  ;; to 7, but 6 already significantly dilutes the colors in some cases.
-  :type 'number)
-
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
@@ -599,6 +553,69 @@ option's default value has that face applied to it where
 appropriate; if users customize this option, they will need to
 apply the face to the string themselves, if desired."
   :type 'string)
+
+(defgroup ement-room-prism nil
+  "Colorize usernames and messages in rooms."
+  :group 'ement-room)
+
+(defcustom ement-room-prism 'name
+  "Display users' names and messages in unique colors."
+  :type '(choice (const :tag "Name only" name)
+                 (const :tag "Name and message" both)
+                 (const :tag "Neither" nil)))
+
+(defcustom ement-room-prism-addressee t
+  "Show addressees' names in their respective colors.
+Applies to room member names at the beginning of messages,
+preceded by a colon or comma.
+
+Note that a limitation applies to the current implementation: if
+a message from the addressee is not yet visible in a room at the
+time the addressed message is formatted, the color may not be
+applied."
+  ;; FIXME: When we keep a hash table of members in a room, make this
+  ;; smarter.
+  :type 'boolean)
+
+(defcustom ement-room-prism-color-adjustment 0
+  "Number used to tweak computed username colors.
+This may be used to adjust your favorite users' colors if you
+don't like the default ones.  (The only way to do it is by
+experimentation--there is no direct mapping available, nor a
+per-user setting.)
+
+The number is added to the hashed user ID before converting it to
+a color.  Note that, since user ID hashes are ratioed against
+`most-positive-fixnum', this number must be very large in order
+to have any effect; it should be at least 1e13.
+
+After changing this option, a room's buffer must be killed and
+recreated to see the effect."
+  :type 'number
+  :set (lambda (option value)
+         (unless (or (= 0 value) (>= value 1e13))
+           (user-error "This option must be a very large number, at least 1e13"))
+         (set-default option value)))
+
+(defcustom ement-room-prism-minimum-contrast 6
+  "Attempt to enforce this minimum contrast ratio for user faces.
+This should be a reasonable number from, e.g. 0-7 or so."
+  ;; Prot would almost approve of this default.  :) I would go all the way
+  ;; to 7, but 6 already significantly dilutes the colors in some cases.
+  :type 'number)
+
+(defcustom ement-room-prism-message-desaturation 25
+  "Desaturate user colors by this percent for message bodies.
+Makes message bodies a bit less intense."
+  :type 'integer)
+
+(defcustom ement-room-prism-message-lightening 10
+  "Lighten user colors by this percent for message bodies.
+Makes message bodies a bit less intense.
+
+When using a light theme, it may be necessary to use a negative
+number (to darken rather than lighten)."
+  :type 'integer)
 
 ;;;; Macros
 
@@ -826,9 +843,15 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                                     'ement-room-mention)))
                (prism-color (unless self-message-p
                               (when (eq 'both ement-room-prism)
-                                (or (ement-user-color sender)
-                                    (setf (ement-user-color sender)
-                                          (ement-room--user-color sender))))))
+                                (or (ement-user-message-color sender)
+                                    (setf (ement-user-message-color sender)
+                                          (thread-first
+                                            (or (ement-user-color sender)
+                                                (setf (ement-user-color sender)
+                                                      (ement-room--user-color sender)))
+                                            (color-desaturate-name ement-room-prism-message-desaturation)
+                                            (color-lighten-name ement-room-prism-message-lightening))))
+                                )))
                (redacted-face (when (or local-redacted-by unsigned-redacted-by)
                                 'ement-room-redacted))
                (body-face (list :inherit (delq nil (list redacted-face context-face type-face)))))
@@ -2309,7 +2332,8 @@ function to `ement-room-event-fns', which see."
   "Whether to send read receipts.
 Also controls whether the read-receipt marker in a room is moved
 automatically."
-  :type 'boolean)
+  :type 'boolean
+  :group 'ement-room)
 
 (defun ement-room-start-read-receipt-timer (window _pos)
   "Start idle timer to set read-receipt to POS in WINDOW's room.
@@ -3586,6 +3610,10 @@ STRUCT should be an `ement-room-membership-events' struct."
     (define-key map [double-mouse-1] #'ement-room-image-show)
     map)
   "Keymap for images in room buffers.")
+
+(defgroup ement-room-images nil
+  "Showing images in rooms."
+  :group 'ement-room)
 
 (defcustom ement-room-images t
   "Download and show images in messages, avatars, etc."

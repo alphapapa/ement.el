@@ -44,7 +44,7 @@
 
 (cl-defstruct ement-user
   id displayname account-data room-display-names
-  color
+  color message-color
   username  ;; NOTE: Not exactly according to spec, I guess, but useful for now.
   )
 
