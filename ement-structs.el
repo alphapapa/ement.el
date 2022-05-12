@@ -43,10 +43,15 @@
 ;;;; Structs
 
 (cl-defstruct ement-user
-  id displayname account-data room-display-names
-  color message-color
-  username  ;; NOTE: Not exactly according to spec, I guess, but useful for now.
-  )
+  id displayname account-data
+  (color nil :documentation "Color in which to display user's name.")
+  (message-color nil :documentation "Color in which to display user's messages.")
+  (username nil
+            ;; NOTE: Not exactly according to spec, I guess, but useful for now.
+            :documentation "Username part of user's Matrix ID.")
+  (avatar-url nil :documentation "MXC URL to user's avatar.")
+  (avatar nil :documentation "One-space string with avatar image in display property.")
+  (room-display-names (make-hash-table) :documentation "Hash table mapping rooms to the user's per-room display name."))
 
 (cl-defstruct ement-event
   id sender content origin-server-ts type unsigned state-key
@@ -68,6 +73,7 @@
   id display-name prev-batch
   summary state timeline ephemeral account-data unread-notifications
   latest-ts topic canonical-alias avatar status type invite-state
+  (members (make-hash-table :test #'equal) :documentation "Hash table mapping joined user IDs to user structs.")
   ;; The local slot is an alist used by the local client only.
   local
   (receipts (make-hash-table :test #'equal)))

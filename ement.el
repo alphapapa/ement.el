@@ -635,8 +635,7 @@ Adds sender to `ement-users' when necessary."
                      ('sender sender-id) ('state_key state-key))
                 event)
                (sender (or (gethash sender-id ement-users)
-                           (puthash sender-id (make-ement-user
-                                               :id sender-id :room-display-names (make-hash-table))
+                           (puthash sender-id (make-ement-user :id sender-id)
                                     ement-users))))
     ;; MAYBE: Handle other keys in the event, such as "room_id" in "invite" events.
     (make-ement-event :id id :sender sender :type type :content content :state-key state-key
@@ -794,6 +793,27 @@ and `session' to the session.  Adds function to
   (pcase-let* (((cl-struct ement-event (content (map type))) event))
     (when type
       (setf (ement-room-type room) type))))
+
+(ement-defevent "m.room.member"
+  "Put/update member on `ement-users' and room's members table."
+  (ignore session)
+  (pcase-let* (((cl-struct ement-room members) room)
+               ((cl-struct ement-event state-key
+                           (content (map displayname
+                                         ('avatar_url avatar-url))))
+                event)
+               (user (or (gethash state-key ement-users)
+                         (puthash state-key
+                                  (make-ement-user :id state-key :avatar-url avatar-url
+                                                   ;; NOTE: The spec doesn't seem to say whether the
+                                                   ;; displayname in the member event applies only to the
+                                                   ;; room or is for the user generally, so we'll save it
+                                                   ;; in the struct anyway.
+                                                   :displayname displayname)
+                                  ement-users))))
+    (puthash room displayname (ement-user-room-display-names user))
+    (unless (gethash state-key members)
+      (puthash state-key user members))))
 
 (ement-defevent "m.room.name"
   (ignore session)
