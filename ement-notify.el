@@ -176,9 +176,9 @@ anything if session hasn't finished initial sync."
 (defun ement-notify--notifications-notify (event room _session)
   "Call `notifications-notify' for EVENT in ROOM on SESSION."
   (pcase-let* (((cl-struct ement-event sender content) event)
-               ((cl-struct ement-room avatar) room)
+               ((cl-struct ement-room avatar (display-name room-displayname)) room)
                ((map body) content)
-               (room-name (ement-room-display-name room))
+               (room-name (or room-displayname (ement--room-display-name room)))
                (sender-name (ement--user-displayname-in room sender))
                (title (format "%s in %s" sender-name room-name)))
     ;; TODO: Encode HTML entities.
