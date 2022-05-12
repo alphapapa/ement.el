@@ -131,6 +131,15 @@ In FORM, `it' is bound to the element being tested."
      ,@body
      it))
 
+(defmacro ement-singly (place-form &rest body)
+  "If PLACE-FORM is nil, set it non-nil and eval BODY.
+BODY should set PLACE-FORM to nil when BODY is eligible to run
+again."
+  (declare (indent defun))
+  `(unless ,place-form
+     (setf ,place-form t)
+     ,@body))
+
 ;;;;; Progress reporters
 
 ;; MAYBE: Submit a `with-progress-reporter' macro to Emacs.

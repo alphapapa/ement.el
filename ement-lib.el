@@ -61,6 +61,40 @@
 
 ;; These functions could reasonably be called by code in other packages.
 
+(defun ement-list-members (room session bufferp)
+  "Show members of ROOM on SESSION.
+If BUFFERP (interactively, with prefix), or if there are many
+members, show in a new buffer; otherwise show in echo area."
+  (interactive (list ement-room ement-session current-prefix-arg))
+  (pcase-let (((cl-struct ement-room members) room))
+    (ement--get-joined-members room session
+      (lambda (_)
+        (cond ((or bufferp (> (hash-table-count members) 51))
+               ;; Show in buffer.
+               (let* ((buffer (get-buffer-create (format "*Ement members: %s*" (ement-room-display-name room))))
+                      (members (cl-sort (cl-loop for user being the hash-values of members
+                                                 for id = (ement-user-id user)
+                                                 for displayname = (ement--user-displayname-in room user)
+                                                 collect (cons displayname id))
+                                        (lambda (a b) (string-collate-lessp a b nil t)) :key #'car))
+                      (displayname-width (cl-loop for member in members
+                                                  maximizing (string-width (car member))))
+                      (format-string (format "%%-%ss <%%s>" displayname-width)))
+                 (with-current-buffer buffer
+                   (erase-buffer)
+                   (dolist (member members)
+                     (insert (format format-string (car member) (cdr member)) "\n")))
+                 (pop-to-buffer buffer)))
+              (t
+               ;; Show in echo area.
+               (message "Members of %s (%s): %s" (ement--room-display-name room)
+                        (hash-table-count members)
+                        (string-join (map-apply (lambda (_id user)
+                                                  (ement--user-displayname-in room user))
+                                                members)
+                                     ", "))))))
+    (message "Listing members of %s..." (ement--format-room room))))
+
 (cl-defun ement-create-room
     (session &key name alias topic invite direct-p
              (then (lambda (data)
@@ -875,6 +909,35 @@ such when they were created."
       :then (lambda (_data)
               (message "Ement: Room <%s> marked as direct for <%s>." room-id other-user-id)))
     (message "Ement: Marking room as direct...")))
+
+(cl-defun ement--get-joined-members (room session &key then else)
+  "Get joined members in ROOM on SESSION and call THEN with response data.
+Or call ELSE with error data if request fails.  Also puts members
+on `ement-users', updating their displayname and avatar URL
+slots, and puts them on ROOM's `members' table."
+  (declare (indent defun))
+  (pcase-let* (((cl-struct ement-room id members) room)
+               (endpoint (format "rooms/%s/joined_members" (url-hexify-string id))))
+    (ement-api session endpoint
+      :else else
+      :then (lambda (data)
+              (mapc (lambda (member)
+                      (pcase-let* ((`(,id-symbol
+                                      . ,(map ('avatar_url avatar-url)
+                                              ('display_name display-name)))
+                                    member)
+                                   (member-id (symbol-name id-symbol))
+                                   (user (or (gethash member-id ement-users)
+                                             (puthash member-id (make-ement-user :id member-id)
+                                                      ement-users))))
+                        (setf (ement-user-displayname user) display-name
+                              (ement-user-avatar-url user) avatar-url)
+                        (puthash member-id user members)))
+                    (alist-get 'joined data))
+              (when then
+                ;; Finally, call the given callback.
+                (funcall then data))))
+    (message "Ement: Getting joined members in %s..." (ement--format-room room))))
 
 ;;; Footer
 

@@ -143,6 +143,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 
     ;; Room
     (define-key map (kbd "M-s o") #'ement-room-occur)
+    (define-key map (kbd "r m") #'ement-list-members)
     (define-key map (kbd "r t") #'ement-room-set-topic)
     (define-key map (kbd "r f") #'ement-room-set-message-format)
     (define-key map (kbd "r T") #'ement-tag-room)
@@ -3934,22 +3935,38 @@ For use in `completion-at-point-functions'."
 
 (defun ement-room--member-names-and-ids ()
   "Return a list of member names and IDs seen in current room.
-For use in `completion-at-point-functions'."
+If room's `members' table is filled, use it; otherwise, fetch
+members list and return already-seen members instead.  For use in
+`completion-at-point-functions'."
   ;; For now, we just collect a list of members from events we've seen.
   ;; TODO: In the future, we may maintain a per-room table of members, which
   ;; would be more suitable for completing names according to the spec.
-  (let* ((room (if (minibufferp)
-                   (buffer-local-value
-                    'ement-room (window-buffer (minibuffer-selected-window)))
-                 ement-room))
-         (ewoc (if (minibufferp)
-                   (buffer-local-value
-                    'ement-ewoc (window-buffer (minibuffer-selected-window)))
-                 ement-ewoc))
-         (members-seen (mapcar #'ement-event-sender
-                               (ewoc-collect ewoc #'ement-event-p))))
+  (pcase-let* ((room (if (minibufferp)
+                         (buffer-local-value
+                          'ement-room (window-buffer (minibuffer-selected-window)))
+                       ement-room))
+               (session (if (minibufferp)
+                            (buffer-local-value
+                             'ement-session (window-buffer (minibuffer-selected-window)))
+                          ement-session))
+               (ewoc (if (minibufferp)
+                         (buffer-local-value
+                          'ement-ewoc (window-buffer (minibuffer-selected-window)))
+                       ement-ewoc))
+               ((cl-struct ement-room members) room)
+               (members (if (alist-get 'fetched-members-p (ement-room-local room))
+                            (hash-table-values members)
+                          ;; HACK: Members table empty: update list and use known events
+                          ;; for now.
+                          (ement-singly (alist-get 'getting-members-p (ement-room-local room))
+                            (ement--get-joined-members room session
+                              :then (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil
+                                                      (alist-get 'fetched-members-p (ement-room-local room)) t))
+                              :else (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil))))
+                          (mapcar #'ement-event-sender
+                                  (ewoc-collect ewoc #'ement-event-p)))))
     (delete-dups
-     (cl-loop for member in members-seen
+     (cl-loop for member in members
               collect (ement-user-id member)
               collect (ement--user-displayname-in room member)))))
 
@@ -4010,6 +4027,7 @@ For use in `completion-at-point-functions'."
   [:pad-keys t
              ["Room"
               ("M-s o" "Occur search in room" ement-room-occur)
+              ("r m" "List members" ement-list-members)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
               ("r T" "Tag/untag room" ement-tag-room
