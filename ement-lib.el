@@ -200,7 +200,7 @@ If UNIGNORE-P (interactively, with prefix), un-ignore USER."
   "Put account data of TYPE with DATA on SESSION.
 Also handle the echoed-back event."
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))))
+  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))) session)
                (endpoint (format "user/%s/account_data/%s" (url-hexify-string user-id) type)))
     (ement-api session endpoint :method 'put :data (json-encode data)
       :then then)))
