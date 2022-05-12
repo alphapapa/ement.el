@@ -350,7 +350,7 @@ suggested room."
                (name-to-room-session
                 (cl-loop for session in sessions
                          append (cl-loop for room in (ement-session-rooms session)
-                                         collect (cons (ement--format-room room)
+                                         collect (cons (ement--format-room room 'topic)
                                                        (list room session)))))
                (names (mapcar #'car name-to-room-session))
                (selected-name (completing-read
@@ -536,16 +536,23 @@ m.replace metadata)."
       (ement--event-replaces-p a b)
       (ement--event-replaces-p b a)))
 
-(defun ement--format-room (room)
-  "Return ROOM formatted with name, alias, ID, and topic.
+(defun ement--format-room (room &optional topic)
+  "Return ROOM formatted with name, alias, ID, and optionally TOPIC.
 Suitable for use in completion, etc."
-  (format "%s <%s> (<%s>): \"%s\""
-          (or (ement-room-display-name room)
-              (setf (ement-room-display-name room)
-                    (ement--room-display-name room)))
-          (ement-room-canonical-alias room)
-          (ement-room-id room)
-          (ement-room-topic room)))
+  (if topic
+      (format "%s <%s> (<%s>): \"%s\""
+              (or (ement-room-display-name room)
+                  (setf (ement-room-display-name room)
+                        (ement--room-display-name room)))
+              (ement-room-canonical-alias room)
+              (ement-room-id room)
+              (ement-room-topic room))
+    (format "%s <%s> (<%s>)"
+            (or (ement-room-display-name room)
+                (setf (ement-room-display-name room)
+                      (ement--room-display-name room)))
+            (ement-room-canonical-alias room)
+            (ement-room-id room))))
 
 (defun ement--members-alist (room)
   "Return alist of member displaynames mapped to IDs seen in ROOM."
@@ -621,13 +628,13 @@ IMAGE should be one as created by, e.g. `create-image'."
 Works in major-modes `ement-room-mode', `ement-room-list-mode',
 and `ement-taxy-mode'."
   (pcase major-mode
-    ('ement-room-mode (ement--format-room ement-room))
-    ('ement-room-list-mode (ement--format-room (tabulated-list-get-id)))
+    ('ement-room-mode (ement--format-room ement-room 'topic))
+    ('ement-room-list-mode (ement--format-room (tabulated-list-get-id) 'topic))
     ('ement-taxy-mode
      (cl-typecase (oref (magit-current-section) value)
        (taxy-magit-section nil)
        (t (pcase (oref (magit-current-section) value)
-            (`[,room ,_session] (ement--format-room room))))))))
+            (`[,room ,_session] (ement--format-room room 'topic))))))))
 
 (defun ement--room-direct-p (room session)
   "Return non-nil if ROOM on SESSION is a direct chat."
