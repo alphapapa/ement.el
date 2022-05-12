@@ -842,6 +842,33 @@ Emacs 28, uses the NOERROR argument to `xml-escape-string'."
         ;; We still don't want to error on this, so just return the string.
         string)))))
 
+(defun ement--mark-room-direct (room session)
+  "Mark ROOM on SESSION as a direct room.
+This may be used to mark rooms as direct which, for whatever
+reason (like a bug in your favorite client), were not marked as
+such when they were created."
+  (pcase-let* (((cl-struct ement-room timeline (id room-id)) room)
+               ((cl-struct ement-session (user local-user)) session)
+               ((cl-struct ement-user (id local-user-id)) local-user)
+               (direct-rooms-account-data-event-content
+                (alist-get 'content
+                           (cl-find-if (lambda (event)
+                                         (equal "m.direct" (alist-get 'type event)))
+                                       (ement-session-account-data session))))
+               (members (delete-dups (mapcar #'ement-event-sender timeline)))
+               (other-users (cl-remove local-user-id members
+                                       :key #'ement-user-id :test #'equal))
+               ((cl-struct ement-user (id other-user-id)) (car other-users)))
+    (cl-assert (= 1 (length other-users)))
+    (cl-assert (not (map-elt direct-rooms-account-data-event-content other-user-id)) nil
+               "Ement: User <%s> already has a direct room on session <%s>"
+               other-user-id local-user-id)
+    (setf (map-elt direct-rooms-account-data-event-content other-user-id) (vector room-id))
+    (ement-put-account-data session "m.direct" direct-rooms-account-data-event-content
+      :then (lambda (_data)
+              (message "Ement: Room <%s> marked as direct for <%s>." room-id other-user-id)))
+    (message "Ement: Marking room as direct...")))
+
 ;;; Footer
 
 (provide 'ement-lib)
