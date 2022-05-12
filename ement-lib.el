@@ -57,43 +57,7 @@
 
 ;;;; Functions
 
-;;;;; Public functions
-
-;; These functions could reasonably be called by code in other packages.
-
-(defun ement-list-members (room session bufferp)
-  "Show members of ROOM on SESSION.
-If BUFFERP (interactively, with prefix), or if there are many
-members, show in a new buffer; otherwise show in echo area."
-  (interactive (list ement-room ement-session current-prefix-arg))
-  (pcase-let (((cl-struct ement-room members) room))
-    (ement--get-joined-members room session
-      (lambda (_)
-        (cond ((or bufferp (> (hash-table-count members) 51))
-               ;; Show in buffer.
-               (let* ((buffer (get-buffer-create (format "*Ement members: %s*" (ement-room-display-name room))))
-                      (members (cl-sort (cl-loop for user being the hash-values of members
-                                                 for id = (ement-user-id user)
-                                                 for displayname = (ement--user-displayname-in room user)
-                                                 collect (cons displayname id))
-                                        (lambda (a b) (string-collate-lessp a b nil t)) :key #'car))
-                      (displayname-width (cl-loop for member in members
-                                                  maximizing (string-width (car member))))
-                      (format-string (format "%%-%ss <%%s>" displayname-width)))
-                 (with-current-buffer buffer
-                   (erase-buffer)
-                   (dolist (member members)
-                     (insert (format format-string (car member) (cdr member)) "\n")))
-                 (pop-to-buffer buffer)))
-              (t
-               ;; Show in echo area.
-               (message "Members of %s (%s): %s" (ement--room-display-name room)
-                        (hash-table-count members)
-                        (string-join (map-apply (lambda (_id user)
-                                                  (ement--user-displayname-in room user))
-                                                members)
-                                     ", "))))))
-    (message "Listing members of %s..." (ement--format-room room))))
+;;;;; Commands
 
 (cl-defun ement-create-room
     (session &key name alias topic invite direct-p
@@ -130,54 +94,6 @@ the request."
 			   (push (cons "is_direct" t) it)))))
       (ement-api session endpoint :method 'post :data (json-encode data)
         :then then))))
-
-(cl-defun ement-upload (session &key data filename then else
-                                (content-type "application/octet-stream"))
-  "Upload DATA with FILENAME to content repository on SESSION.
-THEN and ELSE are passed to `ement-api', which see."
-  (declare (indent defun))
-  (ement-api session "upload" :method 'post :endpoint-category "media"
-    ;; NOTE: Element currently uses "r0" not "v3", so so do we.
-    :params (when filename
-              (list (list "filename" filename)))
-    :content-type content-type :data data :data-type 'binary
-    :then then :else else))
-
-(defun ement-complete-session ()
-  "Return an Ement session selected with completion."
-  (cl-etypecase (length ement-sessions)
-    ((integer 1 1) (cdar ement-sessions))
-    ((integer 2 *) (let* ((ids (mapcar #'car ement-sessions))
-                          (selected-id (completing-read "Session: " ids nil t)))
-                     (alist-get selected-id ement-sessions nil nil #'equal)))
-    (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
-
-(declare-function ewoc-locate "ewoc")
-(defun ement-complete-user-id ()
-  "Return a user-id selected with completion.
-Selects from seen users on all sessions.  If point is on an
-event, suggests the event's sender as initial input.  Allows
-unseen user IDs to be input as well."
-  (cl-labels ((format-user (user)
-                           (format "%s <%s>"
-                                   (string-join
-                                    (delete-dups
-                                     (map-values
-                                      (ement-user-room-display-names user)))
-				    ", ")
-				   (ement-user-id user))))
-    (let* ((display-to-id
-	    (cl-loop for key being the hash-keys of ement-users
-		     using (hash-values value)
-		     collect (cons (format-user value) key)))
-           (user-at-point (when (equal major-mode 'ement-room-mode)
-                            (when-let ((node (ewoc-locate ement-ewoc)))
-                              (when (ement-event-p (ewoc-data node))
-                                (format-user (ement-event-sender (ewoc-data node)))))))
-	   (selected-user (completing-read "User: " (mapcar #'car display-to-id)
-                                           nil nil user-at-point)))
-      (or (alist-get selected-user display-to-id nil nil #'equal)
-	  selected-user))))
 
 (defun ement-forget-room (room session)
   "Forget ROOM on SESSION."
@@ -216,29 +132,6 @@ If UNIGNORE-P (interactively, with prefix), un-ignore USER."
               (ement-debug "PUT successful" data)
               (message "Ement: User %s %s." user-id (if unignore-p "unignored" "ignored"))))))
 
-(cl-defun ement-put-account-data
-    (session type data &key
-             (then (lambda (received-data)
-                     ;; Handle echoed-back account data event (the spec does not explain this,
-                     ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
-                     ;; FIXME: Make session account-data a map instead of a list of events.
-                     (push received-data (ement-session-account-data session))
-
-                     ;; NOTE: Commenting out this ement-debug form because a bug in Emacs
-                     ;; causes this long string to be interpreted as the function's
-                     ;; docstring and cause a too-long-docstring warning.
-
-                     ;; (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
-                     ;;              (ement-user-id (ement-session-user session)) (json-encode data) received-data)
-                     )))
-  "Put account data of TYPE with DATA on SESSION.
-Also handle the echoed-back event."
-  (declare (indent defun))
-  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))) session)
-               (endpoint (format "user/%s/account_data/%s" (url-hexify-string user-id) type)))
-    (ement-api session endpoint :method 'put :data (json-encode data)
-      :then then)))
-
 (defun ement-invite-user (user-id room session)
   "Invite USER-ID to ROOM on SESSION."
   ;; SPEC: 10.4.2.1.
@@ -257,16 +150,39 @@ Also handle the echoed-back event."
                        (ement-room-display-name room)
                        (ement-room-id room))))))
 
-(defun ement-redact (event room session &optional reason)
-  "Redact EVENT in ROOM on SESSION, optionally for REASON."
-  (pcase-let* (((cl-struct ement-event (id event-id)) event)
-               ((cl-struct ement-room (id room-id)) room)
-               (endpoint (format "rooms/%s/redact/%s/%s"
-                                 room-id event-id (ement--update-transaction-id session)))
-               (content (ement-alist "reason" reason)))
-    (ement-api session endpoint :method 'put :data (json-encode content)
-      :then (lambda (_data)
-              (message "Event %s redacted." event-id)))))
+(defun ement-list-members (room session bufferp)
+  "Show members of ROOM on SESSION.
+If BUFFERP (interactively, with prefix), or if there are many
+members, show in a new buffer; otherwise show in echo area."
+  (interactive (list ement-room ement-session current-prefix-arg))
+  (pcase-let (((cl-struct ement-room members) room))
+    (ement--get-joined-members room session
+      (lambda (_)
+        (cond ((or bufferp (> (hash-table-count members) 51))
+               ;; Show in buffer.
+               (let* ((buffer (get-buffer-create (format "*Ement members: %s*" (ement-room-display-name room))))
+                      (members (cl-sort (cl-loop for user being the hash-values of members
+                                                 for id = (ement-user-id user)
+                                                 for displayname = (ement--user-displayname-in room user)
+                                                 collect (cons displayname id))
+                                        (lambda (a b) (string-collate-lessp a b nil t)) :key #'car))
+                      (displayname-width (cl-loop for member in members
+                                                  maximizing (string-width (car member))))
+                      (format-string (format "%%-%ss <%%s>" displayname-width)))
+                 (with-current-buffer buffer
+                   (erase-buffer)
+                   (dolist (member members)
+                     (insert (format format-string (car member) (cdr member)) "\n")))
+                 (pop-to-buffer buffer)))
+              (t
+               ;; Show in echo area.
+               (message "Members of %s (%s): %s" (ement--room-display-name room)
+                        (hash-table-count members)
+                        (string-join (map-apply (lambda (_id user)
+                                                  (ement--user-displayname-in room user))
+                                                members)
+                                     ", "))))))
+    (message "Listing members of %s..." (ement--format-room room))))
 
 (defun ement-send-direct-message (session user-id message)
   "Send a direct MESSAGE to USER-ID on SESSION.
@@ -333,6 +249,92 @@ If DELETE (interactively, with prefix), delete it."
     (ement-api session endpoint :version "v3" :method method :data (unless delete "{}")
       :then (lambda (data)
               (ement-debug "Changed tag on room" method tag data room)))))
+
+;;;;; Public functions
+
+;; These functions could reasonably be called by code in other packages.
+
+(cl-defun ement-upload (session &key data filename then else
+                                (content-type "application/octet-stream"))
+  "Upload DATA with FILENAME to content repository on SESSION.
+THEN and ELSE are passed to `ement-api', which see."
+  (declare (indent defun))
+  (ement-api session "upload" :method 'post :endpoint-category "media"
+    ;; NOTE: Element currently uses "r0" not "v3", so so do we.
+    :params (when filename
+              (list (list "filename" filename)))
+    :content-type content-type :data data :data-type 'binary
+    :then then :else else))
+
+(defun ement-complete-session ()
+  "Return an Ement session selected with completion."
+  (cl-etypecase (length ement-sessions)
+    ((integer 1 1) (cdar ement-sessions))
+    ((integer 2 *) (let* ((ids (mapcar #'car ement-sessions))
+                          (selected-id (completing-read "Session: " ids nil t)))
+                     (alist-get selected-id ement-sessions nil nil #'equal)))
+    (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
+
+(declare-function ewoc-locate "ewoc")
+(defun ement-complete-user-id ()
+  "Return a user-id selected with completion.
+Selects from seen users on all sessions.  If point is on an
+event, suggests the event's sender as initial input.  Allows
+unseen user IDs to be input as well."
+  (cl-labels ((format-user (user)
+                           (format "%s <%s>"
+                                   (string-join
+                                    (delete-dups
+                                     (map-values
+                                      (ement-user-room-display-names user)))
+				    ", ")
+				   (ement-user-id user))))
+    (let* ((display-to-id
+	    (cl-loop for key being the hash-keys of ement-users
+		     using (hash-values value)
+		     collect (cons (format-user value) key)))
+           (user-at-point (when (equal major-mode 'ement-room-mode)
+                            (when-let ((node (ewoc-locate ement-ewoc)))
+                              (when (ement-event-p (ewoc-data node))
+                                (format-user (ement-event-sender (ewoc-data node)))))))
+	   (selected-user (completing-read "User: " (mapcar #'car display-to-id)
+                                           nil nil user-at-point)))
+      (or (alist-get selected-user display-to-id nil nil #'equal)
+	  selected-user))))
+
+(cl-defun ement-put-account-data
+    (session type data &key
+             (then (lambda (received-data)
+                     ;; Handle echoed-back account data event (the spec does not explain this,
+                     ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
+                     ;; FIXME: Make session account-data a map instead of a list of events.
+                     (push received-data (ement-session-account-data session))
+
+                     ;; NOTE: Commenting out this ement-debug form because a bug in Emacs
+                     ;; causes this long string to be interpreted as the function's
+                     ;; docstring and cause a too-long-docstring warning.
+
+                     ;; (ement-debug "Account data put and received back on session %s:  PUT(json-encoded):%S  RECEIVED:%S"
+                     ;;              (ement-user-id (ement-session-user session)) (json-encode data) received-data)
+                     )))
+  "Put account data of TYPE with DATA on SESSION.
+Also handle the echoed-back event."
+  (declare (indent defun))
+  (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))) session)
+               (endpoint (format "user/%s/account_data/%s" (url-hexify-string user-id) type)))
+    (ement-api session endpoint :method 'put :data (json-encode data)
+      :then then)))
+
+(defun ement-redact (event room session &optional reason)
+  "Redact EVENT in ROOM on SESSION, optionally for REASON."
+  (pcase-let* (((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/redact/%s/%s"
+                                 room-id event-id (ement--update-transaction-id session)))
+               (content (ement-alist "reason" reason)))
+    (ement-api session endpoint :method 'put :data (json-encode content)
+      :then (lambda (_data)
+              (message "Event %s redacted." event-id)))))
 
 ;;;;; Private functions
 
