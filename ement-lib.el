@@ -171,8 +171,9 @@ members, show in a new buffer; otherwise show in echo area."
                             (format-string (format "%%-%ss <%%s>" displayname-width)))
                        (with-current-buffer buffer
                          (erase-buffer)
-                         (dolist (member members)
-                           (insert (format format-string (car member) (cdr member)) "\n")))
+                         (save-excursion
+                           (dolist (member members)
+                             (insert (format format-string (car member) (cdr member)) "\n"))))
                        (pop-to-buffer buffer)))
                     (t
                      ;; Show in echo area.
