@@ -751,7 +751,10 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   (ignore session)
   (pcase-let ((sender (ement-room--format-user (ement-event-sender event) room))
               ((cl-struct ement-room (local (map buffer))) room))
-    (with-current-buffer buffer
+    ;; NOTE: When called from an `ement-notify' function, ROOM may have no buffer.  In
+    ;; that case, just use the current buffer (which should be a temp buffer used to
+    ;; format the event).
+    (with-current-buffer (or buffer (current-buffer))
       (setf sender
             (if (and (not ement-room-sender-in-headers)
                      (< (string-width sender) ement-room-left-margin-width))
@@ -819,40 +822,51 @@ BODY is wrapped in a lambda form that binds `event', `room', and
 If STRING begins with the name of a member in ROOM followed by a
 colon or comma (as if STRING is a message addressing that
 member), apply that member's displayname color face to that part
-of the string."
+of the string.
+
+Note that, if ROOM has no buffer, STRING is returned unchanged."
   ;; This only looks for a member name at the beginning of the string.  It would be neat to add
   ;; colors to every member mentioned in a message, but that would probably not perform well.
-  (save-match-data
-    ;; This function may be called from a chain of others that use the match data, so
-    ;; rather than depending on all of them to save the match data, we do it here.
-    ;; FIXME: Member names containing spaces aren't matched.  Can this even be fixed reasonably?
-    (when (string-match (rx bos (group (1+ (not blank))) (or ":" ",") (1+ blank)) string)
-      (when-let* ((member-name (match-string 1 string))
-                  ;; HACK: Since we don't currently keep a list of all
-                  ;; members in a room, we look to see if this displayname
-                  ;; has any mentions in the room so far.
-                  (user (save-match-data
-                          (with-current-buffer (alist-get 'buffer (ement-room-local room))
-                            (save-excursion
-                              (goto-char (point-min))
-                              (cl-labels ((found-sender-p
-                                           (ewoc-data)
-                                           (when (ement-event-p ewoc-data)
-                                             (equal member-name
-                                                    (gethash room (ement-user-room-display-names (ement-event-sender ewoc-data)))))))
-                                (cl-loop with regexp = (regexp-quote member-name)
-                                         while (re-search-forward regexp nil t)
-                                         ;; NOTE: I don't know why, but sometimes the regexp
-                                         ;; search ends on a non-event line, like a timestamp
-                                         ;; header, so for now we just try to handle that case.
-                                         for maybe-event = (ewoc-data (ewoc-locate ement-ewoc))
-                                         when (found-sender-p maybe-event)
-                                         return (ement-event-sender maybe-event)))))))
-                  (prism-color (or (ement-user-color user)
-                                   (setf (ement-user-color user)
-                                         (ement-room--user-color user)))))
-        (add-face-text-property (match-beginning 1) (match-end 1)
-                                (list :foreground prism-color) nil string)))))
+
+  ;; NOTE: This function may be called by `ement-notify' functions even when the room has
+  ;; no buffer, and this function is designed to use events in a room buffer to more
+  ;; quickly find the data it needs, so, for now, if the room has no buffer, we return
+  ;; STRING unchanged.
+  (pcase-let (((cl-struct ement-room (local (map buffer))) room))
+    (if (buffer-live-p buffer)
+        (save-match-data
+          ;; This function may be called from a chain of others that use the match data, so
+          ;; rather than depending on all of them to save the match data, we do it here.
+          ;; FIXME: Member names containing spaces aren't matched.  Can this even be fixed reasonably?
+          (when (string-match (rx bos (group (1+ (not blank))) (or ":" ",") (1+ blank)) string)
+            (when-let* ((member-name (match-string 1 string))
+                        ;; HACK: Since we don't currently keep a list of all
+                        ;; members in a room, we look to see if this displayname
+                        ;; has any mentions in the room so far.
+                        (user (save-match-data
+                                (with-current-buffer buffer
+                                  (save-excursion
+                                    (goto-char (point-min))
+                                    (cl-labels ((found-sender-p
+                                                 (ewoc-data)
+                                                 (when (ement-event-p ewoc-data)
+                                                   (equal member-name
+                                                          (gethash room (ement-user-room-display-names (ement-event-sender ewoc-data)))))))
+                                      (cl-loop with regexp = (regexp-quote member-name)
+                                               while (re-search-forward regexp nil t)
+                                               ;; NOTE: I don't know why, but sometimes the regexp
+                                               ;; search ends on a non-event line, like a timestamp
+                                               ;; header, so for now we just try to handle that case.
+                                               for maybe-event = (ewoc-data (ewoc-locate ement-ewoc))
+                                               when (found-sender-p maybe-event)
+                                               return (ement-event-sender maybe-event)))))))
+                        (prism-color (or (ement-user-color user)
+                                         (setf (ement-user-color user)
+                                               (ement-room--user-color user)))))
+              (add-face-text-property (match-beginning 1) (match-end 1)
+                                      (list :foreground prism-color) nil string))))
+      ;; Room has no buffer: return STRING as-is.
+      string)))
 
 ;;;; Bookmark support
 
