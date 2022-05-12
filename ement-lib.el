@@ -155,34 +155,38 @@ If UNIGNORE-P (interactively, with prefix), un-ignore USER."
 If BUFFERP (interactively, with prefix), or if there are many
 members, show in a new buffer; otherwise show in echo area."
   (interactive (list ement-room ement-session current-prefix-arg))
-  (pcase-let (((cl-struct ement-room members) room))
-    (ement--get-joined-members room session
-      :then (lambda (_)
-              (cond ((or bufferp (> (hash-table-count members) 51))
-                     ;; Show in buffer.
-                     (let* ((buffer (get-buffer-create (format "*Ement members: %s*" (ement-room-display-name room))))
-                            (members (cl-sort (cl-loop for user being the hash-values of members
-                                                       for id = (ement-user-id user)
-                                                       for displayname = (ement--user-displayname-in room user)
-                                                       collect (cons displayname id))
-                                              (lambda (a b) (string-collate-lessp a b nil t)) :key #'car))
-                            (displayname-width (cl-loop for member in members
-                                                        maximizing (string-width (car member))))
-                            (format-string (format "%%-%ss <%%s>" displayname-width)))
-                       (with-current-buffer buffer
-                         (erase-buffer)
-                         (save-excursion
-                           (dolist (member members)
-                             (insert (format format-string (car member) (cdr member)) "\n"))))
-                       (pop-to-buffer buffer)))
-                    (t
-                     ;; Show in echo area.
-                     (message "Members of %s (%s): %s" (ement--room-display-name room)
-                              (hash-table-count members)
-                              (string-join (map-apply (lambda (_id user)
-                                                        (ement--user-displayname-in room user))
-                                                      members)
-                                           ", "))))))
+  (pcase-let* (((cl-struct ement-room members (local (map fetched-members-p))) room)
+               (list-members
+                (lambda (&optional _)
+                  (cond ((or bufferp (> (hash-table-count members) 51))
+                         ;; Show in buffer.
+                         (let* ((buffer (get-buffer-create (format "*Ement members: %s*" (ement-room-display-name room))))
+                                (members (cl-sort (cl-loop for user being the hash-values of members
+                                                           for id = (ement-user-id user)
+                                                           for displayname = (ement--user-displayname-in room user)
+                                                           collect (cons displayname id))
+                                                  (lambda (a b) (string-collate-lessp a b nil t)) :key #'car))
+                                (displayname-width (cl-loop for member in members
+                                                            maximizing (string-width (car member))))
+                                (format-string (format "%%-%ss <%%s>" displayname-width)))
+                           (with-current-buffer buffer
+                             (erase-buffer)
+                             (save-excursion
+                               (dolist (member members)
+                                 (insert (format format-string (car member) (cdr member)) "\n"))))
+                           (pop-to-buffer buffer)))
+                        (t
+                         ;; Show in echo area.
+                         (message "Members of %s (%s): %s" (ement--room-display-name room)
+                                  (hash-table-count members)
+                                  (string-join (map-apply (lambda (_id user)
+                                                            (ement--user-displayname-in room user))
+                                                          members)
+                                               ", ")))))))
+    (if fetched-members-p
+        (funcall list-members)
+      (ement--get-joined-members room session
+        :then list-members))
     (message "Listing members of %s..." (ement--format-room room))))
 
 (defun ement-send-direct-message (session user-id message)
@@ -937,6 +941,7 @@ slots, and puts them on ROOM's `members' table."
                               (ement-user-avatar-url user) avatar-url)
                         (puthash member-id user members)))
                     (alist-get 'joined data))
+              (setf (alist-get 'fetched-members-p (ement-room-local room)) t)
               (when then
                 ;; Finally, call the given callback.
                 (funcall then data))))

@@ -3960,8 +3960,7 @@ members list and return already-seen members instead.  For use in
                           ;; for now.
                           (ement-singly (alist-get 'getting-members-p (ement-room-local room))
                             (ement--get-joined-members room session
-                              :then (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil
-                                                      (alist-get 'fetched-members-p (ement-room-local room)) t))
+                              :then (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil))
                               :else (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil))))
                           (mapcar #'ement-event-sender
                                   (ewoc-collect ewoc #'ement-event-p)))))
