@@ -1048,7 +1048,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
   (interactive (list ement-session ement-room
                      (read-string (format "New topic (%s): "
                                           (ement-room-display-name ement-room))
-                                  nil nil (ement-room-topic ement-room) 'inherit-input-method)))
+                                  (ement-room-topic ement-room) nil nil 'inherit-input-method)))
   (pcase-let* (((cl-struct ement-room (id room-id) display-name) room)
                (endpoint (format "rooms/%s/state/m.room.topic" (url-hexify-string room-id)))
                (data (ement-alist "topic" topic)))
