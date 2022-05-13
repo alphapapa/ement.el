@@ -422,7 +422,8 @@ e.g. `ement-room-send-org-filter')."
   (pcase-let* (((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/send/m.room.message/%s" (url-hexify-string room-id)
                                  (ement--update-transaction-id session)))
-               (formatted-body (ement--format-body-mentions (or formatted-body body) room))
+               (formatted-body (when formatted-body
+                                 (ement--format-body-mentions formatted-body room)))
                (content (ement-aprog1
                             (ement-alist "msgtype" "m.text"
                                          "body" body)
