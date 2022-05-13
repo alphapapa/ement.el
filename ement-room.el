@@ -3572,7 +3572,23 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                    events))
                   (ban-events (cl-remove-if-not (lambda (event)
                                                   (equal "ban" (cdr (membership-types event))))
-                                                events)))
+                                                events))
+                  (rename-events (cl-remove-if-not (lambda (event)
+                                                     (pcase-let ((`(,old . ,new) (membership-types event)))
+                                                       (and (equal "join" new)
+                                                            (equal "join" old)
+                                                            (equal (alist-get 'avatar_url (ement-event-content event))
+                                                                   (map-nested-elt (ement-event-unsigned event)
+                                                                                   '(prev_content avatar_url))))))
+                                                   events))
+                  (avatar-events (cl-remove-if-not (lambda (event)
+                                                     (pcase-let ((`(,old . ,new) (membership-types event)))
+                                                       (and (equal "join" new)
+                                                            (equal "join" old)
+                                                            (not (equal (alist-get 'avatar_url (ement-event-content event))
+                                                                        (map-nested-elt (ement-event-unsigned event)
+                                                                                        '(prev_content avatar_url)))))))
+                                                   events)))
              ;; Remove apparent duplicates between join/rejoin events.
              (setf join-events (cl-delete-if (lambda (event)
                                                (cl-find (ement-event-state-key event) rejoin-events
@@ -3588,7 +3604,9 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                            "joined" join-events
                                                            "left" left-events
                                                            "invited" invite-events
-                                                           "banned" ban-events)
+                                                           "banned" ban-events
+                                                           "changed name" rename-events
+                                                           "changed avatar" avatar-events)
                                            for users = (mapcar #'event-user
                                                                (cl-delete-duplicates
                                                                 events :key #'ement-event-sender))
