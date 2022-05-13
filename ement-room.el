@@ -224,7 +224,7 @@ this one automatically.")
   "Prefix to insert before lines in URL previews."
   :type 'string)
 
-(defcustom ement-room-url-preview-width 50
+(defcustom ement-room-url-preview-width 250
   "Max width to use for URL previews before truncating."
   :type 'integer)
 
@@ -2573,25 +2573,25 @@ Formats according to `ement-room-message-format-spec', which see."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
   (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
       (cl-labels ((format-reaction
-                   (ks) (pcase-let* ((`(,key . ,senders) ks)
-                                     (key (propertize key 'face 'ement-room-reactions-key))
-                                     (count (propertize (format " (%s)" (length senders))
-                                                        'face 'ement-room-reactions))
-                                     (string
-                                      (propertize (concat key count)
-                                                  'button '(t)
-                                                  'category 'default-button
-                                                  'action #'ement-room-reaction-button-action
-                                                  'follow-link t
-                                                  'help-echo (lambda (_window buffer _pos)
-                                                               (senders-names senders (buffer-local-value 'ement-room buffer))))))
-                          (ement--remove-face-property string 'button)
-                          string))
+                    (ks) (pcase-let* ((`(,key . ,senders) ks)
+                                      (key (propertize key 'face 'ement-room-reactions-key))
+                                      (count (propertize (format " (%s)" (length senders))
+                                                         'face 'ement-room-reactions))
+                                      (string
+                                       (propertize (concat key count)
+                                                   'button '(t)
+                                                   'category 'default-button
+                                                   'action #'ement-room-reaction-button-action
+                                                   'follow-link t
+                                                   'help-echo (lambda (_window buffer _pos)
+                                                                (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                           (ement--remove-face-property string 'button)
+                           string))
                   (senders-names
-                   (senders room) (cl-loop for sender in senders
-                                           collect (ement-room--user-display-name sender room)
-                                           into names
-                                           finally return (string-join names ", "))))
+                    (senders room) (cl-loop for sender in senders
+                                            collect (ement-room--user-display-name sender room)
+                                            into names
+                                            finally return (string-join names ", "))))
         (cl-loop with keys-senders
                  for reaction in reactions
                  for key = (map-nested-elt (ement-event-content reaction) '(m.relates_to key))
@@ -2727,7 +2727,10 @@ If FORMATTED-P, return the formatted body content, when available."
                            (_ nil))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
-      (setf body (ement-room--linkify-urls body event)))
+      (setf body (ement-room--linkify-urls body)))
+    (when ement-room-url-previews
+      ;; HACK: Pass rendered body with text properties to match urls against them.
+      (ement-room--preview-urls event body))
     ;; HACK: Ensure body isn't nil (e.g. redacted messages can have empty bodies).
     (unless body
       (setf body "[message has no body content]"))
@@ -2800,41 +2803,44 @@ ROOM defaults to the value of `ement-room'."
 
 ;; ;; ;; URLs
 
-(defun ement-room--linkify-urls (string message)
-  "Return STRING with URLs in it made clickable.
-MESSAGE is the message STRING was contained in."
+(defun ement-room--linkify-urls (string)
+  "Return STRING with URLs in it made clickable."
   ;; Is there an existing Emacs function to do this?  I couldn't find one.
   ;; Yes, maybe: `goto-address-mode'.  TODO: Try goto-address-mode.
-  (let ((buffer (alist-get 'buffer (ement-room-local ement-room))))
-    (with-temp-buffer
-      (insert string)
-      (goto-char (point-min))
-      (cl-loop with c = 1
-               with url = nil
-               while (re-search-forward (rx bow "http" (optional "s") "://" (1+ (not space)))
-                                        nil 'noerror)
-               do (setf url (buffer-substring-no-properties (match-beginning 0) (match-end 0)))
-               (make-text-button (match-beginning 0) (match-end 0)
-                                 'mouse-face 'highlight
-                                 'face 'link
-                                 'help-echo url
-                                 'action #'browse-url-at-mouse
-                                 'follow-link t)
-               if (and ement-room-url-previews
-                       (not (map-nested-elt (ement-event-content message) '(m.relates_to m.in_reply_to)))
-                       ;; spec recommends not getting previews for encrypted rooms
-                       (not (with-current-buffer buffer
-                              (cl-find-if (apply-partially #'equal "m.room.encryption")
-                                          (ement-room-invite-state ement-room)
-                                          :key #'ement-event-type))))
-               do (with-current-buffer buffer
-                    (ement-room--url-preview message url c))
-               (setf c (1+ c)))
-      (buffer-string))))
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (cl-loop while (re-search-forward (rx bow "http" (optional "s") "://" (1+ (not space)))
+                                      nil 'noerror)
+             do (make-text-button (match-beginning 0) (match-end 0)
+                                  'mouse-face 'highlight
+                                  'face 'link
+                                  'help-echo (match-string 0)
+                                  'action #'browse-url-at-mouse
+                                  'follow-link t
+                                  'ement-url t))
+    (buffer-string)))
 
-(defun ement-room--url-preview (message link num)
-  "Fetch and insert a preview of LINK from MESSAGE. NUM is the index for this link."
-  (let* ((id (ement-event-id message))
+(defun ement-room--preview-urls (event rendered)
+  "Parse RENDERED body of EVENT for URLs and fetch previews for them."
+  (if (and (not (alist-get 'url-previews (ement-event-local event)))
+           rendered)
+      (let ((room-buffer (alist-get 'buffer (ement-room-local ement-room))))
+        (with-temp-buffer
+          (insert rendered)
+          (goto-char (point-min))
+          (cl-loop with match = nil
+                   while (setf match (or (text-property-search-forward 'ement-url)
+                                         (text-property-search-forward 'shr-url)))
+                   for url = (buffer-substring-no-properties (prop-match-beginning match)
+                                                             (prop-match-end match))
+                   do (with-current-buffer room-buffer
+                        (ement-room--url-preview event url)))))))
+
+(defun ement-room--url-preview (event link)
+  "Fetch and insert a preview of LINK from EVENT if it isn't already present.
+It is expected to be called in the room buffer associated with EVENT."
+  (let* ((id (ement-event-id event))
          (related-event (cl-loop with match = (make-ement-event :id id)
                                  for e in (ement-room-timeline ement-room)
                                  if (ement--events-equal-p match e)
@@ -2847,9 +2853,9 @@ MESSAGE is the message STRING was contained in."
         :then (lambda (data)
                 (when (buffer-live-p saved-buffer)
                   (with-current-buffer saved-buffer
-                    (ement-room--insert-preview message
+                    (ement-room--insert-preview event
                                                 related-event
-                                                num
+                                                link
                                                 (progn (unless (alist-get 'og:url data)
                                                          (push (cons 'og:url link) data))
                                                        (unless (alist-get 'og:title data)
@@ -2857,9 +2863,9 @@ MESSAGE is the message STRING was contained in."
                                                        data)))))
         :else (lambda (why) (ement-debug "Error in fetching preview: " why))))))
 
-(defun ement-room--insert-preview (message related num data)
-  "Insert link preview for DATA into MESSAGE from node RELATED if it isn't already present.
-NUM is the index for this link."
+(defun ement-room--insert-preview (message related key data)
+  "Insert link preview for HTTP response DATA into MESSAGE from node RELATED,
+if it isn't already present. KEY will be the key used for inserting."
   (cond ((alist-get 'errcode data) (ement-debug "Rate limit in url preview"))
         (data (let ((related-node (ement-room--ewoc-node-before ement-ewoc
                                                                 message
@@ -2867,15 +2873,15 @@ NUM is the index for this link."
                                                                   (string= (ement-event-id a)
                                                                            (ement-event-id b)))
                                                                 :pred #'ement-event-p))
-                    (key (intern (concat "preview-" (number-to-string num)))))
-                (when (not (alist-get 'url-previews (ement-event-local related)))
-                  (cl-pushnew (cons 'url-previews nil) (ement-event-local related)))
-                (unless (alist-get key (map-elt (ement-event-local related) 'url-previews))
-                  (cl-pushnew (cons key data) (map-elt (ement-event-local related) 'url-previews)))
+                    (event (ement-event-local related)))
+                (unless (alist-get 'url-previews event)
+                  (cl-pushnew (cons 'url-previews nil) event))
+                (unless (alist-get key (map-elt event 'url-previews))
+                  (cl-pushnew (cons key data) (map-elt event 'url-previews)))
                 (ewoc-invalidate ement-ewoc related-node)))))
 
 (defun ement-room--format-url-preview (data)
-  "Return a pretty-printed preview for DATA."
+  "Return a pretty-printed preview for DATA, an alist of parsed JSON from the homeserver."
   ;; Reference: https://ogp.me/
   (with-temp-buffer
     (when-let ((title (alist-get 'og:title data)))
