@@ -3422,8 +3422,10 @@ a copy of the local keymap, and sets `header-line-format'."
   "Return formatted string for \"m.room.member\" EVENT."
   ;; SPEC: Section 9.3.4: "m.room.member".
   (pcase-let* (((cl-struct ement-event sender state-key
-                           (content (map reason ('membership new-membership) ('displayname new-displayname)))
-                           (unsigned (map ('prev_content (map ('membership prev-membership)
+                           (content (map reason ('avatar_url new-avatar-url)
+                                         ('membership new-membership) ('displayname new-displayname)))
+                           (unsigned (map ('prev_content (map ('avatar_url old-avatar-url)
+                                                              ('membership prev-membership)
                                                               ('displayname prev-displayname))))))
                 event)
                (sender-name (ement--user-displayname-in ement-room sender)))
@@ -3455,13 +3457,15 @@ a copy of the local keymap, and sets `header-line-format'."
             (format "%s accepted invitation to join"
                     (sender-name-state-key-string)))
            ("join"
-            (cond ((and new-displayname prev-displayname
-                        (not (equal new-displayname prev-displayname)))
+            (cond ((not (equal new-displayname prev-displayname))
                    (propertize (format "%s changed name to %s"
                                        prev-displayname new-displayname)
                                'help-echo state-key))
-                  (t (format "%s changed avatar"
-                             (new-displayname-sender-name-state-key-string)))))
+                  ((not (equal new-avatar-url old-avatar-url))
+                   (format "%s changed avatar"
+                           (new-displayname-sender-name-state-key-string)))
+                  (t (format "Unrecognized membership event for %s"
+                             (sender-name-state-key-string)))))
            ("leave"
             (format "%s rejoined"
                     (sender-name-state-key-string)))
