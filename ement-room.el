@@ -941,6 +941,14 @@ spec) without requiring all events to use the same margin width."
     ;; So `ement--format-user' returns a string propertized with `help-echo' as a string.
     (concat sender "​")))
 
+(ement-room-define-event-formatter ?a
+  "Sender avatar."
+  (ignore session)
+  (if-let (avatar (ement-user-avatar (ement-event-sender event)))
+      ;; (propertize " " 'display `((:align-to left-margin) ,avatar))
+      (propertize " " 'display avatar)
+    "NOA"))
+
 (ement-room-define-event-formatter ?r
   "Reactions."
   (ignore room session)
@@ -2574,8 +2582,13 @@ function to `ement-room-event-fns', which see."
   (rename-buffer (ement-room--buffer-name ement-room)))
 
 (ement-room-defevent "m.room.member"
-  (with-silent-modifications
-    (ement-room--insert-event event)))
+  (pcase-let* (((cl-struct ement-event sender) event)
+               ((cl-struct ement-user avatar-url) sender)
+               (room ement-room))
+    (with-silent-modifications
+      (ement-room--insert-event event))
+    (when (and ement-room-user-avatars avatar-url (not (string-empty-p avatar-url)))
+      (ement--update-user-avatar user room session))))
 
 (ement-room-defevent "m.room.message"
   (pcase-let* (((cl-struct ement-event content unsigned) event)

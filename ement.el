@@ -970,27 +970,53 @@ and `session' to the session.  Adds function to
 
 (ement-defevent "m.room.member"
   "Put/update member on `ement-users' and room's members table."
-  (ignore session)
   (pcase-let* (((cl-struct ement-room members) room)
                ((cl-struct ement-event state-key
                            (content (map displayname membership
                                          ('avatar_url avatar-url))))
                 event)
                (user (or (gethash state-key ement-users)
-                         (puthash state-key
-                                  (make-ement-user :id state-key :avatar-url avatar-url
-                                                   ;; NOTE: The spec doesn't seem to say whether the
-                                                   ;; displayname in the member event applies only to the
-                                                   ;; room or is for the user generally, so we'll save it
-                                                   ;; in the struct anyway.
-                                                   :displayname displayname)
+                         (puthash state-key (make-ement-user :id state-key)
                                   ement-users))))
+    (setf (ement-user-avatar-url user) avatar-url
+          ;; NOTE: The spec doesn't seem to say whether the
+          ;; displayname in the member event applies only to the
+          ;; room or is for the user generally, so we'll save it
+          ;; in the struct anyway.
+          (ement-user-displayname user) displayname)
     (pcase membership
       ("join"
        (puthash state-key user members)
        (puthash user displayname (ement-room-displaynames room)))
       (_ (remhash state-key members)
-         (remhash user (ement-room-displaynames room))))))
+         (remhash user (ement-room-displaynames room))))
+    (ement--update-user-avatar user room session)))
+
+(defcustom ement-room-show-user-avatars t
+  "Show user avatars."
+  :type 'boolean)
+
+(defun ement--update-user-avatar (user room session)
+  "Update USER's avatar in ROOM on SESSION."
+  (ignore session)
+  (pcase-let (((cl-struct ement-user avatar-url) user))
+    (when (and ement-room-show-user-avatars avatar-url (not (string-empty-p avatar-url)))
+      (plz 'get (ement--mxc-to-url avatar-url session) :as 'binary
+        :then (lambda (data)
+                (if-let ((image (create-image data nil 'data-p)))
+                    (display-warning
+                     'ement (format "Unable to read avatar for user %S in room %S"
+                                    (ement--format-user user :room room :session session)
+                                    room))
+                  (setf (image-property image :ascent) 'center
+                        (ement-user-avatar user) (propertize " " :display `(image ,image)))
+                  (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
+                    (with-current-buffer buffer
+                      (ewoc-map
+                       (lambda (data)
+                         (and (ement-event-p data)
+                              (equal (ement-event-sender data) user)))
+                       ement-ewoc)))))))))
 
 (ement-defevent "m.room.name"
   (ignore session)
