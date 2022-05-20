@@ -1729,7 +1729,8 @@ call `pop-to-buffer'."
   "Go to EVENT in current buffer."
   (if-let ((node (ement-room--ewoc-last-matching ement-ewoc
                    (lambda (data)
-                     (equal (ement-event-id event) (ement-event-id data))))))
+                     (and (ement-event-p data)
+                          (equal (ement-event-id event) (ement-event-id data)))))))
       (goto-char (ewoc-location node))
     (error "Event not found in buffer: %S" (ement-event-id event))))
 
