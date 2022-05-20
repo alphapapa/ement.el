@@ -167,7 +167,7 @@ Used to, e.g. call `ement-room-compose-org'.")
   "Keymap used in `ement-room-read-string'.")
 
 (defvar ement-room-sender-in-headers nil
-  "Non-nil when sender is displayed in the left margin.
+  "Non-nil when sender is displayed in headers.
 In that case, sender names are aligned to the margin edge.")
 
 (defvar ement-room-messages-filter
@@ -341,6 +341,10 @@ Automatically set by setting `ement-room-message-format-spec',
 but may be overridden manually."
   :type 'boolean)
 
+(defvar ement-room-sender-in-left-margin nil
+  "Whether sender is shown in left margin.
+Set by `ement-room-message-format-spec-setter'.")
+
 (defun ement-room-message-format-spec-setter (option value &optional local)
   "Set relevant options for `ement-room-message-format-spec', which see.
 To be used as that option's setter.  OPTION and VALUE are
@@ -363,29 +367,40 @@ non-nil, set the variables buffer-locally (i.e. when called from
        (set-vars ement-room-left-margin-width 0
                  ement-room-right-margin-width 8
                  ement-room-sender-headers t
-                 ement-room-sender-in-headers t))
+                 ement-room-sender-in-headers t
+                 ement-room-sender-in-left-margin nil))
       ("%S%L%B%r%R%t" ;; "IRC-style using margins"
        (set-vars ement-room-left-margin-width 12
                  ement-room-right-margin-width 8
                  ement-room-sender-headers nil
-                 ement-room-sender-in-headers nil))
+                 ement-room-sender-in-headers nil
+                 ement-room-sender-in-left-margin t))
       ("[%t] %S> %B%r" ;; "IRC-style without margins"
        (set-vars ement-room-left-margin-width 0
                  ement-room-right-margin-width 0
                  ement-room-sender-headers nil
-                 ement-room-sender-in-headers nil))
+                 ement-room-sender-in-headers nil
+                 ement-room-sender-in-left-margin nil))
       (_ (set-vars ement-room-left-margin-width
                    (if (string-match-p "%L" value)
                        12 0)
                    ement-room-right-margin-width
                    (if (string-match-p "%R" value)
                        8 0)
+                   ement-room-sender-in-left-margin
+                   (if (string-match-p (rx (1+ anything) (or "%S" "%s") (1+ anything) "%L") value)
+                       t nil)
+                   ;; NOTE: The following two variables may seem redundant, but one is an
+                   ;; option that the user may override, while the other is set
+                   ;; automatically.
                    ement-room-sender-headers
-                   (if (string-match-p "%S" value)
+                   (if (string-match-p (or "%S" "%s") value)
+                       ;; If "%S" or "%s" isn't found, assume it's to be shown in headers.
                        nil t)
                    ement-room-sender-in-headers
-                   (if (string-match-p (rx (1+ anything) "%S" (1+ anything) "%L") value)
-                       t nil))
+                   (if (string-match-p (rx (or "%S" "%s")) value)
+                       ;; If "%S" or "%s" isn't found, assume it's to be shown in headers.
+                       nil t))
          (message "Ement: When using custom message format, setting margin widths may be necessary")))
     (unless ement-room-sender-in-headers
       ;; HACK: Disable overline on sender face.
@@ -790,18 +805,19 @@ BODY is wrapped in a lambda form that binds `event', `room', and
     ;; that case, just use the current buffer (which should be a temp buffer used to
     ;; format the event).
     (with-current-buffer (or buffer (current-buffer))
-      (setf sender
-            (if (and (not ement-room-sender-in-headers)
-                     (< (string-width sender) ement-room-left-margin-width))
-                ;; Using :align-to or :width space display properties doesn't
-                ;; seem to have any effect in the margin, so we make a string.
-                (concat (make-string (- ement-room-left-margin-width (string-width sender))
-                                     ? )
-                        sender)
-              ;; String wider than margin: truncate it.
-              (ement-room--concat-property
-                (truncate-string-to-width sender ement-room-left-margin-width nil nil "…")
-                'help-echo (concat sender " ")))))
+      (when ement-room-sender-in-left-margin
+        ;; Sender in left margin: truncate/pad appropriately.
+        (setf sender
+              (if (< (string-width sender) ement-room-left-margin-width)
+                  ;; Using :align-to or :width space display properties doesn't
+                  ;; seem to have any effect in the margin, so we make a string.
+                  (concat (make-string (- ement-room-left-margin-width (string-width sender))
+                                       ? )
+                          sender)
+                ;; String wider than margin: truncate it.
+                (ement-room--concat-property
+                  (truncate-string-to-width sender ement-room-left-margin-width nil nil "…")
+                  'help-echo (concat sender " "))))))
     ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
     ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
     ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
