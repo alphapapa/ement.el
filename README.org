@@ -239,7 +239,7 @@ Emacs may not display certain symbols and emojis well by default.  Based on [[ht
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]].  After configuring it according to its documentation, call ~ement-connect~ with the appropriate hostname and port, like:
 
 #+BEGIN_SRC elisp
-  http://localhost:8009: ment-connect :uri-prefix "")
+  (ement-connect :uri-prefix "http://localhost:8009")
 #+END_SRC
 
 * Rationale
