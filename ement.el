@@ -373,13 +373,17 @@ a filter ID).  When unspecified, the value of
                           :else (lambda (plz-error)
                                   (setf (map-elt ement-syncs session) nil)
                                   (pcase (plz-error-curl-error plz-error)
-                                    (`(,(or 28 429) . ,_)
-                                     ;; Timeout or "Too Many Requests": sync again if enabled.
+                                    (`(,(or 28 429 502) . ,_)
+                                     ;; Timeout (28), "Too Many Requests" (429), or "Bad Gateway" (502): sync again if enabled.
                                      (if (not ement-auto-sync)
                                          (error (substitute-command-keys
                                                  "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
                                                 (ement-user-id (ement-session-user session)))
-                                       (message "Ement: Sync timed out (%s).  Syncing again..." (ement-user-id (ement-session-user session)))
+                                       (let ((reason (pcase-exhaustive (plz-error-curl-error plz-error)
+                                                       (28 "timed out")
+                                                       ((or 429 502) "failed"))))
+                                         (message "Ement: Sync %s (%s).  Syncing again..."
+                                                  reason (ement-user-id (ement-session-user session))))
                                        ;; Set QUIET to allow the just-printed message to remain visible.
                                        (ement--sync session :quiet t)))
                                     (`(,code . ,message)
