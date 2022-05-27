@@ -371,3 +371,10 @@ So as best I can tell, the server is violating the spec.
 
 [2021-07-25 Sun 14:12]  After carefully digging into the raw events, reviewing these notes, and talking with Michael (t3chguy) in =#matrix-dev:matrix.org=, I found that I was sending =/messages= the kind of filter that =/sync= expects, rather than the =RoomEventFilter= that is called for. (Actually, I wasn't sending =/messages= any filter before now, and then today I started by sending it the wrong kind.) After fixing that, finally, loading earlier messages gets the membership events for newly seen users, and the displaynames are seen!  Finally this can be put to rest.
 
+
+* Reference
+
+** [[https://lists.gnu.org/archive/html/emacs-devel/2022-05/msg01224.html][emacs-devel: print-circle, and backtraces containing circular structures causing infinite loop/out-of-memory]]
+
+My thread on emacs-devel about using ~print-circle~ to prevent this problem.
+
