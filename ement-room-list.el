@@ -192,38 +192,45 @@ call `pop-to-buffer'."
 (defun ement-room-list--timestamp-colors ()
   "Return a vector of generated latest-timestamp colors for rooms.
 Used in `ement-room-list' and `ement-taxy-room-list'."
-  (cl-coerce
-   (append (mapcar
-            ;; One face per 10-minute period, from "recent" to 1-hour.
-            (lambda (rgb)
-              (pcase-let ((`(,r ,g ,b) rgb))
-                (color-rgb-to-hex r g b 2)))
-            (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-very-recent
-                                                                nil 'default))
-                            (color-name-to-rgb (face-foreground 'ement-room-list-recent
-                                                                nil 'default))
-                            6))
-           (mapcar
-            ;; One face per hour, from "recent" to default.
-            (lambda (rgb)
-              (pcase-let ((`(,r ,g ,b) rgb))
-                (color-rgb-to-hex r g b 2)))
-            (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
-                                                                nil 'default))
-                            (color-name-to-rgb (face-foreground 'default))
-                            24))
-           (mapcar
-            ;; One face per week for the last year (actually we
-            ;; generate colors for the past two years' worth so
-            ;; that the face for one-year-ago is halfway to
-            ;; invisible, and we don't use colors past that point).
-            (lambda (rgb)
-              (pcase-let ((`(,r ,g ,b) rgb))
-                (color-rgb-to-hex r g b 2)))
-            (color-gradient (color-name-to-rgb (face-foreground 'default))
-                            (color-name-to-rgb (face-background 'default))
-                            104)))
-   'vector))
+  (pcase (face-foreground 'default nil 'default)
+    ("unspecified-fg"
+     ;; NOTE: On a TTY, the default face's foreground and background colors may be the
+     ;; special values "unspecified-fg"/"unspecified-bg", in which case we can't generate
+     ;; gradients, so we just return a vector of "unspecified-fg".  See
+     ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=55623>.
+     (make-vector 134 "unspecified-fg"))
+    (_ (cl-coerce
+        (append (mapcar
+                 ;; One face per 10-minute period, from "recent" to 1-hour.
+                 (lambda (rgb)
+                   (pcase-let ((`(,r ,g ,b) rgb))
+                     (color-rgb-to-hex r g b 2)))
+                 (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-very-recent
+                                                                     nil 'default))
+                                 (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                     nil 'default))
+                                 6))
+                (mapcar
+                 ;; One face per hour, from "recent" to default.
+                 (lambda (rgb)
+                   (pcase-let ((`(,r ,g ,b) rgb))
+                     (color-rgb-to-hex r g b 2)))
+                 (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                     nil 'default))
+                                 (color-name-to-rgb (face-foreground 'default))
+                                 24))
+                (mapcar
+                 ;; One face per week for the last year (actually we
+                 ;; generate colors for the past two years' worth so
+                 ;; that the face for one-year-ago is halfway to
+                 ;; invisible, and we don't use colors past that point).
+                 (lambda (rgb)
+                   (pcase-let ((`(,r ,g ,b) rgb))
+                     (color-rgb-to-hex r g b 2)))
+                 (color-gradient (color-name-to-rgb (face-foreground 'default))
+                                 (color-name-to-rgb (face-background 'default))
+                                 104)))
+        'vector))))
 
 (define-derived-mode ement-room-list-mode tabulated-list-mode
   "Ement-Room-List"
