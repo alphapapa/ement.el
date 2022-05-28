@@ -379,7 +379,7 @@ a filter ID).  When unspecified, the value of
                                          (error (substitute-command-keys
                                                  "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
                                                 (ement-user-id (ement-session-user session)))
-                                       (let ((reason (pcase-exhaustive (plz-error-curl-error plz-error)
+                                       (let ((reason (pcase-exhaustive (car (plz-error-curl-error plz-error))
                                                        (28 "timed out")
                                                        ((or 429 502) "failed"))))
                                          (message "Ement: Sync %s (%s).  Syncing again..."
