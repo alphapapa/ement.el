@@ -512,9 +512,7 @@ DISPLAY-BUFFER-ACTION."
           (goto-char pos)
           (when (and section-ident (magit-get-section section-ident))
             (goto-char (oref (magit-get-section section-ident) start)))
-          (display-buffer buffer-name (if current-prefix-arg
-                                          '((display-buffer-same-window))
-                                        display-buffer-action))
+          (display-buffer buffer-name display-buffer-action)
           (when (get-buffer-window)
             (set-window-start (get-buffer-window) window-start)))))))
 
