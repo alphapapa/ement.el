@@ -516,6 +516,21 @@ DISPLAY-BUFFER-ACTION."
           (when (get-buffer-window)
             (set-window-start (get-buffer-window) window-start)))))))
 
+(cl-defun ement-taxy-side-window (&key (side 'left))
+  "Show room list in side window on SIDE.
+Interactively, with prefix, show on right side; otherwise, on
+left."
+  (interactive (when current-prefix-arg
+                 (list :side 'right)))
+  (let ((display-buffer-mark-dedicated t))
+    ;; Not sure if binding `display-buffer-mark-dedicated' is still necessary.
+    (ement-taxy-room-list
+     :display-buffer-action `(display-buffer-in-side-window
+                              (dedicated . t)
+                              (side . ,side)
+                              (window-parameters
+			       (no-delete-other-windows . t))))))
+
 (defun ement-taxy-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Taxy buffer."
   (interactive)
