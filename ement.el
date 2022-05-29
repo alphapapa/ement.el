@@ -190,7 +190,7 @@ the port, e.g.
                (let* ((username (match-string 1 user-id))
                       (server-name (match-string 2 user-id))
                       (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
-                      (user (make-ement-user :id user-id :username username :room-display-names (make-hash-table)))
+                      (user (make-ement-user :id user-id :username username))
                       (server (make-ement-server :name server-name :uri-prefix uri-prefix))
                       (transaction-id (ement--initial-transaction-id)))
                  (make-ement-session :user user :server server :transaction-id transaction-id
@@ -673,8 +673,7 @@ Returns nil if unable to read `ement-sessions-file'."
                                     (server (apply #'make-ement-server server-data))
                                     (session (make-ement-session :user user :server server
                                                                  :token token :transaction-id transaction-id)))
-                         (setf (ement-session-events session) (make-hash-table :test #'equal)
-                               (ement-user-room-display-names (ement-session-user session)) (make-hash-table))
+                         (setf (ement-session-events session) (make-hash-table :test #'equal))
                          session)))
     (when (file-exists-p ement-sessions-file)
       (pcase-let* ((read-circle t)
@@ -815,7 +814,7 @@ and `session' to the session.  Adds function to
                                                    ;; in the struct anyway.
                                                    :displayname displayname)
                                   ement-users))))
-    (puthash room displayname (ement-user-room-display-names user))
+    (puthash user displayname (ement-room-displaynames room))
     (unless (gethash state-key members)
       (puthash state-key user members))))
 

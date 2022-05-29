@@ -910,7 +910,7 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
                                                  (ewoc-data)
                                                  (when (ement-event-p ewoc-data)
                                                    (equal member-name
-                                                          (gethash room (ement-user-room-display-names (ement-event-sender ewoc-data)))))))
+                                                          (gethash (ement-event-sender ewoc-data) (ement-room-displaynames room))))))
                                       (cl-loop with regexp = (regexp-quote member-name)
                                                while (re-search-forward regexp nil t)
                                                ;; NOTE: I don't know why, but sometimes the regexp
@@ -2031,7 +2031,7 @@ arguments."
                         (and (ement-event-p data)
                              (or (string-match regexp (ement-user-id (ement-event-sender data)))
                                  (when-let ((room-display-name
-                                             (gethash room (ement-user-room-display-names (ement-event-sender data)))))
+                                             (gethash (ement-event-sender data) (ement-room-displaynames room))))
                                    (string-match regexp room-display-name))
                                  (when-let ((body (alist-get 'body (ement-event-content data))))
                                    (string-match regexp body))))))

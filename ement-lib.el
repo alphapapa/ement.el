@@ -287,12 +287,12 @@ Selects from seen users on all sessions.  If point is on an
 event, suggests the event's sender as initial input.  Allows
 unseen user IDs to be input as well."
   (cl-labels ((format-user (user)
+                           ;; FIXME: Per-room displaynames are now stored in room structs
+                           ;; rather than user structs, so to be complete, this needs to
+                           ;; iterate over all known rooms, looking for the user's
+                           ;; displayname in that room.
                            (format "%s <%s>"
-                                   (string-join
-                                    (delete-dups
-                                     (map-values
-                                      (ement-user-room-display-names user)))
-				    ", ")
+                                   (ement-user-displayname user)
 				   (ement-user-id user))))
     (let* ((display-to-id
 	    (cl-loop for key being the hash-keys of ement-users
@@ -857,7 +857,7 @@ problems."
 
   ;; NOTE: Both state and timeline events must be searched.  (A helpful user
   ;; in #matrix-dev:matrix.org, Michael (t3chguy), clarified this for me).
-  (if-let ((cached-name (gethash room (ement-user-room-display-names user))))
+  (if-let ((cached-name (gethash user (ement-room-displaynames room))))
       cached-name
     ;; Put timeline events before state events, because IIUC they should be more recent.
     (cl-labels ((join-displayname-event-p
@@ -872,7 +872,7 @@ problems."
                                           when (join-displayname-event-p event)
                                           return (alist-get 'displayname (ement-event-content event)))))
                 (calculated-name displayname))
-          (puthash room calculated-name (ement-user-room-display-names user))
+          (puthash user calculated-name (ement-room-displaynames room))
         ;; No membership state event: use pre-calculated displayname or ID.
         (or (ement-user-displayname user)
             (ement-user-id user))))))

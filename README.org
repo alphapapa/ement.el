@@ -277,10 +277,6 @@ Yet to be released.
 
 Bug reports, feature requests, suggestions — /oh my/!
 
-** Debugging / Troubleshooting
-
-- It's recommended to set the variable ~print-circle~ to ~t~ in your Emacs config.  Ement.el uses circular data structures for some things, and these can cause Emacs to infinitely loop and/or allocate a large amount of memory when attemping to print a backtrace for an error (as well as when doing certain other things, like calling =C-u C-x == on text that has circular structures in its display properties).  Setting this variable to non-nil prevents that behavior and allows Emacs to quickly print these structures.
-
 ** Copyright Assignment
 :PROPERTIES:
 :TOC:      :ignore (this)

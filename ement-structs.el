@@ -50,8 +50,7 @@
             ;; NOTE: Not exactly according to spec, I guess, but useful for now.
             :documentation "Username part of user's Matrix ID.")
   (avatar-url nil :documentation "MXC URL to user's avatar.")
-  (avatar nil :documentation "One-space string with avatar image in display property.")
-  (room-display-names (make-hash-table) :documentation "Hash table mapping rooms to the user's per-room display name."))
+  (avatar nil :documentation "One-space string with avatar image in display property."))
 
 (cl-defstruct ement-event
   id sender content origin-server-ts type unsigned state-key
@@ -76,7 +75,8 @@
   (members (make-hash-table :test #'equal) :documentation "Hash table mapping joined user IDs to user structs.")
   ;; The local slot is an alist used by the local client only.
   local
-  (receipts (make-hash-table :test #'equal)))
+  (receipts (make-hash-table :test #'equal))
+  (displaynames (make-hash-table) :documentation "Hash table mapping users to their displayname in this room."))
 
 ;;;; Variables
 
