@@ -782,7 +782,7 @@ and `ement-taxy-mode'."
 (defun ement--room-unread-p (room session)
   "Return non-nil if ROOM is considered unread for SESSION.
 The room is unread if it has a modified, live buffer; if it has
-non-zero unread notification acounts; or if its fully-read marker
+non-zero unread notification counts; or if its fully-read marker
 is not at the latest known message event."
   ;; Roughly equivalent to the "red/gray/bold/idle" states listed in
   ;; <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
