@@ -556,28 +556,19 @@ left."
   (interactive)
   (unless (button-at (point))
     (call-interactively #'forward-button))
-  (cl-labels ((room-unread-p
-               () (pcase-let* ((`[,room ,_session] (oref (magit-current-section) value))
-                               ((cl-struct ement-room unread-notifications local) room)
-                               ((map notification_count highlight_count) unread-notifications)
-                               ((map buffer) local))
-                    ;; For now, we test both unread count and whether the buffer is
-                    ;; modified; later, we might do only the former (still to be worked
-                    ;; out how canonical notifications are handled).
-                    (or (and (buffer-live-p buffer) (buffer-modified-p buffer))
-                        (and unread-notifications
-                             (or (not (zerop notification_count))
-                                 (not (zerop highlight_count))))))))
-    (unless (cl-loop with starting-line = (line-number-at-pos)
-                     if (room-unread-p)
-                     do (progn
-                          (goto-char (button-end (button-at (point))))
-                          (push-button (1- (point)))
-                          (cl-return t))
-                     else do (call-interactively #'forward-button)
-                     while (> (line-number-at-pos) starting-line))
-      ;; No more unread rooms.
-      (message "No more unread rooms"))))
+  (unless (cl-loop with starting-line = (line-number-at-pos)
+                   for value = (oref (magit-current-section) value)
+                   for room = (elt value 0)
+                   for session = (elt value 1)
+                   if (ement--room-unread-p room session)
+                   do (progn
+                        (goto-char (button-end (button-at (point))))
+                        (push-button (1- (point)))
+                        (cl-return t))
+                   else do (call-interactively #'forward-button)
+                   while (> (line-number-at-pos) starting-line))
+    ;; No more unread rooms.
+    (message "No more unread rooms")))
 
 (define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
   :global nil
