@@ -38,6 +38,7 @@
 
 (require 'cl-lib)
 
+(require 'color)
 (require 'map)
 (require 'xml)
 
@@ -54,6 +55,9 @@
 
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
+(defvar ement-room-prism)
+(defvar ement-room-prism-color-adjustment)
+(defvar ement-room-prism-minimum-contrast)
 
 ;;;; Functions
 
@@ -210,7 +214,7 @@ members, show in a new buffer; otherwise show in echo area."
         (with-current-buffer (get-buffer-create (format "*Ement room description: %s*" (or display-name canonical-alias room-id)))
           (erase-buffer)
           (let ((members (cl-sort (cl-loop for user being the hash-values of members
-                                           collect (format "%s <%s>" (ement-room--format-user user room session)
+                                           collect (format "%s <%s>" (ement--format-user user room session)
                                                            (id (ement-user-id user))))
                                   (lambda (a b) (string-collate-lessp a b nil t)))))
             (save-excursion
@@ -400,6 +404,70 @@ Also handle the echoed-back event."
 
 ;; These functions aren't expected to be called by code in other packages (but if that
 ;; were necessary, they could be renamed accordingly).
+
+(cl-defun ement--prism-color (string &key (contrast-with (face-background 'default)))
+  "Return a computed color for STRING.
+Useful for user messages, generated room avatars, etc."
+  ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
+  ;; string as argument.)
+  ;; TODO: Try using HSV somehow so we could avoid having so many strings return a
+  ;; nearly-black color.
+  (cl-labels ((relative-luminance
+               ;; Copy of `modus-themes-wcag-formula', an elegant
+               ;; implementation by Protesilaos Stavrou.  Also see
+               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
+                              for x in rgb
+                              sum (* k (if (<= x 0.03928)
+                                           (/ x 12.92)
+                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
+              (contrast-ratio
+               ;; Copy of `modus-themes-contrast'; see above.
+               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
+                                  (+ (relative-luminance b) 0.05))))
+                       (max ct (/ ct))))
+              (increase-contrast
+               (color against target toward)
+               (let ((gradient (cdr (color-gradient color toward 20)))
+                     new-color)
+                 (cl-loop do (setf new-color (pop gradient))
+                          while new-color
+                          until (>= (contrast-ratio new-color against) target)
+                          ;; Avoid infinite loop in case of weirdness
+                          ;; by returning color as a fallback.
+                          finally return (or new-color color)))))
+    (let* ((id string)
+           (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
+           ;; TODO: Wrap-around the value to get the color I want.
+           (ratio (/ id-hash (float most-positive-fixnum)))
+           (color-num (round (* (* 255 255 255) ratio)))
+           (color-rgb (list (/ (float (logand color-num 255)) 255)
+                            (/ (float (lsh (logand color-num 65280) -8)) 255)
+                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
+           (contrast-with-rgb (color-name-to-rgb contrast-with)))
+      (when (< (contrast-ratio color-rgb contrast-with-rgb) ement-room-prism-minimum-contrast)
+        (setf color-rgb (increase-contrast color-rgb contrast-with-rgb ement-room-prism-minimum-contrast
+                                           contrast-with-rgb)))
+      (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
+
+(cl-defun ement--format-user (user &optional (room ement-room) (session ement-session))
+  "Format `ement-user' USER for ROOM on SESSION.
+ROOM defaults to the value of `ement-room'."
+  (let ((face (cond ((equal (ement-user-id (ement-session-user session))
+                            (ement-user-id user))
+                     'ement-room-self)
+                    (ement-room-prism
+                     `(:inherit ement-room-user :foreground ,(or (ement-user-color user)
+                                                                 (setf (ement-user-color user)
+                                                                       (ement--prism-color user)))))
+                    (t 'ement-room-user))))
+    ;; FIXME: If a membership state event has not yet been received, this
+    ;; sets the display name in the room to the user ID, and that prevents
+    ;; the display name from being used if the state event arrives later.
+    (propertize (ement--user-displayname-in room user)
+                'face face
+                'help-echo (ement-user-id user))))
 
 (cl-defun ement--format-body-mentions
     (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))

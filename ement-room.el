@@ -800,7 +800,7 @@ BODY is wrapped in a lambda form that binds `event', `room', and
 (ement-room-define-event-formatter ?S
   "Sender display name."
   (ignore session)
-  (pcase-let ((sender (ement-room--format-user (ement-event-sender event) room))
+  (pcase-let ((sender (ement--format-user (ement-event-sender event) room))
               ((cl-struct ement-room (local (map buffer))) room))
     ;; NOTE: When called from an `ement-notify' function, ROOM may have no buffer.  In
     ;; that case, just use the current buffer (which should be a temp buffer used to
@@ -821,7 +821,7 @@ BODY is wrapped in a lambda form that binds `event', `room', and
                   'help-echo (concat sender " "))))))
     ;; NOTE: I'd like to add a help-echo function to display the sender ID, but the Emacs
     ;; manual says that there is currently no way to make text in the margins mouse-sensitive.
-    ;; So `ement-room--format-user' returns a string propertized with `help-echo' as a string.
+    ;; So `ement--format-user' returns a string propertized with `help-echo' as a string.
     (concat sender "​")))
 
 (ement-room-define-event-formatter ?r
@@ -2864,7 +2864,7 @@ seconds."
     ((pred ement-event-p)
      (insert "" (ement-room--format-event thing ement-room ement-session)))
     ((pred ement-user-p)
-     (insert (propertize (ement-room--format-user thing)
+     (insert (propertize (ement--format-user thing)
                          'display ement-room-username-display-property)))
     (`(ts ,(and (pred numberp) ts)) ;; Insert a date header.
      (insert
@@ -3157,24 +3157,6 @@ HTML is rendered to Emacs text using `shr-insert-document'."
            (libxml-parse-html-region (point-min) (point-max))))))
     (string-trim (buffer-substring (point) (point-max)))))
 
-(cl-defun ement-room--format-user (user &optional (room ement-room) (session ement-session))
-  "Format `ement-user' USER for ROOM on SESSION.
-ROOM defaults to the value of `ement-room'."
-  (let ((face (cond ((equal (ement-user-id (ement-session-user session))
-                            (ement-user-id user))
-                     'ement-room-self)
-                    (ement-room-prism
-                     `(:inherit ement-room-user :foreground ,(or (ement-user-color user)
-                                                                 (setf (ement-user-color user)
-                                                                       (ement-room--user-color user)))))
-                    (t 'ement-room-user))))
-    ;; FIXME: If a membership state event has not yet been received, this
-    ;; sets the display name in the room to the user ID, and that prevents
-    ;; the display name from being used if the state event arrives later.
-    (propertize (ement--user-displayname-in room user)
-                'face face
-                'help-echo (ement-user-id user))))
-
 (cl-defun ement-room--event-mentions-user-p (event user &optional (room ement-room))
   "Return non-nil if EVENT in ROOM mentions USER."
   (pcase-let* (((cl-struct ement-event content) event)
@@ -3262,52 +3244,6 @@ ROOM defaults to the value of `ement-room'."
       (when (< (contrast-ratio color-rgb background-rgb) ement-room-prism-minimum-contrast)
         (setf color-rgb (increase-contrast color-rgb background-rgb ement-room-prism-minimum-contrast
                                            (color-name-to-rgb (face-foreground 'default)))))
-      (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
-
-(cl-defun ement-prism-color (string &key (contrast-with (face-background 'default)))
-  "Return a computed color for STRING.
-Useful for user messages, generated room avatars, etc."
-  ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
-  ;; string as argument.)
-  ;; TODO: Try using HSV somehow so we could avoid having so many strings return a
-  ;; nearly-black color.
-  (cl-labels ((relative-luminance
-               ;; Copy of `modus-themes-wcag-formula', an elegant
-               ;; implementation by Protesilaos Stavrou.  Also see
-               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
-               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
-                              for x in rgb
-                              sum (* k (if (<= x 0.03928)
-                                           (/ x 12.92)
-                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
-              (contrast-ratio
-               ;; Copy of `modus-themes-contrast'; see above.
-               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
-                                  (+ (relative-luminance b) 0.05))))
-                       (max ct (/ ct))))
-              (increase-contrast
-               (color against target toward)
-               (let ((gradient (cdr (color-gradient color toward 20)))
-                     new-color)
-                 (cl-loop do (setf new-color (pop gradient))
-                          while new-color
-                          until (>= (contrast-ratio new-color against) target)
-                          ;; Avoid infinite loop in case of weirdness
-                          ;; by returning color as a fallback.
-                          finally return (or new-color color)))))
-    (let* ((id string)
-           (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
-           ;; TODO: Wrap-around the value to get the color I want.
-           (ratio (/ id-hash (float most-positive-fixnum)))
-           (color-num (round (* (* 255 255 255) ratio)))
-           (color-rgb (list (/ (float (logand color-num 255)) 255)
-                            (/ (float (lsh (logand color-num 65280) -8)) 255)
-                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
-           (contrast-with-rgb (color-name-to-rgb contrast-with)))
-      (when (< (contrast-ratio color-rgb contrast-with-rgb) ement-room-prism-minimum-contrast)
-        (setf color-rgb (increase-contrast color-rgb contrast-with-rgb ement-room-prism-minimum-contrast
-                                           contrast-with-rgb)))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 ;;;;; Compose buffer
