@@ -249,9 +249,10 @@
                                                         nil (frame-char-height)))
                      ;; Room has no avatar: make one.
                      (let* ((string (or display-name (ement--room-display-name room)))
-                            (_ (when (string-match (rx bos (or "#" "!" "@")) string)
-                                 (setf string (substring string 1))))
-                            (color (ement-prism-color string)))
+                            (ement-room-prism-minimum-contrast 1)
+                            (color (ement-prism-color string :contrast-with "white")))
+                       (when (string-match (rx bos (or "#" "!" "@")) string)
+                         (setf string (substring string 1)))
                        (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
                                                              :background color :foreground "white"
                                                              :stroke 0))))))

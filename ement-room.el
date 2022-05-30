@@ -3263,11 +3263,13 @@ ROOM defaults to the value of `ement-room'."
                                            (color-name-to-rgb (face-foreground 'default)))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
-(defun ement-prism-color (string)
+(cl-defun ement-prism-color (string &key (contrast-with (face-background 'default)))
   "Return a computed color for STRING.
 Useful for user messages, generated room avatars, etc."
   ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
   ;; string as argument.)
+  ;; TODO: Try using HSV somehow so we could avoid having so many strings return a
+  ;; nearly-black color.
   (cl-labels ((relative-luminance
                ;; Copy of `modus-themes-wcag-formula', an elegant
                ;; implementation by Protesilaos Stavrou.  Also see
@@ -3301,10 +3303,10 @@ Useful for user messages, generated room avatars, etc."
            (color-rgb (list (/ (float (logand color-num 255)) 255)
                             (/ (float (lsh (logand color-num 65280) -8)) 255)
                             (/ (float (lsh (logand color-num 16711680) -16)) 255)))
-           (background-rgb (color-name-to-rgb (face-background 'default))))
-      (when (< (contrast-ratio color-rgb background-rgb) ement-room-prism-minimum-contrast)
-        (setf color-rgb (increase-contrast color-rgb background-rgb ement-room-prism-minimum-contrast
-                                           (color-name-to-rgb (face-foreground 'default)))))
+           (contrast-with-rgb (color-name-to-rgb contrast-with)))
+      (when (< (contrast-ratio color-rgb contrast-with-rgb) ement-room-prism-minimum-contrast)
+        (setf color-rgb (increase-contrast color-rgb contrast-with-rgb ement-room-prism-minimum-contrast
+                                           contrast-with-rgb)))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 ;;;;; Compose buffer
