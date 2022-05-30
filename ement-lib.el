@@ -189,6 +189,61 @@ members, show in a new buffer; otherwise show in echo area."
         :then list-members))
     (message "Listing members of %s..." (ement--format-room room))))
 
+(defun ement-describe-room (room session)
+  "Describe ROOM on SESSION."
+  (interactive (pcase-let ((`(,room ,session) (ement-complete-room :session ement-session)))
+                 (list room session)))
+  (cl-labels ((heading (string)
+                       (propertize (or string "") 'face 'font-lock-builtin-face))
+              (id (string)
+                  (propertize (or string "") 'face 'font-lock-constant-face)))
+    (pcase-let* (((cl-struct ement-room (id room-id) avatar display-name canonical-alias members timeline status topic
+                             (local (map fetched-members-p)))
+                  room)
+                 ((cl-struct ement-session user) session)
+                 ((cl-struct ement-user (id user-id)) user)
+                 (inhibit-read-only t))
+      (if (not fetched-members-p)
+          ;; Members not fetched: fetch them and re-call this command.
+          (ement--get-joined-members room session
+            :then (lambda (_) (ement-room-describe room session)))
+        (with-current-buffer (get-buffer-create (format "*Ement room description: %s*" (or display-name canonical-alias room-id)))
+          (erase-buffer)
+          (let ((members (cl-sort (cl-loop for user being the hash-values of members
+                                           collect (format "%s <%s>" (ement-room--format-user user room session)
+                                                           (id (ement-user-id user))))
+                                  (lambda (a b) (string-collate-lessp a b nil t)))))
+            (save-excursion
+              (insert "\"" (propertize (or display-name canonical-alias room-id) 'face 'font-lock-doc-face) "\"" " is a room "
+                      (propertize (pcase status
+                                    ('invite "invited")
+                                    ('join "joined")
+                                    ('leave "left")
+                                    (_ (symbol-name status)))
+                                  'face 'font-lock-comment-face)
+                      " on session <" (id user-id) ">.\n\n"
+                      (heading "Avatar: ") avatar "\n\n"
+                      (heading "ID: ") "<" (id room-id) ">" "\n"
+                      (heading "Alias: ") "<" (id canonical-alias) ">" "\n\n"
+                      (heading "Topic: ") (propertize topic 'face 'font-lock-comment-face) "\n\n"
+                      (heading "Retrieved events: ") (number-to-string (length timeline)) "\n"
+                      (heading "  spanning: ")
+                      (format-time-string "%Y-%m-%d %H:%M:%S"
+                                          (/ (ement-event-origin-server-ts
+                                              (car (cl-sort (copy-sequence timeline) #'< :key #'ement-event-origin-server-ts)))
+                                             1000))
+                      (heading " to ")
+                      (format-time-string "%Y-%m-%d %H:%M:%S\n\n"
+                                          (/ (ement-event-origin-server-ts
+                                              (car (cl-sort (copy-sequence timeline) #'> :key #'ement-event-origin-server-ts)))
+                                             1000))
+                      (heading "Members") " (" (number-to-string (length members)) "):\n")
+              (dolist (member members)
+                (insert "  " member "\n"))))
+          (read-only-mode)
+          (pop-to-buffer (current-buffer)))))))
+(defalias 'ement-room-describe #'ement-describe-room)
+
 (defun ement-send-direct-message (session user-id message)
   "Send a direct MESSAGE to USER-ID on SESSION.
 Uses the latest existing direct room with the user, or creates a

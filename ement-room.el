@@ -143,6 +143,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 
     ;; Room
     (define-key map (kbd "M-s o") #'ement-room-occur)
+    (define-key map (kbd "r d") #'ement-describe-room)
     (define-key map (kbd "r m") #'ement-list-members)
     (define-key map (kbd "r t") #'ement-room-set-topic)
     (define-key map (kbd "r f") #'ement-room-set-message-format)
@@ -4067,6 +4068,7 @@ For use in `completion-at-point-functions'."
   [:pad-keys t
              ["Room"
               ("M-s o" "Occur search in room" ement-room-occur)
+              ("r d" "Describe room" ement-describe-room)
               ("r m" "List members" ement-list-members)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
