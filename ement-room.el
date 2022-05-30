@@ -3156,10 +3156,10 @@ HTML is rendered to Emacs text using `shr-insert-document'."
            (libxml-parse-html-region (point-min) (point-max))))))
     (string-trim (buffer-substring (point) (point-max)))))
 
-(cl-defun ement-room--format-user (user &optional (room ement-room))
-  "Format `ement-user' USER for ROOM.
+(cl-defun ement-room--format-user (user &optional (room ement-room) (session ement-session))
+  "Format `ement-user' USER for ROOM on SESSION.
 ROOM defaults to the value of `ement-room'."
-  (let ((face (cond ((equal (ement-user-id (ement-session-user ement-session))
+  (let ((face (cond ((equal (ement-user-id (ement-session-user session))
                             (ement-user-id user))
                      'ement-room-self)
                     (ement-room-prism
