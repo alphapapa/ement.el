@@ -2,6 +2,49 @@
 
 * Tasks
 
+** TODO [#B] Fix membership messages for empty displaynames             :bug:
+
+e.g.
+
+#+begin_src elisp
+  (((:id . "$Wytz98qICSSS7mYZBBhAPaR8sFX1t8ggp2kaEvpYxCg")
+    (:sender . "@user:host")
+    (:content
+     (avatar_url . "")
+     (displayname . "")
+     (membership . "join"))
+    (:origin-server-ts . 1654019305932)
+    (:type . "m.room.member")
+    (:state-key . "@user:host")
+    (:unsigned
+     (replaces_state . "$sQH55CETYW3YC_rjhvygt1bOLQP9gpk6T6OwQpeZo94")
+     (prev_content
+      (avatar_url . "")
+      (displayname . "")
+      (membership . "join"))
+     (prev_sender . "@user:host"))
+    (:receipts)
+    (:local))
+   ((:id . "$sQH55CETYW3YC_rjhvygt1bOLQP9gpk6T6OwQpeZo94")
+    (:sender . "@user:host")
+    (:content
+     (avatar_url . "")
+     (displayname . "")
+     (membership . "join"))
+    (:origin-server-ts . 1654019104661)
+    (:type . "m.room.member")
+    (:state-key . "@user:host")
+    (:unsigned)
+    (:receipts)
+    (:local)))
+#+end_src
+
+Is displayed as:
+
+#+begin_example
+  Membership: 1 joined (); 1 changed name ().
+#+end_example
+
 ** MAYBE Use line-prefix and/or wrap-prefix
 :LOGBOOK:
 -  State "MAYBE"      from              [2020-12-03 Thu 15:28]
@@ -98,6 +141,7 @@ Like the "notifications" buffer in ~matrix-client~.
 [2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
 
 ** TODO Notifications for "@room" messages
+
 ** DONE Sending direct messages
 :LOGBOOK:
 - State "DONE"       from "PROJECT"    [2022-03-25 Fri 23:14]
