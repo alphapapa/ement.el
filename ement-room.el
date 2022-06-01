@@ -961,6 +961,20 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
 
 ;;;; Commands
 
+(defun ement-room-flush-colors ()
+  "Flush generated username/message colors.
+Also, redisplay events in all open buffers.  The colors will be
+regenerated according to the current background color.  Helpful
+when switching themes or adjusting `ement-prism' options."
+  (interactive)
+  (cl-loop for user being the hash-values of ement-users
+           do (setf (ement-user-color user) nil
+                    (ement-user-message-color user) nil))
+  (dolist (buffer (buffer-list))
+    (when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
+      (with-current-buffer buffer
+        (ewoc-refresh ement-ewoc)))))
+
 (defun ement-room-browse-url (url &rest args)
   "Browse URL, using Ement for matrix.to URLs when possible.
 Otherwise, fall back to `browse-url'.  When called outside of an
