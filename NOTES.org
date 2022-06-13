@@ -45,6 +45,34 @@ Is displayed as:
   Membership: 1 joined (); 1 changed name ().
 #+end_example
 
+** TODO Render server ACL events
+:LOGBOOK:
+- State "TODO"       from              [2022-06-13 Mon 17:39]
+:END:
+
+e.g.
+
+#+begin_src js
+  {
+    "content": {
+      "allow": [
+        "*"
+      ],
+      "deny": [
+        "foo.bar",
+        "*.foo.bar"
+      ]
+    },
+    "origin_server_ts": 1655159830066,
+    "sender": "@user:server",
+    "state_key": "",
+    "type": "m.room.server_acl",
+    "unsigned": {},
+    "event_id": "$foobarbaz",
+    "room_id": "!foobar:baz"
+  }
+#+end_src
+
 ** MAYBE Use line-prefix and/or wrap-prefix
 :LOGBOOK:
 -  State "MAYBE"      from              [2020-12-03 Thu 15:28]
