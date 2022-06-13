@@ -802,7 +802,7 @@ and `session' to the session.  Adds function to
   (ignore session)
   (pcase-let* (((cl-struct ement-room members) room)
                ((cl-struct ement-event state-key
-                           (content (map displayname
+                           (content (map displayname membership
                                          ('avatar_url avatar-url))))
                 event)
                (user (or (gethash state-key ement-users)
@@ -814,9 +814,12 @@ and `session' to the session.  Adds function to
                                                    ;; in the struct anyway.
                                                    :displayname displayname)
                                   ement-users))))
-    (puthash user displayname (ement-room-displaynames room))
-    (unless (gethash state-key members)
-      (puthash state-key user members))))
+    (pcase membership
+      ("join"
+       (puthash state-key user members)
+       (puthash user displayname (ement-room-displaynames room)))
+      (_ (remhash state-key members)
+         (remhash user (ement-room-displaynames room))))))
 
 (ement-defevent "m.room.name"
   (ignore session)
