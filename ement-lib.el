@@ -1052,6 +1052,7 @@ slots, and puts them on ROOM's `members' table."
     (ement-api session endpoint
       :else else
       :then (lambda (data)
+              (clrhash members)
               (mapc (lambda (member)
                       (pcase-let* ((`(,id-symbol
                                       . ,(map ('avatar_url avatar-url)
