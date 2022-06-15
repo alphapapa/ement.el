@@ -400,6 +400,15 @@ Also handle the echoed-back event."
       :then (lambda (_data)
               (message "Event %s redacted." event-id)))))
 
+;;;;; Inline functions
+
+(defsubst ement--user-color (user)
+  "Return USER's color, setting it if necessary.
+USER is an `ement-user' struct."
+  (or (ement-user-color user)
+      (setf (ement-user-color user)
+            (ement--prism-color (ement-user-id user)))))
+
 ;;;;; Private functions
 
 ;; These functions aren't expected to be called by code in other packages (but if that
