@@ -257,8 +257,8 @@ this one automatically.")
 
 (defface ement-room-mention
   (if (version< emacs-version "27.1")
-      '((t (:inverse-video t)))
-    '((t (:inverse-video t :extend t))))
+      '((t (:inherit hl-line)))
+    '((t (:inherit hl-line :extend t))))
   "Messages that mention the local user.")
 
 (defface ement-room-wrap-prefix
