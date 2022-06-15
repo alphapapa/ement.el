@@ -448,7 +448,14 @@ Useful for user messages, generated room avatars, etc."
            (contrast-with-rgb (color-name-to-rgb contrast-with)))
       (when (< (contrast-ratio color-rgb contrast-with-rgb) ement-room-prism-minimum-contrast)
         (setf color-rgb (increase-contrast color-rgb contrast-with-rgb ement-room-prism-minimum-contrast
-                                           contrast-with-rgb)))
+                                           (color-name-to-rgb
+                                            ;; Ideally we would use the foreground color,
+                                            ;; but in some themes, like Solarized Dark,
+                                            ;; the foreground color's contrast is too low
+                                            ;; to be effective as the value to increase
+                                            ;; contrast against, so we use white or black.
+                                            (if (color-dark-p (color-name-to-rgb contrast-with))
+                                                "white" "black")))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 (cl-defun ement--format-user (user &optional (room ement-room) (session ement-session))
