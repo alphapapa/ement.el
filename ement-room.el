@@ -2872,6 +2872,11 @@ an `ement-event' or `ement-user' struct, or a list like `(ts
 TIMESTAMP)', where TIMESTAMP is a Unix timestamp number of
 seconds."
   ;; TODO: Use handlers to insert so e.g. membership events can be inserted silently.
+
+  ;; TODO: Use `cl-defmethod' and define methods for each of these THING types.  (I've
+  ;; benchmarked thoroughly and found no difference in performance between using
+  ;; `cl-defmethod' and using a `defun' with `pcase', so as long as the `cl-defmethod'
+  ;; specializer is sufficient, I see no reason not to use it.)
   (pcase-exhaustive thing
     ((pred ement-event-p)
      (insert "" (ement-room--format-event thing ement-room ement-session)))
