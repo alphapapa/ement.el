@@ -1088,6 +1088,49 @@ slots, and puts them on ROOM's `members' table."
                 (funcall then data))))
     (message "Ement: Getting joined members in %s..." (ement--format-room room))))
 
+(cl-defun ement--human-format-duration (seconds &optional abbreviate)
+  "Return human-formatted string describing duration SECONDS.
+If SECONDS is less than 1, returns \"0 seconds\".  If ABBREVIATE
+is non-nil, return a shorter version, without spaces.  This is a
+simple calculation that does not account for leap years, leap
+seconds, etc."
+  ;; Copied from `ts-human-format-duration' (same author).
+  (if (< seconds 1)
+      (if abbreviate "0s" "0 seconds")
+    (cl-macrolet ((format> (place)
+                           ;; When PLACE is greater than 0, return formatted string using its symbol name.
+                           `(when (> ,place 0)
+                              (format "%d%s%s" ,place
+                                      (if abbreviate "" " ")
+                                      (if abbreviate
+                                          ,(substring (symbol-name place) 0 1)
+                                        ,(symbol-name place)))))
+                  (join-places (&rest places)
+                               ;; Return string joining the names and values of PLACES.
+                               `(string-join (delq nil
+                                                   (list ,@(cl-loop for place in places
+                                                                    collect `(format> ,place))))
+                                             (if abbreviate "" ", "))))
+      (pcase-let ((`(,years ,days ,hours ,minutes ,seconds) (ement--human-duration seconds)))
+        (join-places years days hours minutes seconds)))))
+
+(defun ement--human-duration (seconds)
+  "Return list describing duration SECONDS.
+List includes years, days, hours, minutes, and seconds.  This is
+a simple calculation that does not account for leap years, leap
+seconds, etc."
+  ;; Copied from `ts-human-format-duration' (same author).
+  (cl-macrolet ((dividef (place divisor)
+                         ;; Divide PLACE by DIVISOR, set PLACE to the remainder, and return the quotient.
+                         `(prog1 (/ ,place ,divisor)
+                            (setf ,place (% ,place ,divisor)))))
+    (let* ((seconds (floor seconds))
+           (years (dividef seconds 31536000))
+           (days (dividef seconds 86400))
+           (hours (dividef seconds 3600))
+           (minutes (dividef seconds 60)))
+      (list years days hours minutes seconds))))
+
 ;;; Footer
 
 (provide 'ement-lib)

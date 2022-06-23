@@ -152,7 +152,7 @@
                ((cl-struct ement-room latest-ts) room)
                (age))
     (when latest-ts
-      (setf age (ts-diff (ts-now) (make-ts :unix (/ latest-ts 1000))))
+      (setf age (- (time-convert nil 'integer) (/ latest-ts 1000)))
       (cond (newer-than
              (when (<= age newer-than)
                (or name (format "Newer than %s seconds" newer-than))))
@@ -174,7 +174,7 @@
                ((cl-struct ement-room latest-ts) room)
                (age))
     (when latest-ts
-      (setf age (- (ts-unix (ts-now)) (/ latest-ts 1000)))
+      (setf age (- (time-convert nil 'integer) (/ latest-ts 1000)))
       (or (alist-get age intervals nil nil #'>)
           "Older than a year"))))
 
@@ -319,7 +319,7 @@
                      (min (/ (length ement-room-list-timestamp-colors) 2)
                           (+ 24 (truncate (/ difference-seconds 86400 7)))))))
                (face (list :foreground (elt ement-room-list-timestamp-colors n)))
-               (formatted-ts (ts-human-format-duration difference-seconds 'abbreviate)))
+               (formatted-ts (ement--human-format-duration difference-seconds 'abbreviate)))
           (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
           (propertize (match-string 0 formatted-ts) 'face face
                       'help-echo formatted-ts))

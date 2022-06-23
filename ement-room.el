@@ -2005,11 +2005,11 @@ For use as `imenu-create-index-function'."
                           ement-ewoc (lambda (node)
                                        (pcase (ewoc-data node)
                                          (`(ts . ,_) t)))))
-        (ts-format (string-trim ement-room-timestamp-header-with-date-format)))
+        (timestamp-format (string-trim ement-room-timestamp-header-with-date-format)))
     (cl-loop for node in timestamp-nodes
              collect (pcase-let*
                          ((`(ts ,timestamp) (ewoc-data node))
-                          (formatted (format-time-string ts-format timestamp)))
+                          (formatted (format-time-string timestamp-format timestamp)))
                        (cons formatted (ewoc-location node))))))
 
 ;;;;; Occur

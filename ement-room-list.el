@@ -360,8 +360,8 @@ To be called in `ement-sync-callback-hook'."
                             (replace-regexp-in-string "\n" "" topic t t)
                           ""))
                (formatted-timestamp (if latest-ts
-                                        (ts-human-format-duration (- (ts-unix (ts-now)) (/ latest-ts 1000))
-                                                                  t)
+                                        (ement--human-format-duration (- (time-convert nil 'integer) (/ latest-ts 1000))
+                                                                      t)
                                       ""))
                (latest-face (when latest-ts
                               (let* ((difference-seconds (- (float-time) (/ latest-ts 1000))  )
