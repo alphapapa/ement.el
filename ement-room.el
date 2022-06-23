@@ -3389,10 +3389,10 @@ a copy of the local keymap, and sets `header-line-format'."
   :value-create (lambda (widget)
                   (pcase-let* ((event (widget-value widget)))
                     (insert (ement-room-wrap-prefix
-                              (ement-room--format-member-event event))))))
+                              (ement-room--format-member-event event ement-room))))))
 
-(defun ement-room--format-member-event (event)
-  "Return formatted string for \"m.room.member\" EVENT."
+(defun ement-room--format-member-event (event room)
+  "Return formatted string for \"m.room.member\" EVENT in ROOM."
   ;; SPEC: Section 9.3.4: "m.room.member".
   (pcase-let* (((cl-struct ement-event sender state-key
                            (content (map reason ('avatar_url new-avatar-url)
@@ -3432,7 +3432,7 @@ a copy of the local keymap, and sets `header-line-format'."
            ("join"
             (cond ((not (equal new-displayname prev-displayname))
                    (propertize (format "%s changed name to %s"
-                                       prev-displayname new-displayname)
+                                       prev-displayname (or new-displayname (ement--user-displayname-in room sender)))
                                'help-echo state-key))
                   ((not (equal new-avatar-url old-avatar-url))
                    (format "%s changed avatar"
@@ -3525,12 +3525,12 @@ STRUCT should be an `ement-room-membership-events' struct."
                (event) (propertize (if-let (user (gethash (ement-event-state-key event) ement-users))
                                        (ement--user-displayname-in room user)
                                      (ement-event-state-key event))
-                                   'help-echo (concat (ement-room--format-member-event event)
+                                   'help-echo (concat (ement-room--format-member-event event room)
                                                       " <" (ement-event-state-key event) ">"))))
     (pcase-let* (((cl-struct ement-room-membership-events events) struct))
       (pcase (length events)
         (0 (warn "No events in `ement-room-membership-events' struct"))
-        (1 (ement-room--format-member-event (car events)))
+        (1 (ement-room--format-member-event (car events) room))
         (_ (let* ((left-events (cl-remove-if-not (lambda (event)
                                                    (equal "leave" (cdr (membership-types event))))
                                                  events))
