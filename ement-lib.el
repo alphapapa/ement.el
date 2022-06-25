@@ -487,31 +487,82 @@ ROOM defaults to the value of `ement-room'."
 
 (cl-defun ement--format-body-mentions
     (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))
-  "Return string for BODY with mentions in ROOM linkified with TEMPLATE."
+  "Return string for BODY with mentions in ROOM linkified with TEMPLATE.
+TEMPLATE is a format string in which the first \"%s\" is replaced
+with the user's MXID and the second with the displayname.  A
+mention is qualified by an \"@\"-prefixed displayname or
+MXID (optionally suffixed with a colon), or a colon-suffixed
+displayname, followed by a blank, anywhere in the body."
+  ;; Examples:
+  ;; "@foo: hi"
+  ;; "@foo:matrix.org: hi"
+  ;; "foo: hi"
+  ;; "@foo and @bar:matrix.org: hi"
+  ;; "foo: how about you and @bar ..."
   (declare (indent defun))
-  (let ((members (ement--members-alist room))
-        (pos 0)
-        replacement)
-    (while (setf pos (string-match (rx (or bos bow (1+ blank))
-                                       (group "@" (group (1+ (not blank)) (or eow eos (seq ":" (1+ blank))))))
-                                   body pos))
-      (if (setf replacement (or (when-let (member (rassoc (match-string 1 body) members))
-                                  ;; Found user ID: use it as replacement.
-                                  (format template (match-string 1 body) (ement--xml-escape-string (car member))))
-                                (when-let (user-id (alist-get (match-string 2 body) members nil nil #'equal))
-                                  ;; Found displayname: use it and MXID as replacement.
-                                  (format template user-id (ement--xml-escape-string (match-string 2 body))))))
-          (progn
-            ;; Found member: replace and move to end of replacement.
-            (setf body (replace-match replacement t t body 1))
-            (let ((difference (- (length replacement) (length (match-string 0 body)))))
-              (setf pos (if (/= 0 difference)
-                            ;; Replacement of a different length: adjust POS accordingly.
-                            (+ pos difference)
-                          (match-end 0)))))
-        ;; No replacement: move to end of match.
-        (setf pos (match-end 0))))
-    body))
+  (cl-labels ((members-having-displayname
+               ;; Iterating over the hash table values isn't as efficient as a hash
+               ;; lookup, but in most rooms it shouldn't be a problem.
+               (name members) (cl-loop for user being the hash-values of members
+                                       when (equal name (ement--user-displayname-in room user))
+                                       collect user)))
+    (pcase-let* (((cl-struct ement-room members) room)
+                 (regexp (rx (or bos bow (1+ blank))
+                             (or (seq (group
+                                       ;; Group 1: full MXID or @-prefixed displayname.
+                                       "@" (group
+                                            ;; Group 2: MXID username or displayname.
+                                            ;; NOTE: We special-case the question mark,
+                                            ;; period, and comma so they can be used after
+                                            ;; a displayname or MXID in a sentence (if
+                                            ;; they are present in a displayname, too
+                                            ;; bad).
+                                            (1+ (not (any blank "?.,")))))
+                                      ;; NOTE: Including punctuation in this terminator
+                                      ;; means that wild displaynames with non-word
+                                      ;; characters might not get matched, but it's
+                                      ;; necessary so that a mention can be like "What
+                                      ;; about @foobar?"
+                                      (or eow eos (syntax punctuation) (seq ":" (1+ blank))))
+                                 (seq (group
+                                       ;; Group 3: MXID username or displayname.
+                                       (1+ (not blank)))
+                                      ":" (1+ blank)))))
+                 (pos 0) (replace-group) (replacement))
+      (while (setf pos (string-match regexp body pos))
+        (if (setf replacement
+                  (or (when-let (member (gethash (match-string 1 body) members))
+                        ;; Found user ID: use it as replacement.
+                        (setf replace-group 1)
+                        (format template (match-string 1 body)
+                                (ement--xml-escape-string (ement--user-displayname-in room member))))
+                      (when-let* ((name (or (when (match-string 1 body)
+                                              ;; Found @-prefixed displayname: replace the
+                                              ;; whole thing, including the @, but only
+                                              ;; use the displayname for looking up the user.
+                                              (setf replace-group 1)
+                                              (match-string 2 body))
+                                            (prog1 (match-string 2 body)
+                                              (setf replace-group 2))
+                                            (prog1 (match-string 3 body)
+                                              (setf replace-group 3))))
+                                  (members (members-having-displayname name members))
+                                  (member (when (= 1 (length members))
+                                            (car members))))
+                        ;; Found displayname: use it and MXID as replacement.
+                        (format template (ement-user-id member)
+                                (ement--xml-escape-string name)))))
+            (progn
+              ;; Found member: replace and move to end of replacement.
+              (setf body (replace-match replacement t t body replace-group))
+              (let ((difference (- (length replacement) (length (match-string 0 body)))))
+                (setf pos (if (/= 0 difference)
+                              ;; Replacement of a different length: adjust POS accordingly.
+                              (+ pos difference)
+                            (match-end 0)))))
+          ;; No replacement: move to end of match.
+          (setf pos (match-end 0))))))
+  body)
 
 (cl-defun ement-complete-room (&key session predicate
                                     (prompt "Room: ") (suggest t))
