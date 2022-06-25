@@ -1004,6 +1004,7 @@ problems."
                               (equal "m.room.member" (ement-event-type event))
                               (equal "join" (alist-get 'membership (ement-event-content event)))
                               (alist-get 'displayname (ement-event-content event)))))
+      ;; FIXME: Should probably sort the relevant events to get the latest one.
       (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
                                           when (join-displayname-event-p event)
                                           return (alist-get 'displayname (ement-event-content event)))
