@@ -45,8 +45,6 @@
 (require 'cl-lib)
 (require 'tabulated-list)
 
-(require 'ts)
-
 (require 'ement)
 
 ;;;; Variables
