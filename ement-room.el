@@ -48,6 +48,7 @@
 (require 'shr)
 (require 'subr-x)
 (require 'mwheel)
+(require 'dnd)
 
 (require 'ement-api)
 (require 'ement-lib)
@@ -1162,6 +1163,14 @@ Interactively, set the current buffer's ROOM's TOPIC."
                    (list file body ement-room ement-session))))
   (ement-room-send-file file body room session :msgtype "m.image"))
 
+(defun ement-room-dnd-upload-file (uri _action)
+  "Upload the file as specified by URI to the current room."
+  (when-let ((file (dnd-get-local-file-name uri t)))
+    (ement-room-send-file file (file-name-nondirectory file) ement-room ement-session
+                          :msgtype (if (string-prefix-p "image/" (mailcap-file-name-to-mime-type file))
+                                       "m.image"
+                                     "m.file"))))
+
 (declare-function ement-room-list-next-unread "ement-room-list")
 (declare-function ement-taxy-next-unread "ement-taxy")
 (defun ement-room-scroll-up-mark-read ()
@@ -1912,7 +1921,10 @@ and erases the buffer."
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local window-scroll-functions
-              (cons 'ement-room-start-read-receipt-timer window-scroll-functions)))
+              (cons 'ement-room-start-read-receipt-timer window-scroll-functions))
+  (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
+                                           ("^file:" . ement-room-dnd-upload-file))
+                                         dnd-protocol-alist)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
