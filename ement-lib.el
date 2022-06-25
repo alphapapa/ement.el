@@ -492,7 +492,8 @@ TEMPLATE is a format string in which the first \"%s\" is replaced
 with the user's MXID and the second with the displayname.  A
 mention is qualified by an \"@\"-prefixed displayname or
 MXID (optionally suffixed with a colon), or a colon-suffixed
-displayname, followed by a blank, anywhere in the body."
+displayname, followed by a blank, question mark, comma, or
+period, anywhere in the body."
   ;; Examples:
   ;; "@foo: hi"
   ;; "@foo:matrix.org: hi"
@@ -548,6 +549,8 @@ displayname, followed by a blank, anywhere in the body."
                                               (setf replace-group 3))))
                                   (members (members-having-displayname name members))
                                   (member (when (= 1 (length members))
+                                            ;; If multiple members are found with the same
+                                            ;; displayname, do nothing.
                                             (car members))))
                         ;; Found displayname: use it and MXID as replacement.
                         (format template (ement-user-id member)
