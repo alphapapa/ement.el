@@ -227,13 +227,12 @@ anything if session hasn't finished initial sync."
     ;; since we have `ement-notify--event-message-p' in `ement-notify-predicates', but
     ;; just to be safe...
     (when (equal "m.room.message" (ement-event-type event))
-      ;; HACK: For now, we call `ement-room--format-message' in a buffer that pretends to be
-      ;; the room's buffer.  We have to do this, because the room might not have a buffer yet.
       (with-current-buffer (ement-notify--log-buffer buffer-name)
         (let* ((ement-session session)
                (ement-room room)
                (ement-room-message-format-spec "[%o%O] %S> %B%R%t")
                (new-node (ement-room--insert-event event))
+               (inhibit-read-only t)
                start end)
           (ewoc-goto-node ement-ewoc new-node)
           (setf start (point))
