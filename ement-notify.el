@@ -232,32 +232,35 @@ anything if session hasn't finished initial sync."
                (ement-room room)
                (ement-room-sender-in-left-margin nil)
                (ement-room-message-format-spec "%o%O » %S> %B%R%t")
+               (ement-room-coalesce-events t)
+               (ement-room-coalescable-events ement-notify-coalescable-events)
                (new-node (ement-room--insert-event event))
                (inhibit-read-only t)
                start end)
-          (ewoc-goto-node ement-ewoc new-node)
-          (setf start (point))
-          (if-let (next-node (ewoc-next ement-ewoc new-node))
-              (ewoc-goto-node ement-ewoc next-node)
-            (goto-char (point-max)))
-          (setf end (- (point) 2))
-          (add-text-properties start end
-                               (list 'button '(t)
-                                     'category 'default-button
-                                     'action #'ement-notify-button-action
-                                     'session session
-                                     'room room
-                                     'event event))
-          ;; Remove button face property.
-          (alter-text-property start end 'face
-                               (lambda (face)
-                                 (pcase face
-                                   ('button nil)
-                                   ((pred listp) (remq 'button face))
-                                   (_ face))))
-          (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notify--room-background-color room)
-                                                    :extend t))))))))
+          ;; (ewoc-goto-node ement-ewoc new-node)
+          ;; (setf start (point))
+          ;; (if-let (next-node (ewoc-next ement-ewoc new-node))
+          ;;     (ewoc-goto-node ement-ewoc next-node)
+          ;;   (goto-char (point-max)))
+          ;; (setf end (- (point) 2))
+          ;; (add-text-properties start end
+          ;;                      (list 'button '(t)
+          ;;                            'category 'default-button
+          ;;                            'action #'ement-notify-button-action
+          ;;                            'session session
+          ;;                            'room room
+          ;;                            'event event))
+          ;; ;; Remove button face property.
+          ;; (alter-text-property start end 'face
+          ;;                      (lambda (face)
+          ;;                        (pcase face
+          ;;                          ('button nil)
+          ;;                          ((pred listp) (remq 'button face))
+          ;;                          (_ face))))
+          ;; (when ement-notify-prism-background
+          ;;   (add-face-text-property start end (list :background (ement-notify--room-background-color room)
+          ;;                                           :extend t)))
+          )))))
 
 (defun ement-notify--log-buffer (name)
   "Return an Ement notifications buffer named NAME."
@@ -317,6 +320,41 @@ According to the room's notification configuration on the server."
   (pcase-let (((cl-struct ement-event (content (map body))) event))
     (when body
       (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
+
+;;;; Coalescing
+
+(cl-defstruct ement-notify-room-events
+  "Struct grouping room events.
+After adding events, use `ement-notify-room-events--update'
+to sort events and update other slots."
+  (events nil :documentation "Message events, latest first.")
+  (earliest-ts nil :documentation "Timestamp of earliest event.")
+  (latest-ts nil :documentation "Timestamp of latest event."))
+
+(defun ement-notify-room-events--update (struct)
+  "Return STRUCT having sorted its events and updated its slots."
+  ;; Like the room timeline slot, events are sorted latest-first.
+  (setf (ement-notify-room-events-events struct) (cl-sort (ement-notify-room-events-events struct) #'>
+                                                          :key #'ement-event-origin-server-ts)
+        (ement-notify-room-events-earliest-ts struct) (ement-event-origin-server-ts
+                                                       (car (last (ement-notify-room-events-events struct))))
+        (ement-notify-room-events-latest-ts struct) (ement-event-origin-server-ts
+                                                     (car (ement-notify-room-events-events struct))))
+  struct)
+
+(defvar ement-notify-coalescable-events
+  (ement-alist "m.room.message" '( ement-notify-room-events ement-notify-room-events-p
+                                   make-ement-notify-room-events ement-notify-room-events--update
+                                   (lambda (a b)
+                                     ;; FIXME: We need to compare event rooms, which
+                                     ;; aren't in the event structs, so this is more
+                                     ;; complicated than I realized.
+                                     (equal (ement-event-send  )))))
+  "Alist mapping event type strings to structs which may coalesce them.
+The value is a list of four symbols: the struct type, the struct
+predicate, the struct constructor, and a function which is called
+after changing the struct's value to update it in some way (which
+should be `identity' if nothing else).")
 
 ;;;; Footer
 

@@ -2677,6 +2677,18 @@ the first and last nodes in the buffer, respectively."
                ;; Node B is an event with a different sender: insert header.
                (ewoc-enter-before ewoc node-b (ement-event-sender b-data))))))))
 
+(defvar ement-room-coalescable-events
+  (ement-alist "m.room.member" '( ement-room-membership-events ement-room-membership-events-p
+                                  make-ement-room-membership-events ement-room-membership-events--update
+                                  (lambda (_a _b) t)))
+  "Alist mapping event type strings to structs which may coalesce them.
+The value is a list of five symbols: the struct type, the struct
+predicate, the struct constructor, a function which is called
+after changing the struct's value to update it in some way (which
+should be `identity' if nothing else), and a predicate called
+with two event arguments, which should return non-nil if they may
+be coalesced.")
+
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC, returning non-nil if done."
   (cl-labels ((coalescable-p
@@ -2698,6 +2710,51 @@ the first and last nodes in the buffer, respectively."
         (ewoc-delete ewoc absorbed-node)
         (ewoc-invalidate ewoc absorbing-node)
         t))))
+
+(defun ement-room--coalesce-nodes (a b ewoc)
+  "Try to coalesce events in nodes A and B in EWOC, returning non-nil if done."
+  (let (struct-type predicate constructor updater event-predicate)
+    (cl-labels ((coalescable-type
+                 (node) (when (ement-event-p (ewoc-data node))
+                          (or (pcase-let ((`(,ty ,p ,c ,u, ep)
+                                           (alist-get (ement-event-type (ewoc-data node))
+                                                      ement-room-coalescable-events nil nil #'equal)))
+                                (when ty
+                                  (setf struct-type ty
+                                        predicate p
+                                        constructor c
+                                        updater u
+                                        event-predicate ep))
+                                (ement-event-type (ewoc-data node)))
+                              (cl-loop for (event-type . (ty p c u)) in ement-room-coalescable-events
+                                       when (funcall p (ewoc-data node))
+                                       do (setf struct-type ty
+                                                predicate p
+                                                constructor c
+                                                updater u
+                                                event-predicate ep)
+                                       and return event-type)))))
+      (let ((a-type (coalescable-type a))
+            (b-type (coalescable-type b)))
+        (when (and (equal a-type b-type) a-type b-type
+                   (funcall event-predicate (ewoc-data a) (ewoc-data b)))
+          (let* ((absorbing-node (if (or (funcall predicate (ewoc-data a))
+                                         (not (funcall predicate (ewoc-data b))))
+                                     a b))
+                 (absorbed-node (if (eq absorbing-node a) b a)))
+            (cl-typecase (ewoc-data absorbing-node)
+              (ement-event
+               ;; Absorbing node is a plain event node: replace it with the coalescable node.
+               (setf (ewoc-data absorbing-node)
+                     (funcall updater
+                              (funcall constructor :events (list (ewoc-data absorbing-node)))))))
+            ;; Add absorbed node's data to the absorbing node and update it, delete the
+            ;; absorbed node, and invalidate the absorbing node.
+            (push (ewoc-data absorbed-node) (cl-struct-slot-value struct-type 'events (ewoc-data absorbing-node)))
+            (funcall updater (ewoc-data absorbing-node))
+            (ewoc-delete ewoc absorbed-node)
+            (ewoc-invalidate ewoc absorbing-node)
+            t))))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
