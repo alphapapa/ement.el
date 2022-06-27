@@ -230,6 +230,7 @@ anything if session hasn't finished initial sync."
       (with-current-buffer (ement-notify--log-buffer buffer-name)
         (let* ((ement-session session)
                (ement-room room)
+               (ement-room-sender-in-left-margin nil)
                (ement-room-message-format-spec "[%o%O] %S> %B%R%t")
                (new-node (ement-room--insert-event event))
                (inhibit-read-only t)
