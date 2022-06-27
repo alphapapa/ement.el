@@ -268,40 +268,14 @@ anything if session hasn't finished initial sync."
 
 (defun ement-notify--room-background-color (room)
   "Return a background color on which to display ROOM's messages."
-  ;; Based on `ement-room--user-color', hacked up a bit (adjusting
-  ;; some of the numbers feels a little like magic).
-  (cl-labels ((relative-luminance
-               ;; Copy of `modus-themes-wcag-formula', an elegant
-               ;; implementation by Protesilaos Stavrou.  Also see
-               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
-               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
-                              for x in rgb
-                              sum (* k (if (<= x 0.03928)
-                                           (/ x 12.92)
-                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
-              (contrast-ratio
-               ;; Copy of `modus-themes-contrast'; see above.
-               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
-                                  (+ (relative-luminance b) 0.05))))
-                       (max ct (/ ct)))))
-    (let* ((id (ement-room-display-name room))
-           (id-hash (float (abs (sxhash id))))
-	   (ratio (/ id-hash (float (expt 2 24))))
-           (color-num (round (* (* 255 255 255) ratio)))
-           (color-rgb (list (/ (float (logand color-num 255)) 255)
-                            (/ (float (lsh (logand color-num 65280) -8)) 255)
-                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
-           (background-rgb (color-name-to-rgb (face-background 'default))))
-      (if (> (contrast-ratio color-rgb background-rgb) 2)
-          (progn
-            ;; Contrast ratio too high: I don't know the best way to fix this, but we
-            ;; use a color from a gradient between the computed color and the default
-            ;; background color, which seems to blend decently with the background.
-            (apply #'color-rgb-to-hex
-                   (append (nth 3 (color-gradient background-rgb color-rgb 20))
-                           (list 2))))
-        (apply #'color-rgb-to-hex (append color-rgb (list 2)))))))
+  (or (alist-get 'notify-background-color (ement-room-local room))
+      (setf (alist-get 'notify-background-color (ement-room-local room))
+            (let ((color (color-desaturate-name
+                          (ement--prism-color (ement-room-id room) :contrast-with (face-foreground 'default))
+                          50)))
+              (if (color-dark-p (color-name-to-rgb (face-background 'default)))
+                  (color-darken-name color 25)
+                (color-lighten-name color 25))))))
 
 ;;;;; Predicates
 

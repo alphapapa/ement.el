@@ -976,7 +976,14 @@ when switching themes or adjusting `ement-prism' options."
   (dolist (buffer (buffer-list))
     (when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
       (with-current-buffer buffer
-        (ewoc-refresh ement-ewoc)))))
+        (ewoc-refresh ement-ewoc))))
+  ;; Flush notify-background-color colors.
+  (cl-loop for (_id . session) in ement-sessions
+           do (cl-loop for room in (ement-session-rooms session)
+                       do (setf (alist-get 'notify-background-color (ement-room-local room)) nil)))
+  (when-let (buffer (get-buffer "*Ement Notifications*"))
+    (with-current-buffer buffer
+      (ewoc-refresh ement-ewoc))))
 
 (defun ement-room-browse-url (url &rest args)
   "Browse URL, using Ement for matrix.to URLs when possible.
