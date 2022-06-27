@@ -231,7 +231,7 @@ anything if session hasn't finished initial sync."
         (let* ((ement-session session)
                (ement-room room)
                (ement-room-sender-in-left-margin nil)
-               (ement-room-message-format-spec "[%o%O] %S> %B%R%t")
+               (ement-room-message-format-spec "%o%O » %S> %B%R%t")
                (new-node (ement-room--insert-event event))
                (inhibit-read-only t)
                start end)
@@ -256,7 +256,8 @@ anything if session hasn't finished initial sync."
                                    ((pred listp) (remq 'button face))
                                    (_ face))))
           (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notify--room-background-color room)))))))))
+            (add-face-text-property start end (list :background (ement-notify--room-background-color room)
+                                                    :extend t))))))))
 
 (defun ement-notify--log-buffer (name)
   "Return an Ement notifications buffer named NAME."
