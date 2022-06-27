@@ -39,7 +39,7 @@
 ;;;; Variables
 
 (declare-function ement-room-list "ement-room-list")
-(defvar ement-notify-map
+(defvar ement-notify-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "S-<return>") #'ement-notify-reply)
     (define-key map (kbd "M-g M-l") #'ement-room-list)
@@ -214,88 +214,55 @@ anything if session hasn't finished initial sync."
                                (delete-file filename)))
     filename))
 
+(define-derived-mode ement-notify-mode ement-room-mode "Ement Notify"
+  (setf ement-room-sender-in-left-margin nil
+        left-margin-width 0
+        right-margin-width 8)
+  (setq-local ement-room-message-format-spec "[%o%O] %S> %B%R%t"))
+
 (cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
-  ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary since we
-  ;; have `ement-notify--event-message-p' in `ement-notify-predicates', but just to be safe...
-  (when (equal "m.room.message" (ement-event-type event))
-    ;; HACK: For now, we call `ement-room--format-message' in a buffer that pretends to be
-    ;; the room's buffer.  We have to do this, because the room might not have a buffer yet.
-    (with-temp-buffer
-      ;; Set these buffer-local variables, which `ement-room--format-message' uses.
-      (setf ement-session session
-            ement-room room)
-      (let* (;; Bind this to nil to prevent `ement-room--format-message' from padding sender name.
-             (ement-room-sender-in-headers t)
-             ;; NOTE: We hard-code the room and sender name to be in the left
-             ;; margin.  It works well.  See also `room-avatar-string' below.
-             (ement-room-message-format-spec "%O %S%L%B%R%t")
-             (message (ement-room--format-event event room session))
-             (buffer (ement-notify--log-buffer buffer-name))
-             (avatar-width (if ement-notify-room-avatars 2 0))
-             (room-name-width (if ement-notify-limit-room-name-width
-                                  (min (+ avatar-width (string-width (ement-room-display-name room)))
-                                       ement-notify-limit-room-name-width)
-                                (+ avatar-width (string-width (ement-room-display-name room)))))
-             (sender-name-width (string-width (ement--user-displayname-in room (ement-event-sender event))))
-             (new-left-margin-width
-              (max (buffer-local-value 'left-margin-width buffer)
-                   (+ room-name-width sender-name-width 2)))
-             (inhibit-read-only t)
-             (room-avatar-string
-              ;; HACK: This is awkward, but displaying images in the margin along with other non-image text
-              ;; requires some hackery due to manipulating and combining the display property.  The root problem is
-              ;; that recursive display specs are not supported by Emacs, so if a string in a display spec has its
-              ;; own display spec that is an image, the image isn't displayed.  So we have to do things like this.
-              (or (when-let* (ement-notify-room-avatars
-                              (room-list-avatar (alist-get 'room-list-avatar (ement-room-local room)))
-                              (avatar-image (get-text-property 0 'display room-list-avatar)))
-                    (propertize " " 'display `((margin left-margin) ,avatar-image)))
-                  "")))
-        (when ement-notify-prism-background
-          (add-face-text-property 0 (length message) (list :background (ement-notify--room-background-color room))
-                                  nil message))
-        (with-current-buffer buffer
-          (save-excursion
-            (goto-char (point-max))
-            ;; We make the button manually to avoid overriding the message faces.
-            ;; TODO: Define our own button type?  Maybe integrating the hack below...
-            (save-excursion
-              (insert room-avatar-string
-                      (propertize message
-                                  'button '(t)
-                                  'category 'default-button
-                                  'action #'ement-notify-button-action
-                                  'session session
-                                  'room room
-                                  'event event)
-                      "\n"))
-            ;; HACK: Try to remove `button' face property from new text.  (It works!)
-            ;; TODO: Use new `ement--remove-face-property' function.
-            (cl-loop for next-face-change-pos = (next-single-property-change (point) 'face)
-                     for face-at = (get-text-property (point) 'face)
-                     when (pcase face-at
-                            ('button t)
-                            ((pred listp) (member 'button face-at)))
-                     do (put-text-property (point) (or next-face-change-pos (point-max))
-                                           'face (pcase face-at
-                                                   ('button nil)
-                                                   ((pred listp) (delete 'button face-at))))
-                     while next-face-change-pos
-                     do (goto-char next-face-change-pos)))
-          (setf left-margin-width new-left-margin-width)
-          (when-let (window (get-buffer-window buffer))
-            (set-window-margins window new-left-margin-width right-margin-width)))))))
+  (with-demoted-errors "ement-notify--log-to-buffer: %S"
+    ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary
+    ;; since we have `ement-notify--event-message-p' in `ement-notify-predicates', but
+    ;; just to be safe...
+    (when (equal "m.room.message" (ement-event-type event))
+      ;; HACK: For now, we call `ement-room--format-message' in a buffer that pretends to be
+      ;; the room's buffer.  We have to do this, because the room might not have a buffer yet.
+      (with-current-buffer (ement-notify--log-buffer buffer-name)
+        (let* ((ement-session session)
+               (ement-room room)
+               (ement-room-message-format-spec "[%o%O] %S> %B%R%t")
+               (new-node (ement-room--insert-event event))
+               start end)
+          (ewoc-goto-node ement-ewoc new-node)
+          (setf start (point))
+          (if-let (next-node (ewoc-next ement-ewoc new-node))
+              (ewoc-goto-node ement-ewoc next-node)
+            (goto-char (point-max)))
+          (setf end (- (point) 2))
+          (add-text-properties start end
+                               (list 'button '(t)
+                                     'category 'default-button
+                                     'action #'ement-notify-button-action
+                                     'session session
+                                     'room room
+                                     'event event))
+          ;; Remove button face property.
+          (alter-text-property start end 'face
+                               (lambda (face)
+                                 (pcase face
+                                   ('button nil)
+                                   ((pred listp) (remq 'button face))
+                                   (_ face))))
+          (when ement-notify-prism-background
+            (add-face-text-property start end (list :background (ement-notify--room-background-color room)))))))))
 
 (defun ement-notify--log-buffer (name)
   "Return an Ement notifications buffer named NAME."
   (or (get-buffer name)
       (with-current-buffer (get-buffer-create name)
-        (view-mode)
-        (visual-line-mode)
-        (use-local-map ement-notify-map)
-        (setf left-margin-width ement-room-left-margin-width
-              right-margin-width 8)
+        (ement-notify-mode)
         (current-buffer))))
 
 (defun ement-notify--room-background-color (room)

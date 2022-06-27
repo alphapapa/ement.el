@@ -773,6 +773,11 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   (ignore room session)
   (ement-event-id event))
 
+(ement-room-define-event-formatter ?o
+  "Room avatar."
+  (ignore event session)
+  (or (alist-get 'room-list-avatar (ement-room-local room)) ""))
+
 (ement-room-define-event-formatter ?O
   "Room display name."
   (ignore event session)
@@ -2810,7 +2815,9 @@ the first and last nodes in the buffer, respectively."
         (when-let ((next-event-node (find-node-if ewoc #'ement-event-p :start new-node :move #'ewoc-next)))
           (unless (equal (ement-event-sender event) (ement-event-sender (ewoc-data next-event-node)))
             (ement-debug "Event after from different sender: insert its sender before it.")
-            (ewoc-enter-before ewoc next-event-node (ement-event-sender (ewoc-data next-event-node)))))))))
+            (ewoc-enter-before ewoc next-event-node (ement-event-sender (ewoc-data next-event-node))))))
+      ;; Return new node.
+      new-node)))
 
 (defun ement-room--replace-event (new-event)
   "Replace appropriate event with NEW-EVENT in current buffer.
