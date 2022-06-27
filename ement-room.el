@@ -3761,9 +3761,17 @@ Then invalidate EVENT's node to show the image."
     (setf (map-elt (ement-event-local event) 'image) data)
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-        (ewoc-invalidate ement-ewoc (ement-room--ewoc-last-matching ement-ewoc
-                                      (lambda (node-data)
-                                        (eq node-data event))))))))
+        (if-let (node (ement-room--ewoc-last-matching ement-ewoc
+                        (lambda (node-data)
+                          (eq node-data event))))
+            (ewoc-invalidate ement-ewoc node)
+          ;; This shouldn't happen, but very rarely, it can.  I haven't figured out why
+          ;; yet, so checking whether a node is found rather than blindly calling
+          ;; `ewoc-invalidate' prevents an error from aborting event processing.
+          (display-warning 'ement-room--m.image-callback
+                           (format "Event %S not found in room %S (a very rare, as-yet unexplained bug, which can be safely ignored; you may disconnect and reconnect if you wish, but it isn't strictly necessary)"
+                                   (ement-event-id event)
+                                   (ement-room-display-name room))))))))
 
 (defun ement-room--format-m.file (event)
   "Return \"m.file\" EVENT formatted as a string."
