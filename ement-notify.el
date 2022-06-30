@@ -105,7 +105,7 @@ If one of these returns non-nil for an event, the notification is sent."
                  (const :tag "Default XDG message sound" "message-new-instant")
                  (const :tag "Don't play a sound" nil)))
 
-(defcustom ement-notify-limit-room-name-width 14
+(defcustom ement-notify-limit-room-name-width nil
   "Limit the width of room display names in mentions and notifications buffers.
 This prevents the margin from being made excessively wide."
   :type '(choice (integer :tag "Maximum width")
@@ -231,7 +231,7 @@ anything if session hasn't finished initial sync."
         (let* ((ement-session session)
                (ement-room room)
                (ement-room-sender-in-left-margin nil)
-               (ement-room-message-format-spec "%o%O » %S>%W %B%R%t")
+               (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
                (new-node (ement-room--insert-event event))
                (inhibit-read-only t)
                start end)
