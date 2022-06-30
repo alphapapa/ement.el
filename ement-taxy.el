@@ -299,12 +299,12 @@
                  (equal 0 highlight_count)))
         ""
       (concat (propertize (number-to-string notification_count)
-                          'face 'highlight)
-              ":"
-              (propertize (number-to-string highlight_count)
                           'face (if (zerop highlight_count)
                                     'default
-                                  'ement-room-mention))))))
+                                  'ement-room-mention))
+              ":"
+              (propertize (number-to-string highlight_count)
+                          'face 'highlight)))))
 
 (ement-taxy-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
