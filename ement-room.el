@@ -423,6 +423,7 @@ It may contain these specifiers:
 
   %L  End of left margin
   %R  Start of right margin
+  %W  End of wrap-prefix
 
   %b  Message body (plain-text)
   %B  Message body (formatted if available)
@@ -439,6 +440,7 @@ Note that margin sizes must be set manually with
 `ement-room-right-margin-width'."
   :type '(choice (const :tag "IRC-style using margins" "%S%L%B%r%R%t")
                  (const :tag "IRC-style without margins" "[%t] %S> %B%r")
+                 (const :tag "IRC-style without margins, with wrap-prefix" "[%t] %S> %W%B%r")
                  (const :tag "Elemental" "%B%r%R%t")
                  (string :tag "Custom format"))
   :set #'ement-room-message-format-spec-setter
@@ -723,6 +725,9 @@ room, and the session.  See macro
 (defvar ement-room--format-message-margin-p nil
   "Set by margin-related event formatters.")
 
+(defvar ement-room--format-message-wrap-prefix nil
+  "Set by margin-related event formatters.")
+
 (defmacro ement-room-define-event-formatter (char docstring &rest body)
   "Define an event formatter for CHAR with DOCSTRING and BODY.
 BODY is wrapped in a lambda form that binds `event', `room', and
@@ -745,6 +750,14 @@ BODY is wrapped in a lambda form that binds `event', `room', and
   (ignore event room session)
   (setf ement-room--format-message-margin-p t)
   (propertize " " 'right-margin-start t))
+
+(ement-room-define-event-formatter ?W
+  "Text before this is the length of the event's wrap-prefix.
+This emulates the effect of using the left margin (the \"%L\"
+spec) without requiring all events to use the same margin width."
+  (ignore event room session)
+  (setf ement-room--format-message-wrap-prefix t)
+  (propertize " " 'wrap-prefix-end t))
 
 (ement-room-define-event-formatter ?b
   "Plain-text body content."
@@ -3107,6 +3120,17 @@ Format defaults to `ement-room-message-format-spec', which see."
             (insert-and-inherit
              (propertize " "
                          'display `((margin right-margin) ,string))))))
+      (when ement-room--format-message-wrap-prefix
+        (when-let ((wrap-prefix-end (next-single-property-change (point-min) 'wrap-prefix-end)))
+          (let* ((prefix-width (string-width
+                                (buffer-substring-no-properties (point-min) wrap-prefix-end)))
+                 (prefix (propertize " " 'display `((space :width ,prefix-width)))))
+            (goto-char wrap-prefix-end)
+            (delete-char 1)
+            ;; We apply the prefix to the entire event as `wrap-prefix', and to just the
+            ;; body as `line-prefix'.
+            (put-text-property (point-min) (point-max) 'wrap-prefix prefix)
+            (put-text-property (point) (point-max) 'line-prefix prefix))))
       (buffer-string))))
 
 (cl-defun ement-room--format-message-body (event &key (formatted-p t))

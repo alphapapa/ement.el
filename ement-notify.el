@@ -231,7 +231,7 @@ anything if session hasn't finished initial sync."
         (let* ((ement-session session)
                (ement-room room)
                (ement-room-sender-in-left-margin nil)
-               (ement-room-message-format-spec "%o%O » %S> %B%R%t")
+               (ement-room-message-format-spec "%o%O » %S>%W %B%R%t")
                (new-node (ement-room--insert-event event))
                (inhibit-read-only t)
                start end)
