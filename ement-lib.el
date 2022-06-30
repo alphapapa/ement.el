@@ -226,7 +226,7 @@ members, show in a new buffer; otherwise show in echo area."
                                     (_ (symbol-name status)))
                                   'face 'font-lock-comment-face)
                       " on session <" (id user-id) ">.\n\n"
-                      (heading "Avatar: ") avatar "\n\n"
+                      (heading "Avatar: ") (or avatar "") "\n\n"
                       (heading "ID: ") "<" (id room-id) ">" "\n"
                       (heading "Alias: ") "<" (id canonical-alias) ">" "\n\n"
                       (heading "Topic: ") (propertize topic 'face 'font-lock-comment-face) "\n\n"
