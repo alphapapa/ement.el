@@ -227,7 +227,8 @@
 
 ;;;; Columns
 
-(defvar ement-taxy-room-avatar-cache (make-hash-table)
+(defvar-local ement-taxy-room-avatar-cache (make-hash-table)
+  ;; Use a buffer-local variable so that the cache is cleared when the buffer is closed.
   "Hash table caching room avatars for the `ement-taxy' room list.")
 
 (eval-and-compile
