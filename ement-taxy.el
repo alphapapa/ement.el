@@ -371,19 +371,15 @@
 
 (defun ement-taxy-bookmark-make-record ()
   "Return a bookmark record for the `ement-taxy' buffer."
-  (pcase-let* (((cl-struct ement-session user) ement-session)
-               ((cl-struct ement-user (id session-id)) user))
-    ;; MAYBE: Support bookmarking specific events in a room.
-    (list (concat "Ement room list (Taxy) (" session-id ")")
-          (cons 'session-id session-id)
-          (cons 'handler #'ement-taxy-bookmark-handler))))
+  (list "*Ement Taxy*"
+        (cons 'handler #'ement-taxy-bookmark-handler)))
 
 (defun ement-taxy-bookmark-handler (bookmark)
   "Show `ement-taxy' room list buffer for BOOKMARK."
-  (pcase-let* (((map session-id) bookmark))
-    (unless (alist-get session-id ement-sessions nil nil #'equal)
+  (pcase-let* ((`(,_bookmark-name . ,_) bookmark))
+    (unless ement-sessions
       ;; MAYBE: Automatically connect.
-      (user-error "Session %s not connected: call `ement-connect' first" session-id))
+      (user-error "No sessions connected: call `ement-connect' first"))
     (ement-taxy-room-list)))
 
 ;;;; Commands
@@ -398,7 +394,7 @@
 The buffer is named BUFFER-NAME and is shown with
 DISPLAY-BUFFER-ACTION."
   (interactive)
-  (let (format-table column-sizes)
+  (let (format-table column-sizes window-start)
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
@@ -495,15 +491,15 @@ DISPLAY-BUFFER-ACTION."
                (format-cons (taxy-magit-section-format-items
                              ement-taxy-columns ement-taxy-column-formatters taxy))
                (pos (point))
-               (window-start (if (get-buffer-window)
-                                 (window-start (get-buffer-window))
-                               0))
                (section-ident (when (magit-current-section)
                                 (magit-section-ident (magit-current-section)))))
           (setf format-table (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
-                                    column-sizes ement-taxy-column-formatters))
+                                    column-sizes ement-taxy-column-formatters)
+                window-start (if (get-buffer-window buffer-name)
+                                 (window-start (get-buffer-window buffer-name))
+                               0))
           (delete-all-overlays)
           (erase-buffer)
           (save-excursion
@@ -512,10 +508,13 @@ DISPLAY-BUFFER-ACTION."
               :initial-depth 0))
           (goto-char pos)
           (when (and section-ident (magit-get-section section-ident))
-            (goto-char (oref (magit-get-section section-ident) start)))
-          (display-buffer buffer-name display-buffer-action)
-          (when (get-buffer-window)
-            (set-window-start (get-buffer-window) window-start)))))))
+            (goto-char (oref (magit-get-section section-ident) start)))))
+      (display-buffer buffer-name display-buffer-action)
+      (when (get-buffer-window buffer-name)
+        (set-window-start (get-buffer-window buffer-name) window-start))
+      ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
+      ;; must be set as the current buffer, so we have to do this explicitly here.
+      (set-buffer buffer-name))))
 
 (cl-defun ement-taxy-side-window (&key (side 'left))
   "Show room list in side window on SIDE.
