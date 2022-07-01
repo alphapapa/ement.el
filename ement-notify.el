@@ -218,7 +218,8 @@ anything if session hasn't finished initial sync."
   (setf ement-room-sender-in-left-margin nil
         left-margin-width 0
         right-margin-width 8)
-  (setq-local ement-room-message-format-spec "[%o%O] %S> %B%R%t"))
+  (setq-local ement-room-message-format-spec "[%o%O] %S> %B%R%t"
+              bookmark-make-record-function #'ement-notify-bookmark-make-record))
 
 (cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
@@ -317,6 +318,26 @@ According to the room's notification configuration on the server."
   (pcase-let (((cl-struct ement-event (content (map body))) event))
     (when body
       (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
+
+;;;; Bookmark support
+
+;; Especially useful with Burly: <https://github.com/alphapapa/burly.el>
+
+(require 'bookmark)
+
+(defun ement-notify-bookmark-make-record ()
+  "Return a bookmark record for the current `ement-notify' buffer."
+  (list (buffer-name)
+        ;; It seems silly to have to record the buffer name twice, but the
+        ;; `bookmark-make-record' function seems to override the bookmark name sometimes,
+        ;; which makes the result useless unless we save the buffer name separately.
+        (cons 'buffer-name (buffer-name))
+        (cons 'handler #'ement-notify-bookmark-handler)))
+
+(defun ement-notify-bookmark-handler (bookmark)
+  "Show Ement notifications buffer for BOOKMARK."
+  (pcase-let ((`(,_bookmark-name . ,(map buffer-name)) bookmark))
+    (switch-to-buffer (ement-notify--log-buffer buffer-name))))
 
 ;;;; Footer
 
