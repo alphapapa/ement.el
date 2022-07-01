@@ -2,6 +2,10 @@
 
 * Tasks
 
+** UNDERWAY User avatars
+
+In the =wip/user-avatars= branch, which should be rebased on the =wip/queue-avatars= branch, which should be rebased on =master= and depends on the =plz= queue feature, which is not yet released.  But these pieces already basically work, and it shouldn't take much to polish them up.
+
 ** TODO [#B] Fix membership messages for empty displaynames             :bug:
 
 e.g.
