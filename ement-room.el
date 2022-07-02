@@ -996,9 +996,13 @@ when switching themes or adjusting `ement-prism' options."
   (cl-loop for (_id . session) in ement-sessions
            do (cl-loop for room in (ement-session-rooms session)
                        do (setf (alist-get 'notify-background-color (ement-room-local room)) nil)))
-  (when-let (buffer (get-buffer "*Ement Notifications*"))
-    (with-current-buffer buffer
-      (ewoc-refresh ement-ewoc))))
+  ;; NOTE: The notifications buffer can't be refreshed because each event is from a
+  ;; different room, and the `ement-room' variable is unset in the buffer.
+
+  ;; (when-let (buffer (get-buffer "*Ement Notifications*"))
+  ;;   (with-current-buffer buffer
+  ;;     (ewoc-refresh ement-ewoc)))
+  )
 
 (defun ement-room-browse-url (url &rest args)
   "Browse URL, using Ement for matrix.to URLs when possible.
