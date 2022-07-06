@@ -2,6 +2,32 @@
 
 * Tasks
 
+** TODO Membership events in which nothing seems to change              :bug:
+
+e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", because nothing is changed, so I don't even know what this event is supposed to mean.
+
+#+begin_example elisp
+((:id . "$5tsYDxTf8SkJ1J8MLZfV4TtNMdXl3pKkU8T1T6oDszY")
+ (:sender . "@key823:setada.de")
+ (:content
+  (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
+  (displayname . "key823")
+  (membership . "join"))
+ (:origin-server-ts . 1657024512875)
+ (:type . "m.room.member")
+ (:state-key . "@key823:setada.de")
+ (:unsigned
+  (age . 2297)
+  (replaces_state . "$-J4JTEu_WIheqWQUe_1S4oP_D9zgxDS41XsaoKuvLVM")
+  (prev_content
+   (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
+   (displayname . "key823")
+   (membership . "join"))
+  (prev_sender . "@key823:setada.de"))
+ (:receipts)
+ (:local))
+#+end_example
+
 ** UNDERWAY User avatars
 
 In the =wip/user-avatars= branch, which should be rebased on the =wip/queue-avatars= branch, which should be rebased on =master= and depends on the =plz= queue feature, which is not yet released.  But these pieces already basically work, and it shouldn't take much to polish them up.
