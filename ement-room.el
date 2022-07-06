@@ -2941,9 +2941,10 @@ seconds."
                          'display '(space :width text :height (1))
                          'face thing)))
     ((pred ement-room-membership-events-p)
-     (insert (ement-room-wrap-prefix
-               (ement-room--format-membership-events thing ement-room)
-               'face 'ement-room-membership)))))
+     (let ((formatted-events (ement-room--format-membership-events thing ement-room)))
+       (add-face-text-property 0 (length formatted-events)
+                               'ement-room-membership 'append formatted-events)
+       (insert (ement-room-wrap-prefix formatted-events))))))
 
 ;; (defun ement-room--format-event (event)
 ;;   "Format `ement-event' EVENT."
@@ -3644,7 +3645,9 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                                 events :key #'ement-event-sender))
                                            for number = (length users)
                                            when events
-                                           collect (format "%s %s (%s)" number type (string-join users ", ")))
+                                           collect (format "%s %s (%s)" number
+                                                           (propertize type 'face 'bold)
+                                                           (string-join users ", ")))
                                   "; "))))))))
 
 ;;;;; Images
