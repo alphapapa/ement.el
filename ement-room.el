@@ -272,7 +272,7 @@ this one automatically.")
   "String used when abbreviating certain strings."
   :type 'string)
 
-(defcustom ement-room-avatars t
+(defcustom ement-room-avatars (display-images-p)
   "Show room avatars."
   :type 'boolean)
 
