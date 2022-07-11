@@ -465,15 +465,29 @@ Useful for user messages, generated room avatars, etc."
                                             ;; contrast against, so we use white or black.
                                             (pcase contrast-with
                                               ((or `nil "unspecified-bg")
-                                               ;; And since faces' colors may be
-                                               ;; "unspecified" on TTY frames, in which
-                                               ;; case we have nothing to compare with,
-                                               ;; we assume that the background color of
-                                               ;; such a frame is black and increase
-                                               ;; contrast toward white.
-                                               "white")
-                                              (_ (if (color-dark-p (color-name-to-rgb contrast-with))
-                                                     "white" "black")))))))
+                                               ;; The `contrast-with' color (i.e. the
+                                               ;; default background color) is nil.  This
+                                               ;; probably means that we're displaying on
+                                               ;; a TTY.
+                                               (if (fboundp 'frame--current-backround-mode)
+                                                   ;; This function can tell us whether
+                                                   ;; the background color is dark or
+                                                   ;; light, but it was added in Emacs
+                                                   ;; 28.1.
+                                                   (pcase (frame--current-backround-mode (selected-frame))
+                                                     ('dark "white")
+                                                     ('light "black"))
+                                                 ;; Pre-28.1: Since faces' colors may be
+                                                 ;; "unspecified" on TTY frames, in which
+                                                 ;; case we have nothing to compare with, we
+                                                 ;; assume that the background color of such
+                                                 ;; a frame is black and increase contrast
+                                                 ;; toward white.
+                                                 "white"))
+                                              (_
+                                               ;; The `contrast-with` color is usable: test it.
+                                               (if (color-dark-p (color-name-to-rgb contrast-with))
+                                                   "white" "black")))))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 (cl-defun ement--format-user (user &optional (room ement-room) (session ement-session))
