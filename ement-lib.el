@@ -414,7 +414,7 @@ USER is an `ement-user' struct."
 ;; These functions aren't expected to be called by code in other packages (but if that
 ;; were necessary, they could be renamed accordingly).
 
-(cl-defun ement--prism-color (string &key (contrast-with (face-background 'default)))
+(cl-defun ement--prism-color (string &key (contrast-with (face-background 'default nil 'default)))
   "Return a computed color for STRING.
 Useful for user messages, generated room avatars, etc."
   ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
@@ -463,8 +463,17 @@ Useful for user messages, generated room avatars, etc."
                                             ;; the foreground color's contrast is too low
                                             ;; to be effective as the value to increase
                                             ;; contrast against, so we use white or black.
-                                            (if (color-dark-p (color-name-to-rgb contrast-with))
-                                                "white" "black")))))
+                                            (pcase contrast-with
+                                              ((or `nil "unspecified-bg")
+                                               ;; And since faces' colors may be
+                                               ;; "unspecified" on TTY frames, in which
+                                               ;; case we have nothing to compare with,
+                                               ;; we assume that the background color of
+                                               ;; such a frame is black and increase
+                                               ;; contrast toward white.
+                                               "white")
+                                              (_ (if (color-dark-p (color-name-to-rgb contrast-with))
+                                                     "white" "black")))))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
 (cl-defun ement--format-user (user &optional (room ement-room) (session ement-session))
