@@ -3235,8 +3235,9 @@ HTML is rendered to Emacs text using `shr-insert-document'."
   (pcase-let* (((cl-struct ement-event content) event)
                ((map body formatted_body) content)
                (body (or formatted_body body)))
-    ;; FIXME: `ement--user-displayname-in' may not be returning the
-    ;; right result for the local user, so test the displayname slot too.
+    ;; FIXME: `ement--user-displayname-in' may not be returning the right result for the
+    ;; local user, so test the displayname slot too.  (But even that may be nil sometimes?
+    ;; Something needs to be fixed...)
     ;; HACK: So we use the username slot, which was created just for this, for now.
     (when body
       (cl-macrolet ((matches-body-p
