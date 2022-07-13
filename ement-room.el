@@ -3071,11 +3071,11 @@ Format defaults to `ement-room-message-format-spec', which see."
       (goto-char (point-min))
       (while (search-forward "%" nil t)
         (cond
-         ;; Quoted percent sign.
          ((eq (char-after) ?%)
+          ;; Quoted percent sign.
           (delete-char 1))
-         ;; Valid format spec.
          ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
+          ;; Valid format spec.
           (let* ((num (match-string 1))
                  (spec (string-to-char (match-string 2)))
                  (formatter (or (alist-get spec ement-room-event-formatters)
@@ -3102,9 +3102,9 @@ Format defaults to `ement-room-message-format-spec', which see."
               ;; Leaving the old code commented in case there's a better solution.)
               (delete-region (1- (match-beginning 0)) (match-end 0))
               (insert text))))
-         ;; Signal an error on bogus format strings.
          (t
-          (error "Invalid format string"))))
+          ;; Signal an error on bogus format strings.
+          (error "ement-room--format-message: Invalid format string: %S" format))))
       ;; Propertize margin text.
       (when ement-room--format-message-wrap-prefix
         (when-let ((wrap-prefix-end (next-single-property-change (point-min) 'wrap-prefix-end)))
