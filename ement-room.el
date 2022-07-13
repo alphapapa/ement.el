@@ -3499,7 +3499,7 @@ a copy of the local keymap, and sets `header-line-format'."
            ("leave"
             (format "%s rejoined"
                     (sender-name-state-key-string)))
-           ('()
+           (`nil
             (format "%s joined"
                     (new-displayname-sender-name-state-key-string)))
            (_ (format "%s sent unrecognized join event for %s"
