@@ -29,10 +29,19 @@ e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", b
 #+end_example
 
 ** UNDERWAY User avatars
+:PROPERTIES:
+:ID:       db3393af-6195-419b-aaaa-508cafc07589
+:END:
 
 In the =wip/user-avatars= branch, which should be rebased on the =wip/queue-avatars= branch, which should be rebased on =master= and depends on the =plz= queue feature, which is not yet released.  But these pieces already basically work, and it shouldn't take much to polish them up.
 
-** TODO [#B] Fix membership messages for empty displaynames             :bug:
+** DONE [#B] Fix membership messages for empty displaynames             :bug:
+:PROPERTIES:
+:ID:       412d352f-6e66-44dc-9f6f-4c92cc71b176
+:END:
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-07-13 Wed 08:18]
+:END:
 
 e.g.
 
