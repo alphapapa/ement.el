@@ -3078,30 +3078,20 @@ Format defaults to `ement-room-message-format-spec', which see."
           ;; Valid format spec.
           (let* ((num (match-string 1))
                  (spec (string-to-char (match-string 2)))
+                 (_
+                  ;; We delete the specifier now, because the formatter may change the
+                  ;; match data, and we already have what we need.
+                  (delete-region (1- (match-beginning 0)) (match-end 0)))
                  (formatter (or (alist-get spec ement-room-event-formatters)
                                 (error "Invalid format character: `%%%c'" spec)))
                  (val (or (funcall formatter event room session)
                           (let ((print-level 1))
                             (propertize (format "[Event has no value for spec \"?%s\"]" (char-to-string spec))
                                         'face 'font-lock-comment-face
-                                        'help-echo (format "%S" event))))))
-            ;; (setq val (cdr val))
-            ;; Pad result to desired length.
-            (let ((text (format (concat "%" num "s") val)))
-              ;; Insert first, to preserve text properties.
-              ;; (insert-and-inherit text)
-              ;; ;;  Delete the specifier body.
-              ;; (delete-region (+ (match-beginning 0) (string-width text))
-              ;;                (+ (match-end 0) (string-width text)))
-              ;; ;; Delete the percent sign.
-              ;; (delete-region (1- (match-beginning 0)) (match-beginning 0))
-
-              ;; NOTE: Actually, delete the specifier first, because it seems that if
-              ;; `text' is multiline, the specifier body does not get deleted that way.
-              ;; (Not sure if preserving the text properties is needed for this use case.
-              ;; Leaving the old code commented in case there's a better solution.)
-              (delete-region (1- (match-beginning 0)) (match-end 0))
-              (insert text))))
+                                        'help-echo (format "%S" event)))))
+                 ;; Pad result to desired length.
+                 (text (format (concat "%" num "s") val)))
+            (insert text)))
          (t
           ;; Signal an error on bogus format strings.
           (error "ement-room--format-message: Invalid format string: %S" format))))
