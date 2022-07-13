@@ -3459,11 +3459,18 @@ a copy of the local keymap, and sets `header-line-format'."
                                                               ('displayname prev-displayname))))))
                 event)
                (sender-name (ement--user-displayname-in ement-room sender)))
-    (cl-macrolet ((sender-name-id-string
+    (cl-macrolet ((nes (var)
+                       ;; For "non-empty-string".  Needed because the displayname can be
+                       ;; an empty string, but apparently is never null.  (Note that the
+                       ;; argument should be a variable, never any other form, to avoid
+                       ;; multiple evaluation.)
+                       `(when (and ,var (not (string-empty-p ,var)))
+                          ,var))
+                  (sender-name-id-string
                    () `(propertize sender-name
                                    'help-echo (ement-user-id sender)))
                   (new-displayname-sender-name-state-key-string
-                   () `(propertize (or new-displayname sender-name state-key)
+                   () `(propertize (or (nes new-displayname) (nes sender-name) (nes state-key))
                                    'help-echo state-key))
                   (sender-name-state-key-string
                    () `(propertize sender-name
