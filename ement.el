@@ -99,6 +99,9 @@ by users; ones who do so should know what they're doing.")
           (timeline (lazy_load_members . t))))
   "Default filter for sync requests.")
 
+(defvar ement-images-queue (make-plz-queue :limit 5)
+  "`plz' HTTP request queue for image requests.")
+
 ;; From other files.
 (defvar ement-room-avatar-max-width)
 (defvar ement-room-avatar-max-height)
@@ -772,21 +775,23 @@ and `session' to the session.  Adds function to
     ;; means that, if a user has them disabled and then reenables them, they will
     ;; likely need to reconnect to cause them to be displayed in most rooms.
     (if-let ((url (alist-get 'url (ement-event-content event))))
-        (plz 'get (ement--mxc-to-url url session) :as 'binary :noquery t
-          :then (lambda (data)
-                  (when ement-room-avatars
-                    ;; MAYBE: Store the raw image data instead of using create-image here.
-                    (let ((image (create-image data nil 'data-p
-                                               :ascent 'center
-                                               :max-width ement-room-avatar-max-width
-                                               :max-height ement-room-avatar-max-height)))
-                      (when (fboundp 'imagemagick-types)
-                        ;; Only do this when ImageMagick is supported.
-                        ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
-                        (setf (image-property image :type) 'imagemagick))
-                      ;; We set the room-avatar slot to a propertized string that displays
-                      ;; as the image.  This seems the most convenient thing to do.
-                      (setf (ement-room-avatar room) (propertize " " 'display image))))))
+        (plz-run
+         (plz-queue ement-images-queue
+           'get (ement--mxc-to-url url session) :as 'binary :noquery t
+           :then (lambda (data)
+                   (when ement-room-avatars
+                     ;; MAYBE: Store the raw image data instead of using create-image here.
+                     (let ((image (create-image data nil 'data-p
+                                                :ascent 'center
+                                                :max-width ement-room-avatar-max-width
+                                                :max-height ement-room-avatar-max-height)))
+                       (when (fboundp 'imagemagick-types)
+                         ;; Only do this when ImageMagick is supported.
+                         ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+                         (setf (image-property image :type) 'imagemagick))
+                       ;; We set the room-avatar slot to a propertized string that displays
+                       ;; as the image.  This seems the most convenient thing to do.
+                       (setf (ement-room-avatar room) (propertize " " 'display image)))))))
       ;; Unset avatar.
       (setf (ement-room-avatar room) nil
             (alist-get 'room-list-avatar (ement-room-local room)) nil))))

@@ -3807,9 +3807,11 @@ show it in the buffer."
             'mouse-face 'highlight)
         (when (and ement-room-images url)
           ;; Images enabled and URL present: download it.
-          (plz 'get url :as 'binary
-            :then (apply-partially #'ement-room--m.image-callback event ement-room)
-            :noquery t))))))
+          (plz-run
+           (plz-queue ement-images-queue
+             'get url :as 'binary
+             :then (apply-partially #'ement-room--m.image-callback event ement-room)
+             :noquery t)))))))
 
 (defun ement-room--m.image-callback (event room data)
   "Add downloaded image from DATA to EVENT in ROOM.
