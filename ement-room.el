@@ -1972,9 +1972,10 @@ data slot."
           (setq-local bookmark-make-record-function #'ement-room-bookmark-make-record)
           ;; Set initial header and footer.  (Do this before processing events, which
           ;; might cause the header/footer to be changed (e.g. a tombstone event).
-          (let ((header (if (cl-find-if (apply-partially #'equal "m.room.encryption")
-                                        (ement-room-invite-state ement-room)
-                                        :key #'ement-event-type)
+          (let ((header (if (cl-loop for state in (list (ement-room-state ement-room)
+                                                        (ement-room-invite-state ement-room))
+                                     thereis (cl-find "m.room.encryption" state
+                                                      :test #'equal :key #'ement-event-type))
                             (propertize "This appears to be an encrypted room, which is not natively supported by Ement.el.  (See information about using Pantalaimon in Ement.el documentation.)"
                                         'face 'font-lock-warning-face)
                           ""))
