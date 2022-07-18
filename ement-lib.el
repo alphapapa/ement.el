@@ -590,6 +590,12 @@ period, anywhere in the body."
           (setf pos (match-end 0))))))
   body)
 
+(defun ement--event-mentions-room-p (event &rest _ignore)
+  "Return non-nil if EVENT mentions \"@room\"."
+  (pcase-let (((cl-struct ement-event (content (map body))) event))
+    (when body
+      (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
+
 (cl-defun ement-complete-room (&key session predicate
                                     (prompt "Room: ") (suggest t))
   "Return a (room session) list selected from SESSION with completion.

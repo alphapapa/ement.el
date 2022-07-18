@@ -313,11 +313,7 @@ According to the room's notification configuration on the server."
   (equal (ement-user-id (ement-session-user session))
          (ement-user-id (ement-event-sender event))))
 
-(defun ement-notify--event-mentions-room-p (event _room _session)
-  "Return non-nil if EVENT is sent by SESSION's user."
-  (pcase-let (((cl-struct ement-event (content (map body))) event))
-    (when body
-      (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
+(defalias 'ement-notify--event-mentions-room-p #'ement--event-mentions-room-p)
 
 ;;;; Bookmark support
 

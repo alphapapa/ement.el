@@ -878,7 +878,8 @@ spec) without requiring all events to use the same margin width."
                             (_ 'ement-room-message-text)))
                (context-face (cond (self-message-p
                                     'ement-room-self-message)
-                                   ((ement-room--event-mentions-user-p event user)
+                                   ((or (ement-room--event-mentions-user-p event user)
+                                        (ement--event-mentions-room-p event))
                                     'ement-room-mention)))
                (prism-color (unless self-message-p
                               (when (eq 'both ement-room-prism)
