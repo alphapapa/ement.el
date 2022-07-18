@@ -587,7 +587,9 @@ left."
              (buffer-live-p (get-buffer "*Ement Taxy*")))
     (with-current-buffer (get-buffer "*Ement Taxy*")
       ;; FIXME: This seems to redisplay the buffer even when it's buried.  But it
-      ;; shouldn't, because the revert function uses `display-buffer-no-window'.
+      ;; shouldn't, because the revert function uses `display-buffer-no-window'.  But it
+      ;; doesn't always happen; it only seems to in certain circumstances, e.g. when the
+      ;; minibuffer is open, which should be unrelated to this.
       (revert-buffer))))
 
 ;;;; Footer
