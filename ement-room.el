@@ -195,6 +195,9 @@ In that case, sender names are aligned to the margin edge.")
 (defvar ement-images-queue)
 (defvar ement-notify-limit-room-name-width)
 
+;; Defined in Emacs 28.1: silence byte-compilation warning in earlier versions.
+(defvar browse-url-handlers)
+
 ;;;; Customization
 
 (defgroup ement-room nil
@@ -1922,8 +1925,11 @@ and erases the buffer."
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
-  (setq-local browse-url-handlers (cons (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)
-                                        browse-url-handlers))
+  (when (boundp 'browse-url-handlers)
+    ;; NOTE: This variable was added in Emacs 28.1.  In earlier versions, these links
+    ;; won't work within Ement.
+    (setq-local browse-url-handlers (cons (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)
+                                          browse-url-handlers)))
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local window-scroll-functions
