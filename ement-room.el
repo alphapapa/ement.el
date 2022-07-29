@@ -3419,6 +3419,11 @@ a copy of the local keymap, and sets `header-line-format'."
 (define-widget 'ement-room-membership 'item
   "Widget for membership events."
   ;; FIXME: This makes it hard to add a timestamp according to the buffer's message format spec.
+
+  ;; FIXME: The widget value inserts an extra space before the wrap prefix.  There seems
+  ;; to be no way to fix this while still using a widget for this, so maybe we shouldn't
+  ;; use a widget after all.  But it might be good to keep digging for a solution so that
+  ;; widgets could be used for other things later...
   :format "%{ %v %}"
   :sample-face 'ement-room-membership
   :value-create (lambda (widget)
