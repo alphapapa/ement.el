@@ -2711,7 +2711,8 @@ the first and last nodes in the buffer, respectively."
               ;; we set `prev-node' to the non-marker node before it.
               (setf prev-node (ement-room--ewoc-next-matching ewoc prev-node
                                 (lambda (data)
-                                  (not (read-marker-p data))))))
+                                  (not (read-marker-p data)))
+                                #'ewoc-prev)))
             (when prev-node
               ;; A previous node still exists: maybe we need to add a header.
               (cl-typecase (ewoc-data prev-node)
