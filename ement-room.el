@@ -3589,8 +3589,13 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                      (equal "invite" (cdr (membership-types event))))
                                                    events))
                   (ban-events (cl-remove-if-not (lambda (event)
-                                                  (equal "ban" (cdr (membership-types event))))
+                                                  (and (member (cdr (membership-types event)) '("invite" "leave"))
+                                                       (equal "ban" (cdr (membership-types event)))))
                                                 events))
+                  (kick-and-ban-events (cl-remove-if-not (lambda (event)
+                                                           (and (equal "join" (car (membership-types event)))
+                                                                (equal "ban" (cdr (membership-types event)))))
+                                                         events))
                   (rename-events (cl-remove-if-not (lambda (event)
                                                      (pcase-let ((`(,old . ,new) (membership-types event)))
                                                        (and (equal "join" new)
@@ -3623,11 +3628,12 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                            "left" left-events
                                                            "invited" invite-events
                                                            "banned" ban-events
+                                                           "kicked and banned" kick-and-ban-events
                                                            "changed name" rename-events
                                                            "changed avatar" avatar-events)
                                            for users = (mapcar #'event-user
                                                                (cl-delete-duplicates
-                                                                events :key #'ement-event-sender))
+                                                                events :key #'ement-event-state-key))
                                            for number = (length users)
                                            when events
                                            collect (format "%s %s (%s)" number
