@@ -3016,9 +3016,13 @@ Formats according to `ement-room-message-format-spec', which see."
                                                   'action #'ement-room-reaction-button-action
                                                   'follow-link t
                                                   'help-echo (lambda (_window buffer _pos)
+                                                               ;; NOTE: If the reaction key string is a Unicode character composed
+                                                               ;; with, e.g. "VARIATION SELECTOR-16", `string-to-char' ignores the
+                                                               ;; composed modifier/variation-selector and just returns the first
+                                                               ;; character of the string.  This should be fine, since it's just
+                                                               ;; for the tooltip.
                                                                (concat
-                                                                (when (= 1 (length key))
-                                                                  (concat (get-char-code-property (string-to-char key) 'name) ": "))
+                                                                (get-char-code-property (string-to-char key) 'name) ": "
                                                                 (senders-names senders (buffer-local-value 'ement-room buffer))))))
                                      (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
                                                               :key #'ement-user-id :test #'equal)))
@@ -3038,7 +3042,7 @@ Formats according to `ement-room-message-format-spec', which see."
                  for sender = (ement-event-sender reaction)
                  do (push sender (alist-get key keys-senders nil nil #'string=))
                  finally do (setf keys-senders (cl-sort keys-senders #'> :key (lambda (pair) (length (cdr pair)))))
-                 finally return (concat "\n  " (string-join (mapcar #'format-reaction keys-senders) "  "))))
+                 finally return (concat "\n  " (mapconcat #'format-reaction keys-senders "  "))))
     ""))
 
 (cl-defun ement-room--format-message (event room session &optional (format ement-room-message-format-spec))
