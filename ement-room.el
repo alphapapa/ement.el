@@ -2025,7 +2025,8 @@ data slot."
           (ement-room--process-events (reverse (ement-room-state room)))
           (ement-room--process-events (reverse (ement-room-timeline room)))
           (ement-room--insert-ts-headers)
-          (ement-room--insert-sender-headers ement-ewoc)
+          (when ement-room-sender-in-headers
+            (ement-room--insert-sender-headers ement-ewoc))
           (ement-room-move-read-markers room
             :read-event (when-let ((event (alist-get "m.read" (ement-room-account-data room) nil nil #'equal)))
                           (map-nested-elt event '(content event_id)))
