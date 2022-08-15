@@ -350,6 +350,7 @@ a filter ID).  When unspecified, the value of
   ;; TODO: Filtering: <https://matrix.org/docs/spec/client_server/r0.6.1#filtering>.
   ;; TODO: Use a filter ID for default filter.
   ;; TODO: Optionally, automatically sync again when HTTP request fails.
+  ;; TODO: Ensure that the process in (map-elt ement-syncs session) is live.
   (when (map-elt ement-syncs session)
     (if force
         (condition-case err
