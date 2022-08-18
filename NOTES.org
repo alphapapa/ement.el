@@ -2,6 +2,10 @@
 
 * Tasks
 
+** TODO Make bookmark handler put point at end of room buffers
+
+When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
+
 ** TODO Membership events in which nothing seems to change              :bug:
 
 e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", because nothing is changed, so I don't even know what this event is supposed to mean.
