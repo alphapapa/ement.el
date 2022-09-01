@@ -194,6 +194,7 @@ In that case, sender names are aligned to the margin edge.")
 (defvar ement-users)
 (defvar ement-images-queue)
 (defvar ement-notify-limit-room-name-width)
+(defvar ement-view-room-display-buffer-action)
 
 ;; Defined in Emacs 28.1: silence byte-compilation warning in earlier versions.
 (defvar browse-url-handlers)
@@ -1761,17 +1762,16 @@ reaction string, e.g. \"👍\"."
 
 (defun ement-room-view (room session)
   "Switch to a buffer showing ROOM on SESSION.
-Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
-call `pop-to-buffer'."
+Uses action `ement-view-room-display-buffer-action', which see."
   (interactive (ement-complete-room :session (ement-complete-session) :suggest nil))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
       (setf buffer (ement-room--buffer session room (ement-room--buffer-name room))
             (alist-get 'buffer (ement-room-local room))  buffer))
-    ;; FIXME: There must be a better way to handle this.
-    (funcall (if current-prefix-arg
-                 #'pop-to-buffer #'pop-to-buffer-same-window)
-             buffer)))
+    ;; FIXME: This doesn't seem to work as desired, e.g. when
+    ;; `ement-view-room-display-buffer-action' is set to `display-buffer-no-window'; I
+    ;; guess because `pop-to-buffer' selects a window.
+    (pop-to-buffer buffer ement-view-room-display-buffer-action)))
 (defalias 'ement-view-room #'ement-room-view)
 
 (defun ement-room--buffer-name (room)

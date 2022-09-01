@@ -156,6 +156,19 @@ That is, when calling command `ement-disconnect'.  Functions are
 called with no arguments."
   :type 'hook)
 
+(defcustom ement-view-room-display-buffer-action '(display-buffer-same-window)
+  "Display buffer action to use when opening room buffers.
+See function `display-buffer' and info node `(elisp) Buffer
+Display Action Functions'."
+  :type 'function)
+
+(defcustom ement-auto-view-room-display-buffer-action '(display-buffer-no-window)
+  "Display buffer action to use when automatically opening room buffers.
+That is, rooms listed in `ement-auto-view-rooms', which see.  See
+function `display-buffer' and info node `(elisp) Buffer Display
+Action Functions'."
+  :type 'function)
+
 ;;;; Commands
 
 ;;;###autoload
@@ -300,7 +313,8 @@ Useful in, e.g. `ement-disconnect-hook', which see."
 				    (or (equal alias/id (ement-room-canonical-alias room))
 					(equal alias/id (ement-room-id room))))
 				  (ement-session-rooms session)))
-        (ement-view-room room session)))))
+        (let ((ement-view-room-display-buffer-action ement-auto-view-room-display-buffer-action))
+          (ement-view-room room session))))))
 
 (defun ement--initial-transaction-id ()
   "Return an initial transaction ID for a new session."
