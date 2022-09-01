@@ -1478,9 +1478,14 @@ are sync batch tokens.  Used for, e.g. filling gaps in
 (defun ement-room-sync (session &optional force)
   "Sync SESSION (interactively, current buffer's).
 If FORCE (interactively, with prefix), cancel any outstanding
-sync requests."
+sync requests.  Also, update any room list buffers."
   (interactive (list ement-session current-prefix-arg))
-  (ement--sync session :force force))
+  (ement--sync session :force force)
+  (cl-loop for buffer in (buffer-list)
+           when (member (buffer-local-value buffer 'major-mode)
+                        '(ement-taxy-mode ement-room-list-mode))
+           do (with-current-buffer buffer
+                (revert-buffer))))
 
 (defun ement-room-view-event (event)
   "Pop up buffer showing details of EVENT (interactively, the one at point).
