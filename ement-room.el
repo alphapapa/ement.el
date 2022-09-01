@@ -1331,8 +1331,7 @@ see."
   (condition-case _err
       (scroll-down nil)
     (beginning-of-buffer
-     (when (call-interactively #'ement-room-retro)
-       (message "Loading earlier messages...")))))
+     (call-interactively #'ement-room-retro))))
 
 (defun ement-room-mwheel-scroll (event)
   "Scroll according to EVENT, loading earlier messages when at top."
@@ -1341,8 +1340,7 @@ see."
     (let ((start (window-start)))
       (mwheel-scroll event)
       (when (= start (window-start))
-        (when (call-interactively #'ement-room-retro)
-          (message "Loading earlier messages..."))))))
+        (call-interactively #'ement-room-retro)))))
 
 ;; TODO: Unify these retro-loading functions.
 
@@ -1352,9 +1350,10 @@ see."
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older messages in ROOM on SESSION."
   (interactive (list ement-room ement-session
-                     (if current-prefix-arg
-                         (read-number "Number of messages: ")
-                       ement-room-retro-messages-number)
+                     (cl-typecase current-prefix-arg
+                       (null ement-room-retro-messages-number)
+                       (list (read-number "Number of messages: "))
+                       (number current-prefix-arg))
                      :buffer (current-buffer)))
   (unless ement-room-retro-loading
     (pcase-let* (((cl-struct ement-room id prev-batch) room)
@@ -1371,7 +1370,9 @@ see."
                 (when buffer
                   (with-current-buffer buffer
                     (setf ement-room-retro-loading nil)))
-                (signal 'ement-api-error (list "Loading earlier messages failed" plz-error))))
+                (signal 'ement-api-error (list (format "Loading %s earlier messages failed" number)
+                                               plz-error))))
+      (message "Loading %s earlier messages..." number)
       (setf ement-room-retro-loading t))))
 
 (cl-defun ement-room-retro-to (room session event-id &key then (batch-size 100) (limit 1000))
