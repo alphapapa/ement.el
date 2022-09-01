@@ -150,6 +150,12 @@ Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
   :type '(alist :key-type (string :tag "Local user ID")
                 :value-type (repeat (string :tag "Room alias/ID"))))
 
+(defcustom ement-disconnect-hook '(ement-kill-buffers)
+  "Functions called when disconnecting.
+That is, when calling command `ement-disconnect'.  Functions are
+called with no arguments."
+  :type 'hook)
+
 ;;;; Commands
 
 ;;;###autoload
@@ -260,10 +266,19 @@ in them won't work."
     ;; HACK: If no sessions remain, clear the users table.  It might be best
     ;; to store a per-session users table, but this is probably good enough.
     (clrhash ement-users))
+  (run-hooks 'ement-disconnect-hook)
   (message "Ement: Disconnected (%s)"
            (string-join (cl-loop for session in sessions
                                  collect (ement-user-id (ement-session-user session)))
                         ", ")))
+
+(defun ement-kill-buffers ()
+  "Kill all Ement buffers.
+Useful in, e.g. `ement-disconnect-hook', which see."
+  (interactive)
+  (dolist (buffer (buffer-list))
+    (when (string-prefix-p "ement-" (symbol-name (buffer-local-value 'major-mode buffer)))
+      (kill-buffer buffer))))
 
 (defun ement--login-callback (session data)
   "Record DATA from logging in to SESSION and do initial sync."
