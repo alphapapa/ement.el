@@ -2,9 +2,46 @@
 
 * Tasks
 
+** PROJECT [#A] Submit to ELPA
+
+*** TODO Ensure no non-ELPA dependencies are needed
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:01]
+:END:
+
+*** TODO Ensure no byte-compilation warnings or errors
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:02]
+:END:
+
+*** TODO Tag stable version number
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:02]
+:END:
+
+- [ ] In ement.el header
+- [ ] In Git
+
+*** TODO Review ELPA submission guidelines
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:03]
+:END:
+
+*** TODO Write patch for elpa.git
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:03]
+:END:
+
+*** TODO Send email to emacs-devel
+:LOGBOOK:
+- State "TODO"       from              [2022-09-01 Thu 04:03]
+:END:
+
 ** TODO Make bookmark handler put point at end of room buffers
 
 When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
+
+[2022-09-01 Thu 04:04]  Or maybe go to the fully-read marker instead.
 
 ** TODO Membership events in which nothing seems to change              :bug:
 
