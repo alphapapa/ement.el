@@ -565,6 +565,7 @@ left."
                    do (progn
                         (goto-char (button-end (button-at (point))))
                         (push-button (1- (point)))
+                        (ement-room-goto-fully-read-marker)
                         (cl-return t))
                    else do (call-interactively #'forward-button)
                    while (> (line-number-at-pos) starting-line))
