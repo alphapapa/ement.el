@@ -77,7 +77,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Automatically update the room list buffer."
   :type 'boolean)
 
-(defcustom ement-room-list-avatars t
+(defcustom ement-room-list-avatars (display-graphic-p)
   "Show room avatars in the room list."
   :type 'boolean)
 
