@@ -416,7 +416,10 @@ USER is an `ement-user' struct."
 
 (cl-defun ement--prism-color (string &key (contrast-with (face-background 'default nil 'default)))
   "Return a computed color for STRING.
-Useful for user messages, generated room avatars, etc."
+The color is adjusted to have sufficient contrast with the color
+CONTRAST-WITH (by default, the default face's background).  The
+computed color is useful for user messages, generated room
+avatars, etc."
   ;; TODO: Use this instead of `ement-room--user-color'.  (Same algorithm ,just takes a
   ;; string as argument.)
   ;; TODO: Try using HSV somehow so we could avoid having so many strings return a

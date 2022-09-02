@@ -122,7 +122,7 @@
                                  ;; Room is a specified space.
                                  (or name (concat "Space: " (ement-room-display-name room)))
                                  ))
-                        ;; ID not specified. 
+                        ;; ID not specified.
                         (pcase (length parents)
                           (0 nil)
                           (1
@@ -538,7 +538,7 @@ left."
   (ement-taxy-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
 
 (defun ement-taxy-mouse-1 (event)
-  "Call `ement-taxy-RET' at point."
+  "Call `ement-taxy-RET' at EVENT."
   (interactive "e")
   (mouse-set-point event)
   (call-interactively #'ement-taxy-RET))

@@ -1014,7 +1014,8 @@ when switching themes or adjusting `ement-prism' options."
   "Browse URL, using Ement for matrix.to URLs when possible.
 Otherwise, fall back to `browse-url'.  When called outside of an
 `ement-room' buffer, the variable `ement-session' must be bound
-to the session in which to look for URL's room and event."
+to the session in which to look for URL's room and event.  ARGS
+are passed to `browse-url'."
   (interactive)
   (when (string-match ement-room-matrix.to-url-regexp url)
     (let ((room-id (when (string-prefix-p "!" (match-string 1 url))
@@ -2682,7 +2683,7 @@ the first and last nodes in the buffer, respectively."
 (cl-defun ement-room--insert-sender-headers
     (ewoc &optional (start-node (ewoc-nth ewoc 0)) (end-node (ewoc-nth ewoc -1)))
   ;; TODO: Use this in appropriate places.
-  "Insert sender headers into current buffer's `ement-ewoc'.
+  "Insert sender headers into EWOC.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
   (cl-labels ((read-marker-p

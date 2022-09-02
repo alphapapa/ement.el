@@ -71,8 +71,22 @@
                              ;; can get slow and respond a minute or two later.
                              (connect-timeout 10) (timeout 60)
                              (version "r0"))
-  "FIXME: Docstring."
-  ;; TODO: Remind users to json-encode data when needed.
+  "Make API request on SESSION to ENDPOINT.
+The request automatically uses SESSION's server, URI prefix, and
+access token.
+
+These keyword arguments are passed to `plz', which see: THEN,
+DATA (passed as BODY), QUEUE (passed to `plz-queue', which see),
+DATA-TYPE (passed as BODY-TYPE), ELSE, METHOD,
+JSON-READ-FN (passed as AS), CONNECT-TIMEOUT, TIMEOUT.
+
+Other arguments include PARAMS (used as the URL's query
+parameters), ENDPOINT-CATEGORY (added to the endpoint URL), and
+VERSION (added to the endpoint URL).
+
+Note that most Matrix requests expect JSON-encoded data, so
+usually the DATA argument should be passed through
+`json-encode'."
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-session server token) session)
                ((cl-struct ement-server uri-prefix) server)

@@ -222,7 +222,7 @@ anything if session hasn't finished initial sync."
               bookmark-make-record-function #'ement-notify-bookmark-make-record))
 
 (cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
-  "Log EVENT in ROOM to \"*Ement Notifications*\" buffer."
+  "Log EVENT in ROOM on SESSION to \"*Ement Notifications*\" buffer."
   (with-demoted-errors "ement-notify--log-to-buffer: %S"
     ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary
     ;; since we have `ement-notify--event-message-p' in `ement-notify-predicates', but
