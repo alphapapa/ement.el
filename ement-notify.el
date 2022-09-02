@@ -1,9 +1,9 @@
 ;;; ement-notify.el --- Notifications for Ement events  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021  Adam Porter
+;; Copyright (C) 2022  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
-;; Keywords: comm
+;; Maintainer: Adam Porter <adam@alphapapa.net>
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

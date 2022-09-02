@@ -1,12 +1,13 @@
 ;;; ement.el --- Matrix client                       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020  Adam Porter
+;; Copyright (C) 2022  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
-;; Keywords: comm
+;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Package-Version: 0.1-pre
+;; Version: 0.1
 ;; Package-Requires: ((emacs "27.1") (map "2.1") (plz "0.2") (taxy "0.9") (taxy-magit-section "0.9") (svg-lib "0.2.5") (transient "0.3.7"))
+;; Keywords: comm
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
