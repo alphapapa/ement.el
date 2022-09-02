@@ -4,37 +4,48 @@
 
 ** PROJECT [#A] Submit to ELPA
 
-*** TODO Ensure no non-ELPA dependencies are needed
+*** DONE Ensure no non-ELPA dependencies are needed
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 22:56]
 - State "TODO"       from              [2022-09-01 Thu 04:01]
 :END:
 
-*** TODO Ensure no byte-compilation warnings or errors
+*** DONE Ensure no byte-compilation warnings or errors
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 23:10]
 - State "TODO"       from              [2022-09-01 Thu 04:02]
 :END:
 
-*** TODO Tag stable version number
+*** DONE Review ELPA submission guidelines
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 23:21]
+- State "TODO"       from              [2022-09-01 Thu 04:03]
+:END:
+
+*** DONE Tag stable version number
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 23:22]
 - State "TODO"       from              [2022-09-01 Thu 04:02]
 :END:
 
-- [ ] In ement.el header
-- [ ] In Git
+- [X] In ement.el header
+- [X] In Git
 
-*** TODO Review ELPA submission guidelines
+*** DONE Write patch for elpa.git
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 23:41]
 - State "TODO"       from              [2022-09-01 Thu 04:03]
 :END:
 
-*** TODO Write patch for elpa.git
+*** DONE Send email to emacs-devel
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-01 Thu 23:41]
 - State "TODO"       from              [2022-09-01 Thu 04:03]
 :END:
 
-*** TODO Send email to emacs-devel
+*** WAITING Check feedback on emacs-devel
 :LOGBOOK:
-- State "TODO"       from              [2022-09-01 Thu 04:03]
+- State "WAITING"    from              [2022-09-01 Thu 23:41]
 :END:
 
 ** TODO Make bookmark handler put point at end of room buffers
