@@ -264,9 +264,6 @@ However, note that ~matrix-client~ is a more mature client and is very reliable 
 
 After almost two years of development, the first tagged release.  Submitted to GNU ELPA.
 
-* COMMENT Credits
-
-
 * Development
 :PROPERTIES:
 :TOC:      :include this :ignore descendants
@@ -294,6 +291,25 @@ An Org-formatted version of the Matrix spec is available in the [[https://github
 :END:
 
 GPLv3
+
+* COMMENT Export setup                                             :noexport:
+:PROPERTIES:
+:TOC:      :ignore (this descendants)
+:END:
+
+# Copied from org-super-agenda's readme, in which much was borrowed from Org's =org-manual.org=.
+
+# This is necessary to prevent ELPA from failing to build the documentation due to the linked screenshots being excluded from the tarball.
+
+#+OPTIONS: broken-links:t *:t
+
+** Info export options
+
+#+TEXINFO_DIR_CATEGORY: Emacs
+#+TEXINFO_DIR_TITLE: Ement: (ement)
+#+TEXINFO_DIR_DESC: Matrix client for Emacs
+
+** File-local variables
 
 # Local Variables:
 # eval: (require 'org-make-toc)
