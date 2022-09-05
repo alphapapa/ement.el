@@ -43,10 +43,22 @@
 - State "TODO"       from              [2022-09-01 Thu 04:03]
 :END:
 
-*** WAITING Check feedback on emacs-devel
+*** DONE Check feedback on emacs-devel
 :LOGBOOK:
+- State "DONE"       from "WAITING"    [2022-09-05 Mon 04:52]
 - State "WAITING"    from              [2022-09-01 Thu 23:41]
 :END:
+
+*** WAITING Ensure readme change allows ELPA to build properly
+:LOGBOOK:
+- State "WAITING"    from              [2022-09-05 Mon 04:52]
+:END:
+
+Need to check ELPA-devel after it's had a chance to build again.
+
+*** TODO Tag v1.0.1 with readme fix
+
+So it will get built for main ELPA.
 
 ** TODO Make bookmark handler put point at end of room buffers
 
