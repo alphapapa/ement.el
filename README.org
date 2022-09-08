@@ -264,6 +264,7 @@ However, note that ~matrix-client~ is a more mature client and is very reliable 
 
 *Fixed*
 + Function ~ement-room-scroll-up-mark-read~ selects the correct room window.
++ Option ~ement-room-list-avatars~ defaults to what function ~display-images-p~ returns.
 
 ** 0.1
 
