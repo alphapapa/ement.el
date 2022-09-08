@@ -2746,7 +2746,8 @@ the first and last nodes in the buffer, respectively."
                           (ewoc-prev ewoc event-node)))))))
 
 (defun ement-room--coalesce-nodes (a b ewoc)
-  "Try to coalesce events in nodes A and B in EWOC, returning absorbing node if done."
+  "Try to coalesce events in nodes A and B in EWOC.
+Return absorbing node if coalesced."
   (cl-labels ((coalescable-p
                (node) (or (and (ement-event-p (ewoc-data node))
                                (member (ement-event-type (ewoc-data node)) '("m.room.member")))
