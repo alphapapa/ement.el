@@ -260,6 +260,10 @@ However, note that ~matrix-client~ is a more mature client and is very reliable 
 :TOC:      :depth 0
 :END:
 
+** 0.1.1
+
+Nothing new yet.
+
 ** 0.1
 
 After almost two years of development, the first tagged release.  Submitted to GNU ELPA.
