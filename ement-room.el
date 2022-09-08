@@ -1202,7 +1202,8 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                                      '("*Ement Taxy*" "*Ement Rooms*")))
                                            (window-list))))
             ;; Rooms buffer already displayed: select its window and move to next unread room.
-            (with-selected-window rooms-window
+            (progn
+              (select-window rooms-window)
               (funcall (pcase-exhaustive major-mode
                          ('ement-room-list-mode #'ement-room-list-next-unread)
                          ('ement-taxy-mode #'ement-taxy-next-unread))))

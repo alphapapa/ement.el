@@ -262,7 +262,8 @@ However, note that ~matrix-client~ is a more mature client and is very reliable 
 
 ** 0.1.1
 
-Nothing new yet.
+*Fixed*
++ Function ~ement-room-scroll-up-mark-read~ selects the correct room window.
 
 ** 0.1
 
