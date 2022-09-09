@@ -1484,7 +1484,7 @@ sync requests.  Also, update any room list buffers."
   (interactive (list ement-session current-prefix-arg))
   (ement--sync session :force force)
   (cl-loop for buffer in (buffer-list)
-           when (member (buffer-local-value buffer 'major-mode)
+           when (member (buffer-local-value 'major-mode buffer)
                         '(ement-taxy-mode ement-room-list-mode))
            do (with-current-buffer buffer
                 (revert-buffer))))
