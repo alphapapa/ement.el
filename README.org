@@ -272,7 +272,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.1.3-pre
 
-Nothing new yet.
+*Fixed*
++ Read receipt-sending function was called too many times when scrolling.
 
 ** 0.1.2
 

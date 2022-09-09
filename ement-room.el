@@ -2450,26 +2450,27 @@ WINDOW's end is beyond the marker.  For use in
       ;; get updated if the user only views a room's buffer for a
       ;; short time.
       (let ((room-buffer (window-buffer window)))
-        (run-with-idle-timer
-         3 nil (lambda ()
-                 (when (and (windowp window)
-                            (eq (window-buffer window) room-buffer))
-                   (with-selected-window window
-                     (when-let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
-                                                     (lambda (node-data)
-                                                       (eq 'ement-room-read-receipt-marker node-data)))))
-                       ;; The read-receipt marker is visible (i.e. it's not between
-                       ;; earlier events which we have not retrieved).
-                       (when (> (window-end) (ewoc-location read-receipt-node))
-                         ;; The window's end has been scrolled past the position of the receipt marker.
-                         (when-let* ((window-end-node (or (ewoc-locate ement-ewoc (window-end))
-                                                          (ewoc-nth ement-ewoc -1)))
-                                     (event-node (cl-typecase (ewoc-data window-end-node)
-                                                   (ement-event window-end-node)
-                                                   (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
-                                                        #'ement-event-p #'ewoc-prev)))))
-                           (ement-room-mark-read ement-room ement-session
-                             :read-event (ewoc-data event-node)))))))))))))
+        (setf ement-room-read-receipt-timer
+              (run-with-idle-timer
+               3 nil (lambda ()
+                       (when (and (windowp window)
+                                  (eq (window-buffer window) room-buffer))
+                         (with-selected-window window
+                           (when-let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
+                                                           (lambda (node-data)
+                                                             (eq 'ement-room-read-receipt-marker node-data)))))
+                             ;; The read-receipt marker is visible (i.e. it's not between
+                             ;; earlier events which we have not retrieved).
+                             (when (> (window-end) (ewoc-location read-receipt-node))
+                               ;; The window's end has been scrolled past the position of the receipt marker.
+                               (when-let* ((window-end-node (or (ewoc-locate ement-ewoc (window-end))
+                                                                (ewoc-nth ement-ewoc -1)))
+                                           (event-node (cl-typecase (ewoc-data window-end-node)
+                                                         (ement-event window-end-node)
+                                                         (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
+                                                              #'ement-event-p #'ewoc-prev)))))
+                                 (ement-room-mark-read ement-room ement-session
+                                   :read-event (ewoc-data event-node))))))))))))))
 
 (defun ement-room-goto-fully-read-marker ()
   "Move to the fully-read marker in the current room."
