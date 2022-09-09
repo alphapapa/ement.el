@@ -270,7 +270,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.1.2-pre
+** 0.1.2
 
 *Fixed*
 + Function ~ement-room-sync~ correctly updates room-list buffers.  (Thanks to [[https://github.com/vizs][Visuwesh]].)
