@@ -264,6 +264,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Fixed*
 + Function ~ement-room-sync~ correctly updates room-list buffers.  (Thanks to [[https://github.com/vizs][Visuwesh]].)
++ Only send D-Bus notifications when supported.  (Fixes [[https://github.com/alphapapa/ement.el/issues/83][#83]].  Thanks to [[https://github.com/tsdh][Tassilo Horn]].)
 
 ** 0.1.1
 

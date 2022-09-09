@@ -48,6 +48,13 @@
     (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
   "Map for Ement notification buffers.")
 
+(defvar ement-notify-dbus-p
+  (and (featurep 'dbusbind)
+       (require 'dbus nil :no-error)
+       (dbus-ignore-errors (dbus-get-unique-name :session))
+       (dbus-ping :session "org.freedesktop.Notifications"))
+  "Whether D-Bus notifications are usable.")
+
 ;;;; Customization
 
 (defgroup ement-notify nil
@@ -160,13 +167,13 @@ margins in Emacs.  But it's useful, anyway."
 
 (defun ement-notify (event room session)
   "Send notifications for EVENT in ROOM on SESSION.
-Calls functions in `ement-notify-functions' if all of
-`ement-notify-ignore-predicates' return nil.  Does not do
-anything if session hasn't finished initial sync."
+Sends if all of `ement-notify-ignore-predicates' return nil.
+Does not do anything if session hasn't finished initial sync."
   (when (and (ement-session-has-synced-p session)
              (cl-loop for pred in ement-notify-ignore-predicates
                       never (funcall pred event room session)))
-    (when (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session)
+    (when (and ement-notify-dbus-p
+               (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session))
       (ement-notify--notifications-notify event room session))
     (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
       (ement-notify--log-to-buffer event room session))
