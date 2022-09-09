@@ -1,6 +1,7 @@
 #+TITLE: Ement.el
 
 #+PROPERTY: LOGGING nil
+#+OPTIONS: broken-links:t *:t
 
 # Note: This readme works with the org-make-toc <https://github.com/alphapapa/org-make-toc> package, which automatically updates the table of contents.
 
@@ -8,7 +9,7 @@
 
 # [[https://melpa.org/#/package-name][file:https://melpa.org/packages/package-name-badge.svg]] [[https://stable.melpa.org/#/package-name][file:https://stable.melpa.org/packages/package-name-badge.svg]]
 
-Ement.el is a new Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
+Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
 
 Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.org][https://img.shields.io/matrix/ement.el:matrix.org.svg?label=%23ement.el:matrix.org]]
 
@@ -17,7 +18,6 @@ Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.or
 :TOC:      :include siblings
 :END:
 :CONTENTS:
-- [[#screenshots][Screenshots]]
 - [[#installation][Installation]]
 - [[#usage][Usage]]
   - [[#bindings][Bindings]]
@@ -28,7 +28,7 @@ Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.or
 - [[#development][Development]]
 :END:
 
-* Screenshots
+* Screenshots                                                      :noexport:
 :PROPERTIES:
 :ID:       d818f690-5f22-4eb0-83e1-4d8ce16c9e5b
 :END:
@@ -60,13 +60,13 @@ The default formatting style resembles IRC clients, with each message being pref
 :TOC:      :depth 0
 :END:
 
-# ** MELPA
-# 
-# If you installed from MELPA, you're done.  Just run one of the commands below.
+** GNU ELPA
+
+Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]], so it may be installed in Emacs with the ~package-install~ command, which will install the current stable release.
 
 ** Quelpa
 
-The recommended way to install is with [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]], like this:
+The ~master~ branch of the Git repository is intended to be usable at all times; only minor bugs are expected to be found in it before a new stable release is made.  To install from this, it is recommended to use [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]], like this:
 
 #+BEGIN_SRC elisp
   ;; Install and load `quelpa-use-package'.
@@ -80,7 +80,7 @@ The recommended way to install is with [[https://github.com/quelpa/quelpa-use-pa
 
 ** Manual
 
-If you want to install it manually, it's simple enough, but you should know what you're doing, and you're on your own.
+Ement.el is intended to be installed with Emacs's package system, which will ensure that the required autoloads are generated, etc.  If you choose to install it manually, you're on your own.
 
 * Usage
 :PROPERTIES:
@@ -253,7 +253,7 @@ Why write a new Emacs Matrix client when there is already [[https://github.com/a
 -  ~matrix-client~'s long name makes for long symbol names, which makes for tedious, verbose code.  ~ement~ is easy to type and makes for concise, readable code.
 -  The author has learned much since writing ~matrix-client~ and hopes to write simpler, more readable, more maintainable code in Ement.el.  It's hoped that this will enable others to contribute more easily.
 
-However, note that ~matrix-client~ is a more mature client and is very reliable in the author's experience.  While Ement.el is intended to reach feature parity with it and eventually surpass it, that will take some time, so ~matrix-client~ remains a good choice.
+Note that, while ~matrix-client~ remains usable, and probably will for some time to come, Ement.el has now surpassed it in every way.  The only reason to choose ~matrix-client~ instead is if one is using an older version of Emacs that isn't supported by Ement.el.
 
 * Changelog
 :PROPERTIES:
@@ -282,7 +282,7 @@ Bug reports, feature requests, suggestions — /oh my/!
 :TOC:      :ignore (this)
 :END:
 
-While Ement.el is not yet available in GNU ELPA and is not part of Emacs, it would be good to keep that option available.  In that case, cumulative contributions of more than 15 lines of code would require that the author assign copyright of such contributions to the FSF.  Therefore, please note that this project may require such assignment before accepting contributions.  Authors who are interested in doing so may contact [[mailto:assign@gnu.org][assign@gnu.org]] to request the appropriate form.
+Ement.el is published in GNU ELPA and is considered part of GNU Emacs.  Therefore, cumulative contributions of more than 15 lines of code require that the author assign copyright of such contributions to the FSF.  Authors who are interested in doing so may contact [[mailto:assign@gnu.org][assign@gnu.org]] to request the appropriate form.
 
 ** Matrix spec in Org format
 :PROPERTIES:
@@ -305,9 +305,7 @@ GPLv3
 
 # Copied from org-super-agenda's readme, in which much was borrowed from Org's =org-manual.org=.
 
-# This is necessary to prevent ELPA from failing to build the documentation due to the linked screenshots being excluded from the tarball.
-
-#+OPTIONS: broken-links:t *:t
+# NOTE: The #+OPTIONS: keyword did not take effect when in this section (perhaps due to file size or changes in Org versions), so it was moved to the top of the file.
 
 ** Info export options
 
