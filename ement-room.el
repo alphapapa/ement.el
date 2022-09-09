@@ -2458,7 +2458,7 @@ WINDOW's end is beyond the marker.  For use in
   "Send read receipt for WINDOW displaying ROOM-BUFFER.
 To be called by timer run by
 `ement-room-start-read-receipt-timer'."
-  (when (and (windowp window)
+  (when (and (window-live-p window)
              (eq (window-buffer window) room-buffer))
     (with-selected-window window
       (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
