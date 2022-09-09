@@ -274,6 +274,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Fixed*
 + Read receipt-sending function was called too many times when scrolling.
++ Send read receipts even when the last receipt is outside the range of retrieved events.
 
 ** 0.1.2
 
