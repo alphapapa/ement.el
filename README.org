@@ -262,7 +262,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.1.2-pre
 
-Nothing new yet.
+*Fixed*
++ Function ~ement-room-sync~ correctly updates room-list buffers.  (Thanks to [[https://github.com/vizs][Visuwesh]].)
 
 ** 0.1.1
 
