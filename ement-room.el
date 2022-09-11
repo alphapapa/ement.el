@@ -1942,8 +1942,19 @@ and erases the buffer."
                                           browse-url-handlers)))
   (setq-local completion-at-point-functions
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
-  (setq-local window-scroll-functions
-              (cons 'ement-room-start-read-receipt-timer window-scroll-functions))
+  ;; FIXME: Disabling this because of some weird behavior.  It seems like a race condition
+  ;; exists in which the window-scroll-functions are called, causing the read receipt to
+  ;; get sent, followed by the read-receipt being updated, causing the
+  ;; window-scroll-functions to be called again before the updated receipt is displayed in
+  ;; the buffer, which can cause an infinite loop, which can even exhaust the Lisp stack
+  ;; and cause Emacs to freeze (without 100% CPU usage).  At least, that's the best
+  ;; explanation I have so far--it's very weird.  Until it's solved, we'll have to do
+  ;; without sending read receipts.  Maybe window-scroll-functions isn't suitable for
+  ;; this, even though it seems ideal in theory.  Maybe instead we should use a simple
+  ;; idle timer that iterates over windows, or something like that.
+  
+  ;; (setq-local window-scroll-functions
+  ;;             (cons 'ement-room-start-read-receipt-timer window-scroll-functions))
   (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
                                            ("^file:" . ement-room-dnd-upload-file))
                                          dnd-protocol-alist)))
