@@ -2451,8 +2451,12 @@ WINDOW's end is beyond the marker.  For use in
       ;; short time.
       (let ((room-buffer (window-buffer window)))
         (setf ement-room-read-receipt-timer
-              (run-with-idle-timer
-               3 nil #'ement-room-read-receipt-timer window room-buffer))))))
+              ;; FIXME: Temporarily disabling sending of read receipts due to a bug that
+              ;; can cause excessive read receipts to be sent in rapid succession.
+              nil
+              ;; (run-with-idle-timer
+              ;;  3 nil #'ement-room-read-receipt-timer window room-buffer)
+              )))))
 
 (defun ement-room-read-receipt-timer (window room-buffer)
   "Send read receipt for WINDOW displaying ROOM-BUFFER.
