@@ -1,13 +1,21 @@
 #+TITLE: Ement.el
 
 #+PROPERTY: LOGGING nil
+
+# Export options.
 #+OPTIONS: broken-links:t *:t
+
+# Info export options.
+#+TEXINFO_DIR_CATEGORY: Emacs
+#+TEXINFO_DIR_TITLE: Ement: (ement)
+#+TEXINFO_DIR_DESC: Matrix client for Emacs
 
 # Note: This readme works with the org-make-toc <https://github.com/alphapapa/org-make-toc> package, which automatically updates the table of contents.
 
 #+HTML: <img src="images/logo-128px.png" align="right">
 
-# [[https://melpa.org/#/package-name][file:https://melpa.org/packages/package-name-badge.svg]] [[https://stable.melpa.org/#/package-name][file:https://stable.melpa.org/packages/package-name-badge.svg]]
+# ELPA badge image.
+[[file:http:/elpa.gnu.org/packages/ement.svg]]
 
 Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
 
@@ -62,7 +70,7 @@ The default formatting style resembles IRC clients, with each message being pref
 
 ** GNU ELPA
 
-Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]], so it may be installed in Emacs with the ~package-install~ command.  This is the recommended way to install Ement.el, as it will install the current stable release.
+Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]], so it may be installed in Emacs with the command ~M-x package-install RET ement RET~.  This is the recommended way to install Ement.el, as it will install the current stable release.
 
 ** GNU Guix
 
@@ -272,7 +280,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.1.4-pre
 
-Nothing new yet.
+*Fixed*
++ Info manual directory headers.
 
 ** 0.1.3
 
@@ -325,20 +334,12 @@ An Org-formatted version of the Matrix spec is available in the [[https://github
 
 GPLv3
 
-* COMMENT Export setup                                             :noexport:
+* COMMENT Config                                                   :noexport:
 :PROPERTIES:
 :TOC:      :ignore (this descendants)
 :END:
 
-# Copied from org-super-agenda's readme, in which much was borrowed from Org's =org-manual.org=.
-
-# NOTE: The #+OPTIONS: keyword did not take effect when in this section (perhaps due to file size or changes in Org versions), so it was moved to the top of the file.
-
-** Info export options
-
-#+TEXINFO_DIR_CATEGORY: Emacs
-#+TEXINFO_DIR_TITLE: Ement: (ement)
-#+TEXINFO_DIR_DESC: Matrix client for Emacs
+# NOTE: The #+OPTIONS: and other keywords did not take effect when in this section (perhaps due to file size or to changes in Org), so they were moved to the top of the file.
 
 ** File-local variables
 
