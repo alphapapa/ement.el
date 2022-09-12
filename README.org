@@ -15,7 +15,7 @@
 #+HTML: <img src="images/logo-128px.png" align="right">
 
 # ELPA badge image.
-[[file:http:/elpa.gnu.org/packages/ement.svg]]
+[[https://elpa.gnu.org/packages/ement.html][https://elpa.gnu.org/packages/ement.svg]]
 
 Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
 
