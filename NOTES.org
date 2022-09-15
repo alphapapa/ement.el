@@ -2,7 +2,11 @@
 
 * Tasks
 
-** PROJECT [#A] Submit to ELPA
+** DONE [#A] Submit to ELPA
+:LOGBOOK:
+- State "DONE"       from "PROJECT"    [2022-09-15 Thu 13:06] \\
+  All done!
+:END:
 
 *** DONE Ensure no non-ELPA dependencies are needed
 :LOGBOOK:
@@ -49,16 +53,31 @@
 - State "WAITING"    from              [2022-09-01 Thu 23:41]
 :END:
 
-*** WAITING Ensure readme change allows ELPA to build properly
+*** DONE Ensure readme change allows ELPA to build properly
 :LOGBOOK:
+- State "DONE"       from "WAITING"    [2022-09-15 Thu 13:06]
 - State "WAITING"    from              [2022-09-05 Mon 04:52]
 :END:
 
 Need to check ELPA-devel after it's had a chance to build again.
 
-*** TODO Tag v1.0.1 with readme fix
+*** DONE Tag version with readme fix
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-15 Thu 13:06]
+:END:
 
 So it will get built for main ELPA.
+
+** TODO Fix/rewrite read receipts
+:LOGBOOK:
+- State "TODO"       from              [2022-09-15 Thu 13:06]
+:END:
+
+To fix/rewrite read receipt sending, we'll need to make sure that a room can only have one outstanding read-receipt update request, and that an update request for the same position can't be repeated successively.  So:
+
+1. [ ] Add a buffer-local room variable, an alist (of one entry) mapping an event ID to the plz request setting the read receipt to after that event.  ~ement-room-read-receipt-requests~
+2. [ ] The read-receipt-updating function should compare the event ID to the one in that variable: if they match, do nothing; if they're different, cancel any outstanding request and send a new one, and set the variable accordingly.
+3. [ ] In addition to using ~window-scroll-functions~ (which I hope we can get away with, after these other changes), we'll use ~window-selection-change-functions~ to also update the read receipt, similarly to Element (i.e. clicking in a room window should update the receipt with an idle timer).
 
 ** TODO Make bookmark handler put point at end of room buffers
 
