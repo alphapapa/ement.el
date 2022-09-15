@@ -280,9 +280,11 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.2-pre
 
+*Changes*
++ Read receipts are re-enabled.  (They're now implemented with a global idle timer rather than ~window-scroll-functions~, which sometimes caused a strange race condition that could cause Emacs to become unresponsive or crash.)
+
 *Fixes*
 + Links to only rooms (as opposed to links to events in rooms) may be joined by activating them.
-+ Read receipts are re-enabled.  (They're now implemented with a global idle timer rather than ~window-scroll-functions~, which sometimes caused a strange race condition that could cause Emacs to become unresponsive or crash.)
 + Read receipts mark the last completely visible event (rather than one that's only partially displayed).
 
 ** 0.1.4
