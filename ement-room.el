@@ -1218,8 +1218,11 @@ Interactively, set the current buffer's ROOM's TOPIC."
         (scroll-up-command)
       (end-of-buffer (set-window-point nil (point-max))))))
 
-(defun ement-room-join (id-or-alias session)
-  "Join room by ID-OR-ALIAS on SESSION."
+(cl-defun ement-room-join (id-or-alias session &key then)
+  "Join room by ID-OR-ALIAS on SESSION.
+THEN may be a function to call after joining the room (and when
+`ement-room-join-view-buffer' is non-nil, after viewing the room
+buffer).  It receives two arguments, the room and the session."
   (interactive (list (read-string "Join room (ID or alias): ")
                      (or ement-session
                          (ement-complete-session))))
@@ -1243,21 +1246,25 @@ Interactively, set the current buffer's ROOM's TOPIC."
               ;; which removes the symbol from the hook, removing itself from the hook.
               ;; TODO: When requiring Emacs 27, use `letrec'.
               (pcase-let* (((map ('room_id room-id)) data)
-                           (join-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
-                           (join-fn
-                            (lambda (session)
-                              (when-let ((room (cl-loop for room in (ement-session-rooms session)
-                                                        when (equal room-id (ement-room-id room))
-                                                        return room)))
-                                ;; In case the join event is not in this next sync
-                                ;; response, make sure the room is found before removing
-                                ;; the function and joining the room.
-                                (remove-hook 'ement-sync-callback-hook join-fn-symbol)
-                                ;; FIXME: Probably need to unintern the symbol.
-                                (ement-view-room room session)))))
-                (setf (symbol-function join-fn-symbol) join-fn)
-                (when ement-room-join-view-buffer
-                  (add-hook 'ement-sync-callback-hook join-fn-symbol))
+                           (then-fns (delq nil
+                                           (list (when ement-room-join-view-buffer
+                                                   (lambda (room session)
+                                                     (ement-view-room room session)))
+                                                 then)))
+                           (then-fn-symbol (gensym (format "ement-join-%s" id-or-alias)))
+                           (then-fn (lambda (session)
+                                      (when-let ((room (cl-loop for room in (ement-session-rooms session)
+                                                                when (equal room-id (ement-room-id room))
+                                                                return room)))
+                                        ;; In case the join event is not in this next sync
+                                        ;; response, make sure the room is found before removing
+                                        ;; the function and joining the room.
+                                        (remove-hook 'ement-sync-callback-hook then-fn-symbol)
+                                        ;; FIXME: Probably need to unintern the symbol.
+                                        (dolist (fn then-fns)
+                                          (funcall fn room session))))))
+                (setf (symbol-function then-fn-symbol) then-fn)
+                (add-hook 'ement-sync-callback-hook then-fn-symbol)
                 (message "Joined room: %s" room-id)))
       :else (lambda (plz-error)
               (pcase-let* (((cl-struct plz-error response) plz-error)
