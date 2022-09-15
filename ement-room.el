@@ -2824,7 +2824,8 @@ Return absorbing node if coalesced."
                                   (truncate-string-to-width (alist-get 'body (ement-event-content event)) 20)))))
               (find-node-if
                (ewoc pred &key (move #'ewoc-prev) (start (ewoc-nth ewoc -1)))
-               "Return node in EWOC whose data matches PRED starting from node START and moving by NEXT."
+               "Return node in EWOC whose data matches PRED.
+Search starts from node START and moves by NEXT."
                (cl-loop for node = start then (funcall move ewoc node)
                         while node
                         when (funcall pred (ewoc-data node))
