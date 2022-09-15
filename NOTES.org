@@ -75,10 +75,60 @@ So it will get built for main ELPA.
 
 To fix/rewrite read receipt sending, we'll need to make sure that a room can only have one outstanding read-receipt update request, and that an update request for the same position can't be repeated successively.  So:
 
-1. [ ] Add a buffer-local room variable, an alist (of one entry) mapping an event ID to the plz request setting the read receipt to after that event.  ~ement-room-read-receipt-requests~
+1. [X] Add a buffer-local room variable, an alist (of one entry) mapping an event ID to the plz request setting the read receipt to after that event.  ~ement-room-read-receipt-request~
 2. [ ] The read-receipt-updating function should compare the event ID to the one in that variable: if they match, do nothing; if they're different, cancel any outstanding request and send a new one, and set the variable accordingly.
 3. [ ] In addition to using ~window-scroll-functions~ (which I hope we can get away with, after these other changes), we'll use ~window-selection-change-functions~ to also update the read receipt, similarly to Element (i.e. clicking in a room window should update the receipt with an idle timer).
 
+[2022-09-15 Thu 13:42] Again, seeing a very weird behavior in which the read-receipt-timer function is sometimes called repeatedly by Emacs after the idle timer is first called, instead of being called once per idleness.  I don't know why; my best guess is that the ~window-scroll-functions~ are being called repeatedly (though I don't know why), rather than that the timer-called function is being called directly.  To test, I'm going to add a function to one of the room buffer's ~window-scroll-functions~ to just print a message when called.
+
+#+begin_src elisp
+  (defun argh/window-scroll-functions-debug-message (&rest args)
+    (message "argh/debug-window-scroll-functions: Called with: %S" args))
+
+  (defun argh/window-scroll-functions-add-debug-fn ()
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-debug-message window-scroll-functions)))
+#+end_src
+
+[2022-09-15 Thu 13:47] Wow, after doing that and observing the problem happening, Emacs suddenly crashed while calling the functions infinitely:
+
+#+begin_example
+  Fatal error 6: Aborted
+  Backtrace:
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x52771b]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x424640]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x424b02]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x421ec0]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x48214b]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x587ce4]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x445411]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x4453d0]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x4453d0]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x4453d0]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x46e72d]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x4707e0]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x5d6fef]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x436a50]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x51b74a]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x51baef]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x51d49e]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x587c57]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x50e20a]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x587bb1]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x50e1af]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x51395c]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x513ca3]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x42c3fa]
+  /gnu/store/5h2w4qi9hk1qzzgi1w83220ydslinr4s-glibc-2.33/lib/libc.so.6(__libc_start_main+0xcd)[0x7f78d70197dd]
+  /home/me/.guix-profile/bin/emacs-28.1.50[0x42ca6a]
+  /home/me/.bin/with-emacs: line 215: 10034 Aborted                 (core dumped) "$emacs" "${emacs_args[@]}"
+#+end_example
+
+That suggests to me that there may be a bug in Emacs itself happening here.  Debugging that would probably not be fun.  I'm not even sure exactly how to reproduce it.  So far, it seems to happen when two windows have one of these functions in their buffers' local values of ~window-scroll-functions~, and when a window (maybe any window) is scrolled.
+
+But it doesn't happen every time, and it doesn't crash Emacs every time.  And when the functions are being called in rapid succession, Emacs remains responsive, and clicking in a window interrupts Emacs's idleness and the function-calling stops.
+
+That seems to suggest that an interaction with the idle timers is part of the problem, because I know that calling ~run-with-idle-timer~ when Emacs is already idle for the given length of time causes the timer to run immediately, which would seem to match with the behavior I'm seeing.  The question that remains is why the ~window-scroll-functions~ are being called repeatedly rather than once per scroll event.
 ** TODO Make bookmark handler put point at end of room buffers
 
 When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
