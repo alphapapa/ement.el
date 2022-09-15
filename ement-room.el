@@ -1018,28 +1018,38 @@ to the session in which to look for URL's room and event.  ARGS
 are passed to `browse-url'."
   (interactive)
   (when (string-match ement-room-matrix.to-url-regexp url)
-    (let ((room-id (when (string-prefix-p "!" (match-string 1 url))
-                     (match-string 1 url)))
-          (room-alias (when (string-prefix-p "#" (match-string 1 url))
-                        (match-string 1 url)))
-          (event-id (match-string 2 url)))
-      (if (and (equal major-mode 'ement-room-mode)
-               (or (and room-id (equal room-id (ement-room-id ement-room)))
-                   (and room-alias (equal room-alias (ement-room-canonical-alias ement-room)))))
-          ;; Event is in current buffer's room: try to find it.
-          (ement-room-find-event event-id)
-        ;; Event is not in current buffer's room: try to find it in the session.
-        (if-let ((room (or (and room-id (cl-find room-id (ement-session-rooms ement-session)
-                                                 :key #'ement-room-id))
-                           (and room-alias (cl-find room-alias (ement-session-rooms ement-session)
-                                                    :key #'ement-room-canonical-alias)))))
-            (progn
-              ;; Found room in current session: view it and find the event.
-              (ement-view-room room ement-session)
-              (ement-room-find-event event-id))
-          (when (yes-or-no-p (format "Room %s not joined on current session.  Load URL for event %s with browser?"
-                                     (or room-alias room-id) event-id))
-            (apply #'browse-url url args)))))))
+    (let* ((room-id (when (string-prefix-p "!" (match-string 1 url))
+                      (match-string 1 url)))
+           (room-alias (when (string-prefix-p "#" (match-string 1 url))
+                         (match-string 1 url)))
+           (event-id (match-string 2 url))
+           (room (when (or
+                        ;; Compare with current buffer's room.
+                        (and room-id (equal room-id (ement-room-id ement-room)))
+                        (and room-alias (equal room-alias (ement-room-canonical-alias ement-room)))
+                        ;; Compare with other rooms on session.
+                        (and room-id (cl-find room-id (ement-session-rooms ement-session)
+                                              :key #'ement-room-id))
+                        (and room-alias (cl-find room-alias (ement-session-rooms ement-session)
+                                                 :key #'ement-room-canonical-alias)))
+                   ement-room)))
+      (if room
+          (progn
+            ;; Found room in current session: view it and find the event.
+            (ement-view-room room ement-session)
+            (when event-id
+              (ement-room-find-event event-id)))
+        ;; Room not joined: offer to join it or load link in browser.
+        (pcase-exhaustive (completing-read
+                           (format "Room <%s> not joined on current session.  Join it, or load link with browser?"
+                                   (or room-alias room-id))
+                           '("Join room" "Load link with browser") nil t)
+          ("Join room" (ement-join-room (or room-alias room-id) ement-session
+                                        :then (when event-id
+                                                (lambda (room session)
+                                                  (ement-view-room room session)
+                                                  (ement-room-find-event event-id)))))
+          ("Load link with browser" (apply #'browse-url url args)))))))
 
 (defun ement-room-find-event (event-id)
   "Go to EVENT-ID in current buffer."
