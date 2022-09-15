@@ -103,6 +103,9 @@ by users; ones who do so should know what they're doing.")
 (defvar ement-images-queue (make-plz-queue :limit 5)
   "`plz' HTTP request queue for image requests.")
 
+(defvar ement-read-receipt-idle-timer nil
+  "Idle timer used to update read receipts.")
+
 ;; From other files.
 (defvar ement-room-avatar-max-width)
 (defvar ement-room-avatar-max-height)
@@ -133,7 +136,7 @@ Writes the session file when Emacs is killed."
   :type 'boolean)
 
 (defcustom ement-after-initial-sync-hook
-  '(ement-list-rooms ement-view-initial-rooms ement--link-children)
+  '(ement-list-rooms ement-view-initial-rooms ement--link-children ement--run-idle-timer)
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)
@@ -151,7 +154,7 @@ Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
   :type '(alist :key-type (string :tag "Local user ID")
                 :value-type (repeat (string :tag "Room alias/ID"))))
 
-(defcustom ement-disconnect-hook '(ement-kill-buffers)
+(defcustom ement-disconnect-hook '(ement-kill-buffers ement--stop-idle-timer)
   "Functions called when disconnecting.
 That is, when calling command `ement-disconnect'.  Functions are
 called with no arguments."
@@ -304,6 +307,19 @@ Useful in, e.g. `ement-disconnect-hook', which see."
     (ement--sync session :timeout ement-initial-sync-timeout)))
 
 ;;;; Functions
+
+(defun ement--run-idle-timer (&rest _ignore)
+  "Run idle timer that updates read receipts.
+To be called from `ement-after-initial-sync-hook'.  Timer is
+stored in `ement-read-receipt-idle-timer'."
+  (setf ement-read-receipt-idle-timer (run-with-idle-timer 3 t #'ement-room-read-receipt-idle-timer)))
+
+(defun ement--stop-idle-timer (&rest _ignore)
+  "Stop idle timer stored in `ement-read-receipt-idle-timer'.
+To be called from `ement-disconnect-hook'."
+  (when (timerp ement-read-receipt-idle-timer)
+    (cancel-timer ement-read-receipt-idle-timer)
+    (setf ement-read-receipt-idle-timer nil)))
 
 (defun ement-view-initial-rooms (session)
   "View rooms for SESSION configured in `ement-auto-view-rooms'."

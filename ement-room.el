@@ -98,6 +98,10 @@ Used by `ement-room-send-message'.")
 (defvar-local ement-room-replying-to-overlay nil
   "Used by `ement-room-send-reply'.")
 
+(defvar-local ement-room-read-receipt-request nil
+  "Maps event ID to request updating read receipt to that event.
+An alist of one entry.")
+
 (defvar ement-room-compose-hook nil
   "Hook run in compose buffers when created.
 Used to, e.g. call `ement-room-compose-org'.")
@@ -1958,20 +1962,7 @@ and erases the buffer."
     (setq-local browse-url-handlers (cons (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)
                                           browse-url-handlers)))
   (setq-local completion-at-point-functions
-              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
-  ;; FIXME: Disabling this because of some weird behavior.  It seems like a race condition
-  ;; exists in which the window-scroll-functions are called, causing the read receipt to
-  ;; get sent, followed by the read-receipt being updated, causing the
-  ;; window-scroll-functions to be called again before the updated receipt is displayed in
-  ;; the buffer, which can cause an infinite loop, which can even exhaust the Lisp stack
-  ;; and cause Emacs to freeze (without 100% CPU usage).  At least, that's the best
-  ;; explanation I have so far--it's very weird.  Until it's solved, we'll have to do
-  ;; without sending read receipts.  Maybe window-scroll-functions isn't suitable for
-  ;; this, even though it seems ideal in theory.  Maybe instead we should use a simple
-  ;; idle timer that iterates over windows, or something like that.
-  
-  ;; (setq-local window-scroll-functions
-  ;;             (cons 'ement-room-start-read-receipt-timer window-scroll-functions))
+              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))  
   (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
                                            ("^file:" . ement-room-dnd-upload-file))
                                          dnd-protocol-alist)))
@@ -2436,9 +2427,6 @@ function to `ement-room-event-fns', which see."
 (defvar-local ement-room-read-receipt-marker nil
   "EWOC node for the room's read-receipt marker.")
 
-(defvar-local ement-room-read-receipt-timer nil
-  "Timer that sets read receipt after scrolling.")
-
 (defvar-local ement-room-fully-read-marker nil
   "EWOC node for the room's fully-read marker.")
 
@@ -2457,60 +2445,63 @@ automatically."
   :type 'boolean
   :group 'ement-room)
 
-(defun ement-room-start-read-receipt-timer (window _pos)
-  "Start idle timer to set read-receipt to POS in WINDOW's room.
-Read receipt is sent if `ement-room-send-read-receipts' is
-non-nil, the read-receipt marker is between retrieved events, and
-WINDOW's end is beyond the marker.  For use in
-`window-scroll-functions'."
+(defun ement-room-read-receipt-idle-timer ()
+  "Update read receipts in visible Ement room buffers.
+To be called from timer stored in
+`ement-read-receipt-idle-timer'."
+  (when ement-room-send-read-receipts
+    (dolist (window (window-list))
+      (when (and (eq 'ement-room-mode (buffer-local-value 'major-mode (window-buffer window)))
+                 (buffer-local-value 'ement-room (window-buffer window)))
+        (ement-room-update-read-receipt window)))))
+
+(defun ement-room-update-read-receipt (window)
+  "Update read receipt for room displayed in WINDOW."
   (with-selected-window window
-    (when (timerp ement-room-read-receipt-timer)
-      (cancel-timer ement-room-read-receipt-timer))
-    (when ement-room-send-read-receipts
-      ;; This is highly suboptimal, because this function is called
-      ;; from `window-scroll-functions', whose docstring says that
-      ;; `window-end' is not valid when this function is called.  So
-      ;; we have to call `window-end' from the idle timer, and the
-      ;; window might not even be visible or on the same buffer by
-      ;; that time; if that's the case, the receipt is not sent.
-
-      ;; MAYBE: Reduce idle time so the receipt is less likely to not
-      ;; get updated if the user only views a room's buffer for a
-      ;; short time.
-      (let ((room-buffer (window-buffer window)))
-        (setf ement-room-read-receipt-timer
-              ;; FIXME: Temporarily disabling sending of read receipts due to a bug that
-              ;; can cause excessive read receipts to be sent in rapid succession.
-              nil
-              ;; (run-with-idle-timer
-              ;;  3 nil #'ement-room-read-receipt-timer window room-buffer)
-              )))))
-
-(defun ement-room-read-receipt-timer (window room-buffer)
-  "Send read receipt for WINDOW displaying ROOM-BUFFER.
-To be called by timer run by
-`ement-room-start-read-receipt-timer'."
-  (when (and (window-live-p window)
-             (eq (window-buffer window) room-buffer))
-    (with-selected-window window
-      (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
-                                 (lambda (node-data)
-                                   (eq 'ement-room-read-receipt-marker node-data)))))
-        (when (or
-               ;; The window's end has been scrolled to or past the position of the
-               ;; receipt marker.
-               (and read-receipt-node
-                    (>= (window-end) (ewoc-location read-receipt-node)))
-               ;; The read receipt is outside of retrieved events.
-               (not read-receipt-node))
-          (when-let* ((window-end-node (or (ewoc-locate ement-ewoc (window-end))
-                                           (ewoc-nth ement-ewoc -1)))
-                      (event-node (cl-typecase (ewoc-data window-end-node)
-                                    (ement-event window-end-node)
-                                    (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
-                                         #'ement-event-p #'ewoc-prev)))))
-            (ement-room-mark-read ement-room ement-session
-              :read-event (ewoc-data event-node))))))))
+    (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
+                               (lambda (node-data)
+                                 (eq 'ement-room-read-receipt-marker node-data))))
+          (window-end-node (or (ewoc-locate ement-ewoc (window-end nil t))
+                               (ewoc-nth ement-ewoc -1))))
+      (when (or
+             ;; The window's end has been scrolled to or past the position of the
+             ;; receipt marker.
+             (and read-receipt-node
+                  (>= (window-end nil t) (ewoc-location read-receipt-node)))
+             ;; The read receipt is outside of retrieved events.
+             (not read-receipt-node))
+        (let* ((event-node (when window-end-node
+                             ;; It seems like `window-end-node' shouldn't ever be nil,
+                             ;; but just in case...
+                             (cl-typecase (ewoc-data window-end-node)
+                               (ement-event window-end-node)
+                               (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
+                                    #'ement-event-p #'ewoc-prev)))))
+               (node-after-event (ewoc-next ement-ewoc event-node))
+               (event))
+          (when event-node
+            (unless (or (when node-after-event
+                          (<= (ewoc-location node-after-event) (window-end nil t)))
+                        (>= (window-end) (point-max)))
+              ;; The entire event is not visible: use the previous event.  (NOTE: This
+              ;; isn't quite perfect, because apparently `window-end' considers a position
+              ;; visible if even one pixel of its line is visible.  This will have to be
+              ;; good enough for now.)
+              ;; FIXME: Workaround that an entire line's height need not be displayed for it to be considered so.
+              (setf event-node (ement-room--ewoc-next-matching ement-ewoc event-node
+                                 #'ement-event-p #'ewoc-prev)))
+            (setf event (ewoc-data event-node))
+            (unless (alist-get event ement-room-read-receipt-request)
+              ;; No existing request for this event: cancel any outstanding request and
+              ;; send a new one.
+              (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
+                (when (process-live-p request-process)
+                  ;; FIXME: This will probably cause a spurious error message.
+                  (interrupt-process request-process)))
+              (setf ement-room-read-receipt-request nil)
+              (setf (alist-get event ement-room-read-receipt-request)
+                    (ement-room-mark-read ement-room ement-session
+                      :read-event event)))))))))
 
 (defun ement-room-goto-fully-read-marker ()
   "Move to the fully-read marker in the current room."
@@ -2538,7 +2529,7 @@ To be called by timer run by
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
   "Mark ROOM on SESSION as read on the server.
 Set \"m.read\" to READ-EVENT and \"m.fully_read\" to
-FULLY-READ-EVENT.
+FULLY-READ-EVENT.  Return the API request.
 
 Interactively, mark both types as read up to event at point."
   (declare (indent defun))
@@ -2573,10 +2564,21 @@ Interactively, mark both types as read up to event at point."
                  (data (ement-alist "m.fully_read" (ement-event-id fully-read-event))))
       (when read-event
         (push (cons "m.read" (ement-event-id read-event)) data))
-      (ement-api session endpoint :method 'post :data (json-encode data)
-        :then (lambda (_data)
-                (ement-room-move-read-markers room
-                  :read-event read-event :fully-read-event fully-read-event))))))
+      ;; NOTE: See similar code in `ement-room-update-read-receipt'.
+      (let ((request-process (ement-api session endpoint :method 'post :data (json-encode data)
+                               :then (lambda (_data)
+                                       (ement-room-move-read-markers room
+                                         :read-event read-event :fully-read-event fully-read-event)))))
+        (when-let ((room-buffer (alist-get 'buffer (ement-room-local room))))
+          ;; NOTE: Ideally we would do this before sending the new request, but to make
+          ;; the code much simpler, we do it afterward.
+          (with-current-buffer room-buffer
+            (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
+              (when (process-live-p request-process)
+                ;; FIXME: This will probably cause a spurious error message.
+                (interrupt-process request-process)))
+            (setf ement-room-read-receipt-request nil
+                  (alist-get read-event ement-room-read-receipt-request) request-process)))))))
 
 (cl-defun ement-room-send-receipt (room session event &key (type "m.read"))
   "Send receipt of TYPE for EVENT to ROOM on SESSION."
