@@ -1035,33 +1035,46 @@ is not at the latest known message event."
           ;; (which apparently can happen, given user reports), it should not be
           ;; considered unread.
           (cl-labels ((event-counts-toward-unread-p
-                       (event) (not (member (ement-event-type event) '("m.room.member" "m.reaction")))))
+                       ;; NOTE: We only consider message events, so membership, reaction,
+                       ;; etc. events will not mark a room as unread.  Ideally, I think
+                       ;; that join/leave events should, at least optionally, mark a room
+                       ;; as unread (e.g. in a 1:1 room with a friend, if the other user
+                       ;; left, one would probably want to know, and marking the room
+                       ;; unread would help the user notice), but since membership events
+                       ;; have to be processed to understand their meaning, it's not
+                       ;; straightforward to know whether one should mark a room unread.
+
+                       ;; FIXME: Use code from `ement-room--format-member-event' to
+                       ;; distinguish ones that should count.
+                       (event) (equal "m.room.message" (ement-event-type event))))
             (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
                   (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
               (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
-                     ;; The fully-read marker is at the last known event: not unread.
+                     ;; The fully-read marker is at the last known event: the room is read.
                      nil)
                     ((and (not our-read-receipt-event-id)
                           (when first-counting-event
                             (and (not (equal fully-read-event-id (ement-event-id first-counting-event)))
                                  (not (equal our-id (ement-user-id (ement-event-sender first-counting-event)))))))
-                     ;; A missing read-receipt failsafes to marking the
-                     ;; room unread, unless the fully-read marker is at
-                     ;; the latest counting event or we sent the latest
-                     ;; counting event.
+                     ;; The room has no read receipt, and the latest message event is not
+                     ;; the event at which our fully-read marker is at, and it is not sent
+                     ;; by us: the room is unread.  (This is a kind of failsafe to ensure
+                     ;; the user doesn't miss any messages, but it's unclear whether this
+                     ;; is really correct or best.)
                      t)
                     ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
-                     ;; If we sent the last event in the room, the room is not unread.
+                     ;; We sent the last event: the room is read.
                      nil)
                     ((and first-counting-event
                           (equal our-id (ement-user-id (ement-event-sender first-counting-event))))
-                     ;; If we sent the last counting event in the room,
-                     ;; the room is not unread.
+                     ;; We sent the last message event: the room is read.
                      nil)
                     ((cl-loop for event in timeline
                               when (event-counts-toward-unread-p event)
                               return (and (not (equal our-read-receipt-event-id (ement-event-id event)))
                                           (not (equal fully-read-event-id (ement-event-id event)))))
+                     ;; The latest message event is not the event at which our
+                     ;; read-receipt or fully-read marker are at: the room is unread.
                      t))))))))
 
 (defun ement--update-transaction-id (session)
