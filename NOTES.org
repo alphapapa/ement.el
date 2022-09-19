@@ -68,15 +68,16 @@ Need to check ELPA-devel after it's had a chance to build again.
 
 So it will get built for main ELPA.
 
-** TODO Fix/rewrite read receipts
+** DONE Fix/rewrite read receipts
 :LOGBOOK:
+- State "DONE"       from "TODO"       [2022-09-19 Mon 15:09]
 - State "TODO"       from              [2022-09-15 Thu 13:06]
 :END:
 
 To fix/rewrite read receipt sending, we'll need to make sure that a room can only have one outstanding read-receipt update request, and that an update request for the same position can't be repeated successively.  So:
 
 1. [X] Add a buffer-local room variable, an alist (of one entry) mapping an event ID to the plz request setting the read receipt to after that event.  ~ement-room-read-receipt-request~
-2. [ ] The read-receipt-updating function should compare the event ID to the one in that variable: if they match, do nothing; if they're different, cancel any outstanding request and send a new one, and set the variable accordingly.
+2. [X] The read-receipt-updating function should compare the event ID to the one in that variable: if they match, do nothing; if they're different, cancel any outstanding request and send a new one, and set the variable accordingly.
 3. [ ] In addition to using ~window-scroll-functions~ (which I hope we can get away with, after these other changes), we'll use ~window-selection-change-functions~ to also update the read receipt, similarly to Element (i.e. clicking in a room window should update the receipt with an idle timer).
 
 [2022-09-15 Thu 13:42] Again, seeing a very weird behavior in which the read-receipt-timer function is sometimes called repeatedly by Emacs after the idle timer is first called, instead of being called once per idleness.  I don't know why; my best guess is that the ~window-scroll-functions~ are being called repeatedly (though I don't know why), rather than that the timer-called function is being called directly.  To test, I'm going to add a function to one of the room buffer's ~window-scroll-functions~ to just print a message when called.
@@ -129,6 +130,138 @@ That suggests to me that there may be a bug in Emacs itself happening here.  Deb
 But it doesn't happen every time, and it doesn't crash Emacs every time.  And when the functions are being called in rapid succession, Emacs remains responsive, and clicking in a window interrupts Emacs's idleness and the function-calling stops.
 
 That seems to suggest that an interaction with the idle timers is part of the problem, because I know that calling ~run-with-idle-timer~ when Emacs is already idle for the given length of time causes the timer to run immediately, which would seem to match with the behavior I'm seeing.  The question that remains is why the ~window-scroll-functions~ are being called repeatedly rather than once per scroll event.
+
+I guess I should try to make an ECM...
+
+#+begin_src elisp
+  (defun argh/window-scroll-functions-debug-message (&rest args)
+    (message "argh/debug-window-scroll-functions: Called with: %S" args))
+
+  (defun argh/window-scroll-functions-add-debug-fn ()
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-debug-message window-scroll-functions)))
+
+  (defun argh/window-scroll-functions-ecm ()
+    (let ((buffer1 (get-buffer-create "ARGH: Buffer 1"))
+          (buffer2 (get-buffer-create "ARGH: Buffer 2")))
+      (dolist (buffer (list buffer1 buffer2))
+        (with-current-buffer buffer
+          (argh/window-scroll-functions-add-debug-fn)))
+      (switch-to-buffer buffer1)
+      (split-window-horizontally)
+      (switch-to-buffer buffer2)
+      (split-window-vertically)
+      (view-echo-area-messages)))
+#+end_src
+
+After calling the last function, the user should try scrolling one of the windows and see if the functions are called infinitely.
+
+Okay, that doesn't cause it.  So I need to try to use an idle timer as well...
+
+#+begin_src elisp
+  (defvar-local argh/window-scroll-functions-timer nil)
+
+  (defun argh/window-scroll-functions-run-idle-timer (&rest args)
+    (when (timerp argh/window-scroll-functions-timer)
+      (cancel-timer argh/window-scroll-functions-timer))
+    (setf argh/window-scroll-functions-timer
+          (run-with-idle-timer 3 nil #'argh/window-scroll-functions-debug-message
+                               "From idle timer" (current-buffer))))
+
+  (defun argh/window-scroll-functions-debug-message (&rest args)
+    (message "argh/debug-window-scroll-functions: Called with: %S" args))
+
+  (defun argh/window-scroll-functions-add-debug-fn ()
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-debug-message window-scroll-functions))
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-run-idle-timer window-scroll-functions)))
+
+  (defun argh/window-scroll-functions-ecm ()
+    (let ((buffer1 (get-buffer-create "ARGH: Buffer 1"))
+          (buffer2 (get-buffer-create "ARGH: Buffer 2")))
+      (dolist (buffer (list buffer1 buffer2))
+        (with-current-buffer buffer
+          (argh/window-scroll-functions-add-debug-fn)))
+      (switch-to-buffer buffer1)
+      (split-window-horizontally)
+      (switch-to-buffer buffer2)
+      (split-window-vertically)
+      (view-echo-area-messages)))
+#+end_src
+
+I still can't reproduce the problem.  I did observe something strange, though: with these three windows open, sometimes the message buffer doesn't update to show the new debug messages until its own window is scrolled.  I don't know if that could be related to the problem.
+
+[2022-09-15 Thu 14:19]  I reproduced the problem with Ement and made Emacs crash again, but still not with the ECM.  Let's try changing the debug functions to also insert some text into each buffer, which might cause a redisplay-calling-window-scroll-functions loop...?
+
+#+begin_src elisp
+  (defvar-local argh/window-scroll-functions-timer nil)
+
+  (defun argh/window-scroll-functions-run-idle-timer (&rest args)
+    (when (timerp argh/window-scroll-functions-timer)
+      (cancel-timer argh/window-scroll-functions-timer))
+    (setf argh/window-scroll-functions-timer
+          (run-with-idle-timer 3 nil #'argh/window-scroll-functions-timer
+                               (current-buffer))))
+
+  (defun argh/window-scroll-functions-debug-message (window pos &rest rest)
+    (message "argh/debug-window-scroll-functions: Called in:%S  AT:%S  WITH:%S"
+             window pos rest))
+
+  (defun argh/window-scroll-functions-timer (buffer)
+    (with-current-buffer buffer
+      (message "argh/window-scroll-functions-timer Called in:%S" buffer)
+      (save-excursion
+        (goto-char (point-max))
+        (insert "\n" (format-time-string "%s")))))
+
+  (defun argh/window-scroll-functions-add-debug-fn ()
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-debug-message window-scroll-functions))
+    (setq-local window-scroll-functions
+                (cons 'argh/window-scroll-functions-run-idle-timer window-scroll-functions)))
+
+  (defun argh/window-scroll-functions-ecm ()
+    (let ((buffer1 (get-buffer-create "ARGH: Buffer 1"))
+          (buffer2 (get-buffer-create "ARGH: Buffer 2")))
+      (dolist (buffer (list buffer1 buffer2))
+        (with-current-buffer buffer
+          (argh/window-scroll-functions-add-debug-fn)))
+      (switch-to-buffer buffer1)
+      (split-window-horizontally)
+      (switch-to-buffer buffer2)
+      (split-window-vertically)
+      (view-echo-area-messages)))
+#+end_src
+
+Nope, can't get the ECM to reproduce the problem.  /sigh/
+
+[2022-09-15 Thu 15:26] Just made this WIP commit: 3569c1d2b5251061eb1415a7849039ff0f6f3c2a
+
+#+begin_quote
+WIP: See comment
+
+Well, this reproduces the problem fairly reliably in my config in
+that, after connecting, it begins calling the
+ement-room-start-read-receipt-timer function infinitely.  Sometimes I
+can interrupt it by selecting one or another room window and scrolling
+it or moving point in it.  I have no explanation for why the function
+is called infinitely; the only entry point into it is in the room
+buffers' local values of window-scroll-functions.
+
+I'm going to try another approach, that of changing the global value
+of the variable and having the function iterate over visible windows.
+#+end_quote
+
+It's really bizarre.  I can only guess that it's some kind of race condition in Emacs itself.  Maybe this other approach will work around it.
+
+Wait, that can't work, because even the global value of window-scroll-functions causes the functions to be called for each window, not for each redisplay, so iterating over the windows would be nonsensical.
+
+And it still happens: after connecting and the auto-view-rooms are shown, Emacs calls the window-scroll-functions for the non-selected window (i.e. if there are two room windows, it calls the functions for the non-selected one) infinitely, apparently until I scroll the window so its display-start position changes.  It's just bizarre.
+
+So I think the only solution now is to use a global idle timer that iterates over visible windows.  We won't use window-scroll-functions at all, even though that's obviously the more correct solution.
+
+[2022-09-19 Mon 15:08]  I ended up using the iterating global idle timer, and it seems to work fine.
 ** TODO Make bookmark handler put point at end of room buffers
 
 When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
