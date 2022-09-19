@@ -2506,16 +2506,24 @@ To be called from timer stored in
 (defun ement-room-goto-fully-read-marker ()
   "Move to the fully-read marker in the current room."
   (interactive)
-  (let ((fully-read-pos (when ement-room-fully-read-marker
-                          (ewoc-location ement-room-fully-read-marker))))
-    (if fully-read-pos
-        (setf (point) fully-read-pos (window-start) fully-read-pos)
-      ;; Unlike the fully-read marker, there doesn't seem to be a
-      ;; simple way to get the user's read-receipt marker.  So if
-      ;; we haven't seen either marker in the retrieved events, we
-      ;; go back to the fully-read marker.
-      (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
-                (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
+  (if-let ((fully-read-pos (when ement-room-fully-read-marker
+                             (ewoc-location ement-room-fully-read-marker))))
+      (setf (point) fully-read-pos (window-start) fully-read-pos)
+    ;; Unlike the fully-read marker, there doesn't seem to be a
+    ;; simple way to get the user's read-receipt marker.  So if
+    ;; we haven't seen either marker in the retrieved events, we
+    ;; go back to the fully-read marker.
+    (if-let* ((fully-read-event (alist-get "m.fully_read" (ement-room-account-data ement-room) nil nil #'equal))
+              (fully-read-event-id (map-nested-elt fully-read-event '(content event_id))))
+        ;; Fully-read account-data event is known.
+        (if (gethash fully-read-event-id (ement-session-events ement-session))
+            ;; The fully-read event (i.e. the message event that was read, not the
+            ;; account-data event) is already retrieved, but the marker is not present in
+            ;; the buffer (this shouldn't happen, but somehow, it can): Reset the marker,
+            ;; which should work around the problem.
+            (ement-room-mark-read ement-room ement-session
+              :fully-read-event (gethash fully-read-event-id (ement-session-events ement-session)))
+          ;; Fully-read event not retrieved: search for it in room history.
           (let ((buffer (current-buffer)))
             (message "Searching for first unread event...")
             (ement-room-retro-to ement-room ement-session fully-read-event-id
@@ -2523,8 +2531,8 @@ To be called from timer stored in
                       (with-current-buffer buffer
                         ;; HACK: Should probably call this function elsewhere, in a hook or something.
                         (ement-room-move-read-markers ement-room)
-                        (ement-room-goto-fully-read-marker)))))
-        (error "Room has no fully-read event")))))
+                        (ement-room-goto-fully-read-marker))))))
+      (error "Room has no fully-read event"))))
 
 (cl-defun ement-room-mark-read (room session &key read-event fully-read-event)
   "Mark ROOM on SESSION as read on the server.
