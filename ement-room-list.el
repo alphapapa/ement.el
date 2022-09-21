@@ -334,7 +334,7 @@ To be called in `ement-sync-callback-hook'."
                (e-unread (if (and buffer (buffer-modified-p buffer))
                              (propertize "U" 'help-echo "Unread") ""))
                (e-buffer (if buffer (propertize "B" 'help-echo "Room has buffer") ""))
-               (e-avatar (if ement-room-list-avatars
+               (e-avatar (if (and ement-room-list-avatars avatar)
                              (or room-list-avatar
                                  (if-let* ((avatar-image (get-text-property 0 'display avatar))
                                            (new-avatar-string (propertize " " 'display
