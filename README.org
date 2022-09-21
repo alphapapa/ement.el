@@ -288,6 +288,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Fixes*
 + Links to only rooms (as opposed to links to events in rooms) may be activated to join them.
 + Read receipts mark the last completely visible event (rather than one that's only partially displayed).
++ Prevent error when a room avatar image fails to load.
 
 ** 0.1.4
 

@@ -334,15 +334,22 @@ To be called in `ement-sync-callback-hook'."
                (e-unread (if (and buffer (buffer-modified-p buffer))
                              (propertize "U" 'help-echo "Unread") ""))
                (e-buffer (if buffer (propertize "B" 'help-echo "Room has buffer") ""))
-               (e-avatar (if (and ement-room-list-avatars avatar)
+               (e-avatar (if ement-room-list-avatars
                              (or room-list-avatar
-                                 (let ((new-avatar (propertize " " 'display
-                                                               (ement--resize-image (get-text-property 0 'display avatar)
-                                                                                    nil (frame-char-height)))))
-                                   ;; alist-get doesn't seem to return the new value when used with setf?
-                                   (setf (alist-get 'room-list-avatar (ement-room-local room))
-                                         new-avatar)
-                                   new-avatar))
+                                 (if-let* ((avatar-image (get-text-property 0 'display avatar))
+                                           (new-avatar-string (propertize " " 'display
+                                                                          (ement--resize-image avatar-image
+                                                                                               nil (frame-char-height)))))
+                                     (progn
+                                       ;; alist-get doesn't seem to return the new value when used with setf?
+                                       (setf (alist-get 'room-list-avatar (ement-room-local room))
+                                             new-avatar-string)
+                                       new-avatar-string)
+                                   ;; If a room avatar image fails to download or decode
+                                   ;; and ends up nil, we return the empty string.
+                                   (ement-debug "nil avatar for room: " (ement-room-display-name room) (ement-room-canonical-alias room))
+                                   ""))
+                           ;; Room avatars disabled.
                            ""))
                ;; We have to copy the list, otherwise using `setf' on it
                ;; later causes its value to be mutated for every entry.
