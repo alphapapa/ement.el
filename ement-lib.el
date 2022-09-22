@@ -319,6 +319,11 @@ If DELETE (interactively, with prefix), delete it."
 
 ;; These functions could reasonably be called by code in other packages.
 
+(defun ement-message (format-string &rest args)
+  "Call `message' on FORMAT-STRING prefixed with \"Ement: \"."
+  ;; TODO: Use this function everywhere we use `message'.
+  (apply #'message (concat "Ement: " format-string) args))
+
 (cl-defun ement-upload (session &key data filename then else
                                 (content-type "application/octet-stream"))
   "Upload DATA with FILENAME to content repository on SESSION.
