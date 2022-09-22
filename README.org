@@ -131,6 +131,8 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
       -  ~ement-room-occur~ to search in a room's known events.
       -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
       -  ~ement-room-set-message-format~ to set a room's message format buffer-locally.
+      -  ~ement-directory~ to view a room directory.
+      -  ~ement-directory-search~ to search a room directory.
 4.  Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
       -  See all new events that mention you in the =*Ement Mentions*= buffer.
       -  See all new events in rooms that have open buffers in the =*Ement Notifications*= buffer.
@@ -281,7 +283,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.3-pre
 
-Nothing new yet.
+*Added*
++ Command ~ement-directory~ shows a server's room directory.
++ Command ~ement-directory-search~ searches a server's room directory.
 
 ** 0.2.1
 
