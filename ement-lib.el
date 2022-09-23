@@ -230,7 +230,7 @@ members, show in a new buffer; otherwise show in echo area."
                       (heading "Avatar: ") (or avatar "") "\n\n"
                       (heading "ID: ") "<" (id room-id) ">" "\n"
                       (heading "Alias: ") "<" (id canonical-alias) ">" "\n\n"
-                      (heading "Topic: ") (propertize topic 'face 'font-lock-comment-face) "\n\n"
+                      (heading "Topic: ") (propertize (or topic "[none]") 'face 'font-lock-comment-face) "\n\n"
                       (heading "Retrieved events: ") (number-to-string (length timeline)) "\n"
                       (heading "  spanning: ")
                       (format-time-string "%Y-%m-%d %H:%M:%S"
