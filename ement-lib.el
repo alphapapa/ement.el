@@ -56,6 +56,7 @@
 
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
+(defvar ement-room-leave-kill-buffer)
 (defvar ement-room-prism)
 (defvar ement-room-prism-color-adjustment)
 (defvar ement-room-prism-minimum-contrast)
@@ -99,6 +100,46 @@ the request."
 			   (push (cons "is_direct" t) it)))))
       (ement-api session endpoint :method 'post :data (json-encode data)
         :then then))))
+
+(defun ement-room-leave (room session &optional force-p)
+  "Leave ROOM on SESSION.
+If FORCE-P, leave without prompting.  ROOM may be an `ement-room'
+struct, or a room ID or alias string."
+  ;; TODO: Rename `room' argument to `room-or-id'.
+  (interactive (ement-complete-room :session (ement-complete-session)))
+  (cl-assert room) (cl-assert session)
+  (cl-etypecase room
+    (ement-room)
+    (string (setf room (ement-afirst (or (equal room (ement-room-canonical-alias it))
+                                         (equal room (ement-room-id it)))
+                         (ement-session-rooms session)))))
+  (when (or force-p (yes-or-no-p (format "Leave room %s? " (ement--format-room room))))
+    (pcase-let* (((cl-struct ement-room id) room)
+                 (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
+      (ement-api session endpoint :method 'post :data ""
+        :then (lambda (_data)
+                (when ement-room-leave-kill-buffer
+                  ;; NOTE: This generates a symbol and sets its function value to a lambda
+                  ;; which removes the symbol from the hook, removing itself from the hook.
+                  ;; TODO: When requiring Emacs 27, use `letrec'.
+                  (let* ((leave-fn-symbol (gensym (format "ement-leave-%s" room)))
+                         (leave-fn (lambda (_session)
+                                     (remove-hook 'ement-sync-callback-hook leave-fn-symbol)
+                                     ;; FIXME: Probably need to unintern the symbol.
+                                     (when-let ((buffer (map-elt (ement-room-local room) 'buffer)))
+                                       (when (buffer-live-p buffer)
+                                         (kill-buffer buffer))))))
+                    (setf (symbol-function leave-fn-symbol) leave-fn)
+                    (add-hook 'ement-sync-callback-hook leave-fn-symbol)))
+                (message "Left room: %s" (ement--format-room room)))
+        :else (lambda (plz-error)
+                (pcase-let* (((cl-struct plz-error response) plz-error)
+                             ((cl-struct plz-response status body) response)
+                             ((map error) (json-read-from-string body)))
+                  (pcase status
+                    (429 (error "Unable to leave room %s: %s" room error))
+                    (_ (error "Unable to leave room %s: %s %S" room status plz-error)))))))))
+(defalias 'ement-leave-room #'ement-room-leave)
 
 (defun ement-forget-room (room session &optional force-p)
   "Forget ROOM on SESSION.
