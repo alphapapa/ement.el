@@ -2041,18 +2041,20 @@ Needed to display things in the header line."
 
 ;;;;; Imenu
 
+(defconst ement-room-timestamp-header-imenu-format "%Y-%m-%d (%A) %H:%M"
+  "Format string for timestamps in Imenu indexes.")
+
 (defun ement-room--imenu-create-index-function ()
   "Return Imenu index for the current buffer.
 For use as `imenu-create-index-function'."
   (let ((timestamp-nodes (ement-room--ewoc-collect-nodes
                           ement-ewoc (lambda (node)
                                        (pcase (ewoc-data node)
-                                         (`(ts . ,_) t)))))
-        (timestamp-format (string-trim ement-room-timestamp-header-with-date-format)))
+                                         (`(ts . ,_) t))))))
     (cl-loop for node in timestamp-nodes
              collect (pcase-let*
                          ((`(ts ,timestamp) (ewoc-data node))
-                          (formatted (format-time-string timestamp-format timestamp)))
+                          (formatted (format-time-string ement-room-timestamp-header-imenu-format timestamp)))
                        (cons formatted (ewoc-location node))))))
 
 ;;;;; Occur
