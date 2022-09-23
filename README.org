@@ -283,7 +283,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.3-pre
 
-*Added*
+*Additions*
 + Command ~ement-directory~ shows a server's room directory.
 + Command ~ement-directory-search~ searches a server's room directory.
 
