@@ -142,8 +142,12 @@
                 '("Name" "Alias" "Size" "Topic" "ID")))
 
 ;;;; Commands
+ 
+(defconst *ement--directory-default-limit* 1000
+  "Default limit on the number of rooms listed when calling `ement-directory`.")
+;; TODO: make this customizable
 
-(cl-defun ement-directory (&key server session (limit 1000))
+(cl-defun ement-directory (&key server session (limit *ement--directory-default-limit*))
   "View the public room directory on SERVER with SESSION.
 Interactively, With prefix, prompt for server and number of
 rooms."
@@ -151,8 +155,9 @@ rooms."
                       (server (if current-prefix-arg
                                   (read-string "Search on server: ")
                                 (ement-server-name (ement-session-server session))))
-                      (limit (when current-prefix-arg
-                               (read-number "Limit number of rooms: " 1000))))
+                      (limit (if current-prefix-arg
+                                 (read-number "Limit number of rooms: " *ement--directory-default-limit*)
+                               *ement--directory-default-limit*)))
                  (list :server server :session session :limit limit)))
   (pcase-let ((revert-function (lambda (&rest _ignore)
                                  (interactive)
