@@ -1293,6 +1293,7 @@ buffer).  It receives two arguments, the room and the session."
   "Leave ROOM on SESSION.
 ROOM may be an `ement-room' struct, or a room ID or alias
 string."
+  ;; TODO: Rename `room' argument to `room-or-id'.
   (interactive (ement-complete-room :session (ement-complete-session)))
   (cl-assert room) (cl-assert session)
   (cl-etypecase room
