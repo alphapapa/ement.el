@@ -474,13 +474,13 @@ line."
                  (const :tag "Always show date" " %Y-%m-%d %H:%M ")
                  string))
 
-(defcustom ement-room-timestamp-header-with-date-format " %Y-%m-%d (%A) %H:%M\n"
+(defcustom ement-room-timestamp-header-with-date-format " %Y-%m-%d (%A)\n"
   ;; FIXME: In Emacs 27+, maybe use :extend t instead of adding a newline.
   "Format string for timestamp headers where date changes.
 See function `format-time-string'.  If this string ends in a
 newline, its background color will extend to the end of the
 line."
-  :type '(choice (const " %Y-%m-%d (%A) %H:%M\n")
+  :type '(choice (const " %Y-%m-%d (%A)\n")
                  string))
 
 (defcustom ement-room-replace-edited-messages t
@@ -2688,7 +2688,9 @@ the first and last nodes in the buffer, respectively."
                             ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t)))))
           (unless (equal (time-to-days a-ts) (time-to-days b-ts))
             ;; Different date: bind format to print date.
-            (setf ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
+            (let ((ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
+              ;; Insert the date-only header.
+              (setf node-a (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))
           (with-silent-modifications
             ;; Avoid marking a buffer as modified just because we inserted a ts
             ;; header (this function may be called after other events which shouldn't
