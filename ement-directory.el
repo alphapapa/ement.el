@@ -163,7 +163,7 @@ server and LIMIT."
                  args))
   (pcase-let ((revert-function (lambda (&rest _ignore)
                                  (interactive)
-                                 (ement-directory :server server :session session)))
+                                 (ement-directory :server server :session session :limit limit)))
               (endpoint "publicRooms"))
     (ement-api session endpoint :params (list (list "limit" limit))
       :then (lambda (results)
