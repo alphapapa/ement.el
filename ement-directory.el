@@ -41,6 +41,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ement-directory-RET)
     (define-key map [mouse-1] #'ement-directory-mouse-1)
+    (define-key map (kbd "+") #'ement-directory-next)
     map))
 
 (defgroup ement-directory nil
@@ -149,10 +150,12 @@
 
 ;; TODO: Pagination of results.
 
-(cl-defun ement-directory (&key server session (limit 1000))
+(cl-defun ement-directory (&key server session since (limit 100))
   "View the public room directory on SERVER with SESSION.
 Show up to LIMIT rooms.  Interactively, with prefix, prompt for
-server and LIMIT."
+server and LIMIT.
+
+SINCE may be a next-batch token."
   (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
                       (server (if current-prefix-arg
                                   (read-string "Search on server: " nil nil
@@ -161,47 +164,90 @@ server and LIMIT."
                       (args (list :server server :session session)))
                  (when current-prefix-arg
                    (cl-callf plist-put args
-                     :limit (read-number "Limit number of rooms: " 1000)))
+                     :limit (read-number "Limit number of rooms: " 100)))
                  args))
   (pcase-let ((revert-function (lambda (&rest _ignore)
                                  (interactive)
                                  (ement-directory :server server :session session :limit limit)))
-              (endpoint "publicRooms"))
-    (ement-api session endpoint :params (list (list "limit" limit))
+              (endpoint "publicRooms")
+              (params (list (list "limit" limit))))
+    (when since
+      (cl-callf append params (list (list "since" since))))
+    (ement-api session endpoint :params params
       :then (lambda (results)
-              (ement-directory--view results
-                                     :buffer-name (format "*Ement Directory: %s*" server)
-                                     :root-section-name (format "Ement Directory: %s" server)
-                                     :init-fn (lambda ()
-                                                (setf (alist-get 'session ement-directory-etc) session)
-                                                (setq-local revert-buffer-function revert-function)))))
+              (pcase-let (((map ('chunk rooms) ('next_batch next-batch)
+                                ('total_room_count_estimate remaining))
+                           results))
+                (ement-directory--view rooms :append-p since
+                  :buffer-name (format "*Ement Directory: %s*" server)
+                  :root-section-name (format "Ement Directory: %s" server)
+                  :init-fn (lambda ()
+                             (setf (alist-get 'server ement-directory-etc) server
+                                   (alist-get 'session ement-directory-etc) session
+                                   (alist-get 'next-batch ement-directory-etc) next-batch
+                                   (alist-get 'limit ement-directory-etc) limit)
+                             (setq-local revert-buffer-function revert-function)
+                             (when remaining
+                               (message
+                                (substitute-command-keys
+                                 "%s rooms remaining (use \\[ement-directory-next] to fetch more)")
+                                remaining)))))))
     (ement-message "Listing %s rooms on %s..." limit server)))
 
-(cl-defun ement-directory-search (query &key server session)
+(cl-defun ement-directory-search (query &key server session since (limit 1000))
   "View public rooms on SERVER matching QUERY.
 QUERY is a string used to filter results."
   (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
                       (server (if current-prefix-arg
-                                  (read-string "Search on server: ")
+                                  (read-string "Search on server: " nil nil
+                                               (ement-server-name (ement-session-server session)))
                                 (ement-server-name (ement-session-server session))))
-                      (query (read-string (format "Search for rooms on %s: " server))))
-                 (list query :server server :session session)))
+                      (query (read-string (format "Search for rooms on %s matching: " server)))
+                      (args (list query :server server :session session)))
+                 (when current-prefix-arg
+                   (cl-callf plist-put (cdr args)
+                     :limit (read-number "Limit number of rooms: " 1000)))
+                 args))
   ;; TODO: Handle "include_all_networks" and "third_party_instance_id".  See § 10.5.4.
   (pcase-let* ((revert-function (lambda (&rest _ignore)
                                   (interactive)
                                   (ement-directory-search query :server server :session session)))
                (endpoint "publicRooms")
-               (data (ement-alist "limit" 1000
-                                  "filter" (ement-alist "generic_search_term" query))))
+               (data (rassq-delete-all nil
+                                       (ement-alist "limit" limit
+                                                    "filter" (ement-alist "generic_search_term" query)
+                                                    "since" since))))
     (ement-api session endpoint :method 'post :data (json-encode data)
       :then (lambda (results)
-              (ement-directory--view results
-                                     :buffer-name (format "*Ement Directory: \"%s\" on %s*" query server)
-                                     :root-section-name (format "Ement Directory: \"%s\" on %s" query server)
-                                     :init-fn (lambda ()
-                                                (setf (alist-get 'session ement-directory-etc) session)
-                                                (setq-local revert-buffer-function revert-function)))))
+              (pcase-let (((map ('chunk rooms) ('next_batch next-batch)
+                                ('total_room_count_estimate remaining))
+                           results))
+                (ement-directory--view rooms :append-p since
+                  :buffer-name (format "*Ement Directory: \"%s\" on %s*" query server)
+                  :root-section-name (format "Ement Directory: \"%s\" on %s" query server)
+                  :init-fn (lambda ()
+                             (setf (alist-get 'server ement-directory-etc) server
+                                   (alist-get 'session ement-directory-etc) session
+                                   (alist-get 'next-batch ement-directory-etc) next-batch
+                                   (alist-get 'limit ement-directory-etc) limit
+                                   (alist-get 'query ement-directory-etc) query)
+                             (setq-local revert-buffer-function revert-function)
+                             (when remaining
+                               (message
+                                (substitute-command-keys
+                                 "%s rooms remaining (use \\[ement-directory-next] to fetch more)")
+                                remaining)))))))
     (ement-message "Searching for %S on %s..." query server)))
+
+(defun ement-directory-next ()
+  "Fetch next batch of results in `ement-directory' buffer."
+  (interactive)
+  (pcase-let (((map next-batch query limit server session) ement-directory-etc))
+    (unless next-batch
+      (user-error "No more results"))
+    (if query
+        (ement-directory-search query :server server :session session :limit limit :since next-batch)
+      (ement-directory :server server :session session :limit limit :since next-batch))))
 
 (defun ement-directory-mouse-1 (event)
   "Call `ement-directory-RET' at EVENT."
@@ -229,18 +275,27 @@ QUERY is a string used to filter results."
 
 ;;;; Functions
 
-(cl-defun ement-directory--view (results &key init-fn
-                                         (buffer-name "*Ement Directory*")
-                                         (root-section-name "Ement Directory")
-                                         (keys ement-directory-default-keys)
-                                         (display-buffer-action '(display-buffer-same-window)))
-  "View RESULTS in an `ement-directory-mode' buffer.
-Calls INIT-FN immediately after activating major mode.  Sets
+(cl-defun ement-directory--view (rooms &key init-fn append-p
+                                       (buffer-name "*Ement Directory*")
+                                       (root-section-name "Ement Directory")
+                                       (keys ement-directory-default-keys)
+                                       (display-buffer-action '(display-buffer-same-window)))
+  "View ROOMS in an `ement-directory-mode' buffer.
+ROOMS should be a list of rooms from an API request.  Calls
+INIT-FN immediately after activating major mode.  Sets
 BUFFER-NAME and ROOT-SECTION-NAME, and uses
-DISPLAY-BUFFER-ACTION.  KEYS are a list of `taxy' keys.  To be
-called by `ement-directory-search'."
-  (let (format-table column-sizes window-start)
-    (cl-labels ((format-item (item) (gethash item format-table))
+DISPLAY-BUFFER-ACTION.  KEYS are a list of `taxy' keys.  If
+APPEND-P, add ROOMS to buffer rather than replacing existing
+contents.  To be called by `ement-directory-search'."
+  (declare (indent defun))
+  (let (column-sizes window-start)
+    (cl-labels ((format-item
+                 ;; NOTE: We use the buffer-local variable `ement-directory-etc' rather
+                 ;; than a closure variable because the taxy-magit-section struct's format
+                 ;; table is not stored in it, and we can't reuse closures' variables.
+                 ;; (It would be good to store the format table in the taxy-magit-section
+                 ;; in the future, to make this cleaner.)
+                 (item) (gethash item (alist-get 'format-table ement-directory-etc)))
                 ;; NOTE: Since these functions take an "item" (which is a [room session]
                 ;; vector), they're prefixed "item-" rather than "room-".
                 (size
@@ -259,32 +314,31 @@ called by `ement-directory-search'."
                                 :item-indent 2
                                 ;; :heading-face-fn #'heading-face
                                 args)))
-      (unless ement-sessions
-        (error "Ement: Not connected.  Use `ement-connect' to connect"))
       (with-current-buffer (get-buffer-create buffer-name)
-        (ement-directory-mode)
+        (unless (eq 'ement-directory-mode major-mode)
+          ;; Don't obliterate buffer-local variables.
+          (ement-directory-mode))
         (when init-fn
           (funcall init-fn))
-        (pcase-let* (((map ('chunk rooms)) results)
-                     (taxy (cl-macrolet ((first-item
-                                          (pred) `(lambda (taxy)
-                                                    (when (taxy-items taxy)
-                                                      (,pred (car (taxy-items taxy)))))))
-                             (thread-last
-                               (make-fn
-                                :name root-section-name
-                                :take (taxy-make-take-function keys ement-directory-keys))
-                               (taxy-fill (cl-coerce rooms 'list))
-                               (taxy-sort #'> #'size)
-                               (taxy-sort* #'string> #'taxy-name))))
+        (pcase-let* ((taxy (if append-p
+                               (alist-get 'taxy ement-directory-etc)
+                             (make-fn
+                              :name root-section-name
+                              :take (taxy-make-take-function keys ement-directory-keys))))
                      (taxy-magit-section-insert-indent-items nil)
                      (inhibit-read-only t)
-                     (format-cons (taxy-magit-section-format-items
-                                   ement-directory-columns ement-directory-column-formatters taxy))
                      (pos (point))
                      (section-ident (when (magit-current-section)
-                                      (magit-section-ident (magit-current-section)))))
-          (setf format-table (car format-cons)
+                                      (magit-section-ident (magit-current-section))))
+                     (format-cons))
+          (setf taxy (thread-last taxy
+                                  (taxy-fill (cl-coerce rooms 'list))
+                                  (taxy-sort #'> #'size)
+                                  (taxy-sort* #'string> #'taxy-name))
+                (alist-get 'taxy ement-directory-etc) taxy
+                format-cons (taxy-magit-section-format-items
+                             ement-directory-columns ement-directory-column-formatters taxy)
+                (alist-get 'format-table ement-directory-etc) (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
                                     column-sizes ement-directory-column-formatters)
