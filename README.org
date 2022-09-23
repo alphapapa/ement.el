@@ -300,6 +300,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Fixes*
 + Command ~ement-describe-room~ for rooms without topics.
++ Improve insertion of old messages around existing timestamp headers.
 
 ** 0.2.1
 

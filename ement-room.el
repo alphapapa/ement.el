@@ -2803,20 +2803,26 @@ Search starts from node START and moves by NEXT."
                         while node
                         when (funcall pred (ewoc-data node))
                         return node))
-              (event-node-p (data)
-                            (or (ement-event-p data)
-                                (ement-room-membership-events-p data)))
+              (timestamped-node-p (data)
+                                  (pcase data
+                                    ((pred ement-event-p) t)
+                                    ((pred ement-room-membership-events-p) t)
+                                    (`(ts . ,_) t)))
               (node-ts (data)
-                       (cl-etypecase data
-                         (ement-event (ement-event-origin-server-ts data))
-                         ;; Not sure whether to use earliest or latest ts; let's try this for now.
-                         (ement-room-membership-events (ement-room-membership-events-earliest-ts data))))
+                       (pcase data
+                         ((pred ement-event-p) (ement-event-origin-server-ts data))
+                         ((pred ement-room-membership-events-p)
+                          ;; Not sure whether to use earliest or latest ts; let's try this for now.
+                          (ement-room-membership-events-earliest-ts data))
+                         (`(ts ,ts)
+                          ;; Matrix server timestamps are in ms, so we must convert back.
+                          (* 1000 ts))))
               (node< (a b)
                      "Return non-nil if event A's timestamp is before B's."
                      (< (node-ts a) (node-ts b))))
     (ement-debug "INSERTING NEW EVENT: " (format-event event))
     (let* ((ewoc ement-ewoc)
-           (event-node-before (ement-room--ewoc-node-before ewoc event #'node< :pred #'event-node-p))
+           (event-node-before (ement-room--ewoc-node-before ewoc event #'node< :pred #'timestamped-node-p))
            new-node)
       ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc event-node-before)
