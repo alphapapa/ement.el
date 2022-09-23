@@ -149,11 +149,14 @@ Interactively, With prefix, prompt for server and number of
 rooms."
   (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
                       (server (if current-prefix-arg
-                                  (read-string "Search on server: ")
+                                  (read-string "Search on server: " nil nil
+                                               (ement-server-name (ement-session-server session)))
                                 (ement-server-name (ement-session-server session))))
-                      (limit (when current-prefix-arg
-                               (read-number "Limit number of rooms: " 1000))))
-                 (list :server server :session session :limit limit)))
+                      (args (list :server server :session session)))
+                 (when current-prefix-arg
+                   (cl-callf plist-put args
+                     :limit (read-number "Limit number of rooms: " 1000)))
+                 args))
   (pcase-let ((revert-function (lambda (&rest _ignore)
                                  (interactive)
                                  (ement-directory :server server :session session)))
