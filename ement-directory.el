@@ -52,10 +52,8 @@
 (define-derived-mode ement-directory-mode magit-section-mode "Ement-Directory"
   :global nil)
 
-(defvar-local ement-directory-revert-function nil
-  "Function used as `revert-buffer-function'.")
-
-(defvar-local ement-directory-session nil)
+(defvar-local ement-directory-etc nil
+  "Alist storing information in `ement-directory' buffers.")
 
 ;;;;; Keys
 
@@ -67,8 +65,9 @@
 ;; nice, but the server doesn't include that in the results.)
 
 (ement-directory-define-key joined-p ()
-  (pcase-let (((map ('room_id id)) item))
-    (when (cl-find id (ement-session-rooms ement-directory-session)
+  (pcase-let (((map ('room_id id)) item)
+              ((map session) ement-directory-etc))
+    (when (cl-find id (ement-session-rooms session)
                    :key #'ement-room-id :test #'equal)
       "Joined")))
 
@@ -108,15 +107,20 @@
 ;; TODO: Fetch avatars (with queueing and async updating/insertion?).
 
 (ement-directory-define-column #("✓" 0 1 (help-echo "Joined")) ()
-  (pcase-let (((map ('room_id id)) item))
-    (if (cl-find id (ement-session-rooms ement-directory-session)
+  (pcase-let (((map ('room_id id)) item)
+              ((map session) ement-directory-etc))
+    (if (cl-find id (ement-session-rooms session)
                  :key #'ement-room-id :test #'equal)
         "✓"
       " ")))
 
 (ement-directory-define-column "Name" (:max-width 25)
-  (pcase-let (((map name) item))
-    (or name "[unnamed]")))
+  (pcase-let* (((map name ('room_type type)) item)
+               (face (pcase type
+                       ("m.space" 'ement-room-list-space)
+                       (_ 'ement-room-list-name))))
+    (propertize (or name "[unnamed]")
+                'face face)))
 
 (ement-directory-define-column "Alias" (:max-width 25)
   (pcase-let (((map ('canonical_alias alias)) item))
@@ -205,15 +209,16 @@ QUERY is a string used to filter results."
   (cl-etypecase (oref (magit-current-section) value)
     (null nil)
     (list (pcase-let* (((map ('name name) ('room_id room-id)) (oref (magit-current-section) value))
-                       (room (cl-find room-id (ement-session-rooms ement-directory-session)
+                       ((map session) ement-directory-etc)
+                       (room (cl-find room-id (ement-session-rooms session)
                                       :key #'ement-room-id :test #'equal)))
             (if room
-                (ement-view-room room ement-directory-session)
+                (ement-view-room room session)
               ;; Room not joined: prompt to join.  (Don't use the alias in the prompt,
               ;; because multiple rooms might have the same alias, e.g. when one is
               ;; upgraded or tombstoned.)
               (when (yes-or-no-p (format "Join room \"%s\" <%s>? " name room-id))
-                (ement-join-room room-id ement-directory-session)))))
+                (ement-join-room room-id session)))))
     (taxy-magit-section (call-interactively #'magit-section-cycle))))
 
 ;;;; Functions
@@ -249,7 +254,7 @@ To be called by `ement-directory-search'."
         (error "Ement: Not connected.  Use `ement-connect' to connect"))
       (with-current-buffer (get-buffer-create buffer-name)
         (ement-directory-mode)
-        (setf ement-directory-session session)
+        (setf (alist-get 'session ement-directory-etc) session)
         (setq-local revert-buffer-function revert-function)
         (pcase-let* (((map ('chunk rooms)) results)
                      (taxy (cl-macrolet ((first-item
