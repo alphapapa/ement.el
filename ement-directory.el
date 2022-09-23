@@ -149,8 +149,8 @@
 
 (cl-defun ement-directory (&key server session (limit 1000))
   "View the public room directory on SERVER with SESSION.
-Interactively, With prefix, prompt for server and number of
-rooms."
+Show up to LIMIT rooms.  Interactively, with prefix, prompt for
+server and LIMIT."
   (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
                       (server (if current-prefix-arg
                                   (read-string "Search on server: " nil nil
@@ -229,7 +229,10 @@ QUERY is a string used to filter results."
                                          (keys ement-directory-default-keys)
                                          (display-buffer-action '(display-buffer-same-window)))
   "View RESULTS in an `ement-directory-mode' buffer.
-To be called by `ement-directory-search'."
+Show results for SESSION.  Set buffer's `revert-buffer-function'
+to REVERT-FUNCTION.  Sets BUFFER-NAME and ROOT-SECTION-NAME, and
+uses DISPLAY-BUFFER-ACTION.  KEYS are a list of `taxy' keys.  To
+be called by `ement-directory-search'."
   (let (format-table column-sizes window-start)
     (cl-labels ((format-item (item) (gethash item format-table))
                 ;; NOTE: Since these functions take an "item" (which is a [room session]
@@ -301,3 +304,4 @@ To be called by `ement-directory-search'."
 ;;;; Footer
 
 (provide 'ement-directory)
+;;; ement-directory.el ends here
