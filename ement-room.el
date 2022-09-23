@@ -1289,10 +1289,10 @@ buffer).  It receives two arguments, the room and the session."
                   (_ (error "Unable to join room %s: %s %S" id-or-alias status plz-error))))))))
 (defalias 'ement-join-room #'ement-room-join)
 
-(defun ement-room-leave (room session)
+(defun ement-room-leave (room session &optional force-p)
   "Leave ROOM on SESSION.
-ROOM may be an `ement-room' struct, or a room ID or alias
-string."
+If FORCE-P, leave without prompting.  ROOM may be an `ement-room'
+struct, or a room ID or alias string."
   ;; TODO: Rename `room' argument to `room-or-id'.
   (interactive (ement-complete-room :session (ement-complete-session)))
   (cl-assert room) (cl-assert session)
@@ -1301,7 +1301,7 @@ string."
     (string (setf room (ement-afirst (or (equal room (ement-room-canonical-alias it))
                                          (equal room (ement-room-id it)))
                          (ement-session-rooms session)))))
-  (when (yes-or-no-p (format "Leave room %s? " (ement--format-room room)))
+  (when (or force-p (yes-or-no-p (format "Leave room %s? " (ement--format-room room))))
     (pcase-let* (((cl-struct ement-room id) room)
                  (endpoint (format "rooms/%s/leave" (url-hexify-string id))))
       (ement-api session endpoint :method 'post :data ""

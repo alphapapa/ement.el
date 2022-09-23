@@ -286,6 +286,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Additions*
 + Command ~ement-directory~ shows a server's room directory.
 + Command ~ement-directory-search~ searches a server's room directory.
++ Command ~ement-leave-room~ accepts a ~FORCE-P~ argument (interactively, with prefix) to leave a room without prompting.
 
 *Fixes*
 + Command ~ement-describe-room~ for rooms without topics.
