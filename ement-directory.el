@@ -147,6 +147,8 @@
 
 ;;;; Commands
 
+;; TODO: Pagination of results.
+
 (cl-defun ement-directory (&key server session (limit 1000))
   "View the public room directory on SERVER with SESSION.
 Show up to LIMIT rooms.  Interactively, with prefix, prompt for
