@@ -167,11 +167,13 @@ server and LIMIT."
               (endpoint "publicRooms"))
     (ement-api session endpoint :params (list (list "limit" limit))
       :then (lambda (results)
-              (ement-directory--view results :session session
+              (ement-directory--view results
                                      :buffer-name (format "*Ement Directory: %s*" server)
                                      :root-section-name (format "Ement Directory: %s" server)
-                                     :revert-function revert-function)))
-    (ement-message "Listing rooms on %s..." server)))
+                                     :init-fn (lambda ()
+                                                (setf (alist-get 'session ement-directory-etc) session)
+                                                (setq-local revert-buffer-function revert-function)))))
+    (ement-message "Listing %s rooms on %s..." limit server)))
 
 (cl-defun ement-directory-search (query &key server session)
   "View public rooms on SERVER matching QUERY.
@@ -191,10 +193,12 @@ QUERY is a string used to filter results."
                                   "filter" (ement-alist "generic_search_term" query))))
     (ement-api session endpoint :method 'post :data (json-encode data)
       :then (lambda (results)
-              (ement-directory--view results :session session
+              (ement-directory--view results
                                      :buffer-name (format "*Ement Directory: \"%s\" on %s*" query server)
                                      :root-section-name (format "Ement Directory: \"%s\" on %s" query server)
-                                     :revert-function revert-function)))
+                                     :init-fn (lambda ()
+                                                (setf (alist-get 'session ement-directory-etc) session)
+                                                (setq-local revert-buffer-function revert-function)))))
     (ement-message "Searching for %S on %s..." query server)))
 
 (defun ement-directory-mouse-1 (event)
@@ -223,16 +227,16 @@ QUERY is a string used to filter results."
 
 ;;;; Functions
 
-(cl-defun ement-directory--view (results &key session revert-function
+(cl-defun ement-directory--view (results &key init-fn
                                          (buffer-name "*Ement Directory*")
                                          (root-section-name "Ement Directory")
                                          (keys ement-directory-default-keys)
                                          (display-buffer-action '(display-buffer-same-window)))
   "View RESULTS in an `ement-directory-mode' buffer.
-Show results for SESSION.  Set buffer's `revert-buffer-function'
-to REVERT-FUNCTION.  Sets BUFFER-NAME and ROOT-SECTION-NAME, and
-uses DISPLAY-BUFFER-ACTION.  KEYS are a list of `taxy' keys.  To
-be called by `ement-directory-search'."
+Calls INIT-FN immediately after activating major mode.  Sets
+BUFFER-NAME and ROOT-SECTION-NAME, and uses
+DISPLAY-BUFFER-ACTION.  KEYS are a list of `taxy' keys.  To be
+called by `ement-directory-search'."
   (let (format-table column-sizes window-start)
     (cl-labels ((format-item (item) (gethash item format-table))
                 ;; NOTE: Since these functions take an "item" (which is a [room session]
@@ -257,8 +261,8 @@ be called by `ement-directory-search'."
         (error "Ement: Not connected.  Use `ement-connect' to connect"))
       (with-current-buffer (get-buffer-create buffer-name)
         (ement-directory-mode)
-        (setf (alist-get 'session ement-directory-etc) session)
-        (setq-local revert-buffer-function revert-function)
+        (when init-fn
+          (funcall init-fn))
         (pcase-let* (((map ('chunk rooms)) results)
                      (taxy (cl-macrolet ((first-item
                                           (pred) `(lambda (taxy)
