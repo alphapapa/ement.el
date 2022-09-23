@@ -100,21 +100,41 @@ the request."
       (ement-api session endpoint :method 'post :data (json-encode data)
         :then then))))
 
-(defun ement-forget-room (room session)
-  "Forget ROOM on SESSION."
-  (interactive (ement-complete-room))
-  (pcase-let* (((cl-struct ement-room id display-name) room)
+(defun ement-forget-room (room session &optional force-p)
+  "Forget ROOM on SESSION.
+If FORCE-P (interactively, with prefix), prompt to leave the room
+when necessary, and forget the room without prompting."
+  (interactive (pcase-let ((`(,room ,session) (ement-complete-room)))
+                 (list room session current-prefix-arg)))
+  (pcase-let* (((cl-struct ement-room id display-name status) room)
                (endpoint (format "rooms/%s/forget" (url-hexify-string id))))
-    (when (yes-or-no-p (format "Forget room \"%s\" (%s)? " display-name id))
-      (ement-api session endpoint :method 'post :data ""
-        :then (lambda (_data)
-                ;; NOTE: The spec does not seem to indicate that the action of forgetting
-                ;; a room is synced to other clients, so it seems that we need to remove
-                ;; the room from the session here.
-                (setf (ement-session-rooms session)
-                      (cl-remove room (ement-session-rooms session)))
-                ;; TODO: Indicate forgotten in footer in room buffer.
-                (message "Room \"%s\" (%s) forgotten." display-name id))))))
+    (pcase status
+      ('join (if (and force-p
+                      (yes-or-no-p (format "Leave and forget room %s? (WARNING: You will not be able to rejoin the room to access its content.) "
+                                           (ement--format-room room))))
+                 (progn
+                   ;; TODO: Use `letrec'.
+                   (let* ((forget-fn-symbol (gensym (format "ement-forget-%s" room)))
+                          (forget-fn (lambda (_session)
+                                       (when (equal 'leave (ement-room-status room))
+                                         (remove-hook 'ement-sync-callback-hook forget-fn-symbol)
+                                         ;; FIXME: Probably need to unintern the symbol.
+                                         (ement-forget-room room session 'force)))))
+                     (setf (symbol-function forget-fn-symbol) forget-fn)
+                     (add-hook 'ement-sync-callback-hook forget-fn-symbol))
+                   (ement-leave-room room session 'force))
+               (user-error "Room %s is joined (must be left before forgetting)"
+                           (ement--format-room room))))
+      ('leave (when (or force-p (yes-or-no-p (format "Forget room \"%s\" (%s)? " display-name id)))
+                (ement-api session endpoint :method 'post :data ""
+                  :then (lambda (_data)
+                          ;; NOTE: The spec does not seem to indicate that the action of forgetting
+                          ;; a room is synced to other clients, so it seems that we need to remove
+                          ;; the room from the session here.
+                          (setf (ement-session-rooms session)
+                                (cl-remove room (ement-session-rooms session)))
+                          ;; TODO: Indicate forgotten in footer in room buffer.
+                          (message "Room \"%s\" (%s) forgotten." display-name id))))))))
 
 (defun ement-ignore-user (user-id session &optional unignore-p)
   "Ignore USER-ID on SESSION.
