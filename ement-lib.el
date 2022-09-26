@@ -1214,12 +1214,14 @@ such when they were created."
                (members (delete-dups (mapcar #'ement-event-sender timeline)))
                (other-users (cl-remove local-user-id members
                                        :key #'ement-user-id :test #'equal))
-               ((cl-struct ement-user (id other-user-id)) (car other-users)))
+               ((cl-struct ement-user (id other-user-id)) (car other-users))
+               ;; The alist keys are MXIDs as symbols.
+               (other-user-id (intern other-user-id))
+               (existing-direct-rooms-for-user (map-elt direct-rooms-account-data-event-content other-user-id)))
     (cl-assert (= 1 (length other-users)))
-    (cl-assert (not (map-elt direct-rooms-account-data-event-content other-user-id)) nil
-               "Ement: User <%s> already has a direct room on session <%s>"
-               other-user-id local-user-id)
-    (setf (map-elt direct-rooms-account-data-event-content other-user-id) (vector room-id))
+    (setf (map-elt direct-rooms-account-data-event-content other-user-id)
+          (cl-coerce (append existing-direct-rooms-for-user (list room-id))
+                     'vector))
     (ement-put-account-data session "m.direct" direct-rooms-account-data-event-content
       :then (lambda (_data)
               (message "Ement: Room <%s> marked as direct for <%s>." room-id other-user-id)))
