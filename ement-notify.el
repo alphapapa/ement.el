@@ -83,6 +83,17 @@ If one of these returns non-nil for an event, the event is logged."
              ement-notify--room-buffer-live-p
              ement-notify--room-unread-p))
 
+(defcustom ement-notify-mark-frame-urgent-predicates
+  '(ement-notify--event-mentions-session-user-p
+    ement-notify--event-mentions-room-p)
+  "Predicates to determine whether to mark a frame as urgent.
+If one of these returns non-nil for an event, the frame that most
+recently showed the event's room's buffer is marked
+urgent.  (Only works on X, not other GUI platforms.)"
+  :type 'hook
+  :options '(ement-notify--event-mentions-session-user-p
+             ement-notify--event-mentions-room-p))
+
 (defcustom ement-notify-mention-predicates
   '(ement-notify--event-mentions-session-user-p
     ement-notify--event-mentions-room-p)
@@ -178,7 +189,37 @@ Does not do anything if session hasn't finished initial sync."
     (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
       (ement-notify--log-to-buffer event room session))
     (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
-      (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))))
+      (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))
+    (when (run-hook-with-args-until-success 'ement-notify-mark-frame-urgent-predicates event room session)
+      (ement-notify--mark-frame-urgent event room session))))
+
+(defun ement-notify--mark-frame-urgent (_event room _session)
+  "Mark frame showing ROOM's buffer as urgent.
+If ROOM has no existing buffer, do nothing."
+  (cl-labels ((mark-frame-urgent
+               (frame) (let* ((prop "WM_HINTS")
+                              (hints (cl-coerce
+                                      (x-window-property prop frame prop nil nil t)
+                                      'list)))
+                         (setf (car hints) (logior (car hints) 256))
+                         (x-change-window-property prop hints nil prop 32 t))))
+    (when-let* ((buffer (alist-get 'buffer (ement-room-local room)))
+                (frames (cl-loop for frame in (frame-list)
+                                 when (eq 'x (framep frame))
+                                 collect frame))
+                (frame (pcase (length frames)
+                         (1 (car frames))
+                         (_
+                          ;; Use the frame that most recently showed ROOM's buffer.
+                          (car (sort frames
+                                     (lambda (frame-a frame-b)
+                                       (let ((a-pos (cl-position buffer (buffer-list frame-a)))
+                                             (b-pos (cl-position buffer (buffer-list frame-b))))
+                                         (cond ((and a-pos b-pos)
+                                                (< a-pos b-pos))
+                                               (a-pos)
+                                               (b-pos))))))))))
+      (mark-frame-urgent frame))))
 
 (defun ement-notify--notifications-notify (event room _session)
   "Call `notifications-notify' for EVENT in ROOM on SESSION."

@@ -294,6 +294,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-directory-next~ fetches the next batch of rooms in a directory.
 + Command ~ement-leave-room~ accepts a ~FORCE-P~ argument (interactively, with prefix) to leave a room without prompting.
 + Command ~ement-forget-room~ accepts a ~FORCE-P~ argument (interactively, with prefix) to also leave the room, and to forget it without prompting.
++ Option ~ement-notify-mark-frame-urgent-predicates~ marks the frame as urgent when (by default) a message mentions the local user or "@room" and the message's room has an open buffer.
 
 *Changes*
 + Minor improvements to date/time headers.
