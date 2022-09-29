@@ -1919,6 +1919,7 @@ and erases the buffer."
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
   ;; Set the URL handler.  Note that `browse-url-handlers' was added in 28.1;
   ;; prior to that `browse-url-browser-function' served double-duty.
+  ;; TODO: Remove compat code when requiring Emacs >=28.
   (let ((handler (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)))
     (if (boundp 'browse-url-handlers)
         (setq-local browse-url-handlers (cons handler browse-url-handlers))
