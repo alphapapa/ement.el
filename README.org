@@ -303,6 +303,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-describe-room~ for rooms without topics.
 + Improve insertion of old messages around existing timestamp headers.
 + Reduce D-Bus notification system check timeout to 2 seconds (from the default of 25).
++ Compatibility with Emacs 27.
 
 ** 0.2.1
 

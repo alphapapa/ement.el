@@ -61,6 +61,49 @@
 (defvar ement-room-prism-color-adjustment)
 (defvar ement-room-prism-minimum-contrast)
 
+;;;; Compatibility
+
+;; These workarounds should be removed when they aren't needed.
+
+;;;;; Emacs 28 color features.
+
+;; Copied from Emacs 28.  See <https://github.com/alphapapa/ement.el/issues/99>.
+
+;; FIXME: Remove this workaround when possible.
+
+(eval-and-compile
+  (unless (boundp 'color-luminance-dark-limit)
+    (defconst ement--color-luminance-dark-limit 0.325
+      "The relative luminance below which a color is considered 'dark'.
+A 'dark' color in this sense provides better contrast with white
+than with black; see `color-dark-p'.
+This value was determined experimentally.")))
+
+(defalias 'ement--color-dark-p
+  (if (fboundp 'color-dark-p)
+      'color-dark-p
+    (lambda (rgb)
+      "Whether RGB is more readable against white than black.
+RGB is a 3-element list (R G B), each component in the range [0,1].
+This predicate can be used both for determining a suitable (black or white)
+contrast colour with RGB as background and as foreground."
+      (unless (<= 0 (apply #'min rgb) (apply #'max rgb) 1)
+        (error "RGB components %S not in [0,1]" rgb))
+      ;; Compute the relative luminance after gamma-correcting (assuming sRGB),
+      ;; and compare to a cut-off value determined experimentally.
+      ;; See https://en.wikipedia.org/wiki/Relative_luminance for details.
+      (let* ((sr (nth 0 rgb))
+             (sg (nth 1 rgb))
+             (sb (nth 2 rgb))
+             ;; Gamma-correct the RGB components to linear values.
+             ;; Use the power 2.2 as an approximation to sRGB gamma;
+             ;; it should be good enough for the purpose of this function.
+             (r (expt sr 2.2))
+             (g (expt sg 2.2))
+             (b (expt sb 2.2))
+             (y (+ (* r 0.2126) (* g 0.7152) (* b 0.0722))))
+        (< y ement--color-luminance-dark-limit)))))
+
 ;;;; Functions
 
 ;;;;; Commands
@@ -556,7 +599,7 @@ avatars, etc."
                                                  "white"))
                                               (_
                                                ;; The `contrast-with` color is usable: test it.
-                                               (if (color-dark-p (color-name-to-rgb contrast-with))
+                                               (if (ement--color-dark-p (color-name-to-rgb contrast-with))
                                                    "white" "black")))))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 

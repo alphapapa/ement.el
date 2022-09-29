@@ -325,7 +325,7 @@ If ROOM has no existing buffer, do nothing."
             (let ((color (color-desaturate-name
                           (ement--prism-color (ement-room-id room) :contrast-with (face-foreground 'default))
                           50)))
-              (if (color-dark-p (color-name-to-rgb (face-background 'default)))
+              (if (ement--color-dark-p (color-name-to-rgb (face-background 'default)))
                   (color-darken-name color 25)
                 (color-lighten-name color 25))))))
 

@@ -895,7 +895,7 @@ spec) without requiring all events to use the same margin width."
                                     (setf (ement-user-message-color sender)
                                           (let ((message-color (color-desaturate-name (ement--user-color sender)
                                                                                       ement-room-prism-message-desaturation)))
-                                            (if (color-dark-p (color-name-to-rgb (face-background 'default)))
+                                            (if (ement--color-dark-p (color-name-to-rgb (face-background 'default)))
                                                 (color-lighten-name message-color ement-room-prism-message-lightening)
                                               (color-darken-name message-color ement-room-prism-message-lightening))))))))
                (redacted-face (when (or local-redacted-by unsigned-redacted-by)
