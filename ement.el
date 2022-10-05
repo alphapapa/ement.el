@@ -5,7 +5,7 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.3.1
+;; Version: 0.4-pre
 ;; Package-Requires: ((emacs "27.1") (map "2.1") (plz "0.2") (taxy "0.9") (taxy-magit-section "0.9") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
