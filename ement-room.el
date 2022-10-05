@@ -352,6 +352,14 @@ Automatically set by setting `ement-room-message-format-spec',
 but may be overridden manually."
   :type 'boolean)
 
+(defcustom ement-room-unread-only-counts-notifications t
+  "Only use notification counts to mark rooms unread.
+Notification counts are set by the server based on each room's
+notification settings.  Otherwise, whether a room is marked
+unread depends on the room's fully-read marker, read-receipt
+marker, whether the local user sent the latest events, etc."
+  :type 'boolean)
+
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
 Set by `ement-room-message-format-spec-setter'.")
