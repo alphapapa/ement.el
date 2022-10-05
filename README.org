@@ -291,6 +291,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Additions*
 + Option ~ement-room-unread-only-counts-notifications~, now enabled by default, causes rooms' unread status to be determined only by their notification counts (which are set by the server and depend on rooms' notification settings).
 
+*Changes*
++ When a room's read receipt is updated, the room's buffer is also marked as unmodified.  (In concert with the new option, this makes rooms' unread status more intuitive.)
+
 ** 0.3.1
 
 *Fixes*

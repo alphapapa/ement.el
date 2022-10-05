@@ -2434,7 +2434,8 @@ To be called from timer stored in
         (ement-room-update-read-receipt window)))))
 
 (defun ement-room-update-read-receipt (window)
-  "Update read receipt for room displayed in WINDOW."
+  "Update read receipt for room displayed in WINDOW.
+Also, mark room's buffer as unmodified."
   (with-selected-window window
     (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
                                (lambda (node-data)
@@ -2469,6 +2470,11 @@ To be called from timer stored in
               (setf event-node (ement-room--ewoc-next-matching ement-ewoc event-node
                                  #'ement-event-p #'ewoc-prev)))
             (setf event (ewoc-data event-node))
+            ;; Mark the buffer as not modified so that will not contribute to its being
+            ;; considered unread.  NOTE: This will mean that any room buffer displayed in
+            ;; a window will have its buffer marked unmodified when this function is
+            ;; called.  This is probably for the best.
+            (set-buffer-modified-p nil)
             (unless (alist-get event ement-room-read-receipt-request)
               ;; No existing request for this event: cancel any outstanding request and
               ;; send a new one.
