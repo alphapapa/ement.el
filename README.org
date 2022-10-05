@@ -288,7 +288,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.3.1-pre
 
-Nothing new yet.
+*Fixes*
++ Room unread status (when the last event in a room is sent by the local user, the room is considered read).
 
 ** 0.3
 

@@ -1171,7 +1171,7 @@ is not at the latest known message event."
                      ;; the user doesn't miss any messages, but it's unclear whether this
                      ;; is really correct or best.)
                      t)
-                    ((not (equal our-id (ement-user-id (ement-event-sender (car timeline)))))
+                    ((equal our-id (ement-user-id (ement-event-sender (car timeline))))
                      ;; We sent the last event: the room is read.
                      nil)
                     ((and first-counting-event
