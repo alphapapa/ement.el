@@ -152,6 +152,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "r m") #'ement-list-members)
     (define-key map (kbd "r t") #'ement-room-set-topic)
     (define-key map (kbd "r f") #'ement-room-set-message-format)
+    (define-key map (kbd "r n") #'ement-room-set-notifications)
     (define-key map (kbd "r T") #'ement-tag-room)
 
     ;; Room membership
@@ -4148,6 +4149,7 @@ For use in `completion-at-point-functions'."
               ("r m" "List members" ement-list-members)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
+              ("r n" "Set notification rules" ement-room-set-notifications)
               ("r T" "Tag/untag room" ement-tag-room
                :description (lambda ()
                               (format "Tag/untag room (%s/%s)"

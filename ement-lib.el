@@ -420,6 +420,104 @@ If DELETE (interactively, with prefix), delete it."
       :then (lambda (data)
               (ement-debug "Changed tag on room" method tag data room)))))
 
+;;;;;; Push rules
+
+;; NOTE: Although v1.4 of the spec is available and describes setting the push rules using
+;; the "v3" API endpoint, the Element client continues to use the "r0" endpoint, which is
+;; slightly different.  This implementation will follow Element's initially, because the
+;; spec is not simple, and imitating Element's requests will make it easier.
+
+(defun ement-room-set-notifications (rule room session)
+  "Set notification RULE for ROOM on SESSION.
+RULE may be nil to set the rules to default, `all',
+`mentions-and-keywords', or `none'."
+  ;; This merely attempts to reproduce the behavior of Element's simple notification
+  ;; options.  It does not attempt to offer all of the features defined in the spec.  And,
+  ;; yes, it is rather awkward, having to sometimes* make multiple requests of different
+  ;; "kinds" to set the rules for a single room, but that is how the API works.
+  ;;
+  ;; * It appears that Element only makes multiple requests of different kinds when
+  ;; strictly necessary, but coding that logic now would seem likely to be a waste of
+  ;; time, given that Element doesn't even use the latest version of the spec yet.  So
+  ;; we'll just do the "dumb" thing and always send requests of both "override" and
+  ;; "room" kinds, which appears to Just Work™.
+  ;;
+  ;; TODO: Match rules to these user-friendly notification states for presentation.  See
+  ;; <https://github.com/matrix-org/matrix-react-sdk/blob/8c67984f50f985aa481df24778078030efa39001/src/RoomNotifs.ts>.
+  (interactive
+   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
+                                         (list ement-room ement-session))
+                                       (ement-complete-room)))
+                (prompt (format "Set notification rules for %s: " (ement--format-room room)))
+                (available-rules (ement-alist "Default" nil
+                                              "All messages" 'all
+                                              "Mentions and keywords" 'mentions-and-keywords
+                                              "None" 'none))
+                (selected-rule (completing-read prompt (mapcar #'car available-rules) nil t))
+                (rule (alist-get selected-rule available-rules nil nil #'equal)))
+     (list rule room session)))
+  (cl-labels ((set-rule (kind rule queue message-fn)
+                        (pcase-let* (((cl-struct ement-room (id room-id)) room)
+                                     (rule-id (url-hexify-string room-id))
+                                     (endpoint (format "pushrules/global/%s/%s" kind rule-id))
+                                     (method (if rule 'put 'delete))
+                                     (then (if rule
+                                               ;; Setting rules requires PUTting the rules, then making a second request to enable them.
+                                               (lambda (_data)
+                                                 (ement-api session (concat endpoint "/enabled") :queue queue :version "r0"
+                                                   :method 'put :data (json-encode (ement-alist 'enabled t))
+                                                   :then message-fn))
+                                             message-fn)))
+                          (ement-api session endpoint :queue queue :method method :version "r0"
+                            :data (json-encode rule)
+                            :then then
+                            :else (lambda (plz-error)
+                                    (pcase-let* (((cl-struct plz-error response) plz-error)
+                                                 ((cl-struct plz-response status) response))
+                                      (pcase status
+                                        (404 (pcase rule
+                                               (`nil
+                                                ;; Room already had no rules, so none being found is not an
+                                                ;; error.
+                                                nil)
+                                               (_ ;; Unexpected error: re-signal.
+                                                (ement-api-error plz-error))))
+                                        (_ ;; Unexpected error: re-signal.
+                                         (ement-api-error plz-error)))))))))
+    (pcase-let* ((available-rules
+                  (ement-alist
+                   nil (ement-alist
+                        "override" nil
+                        "room" nil)
+                   'all (ement-alist
+                         "override" nil
+                         "room" (ement-alist
+                                 'actions (vector "notify" (ement-alist
+                                                            'set_tweak "sound"
+                                                            'value "default"))))
+                   'mentions-and-keywords (ement-alist
+                                           "override" nil
+                                           "room" (ement-alist
+                                                   'actions (vector "dont_notify")))
+                   'none (ement-alist
+                          "override" (ement-alist
+                                      'actions (vector "dont_notify")
+                                      'conditions (vector (ement-alist
+                                                           'kind "event_match"
+                                                           'key "room_id"
+                                                           'pattern (ement-room-id room))))
+                          "room" nil)))
+                 (kinds-and-rules (alist-get rule available-rules nil nil #'equal)))
+      (cl-loop with queue = (make-plz-queue :limit 1)
+               with total = (1- (length kinds-and-rules))
+               for count from 0
+               for message-fn = (if (equal count total)
+                                    (lambda (_data)
+                                      (message "Set notification rules for room: %s" (ement--format-room room)))
+                                  #'ignore)
+               for (kind . rule) in kinds-and-rules
+               do (set-rule kind rule queue message-fn)))))
+
 ;;;;; Public functions
 
 ;; These functions could reasonably be called by code in other packages.

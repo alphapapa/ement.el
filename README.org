@@ -200,6 +200,7 @@ These bindings are common to all of the following buffer types:
 + List members: ~r m~
 + Set topic: ~r t~
 + Set message format: ~r f~
++ Set notification rules: ~r n~
 + Tag/untag room: ~r T~
 
 *Room membership*
@@ -290,6 +291,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Additions*
 + Option ~ement-room-unread-only-counts-notifications~, now enabled by default, causes rooms' unread status to be determined only by their notification counts (which are set by the server and depend on rooms' notification settings).
++ Command ~ement-room-set-notifications~ sets a room's notification rules (imitating Element's user-friendly presets).
 
 *Changes*
 + When a room's read receipt is updated, the room's buffer is also marked as unmodified.  (In concert with the new option, this makes rooms' unread status more intuitive.)
