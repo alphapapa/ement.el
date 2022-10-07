@@ -160,6 +160,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "R j") #'ement-join-room)
     (define-key map (kbd "R l") #'ement-leave-room)
     (define-key map (kbd "R F") #'ement-forget-room)
+    (define-key map (kbd "R n") #'ement-room-set-display-name)
 
     ;; Other
     (define-key map (kbd "g") #'ement-room-sync)
@@ -4186,7 +4187,14 @@ For use in `completion-at-point-functions'."
               ("R c" "Create room" ement-create-room)
               ("R j" "Join room" ement-join-room)
               ("R l" "Leave room" ement-leave-room)
-              ("R F" "Forget room" ement-forget-room)]]
+              ("R F" "Forget room" ement-forget-room)
+              ("R n" "Set nick" ement-room-set-display-name
+               :description (lambda ()
+                              (format "Set nick (%s)"
+                                      (propertize (ement--user-displayname-in
+                                                   ement-room (gethash (ement-user-id (ement-session-user ement-session))
+                                                                       ement-users))
+                                                  'face 'transient-value))))]]
   ["Other"
    ("v" "View event" ement-room-view-event)
    ("g" "Sync new messages" ement-room-sync

@@ -293,6 +293,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Option ~ement-room-unread-only-counts-notifications~, now enabled by default, causes rooms' unread status to be determined only by their notification counts (which are set by the server and depend on rooms' notification settings).
 + Command ~ement-room-set-notification-state~ sets a room's notification state (imitating Element's user-friendly presets).
 + Room buffers' Transient menus show the room's notification state (imitating Element's user-friendly presets).
++ Command ~ement-set-display-name~ sets the user's global displayname.
++ Command ~ement-room-set-display-name~ sets the user's displayname in a room (which is also now displayed in the room's Transient menu).
 
 *Changes*
 + When a room's read receipt is updated, the room's buffer is also marked as unmodified.  (In concert with the new option, this makes rooms' unread status more intuitive.)

@@ -420,6 +420,53 @@ If DELETE (interactively, with prefix), delete it."
       :then (lambda (data)
               (ement-debug "Changed tag on room" method tag data room)))))
 
+(defun ement-set-display-name (display-name session)
+  "Set DISPLAY-NAME for user on SESSION.
+Sets global displayname."
+  (interactive
+   (let* ((session (ement-complete-session))
+          (display-name (read-string "Set display-name to: " nil nil
+                                     (ement-user-displayname (ement-session-user session)))))
+     (list display-name session)))
+  (pcase-let* (((cl-struct ement-session user) session)
+               ((cl-struct ement-user (id user-id)) user)
+               (endpoint (format "profile/%s/displayname" (url-hexify-string user-id))))
+    (ement-api session endpoint :method 'put :version "v3"
+      :data (json-encode (ement-alist "displayname" display-name))
+      :then (lambda (_data)
+              (message "Ement: Display name set to %S for <%s>" display-name
+                       (ement-user-id (ement-session-user session)))))))
+
+(defun ement-room-set-display-name (display-name room session)
+  "Set DISPLAY-NAME for user in ROOM on SESSION.
+Sets the name only in ROOM, not globally."
+  (interactive
+   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
+                                         (list ement-room ement-session))
+                                       (ement-complete-room)))
+                (prompt (format "Set display-name in %S to: "
+                                (ement--format-room room)))
+                (display-name (read-string prompt nil nil
+                                           (ement-user-displayname (ement-session-user session)))))
+     (list display-name room session)))
+  ;; NOTE: This does not seem to be documented in the spec, so we imitate the
+  ;; "/myroomnick" command in SlashCommands.tsx from matrix-react-sdk.
+  (pcase-let* (((cl-struct ement-room state) room)
+               ((cl-struct ement-session user) session)
+               ((cl-struct ement-user id) user)
+               (member-event (cl-find-if (lambda (event)
+                                           (and (equal id (ement-event-state-key event))
+                                                (equal "m.room.member" (ement-event-type event))
+                                                (equal "join" (alist-get 'membership (ement-event-content event)))))
+                                         state)))
+    (cl-assert member-event)
+    (setf (alist-get 'displayname (ement-event-content member-event)) display-name)
+    (ement-put-state room "m.room.member" id (ement-event-content member-event) session
+      :then (lambda (_data)
+              (message "Ement: Display name set to %S for <%s> in %S" display-name
+                       (ement-user-id (ement-session-user session))
+                       (ement--format-room room))))))
+
 ;;;;;; Push rules
 
 ;; NOTE: Although v1.4 of the spec is available and describes setting the push rules using
