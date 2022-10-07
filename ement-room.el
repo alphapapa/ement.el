@@ -3091,11 +3091,11 @@ Formats according to `ement-room-message-format-spec', which see."
                                      (background) (foreground))
                           (if ement-room-reactions-svg
                               (setf background (if local-user-p
-                                                   (face-attribute 'default :foreground nil t)
-                                                 (face-attribute 'default :background nil t))
+                                                   (face-attribute 'ement-room-reactions :foreground nil t)
+                                                 (face-attribute 'ement-room-reactions :background nil 'default))
                                     foreground (if local-user-p
-                                                   (face-attribute 'default :background nil t)
-                                                 (face-attribute 'default :foreground nil t))
+                                                   (face-attribute 'ement-room-reactions :background nil 'default)
+                                                 (face-attribute 'ement-room-reactions :foreground nil t))
                                     string (propertize string 'display
                                                        ;; These numbers were arrived at by experimentation and
                                                        ;; may not be optimal for all users.
