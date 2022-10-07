@@ -297,6 +297,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Changes*
 + When a room's read receipt is updated, the room's buffer is also marked as unmodified.  (In concert with the new option, this makes rooms' unread status more intuitive.)
 
+*Fixes*
++ Binding of command ~ement-forget-room~ in room buffers.
+
 ** 0.3.1
 
 *Fixes*

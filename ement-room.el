@@ -159,7 +159,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "R c") #'ement-create-room)
     (define-key map (kbd "R j") #'ement-join-room)
     (define-key map (kbd "R l") #'ement-leave-room)
-    (define-key map (kbd "R f") #'ement-forget-room)
+    (define-key map (kbd "R F") #'ement-forget-room)
 
     ;; Other
     (define-key map (kbd "g") #'ement-room-sync)
