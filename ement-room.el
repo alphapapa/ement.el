@@ -657,6 +657,11 @@ When using a light theme, it may be necessary to use a negative
 number (to darken rather than lighten)."
   :type 'integer)
 
+(defcustom ement-room-reactions-svg t
+  "Display reactions as SVG-rendered buttons.
+Otherwise, render them as text buttons."
+  :type 'boolean)
+
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
@@ -3062,7 +3067,9 @@ Formats according to `ement-room-message-format-spec', which see."
       (cl-labels ((format-reaction
                    (ks) (pcase-let* ((`(,key . ,senders) ks)
                                      (key (propertize key 'face 'ement-room-reactions-key))
-                                     (count (propertize (format " (%s)" (length senders))
+                                     (format-string (if ement-room-reactions-svg
+                                                        " %s " " (%s)"))
+                                     (count (propertize (format format-string (length senders))
                                                         'face 'ement-room-reactions))
                                      (string
                                       (propertize (concat key count)
@@ -3080,10 +3087,25 @@ Formats according to `ement-room-message-format-spec', which see."
                                                                 (get-char-code-property (string-to-char key) 'name) ": "
                                                                 (senders-names senders (buffer-local-value 'ement-room buffer))))))
                                      (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
-                                                              :key #'ement-user-id :test #'equal)))
-                          (when local-user-p
-                            (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
-                                                    nil string))
+                                                              :key #'ement-user-id :test #'equal))
+                                     (background) (foreground))
+                          (if ement-room-reactions-svg
+                              (setf background (if local-user-p
+                                                   (face-attribute 'default :foreground nil t)
+                                                 (face-attribute 'default :background nil t))
+                                    foreground (if local-user-p
+                                                   (face-attribute 'default :background nil t)
+                                                 (face-attribute 'default :foreground nil t))
+                                    string (propertize string 'display
+                                                       ;; These numbers were arrived at by experimentation and
+                                                       ;; may not be optimal for all users.
+                                                       (svg-lib-tag string nil
+                                                                    :radius 5 :font-size 11 :height 1.2 :padding 2
+                                                                    :stroke 1 :background background :foreground foreground)))
+                            ;; Not using SVG: add button property for locally sent reactions.
+                            (when local-user-p
+                              (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
+                                                      nil string)))
                           (ement--remove-face-property string 'button)
                           string))
                   (senders-names
