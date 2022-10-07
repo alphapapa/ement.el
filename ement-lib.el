@@ -576,6 +576,21 @@ STATE may be nil to set the rules to default, `all',
 
 ;; These functions could reasonably be called by code in other packages.
 
+(cl-defun ement-put-state
+    (room type key data session
+          &key (then (lambda (response-data)
+                       (ement-debug "State data put on room" response-data data room session))))
+  "Put state event of TYPE with KEY and DATA on ROOM on SESSION.
+DATA should be an alist, which will become the JSON request
+body."
+  (declare (indent defun))
+  (pcase-let* ((endpoint (format "rooms/%s/state/%s/%s"
+                                 (url-hexify-string (ement-room-id room))
+                                 type key)))
+    (ement-api session endpoint :method 'put :data (json-encode data)
+      ;; TODO: Handle error codes.
+      :then then)))
+
 (defun ement-message (format-string &rest args)
   "Call `message' on FORMAT-STRING prefixed with \"Ement: \"."
   ;; TODO: Use this function everywhere we use `message'.
