@@ -4152,7 +4152,7 @@ For use in `completion-at-point-functions'."
               ("r n" "Set notification state" ement-room-set-notification-state
                :description (lambda ()
                               (let ((state (ement-room-notification-state ement-room ement-session)))
-                                (format "Notifications (%s/%s/%s/%s/%s)"
+                                (format "Notifications (%s|%s|%s|%s|%s)"
                                         (propertize "default"
                                                     'face (pcase state
                                                             (`nil 'transient-value)
@@ -4165,7 +4165,7 @@ For use in `completion-at-point-functions'."
                                                     'face (pcase state
                                                             ('all 'transient-value)
                                                             (_ 'transient-inactive-value)))
-                                        (propertize "mentions-and-keywords"
+                                        (propertize "mentions"
                                                     'face (pcase state
                                                             ('mentions-and-keywords 'transient-value)
                                                             (_ 'transient-inactive-value)))
@@ -4175,7 +4175,7 @@ For use in `completion-at-point-functions'."
                                                             (_ 'transient-inactive-value)))))))
               ("r T" "Tag/untag room" ement-tag-room
                :description (lambda ()
-                              (format "Tag/untag room (%s/%s)"
+                              (format "Tag/untag room (%s|%s)"
                                       (propertize "Fav"
                                                   'face (if (ement--room-tagged-p "m.favourite" ement-room)
                                                             'transient-value 'transient-inactive-value))
