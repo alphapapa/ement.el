@@ -922,7 +922,7 @@ period, anywhere in the body."
   "Return non-nil if EVENT mentions \"@room\"."
   (pcase-let (((cl-struct ement-event (content (map body))) event))
     (when body
-      (string-match-p (rx bow "@room" (or ":" (1+ blank))) body))))
+      (string-match-p (rx (or space bos) "@room" eow) body))))
 
 (cl-defun ement-complete-room (&key session predicate
                                     (prompt "Room: ") (suggest t))
