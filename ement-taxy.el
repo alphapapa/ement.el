@@ -350,6 +350,15 @@
         (number-to-string member-count)
       "")))
 
+(ement-taxy-define-column #("Notifications" 0 5 (help-echo "Notification state")) ()
+  (pcase-let* ((`[,room ,session] item))
+    (pcase (ement-room-notification-state room session)
+      ('nil "default")
+      ('all-loud "all (loud)")
+      ('all "all")
+      ('mentions-and-keywords "mentions")
+      ('none "none"))))
+
 (ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (if buffer

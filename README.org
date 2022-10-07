@@ -295,6 +295,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Room buffers' Transient menus show the room's notification state (imitating Element's user-friendly presets).
 + Command ~ement-set-display-name~ sets the user's global displayname.
 + Command ~ement-room-set-display-name~ sets the user's displayname in a room (which is also now displayed in the room's Transient menu).
++ Column ~Notifications~ in the ~ement-taxy-room-list~ buffer shows rooms' notification state.
 
 *Changes*
 + When a room's read receipt is updated, the room's buffer is also marked as unmodified.  (In concert with the new option, this makes rooms' unread status more intuitive.)
