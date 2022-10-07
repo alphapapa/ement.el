@@ -427,6 +427,57 @@ If DELETE (interactively, with prefix), delete it."
 ;; slightly different.  This implementation will follow Element's initially, because the
 ;; spec is not simple, and imitating Element's requests will make it easier.
 
+(defun ement-room-notification-state (room session)
+  "Return notification state for ROOM on SESSION.
+Returns one of nil (meaning default rules are used), `all-loud',
+`all', `mentions-and-keywords', or `none'."
+  ;; Following the implementation of getRoomNotifsState() in RoomNotifs.ts in matrix-react-sdk.
+
+  ;; TODO: Guest support (in which case the state should be `all').
+  ;; TODO: Store account data as a hash table of event types.
+  (let ((push-rules (cl-find-if (lambda (alist)
+                                  (equal "m.push_rules" (alist-get 'type alist)))
+                                (ement-session-account-data session))))
+    (cl-labels ((override-mute-rule-for-room-p
+                 ;; Following findOverrideMuteRule() in RoomNotifs.ts.
+                 (room) (when-let ((overrides (map-nested-elt push-rules '(content global override))))
+                          (cl-loop for rule in overrides
+                                   when (and (alist-get 'enabled rule)
+                                             (rule-for-room-p rule room))
+                                   return rule)))
+                (rule-for-room-p
+                 ;; Following isRuleForRoom() in RoomNotifs.ts.
+                 (rule room) (and (/= 1 (length (alist-get 'conditions rule)))
+                                  (pcase-let* ((condition (elt (alist-get 'conditions rule) 0))
+                                               ((map kind key pattern) condition))
+                                    (and (equal "event_match" kind)
+                                         (equal "room_id" key)
+                                         (equal (ement-room-id room) pattern)))))
+                (mute-rule-p
+                 (rule) (and (= 1 (length (alist-get 'actions rule)))
+                             (equal "dont_notify" (elt (alist-get 'actions rule) 0))))
+                (tweak-rule-p
+                 (type rule) (pcase-let (((map ('actions `[,action ,alist])) rule))
+                               (and (equal "notify" action)
+                                    (equal type (alist-get 'set_tweak alist))))))
+      ;; If none of these match, nil is returned, meaning that the default rule is used
+      ;; for the room.
+      (if (override-mute-rule-for-room-p room)
+          'none
+        (when-let ((room-rule (cl-find-if (lambda (rule)
+                                            (equal (ement-room-id room) (alist-get 'rule_id rule)))
+                                          (map-nested-elt push-rules '(content global room)))))
+          (cond ((not (alist-get 'enabled room-rule))
+                 ;; NOTE: According to comment in getRoomNotifsState(), this assumes that
+                 ;; the default is to notify for all messages, which "will be 'wrong' for
+                 ;; one to one rooms because they will notify loudly for all messages."
+                 'all)
+                ((mute-rule-p room-rule)
+                 ;; According to comment, a room-level mute still allows mentions to
+                 ;; notify.
+                 'mentions-and-keywords)
+                ((tweak-rule-p "sound" room-rule) 'all-loud)))))))
+
 (defun ement-room-set-notification-state (state room session)
   "Set notification STATE for ROOM on SESSION.
 STATE may be nil to set the rules to default, `all',

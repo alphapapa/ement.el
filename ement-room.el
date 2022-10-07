@@ -4149,7 +4149,30 @@ For use in `completion-at-point-functions'."
               ("r m" "List members" ement-list-members)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
-              ("r n" "Set notification state" ement-room-set-notification-state)
+              ("r n" "Set notification state" ement-room-set-notification-state
+               :description (lambda ()
+                              (let ((state (ement-room-notification-state ement-room ement-session)))
+                                (format "Notifications (%s/%s/%s/%s/%s)"
+                                        (propertize "default"
+                                                    'face (pcase state
+                                                            (`nil 'transient-value)
+                                                            (_ 'transient-inactive-value)))
+                                        (propertize "all-loud"
+                                                    'face (pcase state
+                                                            ('all-loud 'transient-value)
+                                                            (_ 'transient-inactive-value)))
+                                        (propertize "all"
+                                                    'face (pcase state
+                                                            ('all 'transient-value)
+                                                            (_ 'transient-inactive-value)))
+                                        (propertize "mentions-and-keywords"
+                                                    'face (pcase state
+                                                            ('mentions-and-keywords 'transient-value)
+                                                            (_ 'transient-inactive-value)))
+                                        (propertize "none"
+                                                    'face (pcase state
+                                                            ('none 'transient-value)
+                                                            (_ 'transient-inactive-value)))))))
               ("r T" "Tag/untag room" ement-tag-room
                :description (lambda ()
                               (format "Tag/untag room (%s/%s)"
