@@ -155,6 +155,7 @@ Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
                 :value-type (repeat (string :tag "Room alias/ID"))))
 
 (defcustom ement-disconnect-hook '(ement-kill-buffers ement--stop-idle-timer)
+  ;; FIXME: Put private functions in a private hook.
   "Functions called when disconnecting.
 That is, when calling command `ement-disconnect'.  Functions are
 called with no arguments."
