@@ -174,6 +174,16 @@ function `display-buffer' and info node `(elisp) Buffer Display
 Action Functions'."
   :type 'function)
 
+(defcustom ement-interrupted-sync-hook '(ement-interrupted-sync-warning)
+  "Functions to call when syncing of a session is interrupted.
+Only called when `ement-auto-sync' is non-nil.  Functions are
+called with one argument, the session whose sync was interrupted.
+
+This hook allows the user to customize how sync interruptions are
+handled (e.g. how to be notified)."
+  :type 'hook
+  :options '(ement-interrupted-sync-message ement-interrupted-sync-warning))
+
 ;;;; Commands
 
 ;;;###autoload
@@ -309,6 +319,23 @@ Useful in, e.g. `ement-disconnect-hook', which see."
 
 ;;;; Functions
 
+(defun ement-interrupted-sync-warning (session)
+  "Display a warning that syncing of SESSION was interrupted."
+  (display-warning
+   'ement
+   (format
+    (substitute-command-keys
+     "\\<ement-room-mode-map>Syncing of session <%s> was interrupted.  Use command `ement-room-sync' in a room buffer to retry.")
+    (ement-user-id (ement-session-user session)))
+   :error))
+
+(defun ement-interrupted-sync-message (session)
+  "Display a message that syncing of SESSION was interrupted."
+  (message
+   (substitute-command-keys
+    "\\<ement-room-mode-map>Syncing of session <%s> was interrupted.  Use command `ement-room-sync' in a room buffer to retry.")
+   (ement-user-id (ement-session-user session))))
+
 (defun ement--run-idle-timer (&rest _ignore)
   "Run idle timer that updates read receipts.
 To be called from `ement-after-initial-sync-hook'.  Timer is
@@ -427,9 +454,7 @@ a filter ID).  When unspecified, the value of
                                     (`(,(or 28 429 502) . ,_)
                                      ;; Timeout (28), "Too Many Requests" (429), or "Bad Gateway" (502): sync again if enabled.
                                      (if (not ement-auto-sync)
-                                         (error (substitute-command-keys
-                                                 "\\<ement-room-mode-map>Ement sync timed out (%s).  Press \\[ement-room-sync] in a room buffer to sync again")
-                                                (ement-user-id (ement-session-user session)))
+                                         (run-hook-with-args 'ement-interrupted-sync-hook session)
                                        (let ((reason (pcase-exhaustive (car (plz-error-curl-error plz-error))
                                                        (28 "timed out")
                                                        ((or 429 502) "failed"))))
