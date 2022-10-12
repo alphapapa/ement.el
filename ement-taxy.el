@@ -501,6 +501,7 @@ DISPLAY-BUFFER-ACTION."
                          (taxy-sort* #'t<nil (first-item item-unread-p))
                          (taxy-sort* #'t<nil (first-item item-favourite-p))
                          (taxy-sort* #'t<nil (first-item item-invited-p))
+                         (taxy-sort* #'t>nil (first-item item-space-p))
                          (taxy-sort* #'t>nil (first-item item-low-priority-p))
                          (taxy-sort* #'t>nil (first-item item-left-p)))))
                (taxy-magit-section-insert-indent-items nil)
