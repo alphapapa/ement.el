@@ -43,6 +43,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ement-room-list-RET)
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
+    (define-key map [tab] #'ement-room-list-section-toggle)
     (define-key map [mouse-1] #'ement-room-list-mouse-1)
     map))
 
@@ -395,6 +396,19 @@
 
 ;;;; Commands
 
+(defun ement-room-list-section-toggle ()
+  "Toggle the section at point."
+  ;; HACK: For some reason, when a section's body is hidden, then the buffer is refreshed,
+  ;; and then the section's body is shown again, the body is empty--but then, refreshing
+  ;; the buffer shows its body.  So we work around that by refreshing the buffer when a
+  ;; section is toggled.  In a way, it makes sense to do this anyway, so the user has the
+  ;; most up-to-date information in the buffer.  This hack also works around a minor
+  ;; visual bug that sometimes causes room avatars to be displayed in a section heading
+  ;; when a section is hidden.
+  (interactive)
+  (call-interactively #'magit-section-toggle)
+  (revert-buffer))
+
 ;;;###autoload
 (defun ement-room-list--after-initial-sync (&rest _ignore)
   "Call `ement-room-list', ignoring arguments.
@@ -575,7 +589,7 @@ left."
   (cl-etypecase (oref (magit-current-section) value)
     (vector (pcase-let ((`[,room ,session] (oref (magit-current-section) value)))
               (ement-view-room room session)))
-    (taxy-magit-section (call-interactively #'magit-section-cycle))
+    (taxy-magit-section (call-interactively #'ement-room-list-section-toggle))
     (null nil)))
 
 (defun ement-room-list-next-unread ()
