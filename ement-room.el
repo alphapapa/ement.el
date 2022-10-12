@@ -123,7 +123,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
 
     ;; Switching
-    (define-key map (kbd "M-g M-l") #'ement-tabulated-room-list)
+    (define-key map (kbd "M-g M-l") #'ement-room-list)
     (define-key map (kbd "M-g M-r") #'ement-view-room)
     (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
@@ -1207,7 +1207,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                      "m.file"))))
 
 (declare-function ement-tabulated-room-list-next-unread "ement-tabulated-room-list")
-(declare-function ement-taxy-next-unread "ement-taxy")
+(declare-function ement-room-list-next-unread "ement-room-list")
 (defun ement-room-scroll-up-mark-read ()
   "Scroll buffer up, marking read and burying when at end."
   (interactive)
@@ -1230,11 +1230,11 @@ Interactively, set the current buffer's ROOM's TOPIC."
               (select-window rooms-window)
               (funcall (pcase-exhaustive major-mode
                          ('ement-tabulated-room-list-mode #'ement-tabulated-room-list-next-unread)
-                         ('ement-taxy-mode #'ement-taxy-next-unread))))
+                         ('ement-room-list-mode #'ement-room-list-next-unread))))
           ;; Rooms buffer not displayed: bury this room buffer, which should usually
           ;; result in another room buffer or the rooms list buffer being displayed.
           (bury-buffer))
-        (when (member major-mode '(ement-tabulated-room-list-mode ement-taxy-room-list-mode))
+        (when (member major-mode '(ement-tabulated-room-list-mode ement-room-list-mode))
           ;; Back in the room-list buffer: revert it.
           (revert-buffer)))
     ;; Not at the bottom of the buffer: scroll.
@@ -1477,7 +1477,7 @@ sync requests.  Also, update any room list buffers."
   (ement--sync session :force force)
   (cl-loop for buffer in (buffer-list)
            when (member (buffer-local-value 'major-mode buffer)
-                        '(ement-taxy-mode ement-tabulated-room-list-mode))
+                        '(ement-room-list-mode ement-tabulated-room-list-mode))
            do (with-current-buffer buffer
                 (revert-buffer))))
 
@@ -4117,7 +4117,7 @@ For use in `completion-at-point-functions'."
               ("S-SPC" "Scroll down" ement-room-scroll-down-command)
               ("M-SPC" "Jump to fully-read marker" ement-room-goto-fully-read-marker)]
              ["Switching"
-              ("M-g M-l" "List rooms" ement-taxy-room-list)
+              ("M-g M-l" "List rooms" ement-room-list)
               ("M-g M-r" "Switch to other room" ement-view-room)
               ("M-g M-m" "Switch to mentions buffer" ement-notify-switch-to-mentions-buffer)
               ("M-g M-n" "Switch to notifications buffer" ement-notify-switch-to-notifications-buffer)

@@ -30,7 +30,7 @@
 ;;;; Requirements
 
 (require 'ement)
-(require 'ement-taxy)
+(require 'ement-room-list)
 
 (require 'taxy)
 (require 'taxy-magit-section)
@@ -307,8 +307,8 @@ contents.  To be called by `ement-directory-search'."
                          (apply #'make-taxy-magit-section
                                 :make #'make-fn
                                 :format-fn #'format-item
-                                ;; FIXME: Should we reuse `ement-taxy-level-indent' here?
-                                :level-indent ement-taxy-level-indent
+                                ;; FIXME: Should we reuse `ement-room-list-level-indent' here?
+                                :level-indent ement-room-list-level-indent
                                 ;; :visibility-fn #'visible-p
                                 ;; :heading-indent 2
                                 :item-indent 2

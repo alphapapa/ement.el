@@ -184,12 +184,9 @@ call `pop-to-buffer'."
                  #'pop-to-buffer #'pop-to-buffer-same-window)
              (current-buffer))))
 
-;;;###autoload
-(defalias 'ement-list-rooms 'ement-tabulated-room-list)
-
 (defun ement-tabulated-room-list--timestamp-colors ()
   "Return a vector of generated latest-timestamp colors for rooms.
-Used in `ement-tabulated-room-list' and `ement-taxy-room-list'."
+Used in `ement-tabulated-room-list' and `ement-room-list'."
   (if (or (equal "unspecified-fg" (face-foreground 'default nil 'default))
           (equal "unspecified-bg" (face-background 'default nil 'default)))
       ;; NOTE: On a TTY, the default face's foreground and background colors may be the

@@ -1,4 +1,4 @@
-;;; ement-taxy.el --- List Ement rooms with Taxy     -*- lexical-binding: t; -*-
+;;; ement-room-list.el --- List Ement rooms with Taxy     -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022  Free Software Foundation, Inc.
 
@@ -33,22 +33,22 @@
 
 (require 'ement-tabulated-room-list)
 
-(defgroup ement-taxy nil
+(defgroup ement-room-list nil
   "Group Ement rooms with Taxy."
   :group 'ement)
 
 ;;;; Variables
 
-(defvar ement-taxy-mode-map
+(defvar ement-room-list-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'ement-taxy-RET)
-    (define-key map (kbd "SPC") #'ement-taxy-next-unread)
-    (define-key map [mouse-1] #'ement-taxy-mouse-1)
+    (define-key map (kbd "RET") #'ement-room-list-RET)
+    (define-key map (kbd "SPC") #'ement-room-list-next-unread)
+    (define-key map [mouse-1] #'ement-room-list-mouse-1)
     map))
 
 ;;;; Customization
 
-(defcustom ement-taxy-auto-update t
+(defcustom ement-room-list-auto-update t
   "Automatically update the taxy-based room list buffer."
   :type 'boolean)
 
@@ -65,10 +65,10 @@
 ;; which the session is the second element.
 
 (eval-and-compile
-  (taxy-define-key-definer ement-taxy-define-key
-    ement-taxy-keys "ement-taxy-key" "FIXME: Docstring."))
+  (taxy-define-key-definer ement-room-list-define-key
+    ement-room-list-keys "ement-room-list-key" "FIXME: Docstring."))
 
-(ement-taxy-define-key membership (&key name status)
+(ement-room-list-define-key membership (&key name status)
   ;; FIXME: Docstring: status should be a symbol of either `invite', `join', `leave'.
   (cl-labels ((format-membership (membership)
                                  (pcase membership
@@ -81,28 +81,28 @@
             (or name (format-membership membership)))
         (format-membership membership)))))
 
-(ement-taxy-define-key alias (&key name regexp)
+(ement-room-list-define-key alias (&key name regexp)
   (pcase-let ((`[,(cl-struct ement-room canonical-alias) ,_session] item))
     (when canonical-alias
       (when (string-match-p regexp canonical-alias)
         name))))
 
-(ement-taxy-define-key buffer ()
+(ement-room-list-define-key buffer ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (when buffer
       "Buffer")))
 
-(ement-taxy-define-key direct ()
+(ement-room-list-define-key direct ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
       "Direct")))
 
-(ement-taxy-define-key people ()
+(ement-room-list-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
       (propertize "People" 'face 'ement-tabulated-room-list-direct))))
 
-(ement-taxy-define-key space (&key name id)
+(ement-room-list-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-session rooms) session)
                ((cl-struct ement-room type (local (map parents))) room))
@@ -134,21 +134,21 @@
                            (string-join (mapcar #'format-space parents) ", "))))))
         (propertize key 'face 'ement-tabulated-room-list-space)))))
 
-(ement-taxy-define-key space-p ()
+(ement-room-list-define-key space-p ()
   "Groups rooms that are themselves spaces."
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room type) room))
     (when (equal "m.space" type)
       "Spaces")))
 
-(ement-taxy-define-key name (&key name regexp)
+(ement-room-list-define-key name (&key name regexp)
   (pcase-let* ((`[,room ,_session] item)
                (display-name (ement--room-display-name room)))
     (when display-name
       (when (string-match-p regexp display-name)
         (or name regexp)))))
 
-(ement-taxy-define-key latest (&key name newer-than older-than)
+(ement-room-list-define-key latest (&key name newer-than older-than)
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room latest-ts) room)
                (age))
@@ -166,7 +166,7 @@
                  "Last 24 hours"
                "Older than 24 hours"))))))
 
-(ement-taxy-define-key freshness
+(ement-room-list-define-key freshness
   (&key (intervals '((86400 . "Past 24h")
                      (604800 . "Past week")
                      (2419200 . "Past month")
@@ -179,7 +179,7 @@
       (or (alist-get age intervals nil nil #'>)
           "Older than a year"))))
 
-(ement-taxy-define-key session (&optional user-id)
+(ement-room-list-define-key session (&optional user-id)
   (pcase-let ((`[,_room ,(cl-struct ement-session
                                     (user (cl-struct ement-user id)))]
                item))
@@ -188,30 +188,30 @@
       (_ (when (equal user-id id)
            user-id)))))
 
-(ement-taxy-define-key topic (&key name regexp)
+(ement-room-list-define-key topic (&key name regexp)
   (pcase-let ((`[,(cl-struct ement-room topic) ,_session] item))
     (when topic
       (when (string-match-p regexp topic)
         name))))
 
-(ement-taxy-define-key unread ()
+(ement-room-list-define-key unread ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-unread-p room session)
       "Unread")))
 
-(ement-taxy-define-key favourite ()
+(ement-room-list-define-key favourite ()
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
       (propertize "Favourite" 'face 'ement-tabulated-room-list-favourite))))
 
-(ement-taxy-define-key low-priority ()
+(ement-room-list-define-key low-priority ()
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-low-priority-p room)
       "Low-priority")))
 
-(defcustom ement-taxy-default-keys
+(defcustom ement-room-list-default-keys
   '((space-p space)
     ((membership :status 'invite))
     (favourite)
@@ -228,18 +228,18 @@
 
 ;;;; Columns
 
-(defvar-local ement-taxy-room-avatar-cache (make-hash-table)
+(defvar-local ement-room-list-room-avatar-cache (make-hash-table)
   ;; Use a buffer-local variable so that the cache is cleared when the buffer is closed.
-  "Hash table caching room avatars for the `ement-taxy' room list.")
+  "Hash table caching room avatars for the `ement-room-list' room list.")
 
 (eval-and-compile
-  (taxy-magit-section-define-column-definer "ement-taxy"))
+  (taxy-magit-section-define-column-definer "ement-room-list"))
 
-(ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
+(ement-room-list-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room avatar display-name) room))
     (if ement-tabulated-room-list-avatars
-        (or (gethash room ement-taxy-room-avatar-cache)
+        (or (gethash room ement-room-list-room-avatar-cache)
             (let ((new-avatar
                    (if avatar
                        ;; NOTE: We resize every avatar to be suitable for this buffer, rather than using
@@ -258,11 +258,11 @@
                        (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
                                                              :background color :foreground "white"
                                                              :stroke 0))))))
-              (puthash room new-avatar ement-taxy-room-avatar-cache)))
+              (puthash room new-avatar ement-room-list-room-avatar-cache)))
       ;; Avatars disabled: use a two-space string.
       " ")))
 
-(ement-taxy-define-column "Name" (:max-width 25)
+(ement-room-list-define-column "Name" (:max-width 25)
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-room type) room)
                (display-name (ement--room-display-name room))
@@ -288,12 +288,12 @@
              (push 'ement-tabulated-room-list-invited (map-elt face :inherit)))
             ('leave
              (push 'ement-tabulated-room-list-left (map-elt face :inherit))))
-          (propertize (ement--button-buttonize display-name #'ement-taxy-mouse-1)
+          (propertize (ement--button-buttonize display-name #'ement-room-list-mouse-1)
                       'face face
                       'mouse-face 'highlight))
         "")))
 
-(ement-taxy-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
+(ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
   (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
                ((map notification_count highlight_count) unread-notifications))
     (if (or (not unread-notifications)
@@ -308,7 +308,7 @@
               (propertize (number-to-string highlight_count)
                           'face 'highlight)))))
 
-(ement-taxy-define-column "Latest" ()
+(ement-room-list-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
     (if latest-ts
         (let* ((difference-seconds (- (float-time) (/ latest-ts 1000)))
@@ -327,7 +327,7 @@
                       'help-echo formatted-ts))
       "")))
 
-(ement-taxy-define-column "Topic" (:max-width 35)
+(ement-room-list-define-column "Topic" (:max-width 35)
   (pcase-let ((`[,(cl-struct ement-room topic status) ,_session] item))
     ;; FIXME: Can the status and type unified, or is this inherent to the spec?
     (when topic
@@ -341,7 +341,7 @@
                       " " topic))
       (_ (or topic "")))))
 
-(ement-taxy-define-column "Members" (:align 'right)
+(ement-room-list-define-column "Members" (:align 'right)
   (pcase-let ((`[,(cl-struct ement-room
                              (summary (map ('m.joined_member_count member-count))))
                  ,_session]
@@ -350,7 +350,7 @@
         (number-to-string member-count)
       "")))
 
-(ement-taxy-define-column #("Notifications" 0 5 (help-echo "Notification state")) ()
+(ement-room-list-define-column #("Notifications" 0 5 (help-echo "Notification state")) ()
   (pcase-let* ((`[,room ,session] item))
     (pcase (ement-room-notification-state room session)
       ('nil "default")
@@ -359,20 +359,20 @@
       ('mentions-and-keywords "mentions")
       ('none "none"))))
 
-(ement-taxy-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
+(ement-room-list-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (if buffer
         #("B" 0 1 (help-echo "Buffer exists for room"))
       " ")))
 
-(ement-taxy-define-column "Session" ()
+(ement-room-list-define-column "Session" ()
   (pcase-let ((`[,_room ,(cl-struct ement-session (user (cl-struct ement-user id)))] item))
     id))
 
-(unless ement-taxy-columns
+(unless ement-room-list-columns
   ;; TODO: Automate this or document it
-  (setq-default ement-taxy-columns
-                (get 'ement-taxy-columns 'standard-value)))
+  (setq-default ement-room-list-columns
+                (get 'ement-room-list-columns 'standard-value)))
 
 ;;;; Bookmark support
 
@@ -380,27 +380,30 @@
 
 (require 'bookmark)
 
-(defun ement-taxy-bookmark-make-record ()
-  "Return a bookmark record for the `ement-taxy' buffer."
-  (list "*Ement Taxy*"
-        (cons 'handler #'ement-taxy-bookmark-handler)))
+(defun ement-room-list-bookmark-make-record ()
+  "Return a bookmark record for the `ement-room-list' buffer."
+  (list "*Ement Room List*"
+        (cons 'handler #'ement-room-list-bookmark-handler)))
 
-(defun ement-taxy-bookmark-handler (bookmark)
-  "Show `ement-taxy' room list buffer for BOOKMARK."
+(defun ement-room-list-bookmark-handler (bookmark)
+  "Show `ement-room-list' room list buffer for BOOKMARK."
   (pcase-let* ((`(,_bookmark-name . ,_) bookmark))
     (unless ement-sessions
       ;; MAYBE: Automatically connect.
       (user-error "No sessions connected: call `ement-connect' first"))
-    (ement-taxy-room-list)))
+    (ement-room-list)))
 
 ;;;; Commands
 
 ;;;###autoload
-(cl-defun ement-taxy-room-list (&key (buffer-name "*Ement Taxy*")
-                                     (keys ement-taxy-default-keys)
-                                     (display-buffer-action '(display-buffer-same-window))
-                                     ;; visibility-fn
-                                     )
+(defalias 'ement-list-rooms 'ement-room-list)
+
+;;;###autoload
+(cl-defun ement-room-list (&key (buffer-name "*Ement Room List*")
+                                (keys ement-room-list-default-keys)
+                                (display-buffer-action '(display-buffer-same-window))
+                                ;; visibility-fn
+                                )
   "Show a buffer listing Ement rooms, grouped with Taxy KEYS.
 The buffer is named BUFFER-NAME and is shown with
 DISPLAY-BUFFER-ACTION."
@@ -460,7 +463,7 @@ DISPLAY-BUFFER-ACTION."
                          (apply #'make-taxy-magit-section
                                 :make #'make-fn
                                 :format-fn #'format-item
-                                :level-indent ement-taxy-level-indent
+                                :level-indent ement-room-list-level-indent
                                 ;; :visibility-fn #'visible-p
                                 ;; :heading-indent 2
                                 :item-indent 2
@@ -471,7 +474,7 @@ DISPLAY-BUFFER-ACTION."
       (unless ement-sessions
         (error "Ement: Not connected.  Use `ement-connect' to connect"))
       (with-current-buffer (get-buffer-create buffer-name)
-        (ement-taxy-mode)
+        (ement-room-list-mode)
         (let* ((room-session-vectors
                 (cl-loop for (_id . session) in ement-sessions
                          append (cl-loop for room in (ement-session-rooms session)
@@ -483,7 +486,7 @@ DISPLAY-BUFFER-ACTION."
                        (thread-last
                          (make-fn
                           :name "Ement Rooms"
-                          :take (taxy-make-take-function keys ement-taxy-keys))
+                          :take (taxy-make-take-function keys ement-room-list-keys))
                          (taxy-fill room-session-vectors)
                          (taxy-sort #'> #'item-latest-ts)
                          (taxy-sort #'t<nil #'item-invited-p)
@@ -507,14 +510,14 @@ DISPLAY-BUFFER-ACTION."
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
                (format-cons (taxy-magit-section-format-items
-                             ement-taxy-columns ement-taxy-column-formatters taxy))
+                             ement-room-list-columns ement-room-list-column-formatters taxy))
                (pos (point))
                (section-ident (when (magit-current-section)
                                 (magit-section-ident (magit-current-section)))))
           (setf format-table (car format-cons)
                 column-sizes (cdr format-cons)
                 header-line-format (taxy-magit-section-format-header
-                                    column-sizes ement-taxy-column-formatters)
+                                    column-sizes ement-room-list-column-formatters)
                 window-start (if (get-buffer-window buffer-name)
                                  (window-start (get-buffer-window buffer-name))
                                0))
@@ -534,7 +537,7 @@ DISPLAY-BUFFER-ACTION."
       ;; must be set as the current buffer, so we have to do this explicitly here.
       (set-buffer buffer-name))))
 
-(cl-defun ement-taxy-side-window (&key (side 'left))
+(cl-defun ement-room-list-side-window (&key (side 'left))
   "Show room list in side window on SIDE.
 Interactively, with prefix, show on right side; otherwise, on
 left."
@@ -542,25 +545,25 @@ left."
                  (list :side 'right)))
   (let ((display-buffer-mark-dedicated t))
     ;; Not sure if binding `display-buffer-mark-dedicated' is still necessary.
-    (ement-taxy-room-list
+    (ement-room-list
      :display-buffer-action `(display-buffer-in-side-window
                               (dedicated . t)
                               (side . ,side)
                               (window-parameters
 			       (no-delete-other-windows . t))))))
 
-(defun ement-taxy-revert (_ignore-auto _noconfirm)
-  "Revert current Ement-Taxy buffer."
+(defun ement-room-list-revert (_ignore-auto _noconfirm)
+  "Revert current Ement-Room-List buffer."
   (interactive)
-  (ement-taxy-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
+  (ement-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
 
-(defun ement-taxy-mouse-1 (event)
-  "Call `ement-taxy-RET' at EVENT."
+(defun ement-room-list-mouse-1 (event)
+  "Call `ement-room-list-RET' at EVENT."
   (interactive "e")
   (mouse-set-point event)
-  (call-interactively #'ement-taxy-RET))
+  (call-interactively #'ement-room-list-RET))
 
-(defun ement-taxy-RET ()
+(defun ement-room-list-RET ()
   "View room at point, or cycle section at point."
   (interactive)
   (cl-etypecase (oref (magit-current-section) value)
@@ -569,7 +572,7 @@ left."
     (taxy-magit-section (call-interactively #'magit-section-cycle))
     (null nil)))
 
-(defun ement-taxy-next-unread ()
+(defun ement-room-list-next-unread ()
   "Show next unread room."
   (interactive)
   (unless (button-at (point))
@@ -589,20 +592,20 @@ left."
     ;; No more unread rooms.
     (message "No more unread rooms")))
 
-(define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
+(define-derived-mode ement-room-list-mode magit-section-mode "Ement-Room-List"
   :global nil
   ;; FIXME: Initialize `ement-tabulated-room-list-timestamp-colors' here.
-  (setq-local bookmark-make-record-function #'ement-taxy-bookmark-make-record
-              revert-buffer-function #'ement-taxy-revert))
+  (setq-local bookmark-make-record-function #'ement-room-list-bookmark-make-record
+              revert-buffer-function #'ement-room-list-revert))
 
 ;;;; Functions
 
 ;;;###autoload
-(defun ement-taxy-auto-update (_session)
+(defun ement-room-list-auto-update (_session)
   "Automatically update the Taxy room list buffer.
-+Does so when variable `ement-taxy-auto-update' is non-nil.
++Does so when variable `ement-room-list-auto-update' is non-nil.
 +To be called in `ement-sync-callback-hook'."
-  (when (and ement-taxy-auto-update
+  (when (and ement-room-list-auto-update
              (buffer-live-p (get-buffer "*Ement Taxy*")))
     (with-current-buffer (get-buffer "*Ement Taxy*")
       (unless (region-active-p)
@@ -617,6 +620,6 @@ left."
 
 ;;;; Footer
 
-(provide 'ement-taxy)
+(provide 'ement-room-list)
 
-;;; ement-taxy.el ends here
+;;; ement-room-list.el ends here
