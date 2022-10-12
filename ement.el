@@ -136,7 +136,7 @@ Writes the session file when Emacs is killed."
   :type 'boolean)
 
 (defcustom ement-after-initial-sync-hook
-  '(ement-list-rooms ement-view-initial-rooms ement--link-children ement--run-idle-timer)
+  '(ement-room-list--after-initial-sync ement-view-initial-rooms ement--link-children ement--run-idle-timer)
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)

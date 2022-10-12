@@ -396,6 +396,12 @@
 ;;;; Commands
 
 ;;;###autoload
+(defun ement-room-list--after-initial-sync (&rest _ignore)
+  "Call `ement-room-list', ignoring arguments.
+To be called from `ement-after-initial-sync-hook'."
+  (ement-room-list))
+
+;;;###autoload
 (defalias 'ement-list-rooms 'ement-room-list)
 
 ;;;###autoload
