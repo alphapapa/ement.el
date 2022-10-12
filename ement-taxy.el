@@ -445,6 +445,15 @@ DISPLAY-BUFFER-ACTION."
                 (item-invited-p
                  (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
                           (equal 'invite status)))
+                (taxy-latest-ts
+                 (taxy) (apply #'max most-negative-fixnum
+                               (delq nil
+                                     (list
+                                      (when (taxy-items taxy)
+                                        (item-latest-ts (car (taxy-items taxy))))
+                                      (when (taxy-taxys taxy)
+                                        (cl-loop for sub-taxy in (taxy-taxys taxy)
+                                                 maximizing (taxy-latest-ts sub-taxy)))))))
                 (t<nil (a b) (and a (not b)))
                 (t>nil (a b) (and (not a) b))
                 (make-fn (&rest args)
@@ -488,10 +497,7 @@ DISPLAY-BUFFER-ACTION."
                          ;; sorted last.
                          (taxy-sort #'t>nil #'item-left-p)
                          (taxy-sort* #'string< #'taxy-name)
-                         (taxy-sort* #'> (lambda (taxy)
-                                           (if (taxy-items taxy)
-                                               (item-latest-ts (car (taxy-items taxy)))
-                                             most-negative-fixnum)))
+                         (taxy-sort* #'> #'taxy-latest-ts)
                          (taxy-sort* #'t<nil (first-item item-unread-p))
                          (taxy-sort* #'t<nil (first-item item-favourite-p))
                          (taxy-sort* #'t<nil (first-item item-invited-p))
