@@ -218,9 +218,9 @@
     ((membership :status 'leave))
     (low-priority)
     (unread)
+    people
     ((latest :name "Last 24h" :newer-than 86400))
-    (latest :name "Old" :older-than (* 86400 90))
-    (people)
+    (latest :name "Older than 90d" :older-than (* 86400 90))
     freshness
     (space))
   "Default keys."
