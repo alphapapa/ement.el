@@ -1,4 +1,4 @@
-;;; ement-room-list.el --- Ement room list buffer    -*- lexical-binding: t; -*-
+;;; ement-tabulated-room-list.el --- Ement tabulated room list buffer    -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022  Free Software Foundation, Inc.
 
@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 
-;; This library implements a room list buffer.
+;; This library implements a room list buffer with `tabulated-list-mode'.
 
 ;; NOTE: It doesn't appear that there is a way to get the number of
 ;; members in a room other than by retrieving the list of members and
@@ -51,79 +51,79 @@
 
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
-(defvar ement-room-list-mode-map
+(defvar ement-tabulated-room-list-mode-map
   (let ((map (make-sparse-keymap)))
     ;; (define-key map (kbd "g") #'tabulated-list-revert)
     ;; (define-key map (kbd "q") #'bury-buffer)
-    (define-key map (kbd "SPC") #'ement-room-list-next-unread)
+    (define-key map (kbd "SPC") #'ement-tabulated-room-list-next-unread)
     (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     ;; (define-key map (kbd "S") #'tabulated-list-sort)
     map))
 
-(defvar ement-room-list-timestamp-colors nil
+(defvar ement-tabulated-room-list-timestamp-colors nil
   "List of colors used for timestamps.
-Set automatically when `ement-room-list-mode' is activated.")
+Set automatically when `ement-tabulated-room-list-mode' is activated.")
 
 (defvar ement-sessions)
 
 ;;;; Customization
 
-(defgroup ement-room-list nil
+(defgroup ement-tabulated-room-list nil
   "Options for the room list buffer."
   :group 'ement)
 
-(defcustom ement-room-list-auto-update t
+(defcustom ement-tabulated-room-list-auto-update t
   "Automatically update the room list buffer."
   :type 'boolean)
 
-(defcustom ement-room-list-avatars (display-images-p)
+(defcustom ement-tabulated-room-list-avatars (display-images-p)
   "Show room avatars in the room list."
   :type 'boolean)
 
-(defcustom ement-room-list-simplify-timestamps t
+(defcustom ement-tabulated-room-list-simplify-timestamps t
   "Only show the largest unit of time in a timestamp.
 For example, \"1h54m3s\" becomes \"1h\"."
   :type 'boolean)
 
 ;;;;; Faces
 
-(defface ement-room-list-name
+(defface ement-tabulated-room-list-name
   '((t (:inherit font-lock-function-name-face button)))
   "Non-direct rooms.")
 
-(defface ement-room-list-direct
+(defface ement-tabulated-room-list-direct
   ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
   ;; made bold for unread rooms only.
-  '((t (:weight normal :inherit (font-lock-constant-face ement-room-list-name))))
+  '((t (:weight normal :inherit (font-lock-constant-face ement-tabulated-room-list-name))))
   "Direct rooms.")
 
-(defface ement-room-list-invited
-  '((t (:inherit italic ement-room-list-name)))
+(defface ement-tabulated-room-list-invited
+  '((t (:inherit italic ement-tabulated-room-list-name)))
   "Invited rooms.")
 
-(defface ement-room-list-left
-  '((t (:strike-through t :inherit ement-room-list-name)))
+(defface ement-tabulated-room-list-left
+  '((t (:strike-through t :inherit ement-tabulated-room-list-name)))
   "Left rooms.")
 
-(defface ement-room-list-unread
-  '((t (:inherit bold ement-room-list-name)))
+(defface ement-tabulated-room-list-unread
+  '((t (:inherit bold ement-tabulated-room-list-name)))
   "Unread rooms.")
 
-(defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
+(defface ement-tabulated-room-list-favourite '((t (:inherit (font-lock-doc-face ement-tabulated-room-list-name))))
   "Favourite rooms.")
 
-(defface ement-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-room-list-name))))
+(defface ement-tabulated-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-tabulated-room-list-name))))
   "Low-priority rooms.")
 
-(defface ement-room-list-recent
+(defface ement-tabulated-room-list-recent
   '((t (:inherit font-lock-warning-face)))
   "Latest timestamp of recently updated rooms.
 The foreground color is used to generate a gradient of colors
 from recent to non-recent for rooms updated in the past 24
 hours but at least one hour ago.")
 
-(defface ement-room-list-very-recent
+(defface ement-tabulated-room-list-very-recent
   '((t (:inherit error)))
   "Latest timestamp of very recently updated rooms.
 The foreground color is used to generate a gradient of colors
@@ -135,26 +135,26 @@ from recent to non-recent for rooms updated in the past hour.")
 
 (require 'bookmark)
 
-(defun ement-room-list-bookmark-make-record ()
-  "Return a bookmark record for the `ement-room-list' buffer."
+(defun ement-tabulated-room-list-bookmark-make-record ()
+  "Return a bookmark record for the `ement-tabulated-room-list' buffer."
   (pcase-let* (((cl-struct ement-session user) ement-session)
                ((cl-struct ement-user (id session-id)) user))
     ;; MAYBE: Support bookmarking specific events in a room.
     (list (concat "Ement room list (" session-id ")")
           (cons 'session-id session-id)
-          (cons 'handler #'ement-room-list-bookmark-handler))))
+          (cons 'handler #'ement-tabulated-room-list-bookmark-handler))))
 
-(defun ement-room-list-bookmark-handler (bookmark)
+(defun ement-tabulated-room-list-bookmark-handler (bookmark)
   "Show Ement room list buffer for BOOKMARK."
   (pcase-let* (((map session-id) bookmark))
     (unless (alist-get session-id ement-sessions nil nil #'equal)
       ;; MAYBE: Automatically connect.
       (user-error "Session %s not connected: call `ement-connect' first" session-id))
-    (ement-room-list)))
+    (ement-tabulated-room-list)))
 
 ;;;; Commands
 
-(defun ement-room-list-next-unread ()
+(defun ement-tabulated-room-list-next-unread ()
   "Show next unread room."
   (interactive)
   (unless (button-at (point))
@@ -171,25 +171,25 @@ from recent to non-recent for rooms updated in the past hour.")
     (message "No more unread rooms")))
 
 ;;;###autoload
-(defun ement-room-list (&rest _ignore)
+(defun ement-tabulated-room-list (&rest _ignore)
   "Show buffer listing joined rooms.
 Calls `pop-to-buffer-same-window'.  Interactively, with prefix,
 call `pop-to-buffer'."
   (interactive)
   (with-current-buffer (get-buffer-create "*Ement Rooms*")
-    (ement-room-list-mode)
-    (setq-local bookmark-make-record-function #'ement-room-list-bookmark-make-record)
+    (ement-tabulated-room-list-mode)
+    (setq-local bookmark-make-record-function #'ement-tabulated-room-list-bookmark-make-record)
     ;; FIXME: There must be a better way to handle this.
     (funcall (if current-prefix-arg
                  #'pop-to-buffer #'pop-to-buffer-same-window)
              (current-buffer))))
 
 ;;;###autoload
-(defalias 'ement-list-rooms 'ement-room-list)
+(defalias 'ement-list-rooms 'ement-tabulated-room-list)
 
-(defun ement-room-list--timestamp-colors ()
+(defun ement-tabulated-room-list--timestamp-colors ()
   "Return a vector of generated latest-timestamp colors for rooms.
-Used in `ement-room-list' and `ement-taxy-room-list'."
+Used in `ement-tabulated-room-list' and `ement-taxy-room-list'."
   (if (or (equal "unspecified-fg" (face-foreground 'default nil 'default))
           (equal "unspecified-bg" (face-background 'default nil 'default)))
       ;; NOTE: On a TTY, the default face's foreground and background colors may be the
@@ -203,9 +203,9 @@ Used in `ement-room-list' and `ement-taxy-room-list'."
               (lambda (rgb)
                 (pcase-let ((`(,r ,g ,b) rgb))
                   (color-rgb-to-hex r g b 2)))
-              (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-very-recent
+              (color-gradient (color-name-to-rgb (face-foreground 'ement-tabulated-room-list-very-recent
                                                                   nil 'default))
-                              (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                              (color-name-to-rgb (face-foreground 'ement-tabulated-room-list-recent
                                                                   nil 'default))
                               6))
              (mapcar
@@ -213,7 +213,7 @@ Used in `ement-room-list' and `ement-taxy-room-list'."
               (lambda (rgb)
                 (pcase-let ((`(,r ,g ,b) rgb))
                   (color-rgb-to-hex r g b 2)))
-              (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
+              (color-gradient (color-name-to-rgb (face-foreground 'ement-tabulated-room-list-recent
                                                                   nil 'default))
                               (color-name-to-rgb (face-foreground 'default nil 'default))
                               24))
@@ -230,8 +230,8 @@ Used in `ement-room-list' and `ement-taxy-room-list'."
                               104)))
      'vector)))
 
-(define-derived-mode ement-room-list-mode tabulated-list-mode
-  "Ement-Room-List"
+(define-derived-mode ement-tabulated-room-list-mode tabulated-list-mode
+  "Ement-Tabulated-Room-List"
   :group 'ement
   (setf tabulated-list-format (vector
                                '("U" 1 t)
@@ -244,21 +244,21 @@ Used in `ement-room-list' and `ement-taxy-room-list'."
                                      4 t) ; Avatar
                                '("Name" 25 t) '("Topic" 35 t)
                                (list "Latest"
-                                     (if ement-room-list-simplify-timestamps
+                                     (if ement-tabulated-room-list-simplify-timestamps
                                          6 20)
-                                     #'ement-room-list-latest<
+                                     #'ement-tabulated-room-list-latest<
 				     :right-align t)
-                               '("Members" 7 ement-room-list-members<)
+                               '("Members" 7 ement-tabulated-room-list-members<)
                                ;; '("P" 1 t) '("Tags" 15 t)
                                '("Session" 15 t))
         tabulated-list-sort-key '("Latest" . t)
-        ement-room-list-timestamp-colors (ement-room-list--timestamp-colors))
-  (add-hook 'tabulated-list-revert-hook #'ement-room-list--set-entries nil 'local)
+        ement-tabulated-room-list-timestamp-colors (ement-tabulated-room-list--timestamp-colors))
+  (add-hook 'tabulated-list-revert-hook #'ement-tabulated-room-list--set-entries nil 'local)
   (tabulated-list-init-header)
-  (ement-room-list--set-entries)
+  (ement-tabulated-room-list--set-entries)
   (tabulated-list-revert))
 
-(defun ement-room-list-action (event)
+(defun ement-tabulated-room-list-action (event)
   "Show buffer for room at EVENT or point."
   (interactive "e")
   (mouse-set-point event)
@@ -271,16 +271,16 @@ Used in `ement-room-list' and `ement-taxy-room-list'."
 ;;;; Functions
 
 ;;;###autoload
-(defun ement-room-list-auto-update (_session)
+(defun ement-tabulated-room-list-auto-update (_session)
   "Automatically update the room list buffer.
-Does so when variable `ement-room-list-auto-update' is non-nil.
+Does so when variable `ement-tabulated-room-list-auto-update' is non-nil.
 To be called in `ement-sync-callback-hook'."
-  (when (and ement-room-list-auto-update
+  (when (and ement-tabulated-room-list-auto-update
              (buffer-live-p (get-buffer "*Ement Rooms*")))
     (with-current-buffer (get-buffer "*Ement Rooms*")
       (revert-buffer))))
 
-(defun ement-room-list--set-entries ()
+(defun ement-tabulated-room-list--set-entries ()
   "Set `tabulated-list-entries'."
   ;; Reset avatar size in case default font size has changed.
   ;; TODO: After implementing avatars.
@@ -309,7 +309,7 @@ To be called in `ement-sync-callback-hook'."
   ;;   There should be no newlines in any of these strings.
   (let ((entries (cl-loop for (_id . session) in ement-sessions
                           append (mapcar (lambda (room)
-                                           (ement-room-list--entry session room))
+                                           (ement-tabulated-room-list--entry session room))
                                          (ement-session-rooms session)))))
     (setf tabulated-list-entries
           ;; Pre-sort by latest event so that, when the list is sorted by other columns,
@@ -320,7 +320,7 @@ To be called in `ement-sync-callback-hook'."
                                       ;; we need to handle it), we fall back to 0.
                                       (or (ement-room-latest-ts (car entry)) 0))))))
 
-(defun ement-room-list--entry (session room)
+(defun ement-tabulated-room-list--entry (session room)
   "Return entry for ROOM in SESSION for `tabulated-list-entries'."
   (pcase-let* (((cl-struct ement-room id canonical-alias display-name avatar topic latest-ts summary
                            (local (map buffer room-list-avatar)))
@@ -334,7 +334,7 @@ To be called in `ement-sync-callback-hook'."
                (e-unread (if (and buffer (buffer-modified-p buffer))
                              (propertize "U" 'help-echo "Unread") ""))
                (e-buffer (if buffer (propertize "B" 'help-echo "Room has buffer") ""))
-               (e-avatar (if (and ement-room-list-avatars avatar)
+               (e-avatar (if (and ement-tabulated-room-list-avatars avatar)
                              (or room-list-avatar
                                  (if-let* ((avatar-image (get-text-property 0 'display avatar))
                                            (new-avatar-string (propertize " " 'display
@@ -353,13 +353,13 @@ To be called in `ement-sync-callback-hook'."
                            ""))
                ;; We have to copy the list, otherwise using `setf' on it
                ;; later causes its value to be mutated for every entry.
-               (name-face (cl-copy-list '(:inherit (ement-room-list-name))))
+               (name-face (cl-copy-list '(:inherit (ement-tabulated-room-list-name))))
                (e-name (list (propertize (or display-name
                                              (ement--room-display-name room))
                                          ;; HACK: Apply face here, otherwise tabulated-list overrides it.
                                          'face name-face
                                          'help-echo e-alias)
-                             'action #'ement-room-list-action))
+                             'action #'ement-tabulated-room-list-action))
                (e-topic (if topic
                             ;; Remove newlines from topic.  Yes, this can happen.
                             (replace-regexp-in-string "\n" "" topic t t)
@@ -376,9 +376,9 @@ To be called in `ement-sync-callback-hook'."
                                           ((number 3600 86400) ;; 1 day
                                            (+ 6 (truncate (/ difference-seconds 3600))))
                                           (otherwise ;; Difference in weeks.
-                                           (min (/ (length ement-room-list-timestamp-colors) 2)
+                                           (min (/ (length ement-tabulated-room-list-timestamp-colors) 2)
                                                 (+ 24 (truncate (/ difference-seconds 86400 7))))))))
-                                (list :foreground (elt ement-room-list-timestamp-colors n)))))
+                                (list :foreground (elt ement-tabulated-room-list-timestamp-colors n)))))
                (e-latest (or (when formatted-timestamp
                                (propertize formatted-timestamp
                                            'value latest-ts
@@ -387,7 +387,7 @@ To be called in `ement-sync-callback-hook'."
                              ""))
                (e-session (propertize (ement-user-id (ement-session-user session))
                                       'value session))
-               ;;  ((e-tags favorite-p low-priority-p) (ement-room-list--tags room))
+               ;;  ((e-tags favorite-p low-priority-p) (ement-tabulated-room-list--tags room))
                (e-direct-p (if (ement--room-direct-p room session)
                                (propertize "d" 'help-echo "Direct room")
                              ""))
@@ -395,7 +395,7 @@ To be called in `ement-sync-callback-hook'."
                                  ((ement--room-low-priority-p room) "l")
                                  (" ")))
                (e-members (if member-count (number-to-string member-count) "")))
-    (when ement-room-list-simplify-timestamps
+    (when ement-tabulated-room-list-simplify-timestamps
       (setf e-latest (replace-regexp-in-string
                       (rx bos (1+ digit) (1+ alpha) (group (1+ (1+ digit) (1+ alpha))))
                       "" e-latest t t 1)))
@@ -403,27 +403,27 @@ To be called in `ement-sync-callback-hook'."
     (when (and buffer (buffer-modified-p buffer))
       ;; For some reason, `push' doesn't work with `map-elt'.
       (setf (map-elt name-face :inherit)
-            (cons 'ement-room-list-unread (map-elt name-face :inherit))))
+            (cons 'ement-tabulated-room-list-unread (map-elt name-face :inherit))))
     (when (ement--room-direct-p room session)
       (setf (map-elt name-face :inherit)
-            (cons 'ement-room-list-direct (map-elt name-face :inherit))))
+            (cons 'ement-tabulated-room-list-direct (map-elt name-face :inherit))))
     (when (ement--room-favourite-p room)
-      (push 'ement-room-list-favourite (map-elt name-face :inherit)))
+      (push 'ement-tabulated-room-list-favourite (map-elt name-face :inherit)))
     (when (ement--room-low-priority-p room)
-      (push 'ement-room-list-low-priority (map-elt name-face :inherit)))
+      (push 'ement-tabulated-room-list-low-priority (map-elt name-face :inherit)))
     (pcase (ement-room-type room)
       ('invite
        (setf e-topic (concat (propertize "[invited]"
-                                         'face 'ement-room-list-invited)
+                                         'face 'ement-tabulated-room-list-invited)
                              " " e-topic)
-             (map-elt name-face :inherit) (cons 'ement-room-list-invited
+             (map-elt name-face :inherit) (cons 'ement-tabulated-room-list-invited
                                                 (map-elt name-face :inherit))))
       ('leave
        (setf e-topic (concat (propertize "[left]"
-                                         'face 'ement-room-list-left)
+                                         'face 'ement-tabulated-room-list-left)
                              " " e-topic)
              (map-elt name-face :inherit) (cons (map-elt name-face :inherit)
-                                                'ement-room-list-left))))
+                                                'ement-tabulated-room-list-left))))
     (list room (vector e-unread e-priority e-buffer e-direct-p
                        e-avatar e-name e-topic e-latest e-members
                        ;; e-tags
@@ -433,7 +433,7 @@ To be called in `ement-sync-callback-hook'."
 
 ;; TODO: Define sorters with a macro?  This gets repetitive and hard to update.
 
-(defun ement-room-list-members< (a b)
+(defun ement-tabulated-room-list-members< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
   (pcase-let* ((`(,_room [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,_latest ,a-members ,_session]) a)
@@ -442,7 +442,7 @@ A and B should be entries from `tabulated-list-mode'."
       ;; Invited rooms may have no member count (I think).
       (< (string-to-number a-members) (string-to-number b-members)))))
 
-(defun ement-room-list-latest< (a b)
+(defun ement-tabulated-room-list-latest< (a b)
   "Return non-nil if entry A has fewer members than room B.
 A and B should be entries from `tabulated-list-mode'."
   (pcase-let* ((`(,_room-a [,_unread ,_priority ,_buffer ,_direct ,_avatar ,_name-for-list ,_topic ,a-latest ,_a-members ,_session]) a)
@@ -458,6 +458,6 @@ A and B should be entries from `tabulated-list-mode'."
 
 ;;;; Footer
 
-(provide 'ement-room-list)
+(provide 'ement-tabulated-room-list)
 
-;;; ement-room-list.el ends here
+;;; ement-tabulated-room-list.el ends here

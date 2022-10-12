@@ -118,8 +118,8 @@
 (ement-directory-define-column "Name" (:max-width 25)
   (pcase-let* (((map name ('room_type type)) item)
                (face (pcase type
-                       ("m.space" 'ement-room-list-space)
-                       (_ 'ement-room-list-name))))
+                       ("m.space" 'ement-tabulated-room-list-space)
+                       (_ 'ement-tabulated-room-list-name))))
     (propertize (or name "[unnamed]")
                 'face face)))
 

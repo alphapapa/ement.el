@@ -31,7 +31,7 @@
 (require 'taxy)
 (require 'taxy-magit-section)
 
-(require 'ement-room-list)
+(require 'ement-tabulated-room-list)
 
 (defgroup ement-taxy nil
   "Group Ement rooms with Taxy."
@@ -54,9 +54,9 @@
 
 ;;;;; Faces
 
-(defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
+(defface ement-tabulated-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-tabulated-room-list-name))))
   "Space rooms."
-  :group 'ement-room-list)
+  :group 'ement-tabulated-room-list)
 
 ;;;; Keys
 
@@ -100,7 +100,7 @@
 (ement-taxy-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
-      (propertize "People" 'face 'ement-room-list-direct))))
+      (propertize "People" 'face 'ement-tabulated-room-list-direct))))
 
 (ement-taxy-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
@@ -132,7 +132,7 @@
                           (_
                            ;; TODO: How to handle this better?  (though it should be very rare)
                            (string-join (mapcar #'format-space parents) ", "))))))
-        (propertize key 'face 'ement-room-list-space)))))
+        (propertize key 'face 'ement-tabulated-room-list-space)))))
 
 (ement-taxy-define-key space-p ()
   "Groups rooms that are themselves spaces."
@@ -203,7 +203,7 @@
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
-      (propertize "Favourite" 'face 'ement-room-list-favourite))))
+      (propertize "Favourite" 'face 'ement-tabulated-room-list-favourite))))
 
 (ement-taxy-define-key low-priority ()
   :then #'identity
@@ -238,7 +238,7 @@
 (ement-taxy-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room avatar display-name) room))
-    (if ement-room-list-avatars
+    (if ement-tabulated-room-list-avatars
         (or (gethash room ement-taxy-room-avatar-cache)
             (let ((new-avatar
                    (if avatar
@@ -269,25 +269,25 @@
                (face))
     (or (when display-name
           ;; TODO: Use code from ement-room-list and put in a dedicated function.
-          (setf face (cl-copy-list '(:inherit (ement-room-list-name))))
+          (setf face (cl-copy-list '(:inherit (ement-tabulated-room-list-name))))
           ;; In concert with the "Unread" column, this is roughly equivalent to the
           ;; "red/gray/bold/idle" states listed in <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
           (when (ement--room-unread-p room session)
             ;; For some reason, `push' doesn't work with `map-elt'...or does it?
-            (push 'ement-room-list-unread (map-elt face :inherit)))
+            (push 'ement-tabulated-room-list-unread (map-elt face :inherit)))
           (when (equal "m.space" type)
-            (push 'ement-room-list-space (map-elt face :inherit)))
+            (push 'ement-tabulated-room-list-space (map-elt face :inherit)))
           (when (ement--room-direct-p room session)
-            (push 'ement-room-list-direct (map-elt face :inherit)))
+            (push 'ement-tabulated-room-list-direct (map-elt face :inherit)))
           (when (ement--room-favourite-p room)
-            (push 'ement-room-list-favourite (map-elt face :inherit)))
+            (push 'ement-tabulated-room-list-favourite (map-elt face :inherit)))
           (when (ement--room-low-priority-p room)
-            (push 'ement-room-list-low-priority (map-elt face :inherit)))
+            (push 'ement-tabulated-room-list-low-priority (map-elt face :inherit)))
           (pcase (ement-room-status room)
             ('invite
-             (push 'ement-room-list-invited (map-elt face :inherit)))
+             (push 'ement-tabulated-room-list-invited (map-elt face :inherit)))
             ('leave
-             (push 'ement-room-list-left (map-elt face :inherit))))
+             (push 'ement-tabulated-room-list-left (map-elt face :inherit))))
           (propertize (ement--button-buttonize display-name #'ement-taxy-mouse-1)
                       'face face
                       'mouse-face 'highlight))
@@ -318,9 +318,9 @@
                     ((number 3600 86400) ;; 1 hour to 1 day: 24 1-hour periods.
                      (+ 6 (truncate (/ difference-seconds 3600))))
                     (otherwise ;; Difference in weeks.
-                     (min (/ (length ement-room-list-timestamp-colors) 2)
+                     (min (/ (length ement-tabulated-room-list-timestamp-colors) 2)
                           (+ 24 (truncate (/ difference-seconds 86400 7)))))))
-               (face (list :foreground (elt ement-room-list-timestamp-colors n)))
+               (face (list :foreground (elt ement-tabulated-room-list-timestamp-colors n)))
                (formatted-ts (ement--human-format-duration difference-seconds 'abbreviate)))
           (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
           (propertize (match-string 0 formatted-ts) 'face face
@@ -334,10 +334,10 @@
       (setf topic (replace-regexp-in-string "\n" " " topic 'fixedcase 'literal)))
     (pcase status
       ('invite (concat (propertize "[invited]"
-                                   'face 'ement-room-list-invited)
+                                   'face 'ement-tabulated-room-list-invited)
                        " " topic))
       ('leave (concat (propertize "[left]"
-                                  'face 'ement-room-list-left)
+                                  'face 'ement-tabulated-room-list-left)
                       " " topic))
       (_ (or topic "")))))
 
@@ -591,7 +591,7 @@ left."
 
 (define-derived-mode ement-taxy-mode magit-section-mode "Ement-Taxy"
   :global nil
-  ;; FIXME: Initialize `ement-room-list-timestamp-colors' here.
+  ;; FIXME: Initialize `ement-tabulated-room-list-timestamp-colors' here.
   (setq-local bookmark-make-record-function #'ement-taxy-bookmark-make-record
               revert-buffer-function #'ement-taxy-revert))
 

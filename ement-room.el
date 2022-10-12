@@ -106,7 +106,7 @@ An alist of one entry.")
   "Hook run in compose buffers when created.
 Used to, e.g. call `ement-room-compose-org'.")
 
-(declare-function ement-room-list "ement-room-list.el")
+(declare-function ement-tabulated-room-list "ement-tabulated-room-list.el")
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
 (defvar ement-room-mode-map
@@ -123,7 +123,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
 
     ;; Switching
-    (define-key map (kbd "M-g M-l") #'ement-room-list)
+    (define-key map (kbd "M-g M-l") #'ement-tabulated-room-list)
     (define-key map (kbd "M-g M-r") #'ement-view-room)
     (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
@@ -1206,7 +1206,7 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                        "m.image"
                                      "m.file"))))
 
-(declare-function ement-room-list-next-unread "ement-room-list")
+(declare-function ement-tabulated-room-list-next-unread "ement-tabulated-room-list")
 (declare-function ement-taxy-next-unread "ement-taxy")
 (defun ement-room-scroll-up-mark-read ()
   "Scroll buffer up, marking read and burying when at end."
@@ -1229,12 +1229,12 @@ Interactively, set the current buffer's ROOM's TOPIC."
             (progn
               (select-window rooms-window)
               (funcall (pcase-exhaustive major-mode
-                         ('ement-room-list-mode #'ement-room-list-next-unread)
+                         ('ement-tabulated-room-list-mode #'ement-tabulated-room-list-next-unread)
                          ('ement-taxy-mode #'ement-taxy-next-unread))))
           ;; Rooms buffer not displayed: bury this room buffer, which should usually
           ;; result in another room buffer or the rooms list buffer being displayed.
           (bury-buffer))
-        (when (member major-mode '(ement-room-list-mode ement-taxy-room-list-mode))
+        (when (member major-mode '(ement-tabulated-room-list-mode ement-taxy-room-list-mode))
           ;; Back in the room-list buffer: revert it.
           (revert-buffer)))
     ;; Not at the bottom of the buffer: scroll.
@@ -1477,7 +1477,7 @@ sync requests.  Also, update any room list buffers."
   (ement--sync session :force force)
   (cl-loop for buffer in (buffer-list)
            when (member (buffer-local-value 'major-mode buffer)
-                        '(ement-taxy-mode ement-room-list-mode))
+                        '(ement-taxy-mode ement-tabulated-room-list-mode))
            do (with-current-buffer buffer
                 (revert-buffer))))
 
