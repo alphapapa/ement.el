@@ -216,12 +216,13 @@
   '((space-p space)
     ((membership :status 'invite))
     (favourite)
+    (buffer)
     ((membership :status 'leave))
     (low-priority)
     (unread)
-    people
     ((latest :name "Last 24h" :newer-than 86400))
     (latest :name "Older than 90d" :older-than (* 86400 90))
+    people
     freshness
     (space))
   "Default keys."
@@ -445,6 +446,9 @@ DISPLAY-BUFFER-ACTION."
                 (item-left-p
                  (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
                           (equal 'leave status)))
+                (item-buffer-p
+                 (item) (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
+                          (buffer-live-p buffer)))
                 (taxy-unread-p
                  (taxy) (or (cl-some #'item-unread-p (taxy-items taxy))
                             (cl-some #'taxy-unread-p (taxy-taxys taxy))))
@@ -524,6 +528,7 @@ DISPLAY-BUFFER-ACTION."
                          (taxy-sort* #'t<nil (first-item item-unread-p))
                          (taxy-sort* #'t<nil (first-item item-favourite-p))
                          (taxy-sort* #'t<nil (first-item item-invited-p))
+                         (taxy-sort* #'t<nil (first-item item-buffer-p))
                          (taxy-sort* #'t>nil (first-item item-space-p))
                          (taxy-sort* #'t>nil (first-item item-low-priority-p))
                          (taxy-sort* #'t>nil (first-item item-left-p)))))
