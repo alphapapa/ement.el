@@ -626,8 +626,8 @@ left."
 +Does so when variable `ement-room-list-auto-update' is non-nil.
 +To be called in `ement-sync-callback-hook'."
   (when (and ement-room-list-auto-update
-             (buffer-live-p (get-buffer "*Ement Taxy*")))
-    (with-current-buffer (get-buffer "*Ement Taxy*")
+             (buffer-live-p (get-buffer "*Ement Room List*")))
+    (with-current-buffer (get-buffer "*Ement Room List*")
       (unless (region-active-p)
         ;; Don't refresh the list if the region is active (e.g. if the user is trying to
         ;; operate on multiple rooms).
