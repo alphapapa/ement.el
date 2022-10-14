@@ -91,7 +91,7 @@
 (ement-room-list-define-key buffer ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (when buffer
-      "Buffer")))
+      #("Buffers" 0 7 (help-echo "Rooms with open buffers")))))
 
 (ement-room-list-define-key direct ()
   (pcase-let ((`[,room ,session] item))
