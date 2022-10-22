@@ -1763,7 +1763,9 @@ reaction string, e.g. \"👍\"."
 (defun ement-room-view (room session)
   "Switch to a buffer showing ROOM on SESSION.
 Uses action `ement-view-room-display-buffer-action', which see."
-  (interactive (ement-complete-room :session (ement-complete-session) :suggest nil))
+  (interactive (ement-complete-room :session (ement-complete-session) :suggest nil
+                 :predicate (lambda (room)
+                              (not (ement--room-space-p room)))))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
       (setf buffer (ement-room--buffer session room (ement-room--buffer-name room))
