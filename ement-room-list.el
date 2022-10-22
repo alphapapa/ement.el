@@ -1,4 +1,4 @@
-;;; ement-room-list.el --- List Ement rooms with Taxy     -*- lexical-binding: t; -*-
+;;; ement-room-list.el --- List Ement rooms  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022  Free Software Foundation, Inc.
 
@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 
-;; 
+;; This library implements a room list view using `taxy' and `taxy-magit-section' for
+;; dynamic, programmable grouping.
 
 ;;; Code:
 
