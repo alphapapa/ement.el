@@ -55,6 +55,10 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Automatically update the taxy-based room list buffer."
   :type 'boolean)
 
+(defcustom ement-room-list-avatars (display-images-p)
+  "Show room avatars in the room list."
+  :type 'boolean)
+
 ;;;;; Faces
 
 (defface ement-room-list-direct
@@ -281,7 +285,7 @@ from recent to non-recent for rooms updated in the past hour.")
 (ement-room-list-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room avatar display-name) room))
-    (if ement-tabulated-room-list-avatars
+    (if ement-room-list-avatars
         (or (gethash room ement-room-list-room-avatar-cache)
             (let ((new-avatar
                    (if avatar
