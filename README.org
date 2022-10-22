@@ -287,7 +287,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.4-pre
+** 0.4
 
 *Additions*
 + Option ~ement-room-unread-only-counts-notifications~, now enabled by default, causes rooms' unread status to be determined only by their notification counts (which are set by the server and depend on rooms' notification settings).
