@@ -32,6 +32,8 @@
 (require 'taxy)
 (require 'taxy-magit-section)
 
+(require 'ement-lib)
+
 (defgroup ement-room-list nil
   "Group Ement rooms with Taxy."
   :group 'ement)
