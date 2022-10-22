@@ -106,7 +106,7 @@ An alist of one entry.")
   "Hook run in compose buffers when created.
 Used to, e.g. call `ement-room-compose-org'.")
 
-(declare-function ement-tabulated-room-list "ement-tabulated-room-list.el")
+(declare-function ement-room-list "ement-room-list.el")
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
 (defvar ement-room-mode-map

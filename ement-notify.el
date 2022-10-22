@@ -38,7 +38,7 @@
 
 ;;;; Variables
 
-(declare-function ement-tabulated-room-list "ement-tabulated-room-list")
+(declare-function ement-room-list "ement-room-list")
 (defvar ement-notify-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "S-<return>") #'ement-notify-reply)
