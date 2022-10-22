@@ -31,8 +31,6 @@
 (require 'taxy)
 (require 'taxy-magit-section)
 
-(require 'ement-tabulated-room-list)
-
 (defgroup ement-room-list nil
   "Group Ement rooms with Taxy."
   :group 'ement)
@@ -47,6 +45,10 @@
     (define-key map [mouse-1] #'ement-room-list-mouse-1)
     map))
 
+(defvar ement-room-list-timestamp-colors nil
+  "List of colors used for timestamps.
+Set automatically when `ement-room-list-mode' is activated.")
+
 ;;;; Customization
 
 (defcustom ement-room-list-auto-update t
@@ -55,9 +57,48 @@
 
 ;;;;; Faces
 
-(defface ement-tabulated-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-tabulated-room-list-name))))
+(defface ement-room-list-direct
+  ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
+  ;; made bold for unread rooms only.
+  '((t (:weight normal :inherit (font-lock-constant-face ement-room-list-name))))
+  "Direct rooms.")
+
+(defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
+  "Favourite rooms.")
+
+(defface ement-room-list-invited
+  '((t (:inherit italic ement-room-list-name)))
+  "Invited rooms.")
+
+(defface ement-room-list-left
+  '((t (:strike-through t :inherit ement-room-list-name)))
+  "Left rooms.")
+
+(defface ement-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-room-list-name))))
+  "Low-priority rooms.")
+
+(defface ement-room-list-name
+  '((t (:inherit font-lock-function-name-face button)))
+  "Non-direct rooms.")
+
+(defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
   "Space rooms."
-  :group 'ement-tabulated-room-list)
+  :group 'ement-room-list)
+
+(defface ement-room-list-unread
+  '((t (:inherit bold ement-room-list-name)))
+  "Unread rooms.")
+
+(defface ement-room-list-recent '((t (:inherit font-lock-warning-face)))
+  "Latest timestamp of recently updated rooms.
+The foreground color is used to generate a gradient of colors
+from recent to non-recent for rooms updated in the past 24
+hours but at least one hour ago.")
+
+(defface ement-room-list-very-recent '((t (:inherit error)))
+  "Latest timestamp of very recently updated rooms.
+The foreground color is used to generate a gradient of colors
+from recent to non-recent for rooms updated in the past hour.")
 
 ;;;; Keys
 
@@ -101,7 +142,7 @@
 (ement-room-list-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
-      (propertize "People" 'face 'ement-tabulated-room-list-direct))))
+      (propertize "People" 'face 'ement-room-list-direct))))
 
 (ement-room-list-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
@@ -133,7 +174,7 @@
                           (_
                            ;; TODO: How to handle this better?  (though it should be very rare)
                            (string-join (mapcar #'format-space parents) ", "))))))
-        (propertize key 'face 'ement-tabulated-room-list-space)))))
+        (propertize key 'face 'ement-room-list-space)))))
 
 (ement-room-list-define-key space-p ()
   "Groups rooms that are themselves spaces."
@@ -204,7 +245,7 @@
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
-      (propertize "Favourite" 'face 'ement-tabulated-room-list-favourite))))
+      (propertize "Favourite" 'face 'ement-room-list-favourite))))
 
 (ement-room-list-define-key low-priority ()
   :then #'identity
@@ -271,25 +312,25 @@
                (face))
     (or (when display-name
           ;; TODO: Use code from ement-room-list and put in a dedicated function.
-          (setf face (cl-copy-list '(:inherit (ement-tabulated-room-list-name))))
+          (setf face (cl-copy-list '(:inherit (ement-room-list-name))))
           ;; In concert with the "Unread" column, this is roughly equivalent to the
           ;; "red/gray/bold/idle" states listed in <https://github.com/matrix-org/matrix-react-sdk/blob/b0af163002e8252d99b6d7075c83aadd91866735/docs/room-list-store.md#list-ordering-algorithm-importance>.
           (when (ement--room-unread-p room session)
             ;; For some reason, `push' doesn't work with `map-elt'...or does it?
-            (push 'ement-tabulated-room-list-unread (map-elt face :inherit)))
+            (push 'ement-room-list-unread (map-elt face :inherit)))
           (when (equal "m.space" type)
-            (push 'ement-tabulated-room-list-space (map-elt face :inherit)))
+            (push 'ement-room-list-space (map-elt face :inherit)))
           (when (ement--room-direct-p room session)
-            (push 'ement-tabulated-room-list-direct (map-elt face :inherit)))
+            (push 'ement-room-list-direct (map-elt face :inherit)))
           (when (ement--room-favourite-p room)
-            (push 'ement-tabulated-room-list-favourite (map-elt face :inherit)))
+            (push 'ement-room-list-favourite (map-elt face :inherit)))
           (when (ement--room-low-priority-p room)
-            (push 'ement-tabulated-room-list-low-priority (map-elt face :inherit)))
+            (push 'ement-room-list-low-priority (map-elt face :inherit)))
           (pcase (ement-room-status room)
             ('invite
-             (push 'ement-tabulated-room-list-invited (map-elt face :inherit)))
+             (push 'ement-room-list-invited (map-elt face :inherit)))
             ('leave
-             (push 'ement-tabulated-room-list-left (map-elt face :inherit))))
+             (push 'ement-room-list-left (map-elt face :inherit))))
           (propertize (ement--button-buttonize display-name #'ement-room-list-mouse-1)
                       'face face
                       'mouse-face 'highlight))
@@ -320,9 +361,9 @@
                     ((number 3600 86400) ;; 1 hour to 1 day: 24 1-hour periods.
                      (+ 6 (truncate (/ difference-seconds 3600))))
                     (otherwise ;; Difference in weeks.
-                     (min (/ (length ement-tabulated-room-list-timestamp-colors) 2)
+                     (min (/ (length ement-room-list-timestamp-colors) 2)
                           (+ 24 (truncate (/ difference-seconds 86400 7)))))))
-               (face (list :foreground (elt ement-tabulated-room-list-timestamp-colors n)))
+               (face (list :foreground (elt ement-room-list-timestamp-colors n)))
                (formatted-ts (ement--human-format-duration difference-seconds 'abbreviate)))
           (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
           (propertize (match-string 0 formatted-ts) 'face face
@@ -336,10 +377,10 @@
       (setf topic (replace-regexp-in-string "\n" " " topic 'fixedcase 'literal)))
     (pcase status
       ('invite (concat (propertize "[invited]"
-                                   'face 'ement-tabulated-room-list-invited)
+                                   'face 'ement-room-list-invited)
                        " " topic))
       ('leave (concat (propertize "[left]"
-                                  'face 'ement-tabulated-room-list-left)
+                                  'face 'ement-room-list-left)
                       " " topic))
       (_ (or topic "")))))
 
@@ -619,9 +660,9 @@ left."
 
 (define-derived-mode ement-room-list-mode magit-section-mode "Ement-Room-List"
   :global nil
-  ;; FIXME: Initialize `ement-tabulated-room-list-timestamp-colors' here.
   (setq-local bookmark-make-record-function #'ement-room-list-bookmark-make-record
-              revert-buffer-function #'ement-room-list-revert))
+              revert-buffer-function #'ement-room-list-revert
+              ement-room-list-timestamp-colors (ement-room-list--timestamp-colors)))
 
 ;;;; Functions
 
@@ -642,6 +683,49 @@ left."
         ;; doesn't always happen; it only seems to in certain circumstances, e.g. when the
         ;; minibuffer is open, which should be unrelated to this.
         (revert-buffer)))))
+
+(defun ement-room-list--timestamp-colors ()
+  "Return a vector of generated latest-timestamp colors for rooms.
+Used in `ement-tabulated-room-list' and `ement-room-list'."
+  (if (or (equal "unspecified-fg" (face-foreground 'default nil 'default))
+          (equal "unspecified-bg" (face-background 'default nil 'default)))
+      ;; NOTE: On a TTY, the default face's foreground and background colors may be the
+      ;; special values "unspecified-fg"/"unspecified-bg", in which case we can't generate
+      ;; gradients, so we just return a vector of "unspecified-fg".  See
+      ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=55623>.
+      (make-vector 134 "unspecified-fg")
+    (cl-coerce
+     (append (mapcar
+              ;; One face per 10-minute period, from "recent" to 1-hour.
+              (lambda (rgb)
+                (pcase-let ((`(,r ,g ,b) rgb))
+                  (color-rgb-to-hex r g b 2)))
+              (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-very-recent
+                                                                  nil 'default))
+                              (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                  nil 'default))
+                              6))
+             (mapcar
+              ;; One face per hour, from "recent" to default.
+              (lambda (rgb)
+                (pcase-let ((`(,r ,g ,b) rgb))
+                  (color-rgb-to-hex r g b 2)))
+              (color-gradient (color-name-to-rgb (face-foreground 'ement-room-list-recent
+                                                                  nil 'default))
+                              (color-name-to-rgb (face-foreground 'default nil 'default))
+                              24))
+             (mapcar
+              ;; One face per week for the last year (actually we
+              ;; generate colors for the past two years' worth so
+              ;; that the face for one-year-ago is halfway to
+              ;; invisible, and we don't use colors past that point).
+              (lambda (rgb)
+                (pcase-let ((`(,r ,g ,b) rgb))
+                  (color-rgb-to-hex r g b 2)))
+              (color-gradient (color-name-to-rgb (face-foreground 'default nil 'default))
+                              (color-name-to-rgb (face-background 'default nil 'default))
+                              104)))
+     'vector)))
 
 ;;;; Footer
 
