@@ -1223,12 +1223,12 @@ IMAGE should be one as created by, e.g. `create-image'."
 (declare-function eieio-oref "eieio-core")
 (defun ement--room-at-point ()
   "Return room at point.
-Works in major-modes `ement-room-mode', `ement-room-list-mode',
-and `ement-taxy-mode'."
+Works in major-modes `ement-room-mode',
+`ement-tabulated-room-list-mode', and `ement-room-list-mode'."
   (pcase major-mode
     ('ement-room-mode (ement--format-room ement-room 'topic))
-    ('ement-room-list-mode (ement--format-room (tabulated-list-get-id) 'topic))
-    ('ement-taxy-mode
+    ('ement-tabulated-room-list-mode (ement--format-room (tabulated-list-get-id) 'topic))
+    ('ement-room-list-mode
      (cl-typecase (oref (magit-current-section) value)
        (taxy-magit-section nil)
        (t (pcase (oref (magit-current-section) value)

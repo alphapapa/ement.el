@@ -6,7 +6,7 @@
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
 ;; Version: 0.5-pre
-;; Package-Requires: ((emacs "27.1") (map "2.1") (plz "0.2") (taxy "0.9") (taxy-magit-section "0.9") (svg-lib "0.2.5") (transient "0.3.7"))
+;; Package-Requires: ((emacs "27.1") (map "2.1") (plz "0.2") (taxy "0.12.1") (taxy-magit-section "0.9") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -82,8 +82,8 @@
   "Used to report progress while processing sync events.")
 
 (defvar ement-sync-callback-hook
-  '(ement--update-room-buffers ement--auto-sync ement-room-list-auto-update
-                               ement-taxy-auto-update)
+  '(ement--update-room-buffers ement--auto-sync ement-tabulated-room-list-auto-update
+                               ement-room-list-auto-update)
   "Hook run after `ement--sync-callback'.
 Hooks are called with one argument, the session that was
 synced.")
@@ -136,7 +136,7 @@ Writes the session file when Emacs is killed."
   :type 'boolean)
 
 (defcustom ement-after-initial-sync-hook
-  '(ement-list-rooms ement-view-initial-rooms ement--link-children ement--run-idle-timer)
+  '(ement-room-list--after-initial-sync ement-view-initial-rooms ement--link-children ement--run-idle-timer)
   "Hook run after initial sync.
 Run with one argument, the session synced."
   :type 'hook)
