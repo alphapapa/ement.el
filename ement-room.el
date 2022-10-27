@@ -2482,7 +2482,6 @@ Also, mark room's buffer as unmodified."
               ;; send a new one.
               (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
                 (when (process-live-p request-process)
-                  ;; FIXME: This will probably cause a spurious error message.
                   (interrupt-process request-process)))
               (setf ement-room-read-receipt-request nil)
               (setf (alist-get event ement-room-read-receipt-request)
@@ -2562,14 +2561,24 @@ Interactively, mark both types as read up to event at point."
       (let ((request-process (ement-api session endpoint :method 'post :data (json-encode data)
                                :then (lambda (_data)
                                        (ement-room-move-read-markers room
-                                         :read-event read-event :fully-read-event fully-read-event)))))
+                                         :read-event read-event :fully-read-event fully-read-event))
+                               :else (lambda (plz-error)
+                                       (pcase (plz-error-message plz-error)
+                                         ("curl process interrupted"
+                                          ;; Ignore this, because it happens when we
+                                          ;; update a read marker before the previous
+                                          ;; update request is completed.
+                                          nil)
+                                         (_ (signal 'ement-api-error
+                                                    (list (format "Ement: (ement-room-mark-read) Unexpected API error: %s"
+                                                                  plz-error)
+                                                          plz-error))))))))
         (when-let ((room-buffer (alist-get 'buffer (ement-room-local room))))
           ;; NOTE: Ideally we would do this before sending the new request, but to make
           ;; the code much simpler, we do it afterward.
           (with-current-buffer room-buffer
             (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
               (when (process-live-p request-process)
-                ;; FIXME: This will probably cause a spurious error message.
                 (interrupt-process request-process)))
             (setf ement-room-read-receipt-request nil
                   (alist-get read-event ement-room-read-receipt-request) request-process)))))))

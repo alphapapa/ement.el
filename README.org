@@ -289,7 +289,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.4.1-pre
 
-Nothing new yet.
+*Fixes*
++ Don't show "curl process interrupted" message when updating a read marker's position again.
 
 ** 0.4
 
