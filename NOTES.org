@@ -1091,6 +1091,22 @@ So as best I can tell, the server is violating the spec.
 
 [2021-07-25 Sun 14:12]  After carefully digging into the raw events, reviewing these notes, and talking with Michael (t3chguy) in =#matrix-dev:matrix.org=, I found that I was sending =/messages= the kind of filter that =/sync= expects, rather than the =RoomEventFilter= that is called for. (Actually, I wasn't sending =/messages= any filter before now, and then today I started by sending it the wrong kind.) After fixing that, finally, loading earlier messages gets the membership events for newly seen users, and the displaynames are seen!  Finally this can be put to rest.
 
+** TODO Only generated room avatars shown in newly renamed taxy-based room list :bug:
+:PROPERTIES:
+:milestone: 0.5
+:END:
+:LOGBOOK:
+- State "TODO"       from              [2022-10-27 Thu 08:21]
+:END:
+
+[2022-10-27 Thu 08:21]  I just noticed that the room list sidebar is only showing generated room avatars.  Probably made a mistake when renaming cache variables or something.
+
+** TODO Prevent "curl interrupted" message from being displayed
+:LOGBOOK:
+- State "TODO"       from              [2022-10-27 Thu 11:37]
+:END:
+
+[2022-10-27 Thu 11:36]  When a read-marker-update request is interrupted by another such request, the user should not see the message about the curl process being interrupted.
 
 * Reference
 
