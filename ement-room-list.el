@@ -278,18 +278,16 @@ from recent to non-recent for rooms updated in the past hour.")
 
 ;;;; Columns
 
-(defvar-local ement-room-list-room-avatar-cache (make-hash-table)
-  ;; Use a buffer-local variable so that the cache is cleared when the buffer is closed.
-  "Hash table caching room avatars for the `ement-room-list' room list.")
-
 (eval-and-compile
   (taxy-magit-section-define-column-definer "ement-room-list"))
 
 (ement-room-list-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
   (pcase-let* ((`[,room ,_session] item)
-               ((cl-struct ement-room avatar display-name) room))
+               ((cl-struct ement-room avatar display-name
+                           (local (map room-list-avatar)))
+                room))
     (if ement-room-list-avatars
-        (or (gethash room ement-room-list-room-avatar-cache)
+        (or room-list-avatar
             (let ((new-avatar
                    (if avatar
                        ;; NOTE: We resize every avatar to be suitable for this buffer, rather than using
@@ -308,7 +306,7 @@ from recent to non-recent for rooms updated in the past hour.")
                        (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
                                                              :background color :foreground "white"
                                                              :stroke 0))))))
-              (puthash room new-avatar ement-room-list-room-avatar-cache)))
+              (setf (alist-get 'room-list-avatar (ement-room-local room)) new-avatar)))
       ;; Avatars disabled: use a two-space string.
       " ")))
 
