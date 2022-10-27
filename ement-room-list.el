@@ -52,6 +52,9 @@
   "List of colors used for timestamps.
 Set automatically when `ement-room-list-mode' is activated.")
 
+(defvar ement-sessions)
+(defvar ement-room-prism-minimum-contrast)
+
 ;;;; Customization
 
 (defcustom ement-room-list-auto-update t
@@ -634,6 +637,7 @@ left."
   (mouse-set-point event)
   (call-interactively #'ement-room-list-RET))
 
+(declare-function ement-view-room "ement-room")
 (defun ement-room-list-RET ()
   "View room at point, or cycle section at point."
   (interactive)
@@ -643,6 +647,7 @@ left."
     (taxy-magit-section (call-interactively #'ement-room-list-section-toggle))
     (null nil)))
 
+(declare-function ement-room-goto-fully-read-marker "ement-room")
 (defun ement-room-list-next-unread ()
   "Show next unread room."
   (interactive)
