@@ -3688,7 +3688,8 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                             (not (equal (alist-get 'avatar_url (ement-event-content event))
                                                                         (map-nested-elt (ement-event-unsigned event)
                                                                                         '(prev_content avatar_url)))))))
-                                                   events)))
+                                                   events))
+                  join-and-leave-events rejoin-and-leave-events)
              ;; Remove apparent duplicates between join/rejoin events.
              (setf join-events (cl-delete-if (lambda (event)
                                                (cl-find (ement-event-state-key event) rejoin-events
@@ -3697,12 +3698,32 @@ STRUCT should be an `ement-room-membership-events' struct."
                    rejoin-events (cl-delete-if (lambda (event)
                                                  (cl-find (ement-event-state-key event) join-events
                                                           :test #'equal :key #'ement-event-state-key))
-                                               rejoin-events))
+                                               rejoin-events)
+                   join-and-leave-events (cl-loop for join-event in join-events
+                                                  for left-event = (cl-find (ement-event-state-key join-event) left-events
+                                                                            :test #'equal :key #'ement-event-state-key)
+                                                  when left-event
+                                                  collect left-event
+                                                  and do (setf join-events (cl-delete (ement-event-state-key join-event) join-events
+                                                                                      :test #'equal :key #'ement-event-state-key)
+                                                               left-events (cl-delete (ement-event-state-key left-event) left-events
+                                                                                      :test #'equal :key #'ement-event-state-key)))
+                   rejoin-and-leave-events (cl-loop for rejoin-event in rejoin-events
+                                                    for left-event = (cl-find (ement-event-state-key rejoin-event) left-events
+                                                                              :test #'equal :key #'ement-event-state-key)
+                                                    when left-event
+                                                    collect left-event
+                                                    and do (setf rejoin-events (cl-delete (ement-event-state-key rejoin-event) rejoin-events
+                                                                                          :test #'equal :key #'ement-event-state-key)
+                                                                 left-events (cl-delete (ement-event-state-key left-event) left-events
+                                                                                        :test #'equal :key #'ement-event-state-key))))
              (format "Membership: %s."
                      (string-join (cl-loop for (type . events)
                                            in (ement-alist "rejoined" rejoin-events
                                                            "joined" join-events
                                                            "left" left-events
+                                                           "joined and left" join-and-leave-events
+                                                           "rejoined and left" rejoin-and-leave-events
                                                            "invited" invite-events
                                                            "banned" ban-events
                                                            "kicked and banned" kick-and-ban-events
