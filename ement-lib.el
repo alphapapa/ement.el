@@ -1025,6 +1025,7 @@ DATA is an unsent message event's data alist."
                (replying-to-sender-name (ement--user-displayname-in ement-room replying-to-sender))
                (quote-string (format "> <%s> %s\n\n" replying-to-sender-name replying-to-body))
                (reply-body (alist-get "body" data nil nil #'string=))
+               (reply-formatted-body (alist-get "formatted_body" data nil nil #'string=))
                (reply-body-with-quote (concat quote-string reply-body))
                (reply-formatted-body-with-quote
                 (format "<mx-reply>
@@ -1041,7 +1042,7 @@ DATA is an unsent message event's data alist."
                         ;; might hope: there's `web-mode-html-entities' and `org-entities'.  See also
                         ;; <https://emacs.stackexchange.com/questions/8166/encode-non-html-characters-to-html-equivalent>.
                         (or replying-to-formatted-body replying-to-body)
-                        reply-body)))
+                        (or reply-formatted-body reply-body))))
     ;; NOTE: map-elt doesn't work with string keys, so we use `alist-get'.
     (setf (alist-get "body" data nil nil #'string=) reply-body-with-quote
           (alist-get "formatted_body" data nil nil #'string=) reply-formatted-body-with-quote
