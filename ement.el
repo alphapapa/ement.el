@@ -953,6 +953,11 @@ and `session' to the session.  Adds function to
         (setf (alist-get 'parents (ement-room-local child-room))
               (delete parent-room-id (alist-get 'parents (ement-room-local child-room))))))))
 
+(ement-defevent "m.room.canonical_alias"
+  (ignore session)
+  (pcase-let (((cl-struct ement-event (content (map alias))) event))
+    (setf (ement-room-canonical-alias room) alias)))
+
 (defun ement--link-children (session)
   "Link child rooms in SESSION.
 To be called after initial sync."

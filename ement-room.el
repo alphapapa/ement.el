@@ -2301,6 +2301,21 @@ function to `ement-room-event-fns', which see."
                     new-level))
           'face 'ement-room-membership)))))
 
+(ement-room-defevent "m.room.canonical_alias"
+  (ement-room--insert-event event))
+
+(defun ement-room--format-canonical-alias-event (event room _session)
+  "Return canonical alias EVENT in ROOM formatted as a string."
+  (pcase-let (((cl-struct ement-event sender
+                          ;; TODO: Include alt_aliases, maybe.
+                          ;; TODO: Include old alias when it is being replaced.
+                          (content (map alias)))
+               event))
+    (format "%s set the canonical alias to <%s>"
+            (propertize (ement--user-displayname-in room sender)
+                        'help-echo (ement-user-id sender))
+            alias)))
+
 (ement-room-defevent "m.room.redaction"
   ;; We handle redaction events here rather than an `ement-defevent' handler.  This way we
   ;; do less work for events in rooms that the user isn't looking at, at the cost of doing
@@ -3058,6 +3073,8 @@ Formats according to `ement-room-message-format-spec', which see."
                'face 'ement-room-membership))
             ("m.room.power_levels"
              (ement-room--format-power-levels-event event room session))
+            ("m.room.canonical_alias"
+             (ement-room--format-canonical-alias-event event room session))
             (_ (ement-room-wrap-prefix
                  (format "[sender:%s type:%s]"
                          (ement-user-id (ement-event-sender event))

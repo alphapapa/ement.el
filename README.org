@@ -291,6 +291,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Additions*
 + Present "joined-and-left" and "rejoined-and-left" membership event pairs as such.
++ Process and show rooms' canonical alias events.
 
 *Changes*
 + When selecting a room to view with completion, don't offer spaces.
