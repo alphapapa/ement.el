@@ -2311,10 +2311,12 @@ function to `ement-room-event-fns', which see."
                           ;; TODO: Include old alias when it is being replaced.
                           (content (map alias)))
                event))
-    (format "%s set the canonical alias to <%s>"
-            (propertize (ement--user-displayname-in room sender)
-                        'help-echo (ement-user-id sender))
-            alias)))
+    (ement-room-wrap-prefix
+      (format "%s set the canonical alias to <%s>"
+              (propertize (ement--user-displayname-in room sender)
+                          'help-echo (ement-user-id sender))
+              alias)
+      'face 'ement-room-membership)))
 
 (ement-room-defevent "m.room.redaction"
   ;; We handle redaction events here rather than an `ement-defevent' handler.  This way we
