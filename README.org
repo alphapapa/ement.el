@@ -287,13 +287,14 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.5-pre
+** 0.5
 
 *Additions*
 + Present "joined-and-left" and "rejoined-and-left" membership event pairs as such.
 + Process and show rooms' canonical alias events.
 
 *Changes*
++ The [[https://github.com/alphapapa/taxy.el][taxy.el]]-based room list, with programmable, smart grouping, is now the default ~ement-room-list~.  (The old, ~tabulated-list-mode~-based room list is available as ~ement-tabulated-room-list~.)
 + When selecting a room to view with completion, don't offer spaces.
 + When selecting a room with completion, empty aliases and topics are omitted instead of being displayed as nil.
 
