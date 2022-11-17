@@ -96,7 +96,7 @@ Used to avoid overlapping requests.")
 Used by `ement-room-send-message'.")
 
 (defvar-local ement-room-replying-to-overlay nil
-  "Used by `ement-room-send-reply'.")
+  "Used by `ement-room-write-reply'.")
 
 (defvar-local ement-room-read-receipt-request nil
   "Maps event ID to request updating read receipt to that event.
@@ -131,7 +131,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 
     ;; Messages
     (define-key map (kbd "RET") #'ement-room-send-message)
-    (define-key map (kbd "S-<return>") #'ement-room-send-reply)
+    (define-key map (kbd "S-<return>") #'ement-room-write-reply)
     (define-key map (kbd "M-RET") #'ement-room-compose-message)
     (define-key map (kbd "<insert>") #'ement-room-edit-message)
     (define-key map (kbd "C-k") #'ement-room-delete-message)
@@ -1668,7 +1668,7 @@ The message must be one sent by the local user."
                    (user-error "Message not deleted"))))
   (ement-redact event room session reason))
 
-(defun ement-room-send-reply ()
+(defun ement-room-write-reply ()
   "Send a reply to event at point."
   (interactive)
   (cl-assert ement-ewoc) (cl-assert ement-room) (cl-assert ement-session)
@@ -4182,7 +4182,7 @@ For use in `completion-at-point-functions'."
                                                                   :test #'equal))
                                                   'face 'transient-value))))
               ("RET" "Write message" ement-room-send-message)
-              ("S-RET" "Write reply" ement-room-send-reply)
+              ("S-RET" "Write reply" ement-room-write-reply)
               ("M-RET" "Compose message in buffer" ement-room-compose-message)
               ("<insert>" "Edit message" ement-room-edit-message)
               ("C-k" "Delete message" ement-room-delete-message)

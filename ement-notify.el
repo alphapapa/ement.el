@@ -165,7 +165,7 @@ margins in Emacs.  But it's useful, anyway."
   (save-window-excursion
     ;; Not sure why `call-interactively' doesn't work for `push-button' but oh well.
     (push-button)
-    (call-interactively #'ement-room-send-reply)))
+    (call-interactively #'ement-room-write-reply)))
 
 (defun ement-notify-switch-to-notifications-buffer ()
   "Switch to \"*Ement Notifications*\" buffer."
