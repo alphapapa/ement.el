@@ -299,6 +299,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Fixes*
 + Use of send-message filter when replying.
++ Replies may be written in compose buffers.
 
 ** 0.4.1
 

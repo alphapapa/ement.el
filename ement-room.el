@@ -102,6 +102,10 @@ Used by `ement-room-send-message'.")
   "Maps event ID to request updating read receipt to that event.
 An alist of one entry.")
 
+(defvar ement-room-read-string-setup-hook nil
+  "Normal hook run by `ement-room-read-string' after switching to minibuffer.
+Should be used to, e.g. propagate variables to the minibuffer.")
+
 (defvar ement-room-compose-hook nil
   "Hook run in compose buffers when created.
 Used to, e.g. call `ement-room-compose-org'.")
@@ -1678,6 +1682,9 @@ The message must be one sent by the local user."
                  (room ement-room)
                  (session ement-session)
                  (prompt (format "Send reply (%s): " (ement-room-display-name room)))
+                 (ement-room-read-string-setup-hook
+                  (lambda ()
+                    (setq-local ement-room-replying-to-event event)))
                  (body (ement-room-with-typing
                          (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
       (ement-room-send-message room session :body body :replying-to-event event))))
@@ -1952,7 +1959,8 @@ and erases the buffer."
   "Call `read-from-minibuffer', binding variables and keys for Ement.
 Arguments PROMPT, INITIAL-INPUT, HISTORY, DEFAULT-VALUE, and
 INHERIT-INPUT-METHOD are as those expected by `read-string',
-which see."
+which see.  Runs hook `ement-room-read-string-setup-hook', which
+see."
   (let ((room ement-room)
         (session ement-session))
     (minibuffer-with-setup-hook
@@ -1962,7 +1970,8 @@ which see."
           (setq-local ement-session session)
           (setq-local completion-at-point-functions
                       '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
-          (visual-line-mode 1))
+          (visual-line-mode 1)
+          (run-hooks 'ement-room-read-string-setup-hook))
       (read-from-minibuffer prompt initial-input ement-room-minibuffer-map
                             nil history default-value inherit-input-method))))
 
@@ -3439,6 +3448,7 @@ To be called from a minibuffer opened from
                                                                    (ement-room-id ement-room)))))
          (input-method current-input-method) ; Capture this value from the minibuffer.
          (send-message-filter ement-room-send-message-filter)
+         (replying-to-event ement-room-replying-to-event)
          (compose-fn (lambda ()
                        ;; HACK: Since exiting the minibuffer restores the previous window configuration,
                        ;; we have to do some magic to get the new compose buffer to appear.
@@ -3448,6 +3458,13 @@ To be called from a minibuffer opened from
                        (ement-room-compose-message ement-room ement-session :body body)
 		       ;; FIXME: This doesn't propagate the send-message-filter to the minibuffer.
                        (setf ement-room-send-message-filter send-message-filter)
+                       (setq-local ement-room-replying-to-event replying-to-event)
+                       (when replying-to-event
+                         (setq-local header-line-format
+                                     (concat header-line-format
+                                             (format " (Replying to message from %s)"
+                                                     (ement--user-displayname-in
+                                                      ement-room (ement-event-sender replying-to-event))))))
                        (let* ((compose-buffer (current-buffer))
                               (show-buffer-fn-symbol (gensym "ement-show-compose-buffer"))
                               (show-buffer-fn (lambda ()
@@ -3476,14 +3493,22 @@ To be called from an `ement-room-compose' buffer."
   (let ((room ement-room)
         (session ement-session)
         (input-method current-input-method)
-        (send-message-filter ement-room-send-message-filter))
+        (send-message-filter ement-room-send-message-filter)
+        (replying-to-event ement-room-replying-to-event))
     (quit-restore-window nil 'kill)
     (ement-view-room room session)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
-           (body (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)))
-      (ement-room-send-message ement-room ement-session :body body))))
+           (pos (when replying-to-event
+                  (ewoc-location (ement-room--ewoc-last-matching ement-ewoc
+                                   (lambda (data)
+                                     (eq data replying-to-event))))))
+           (body (if replying-to-event
+                     (ement-room-with-highlighted-event-at pos
+                       (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method))
+                   (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)) ))
+      (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event))))
 
 (defun ement-room-init-compose-buffer (room session)
   "Eval BODY, setting up the current buffer as a compose buffer.
