@@ -295,7 +295,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Changes*
 + When selecting a room to view with completion, don't offer spaces.
-+ When selecting a room with completion, empty aliases are omitted instead of being displayed as ~<nil>~.
++ When selecting a room with completion, empty aliases and topics are omitted instead of being displayed as nil.
 
 *Fixes*
 + Use of send-message filter when replying.

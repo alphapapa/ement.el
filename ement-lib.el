@@ -1138,7 +1138,7 @@ m.replace metadata)."
   "Return ROOM formatted with name, alias, ID, and optionally TOPIC.
 Suitable for use in completion, etc."
   (if topic
-      (format "\"%s\"%s(<%s>): \"%s\""
+      (format "%s%s(<%s>)%s"
               (or (ement-room-display-name room)
                   (setf (ement-room-display-name room)
                         (ement--room-display-name room)))
@@ -1146,8 +1146,10 @@ Suitable for use in completion, etc."
                   (format " <%s> " (ement-room-canonical-alias room))
                 " ")
               (ement-room-id room)
-              (ement-room-topic room))
-    (format "\"%s\"%s(<%s>)"
+              (if (ement-room-topic room)
+                  (format ": \"%s\"" (ement-room-topic room))
+                ""))
+    (format "%s%s(<%s>)"
             (or (ement-room-display-name room)
                 (setf (ement-room-display-name room)
                       (ement--room-display-name room)))
