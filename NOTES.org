@@ -2,13 +2,104 @@
 
 * Tasks
 
-** PROJECT [[https://matrix.org/blog/2022/09/29/matrix-v-1-4-release][Spec v1.4 updates]]
-
 ** TODO Make bookmark handler put point at end of room buffers
 
 When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
 
 [2022-09-01 Thu 04:04]  Or maybe go to the fully-read marker instead.
+
+** TODO Membership events in which nothing seems to change              :bug:
+
+e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", because nothing is changed, so I don't even know what this event is supposed to mean.
+
+#+begin_example elisp
+((:id . "$5tsYDxTf8SkJ1J8MLZfV4TtNMdXl3pKkU8T1T6oDszY")
+ (:sender . "@key823:setada.de")
+ (:content
+  (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
+  (displayname . "key823")
+  (membership . "join"))
+ (:origin-server-ts . 1657024512875)
+ (:type . "m.room.member")
+ (:state-key . "@key823:setada.de")
+ (:unsigned
+  (age . 2297)
+  (replaces_state . "$-J4JTEu_WIheqWQUe_1S4oP_D9zgxDS41XsaoKuvLVM")
+  (prev_content
+   (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
+   (displayname . "key823")
+   (membership . "join"))
+  (prev_sender . "@key823:setada.de"))
+ (:receipts)
+ (:local))
+#+end_example
+
+** TODO Render server ACL events
+:LOGBOOK:
+- State "TODO"       from              [2022-06-13 Mon 17:39]
+:END:
+
+e.g.
+
+#+begin_src js
+  {
+    "content": {
+      "allow": [
+        "*"
+      ],
+      "deny": [
+        "foo.bar",
+        "*.foo.bar"
+      ]
+    },
+    "origin_server_ts": 1655159830066,
+    "sender": "@user:server",
+    "state_key": "",
+    "type": "m.room.server_acl",
+    "unsigned": {},
+    "event_id": "$foobarbaz",
+    "room_id": "!foobar:baz"
+  }
+#+end_src
+
+** TODO Notifications for "@room" messages
+
+** TODO Only generated room avatars shown in newly renamed taxy-based room list :bug:
+:PROPERTIES:
+:milestone: 0.5
+:END:
+:LOGBOOK:
+- State "TODO"       from              [2022-10-27 Thu 08:21]
+:END:
+
+[2022-10-27 Thu 08:21]  I just noticed that the room list sidebar is only showing generated room avatars.  Probably made a mistake when renaming cache variables or something.
+
+** TODO Prevent "curl interrupted" message from being displayed
+:LOGBOOK:
+- State "TODO"       from              [2022-10-27 Thu 11:37]
+:END:
+
+[2022-10-27 Thu 11:36]  When a read-marker-update request is interrupted by another such request, the user should not see the message about the curl process being interrupted.
+
+** UNDERWAY User avatars
+:PROPERTIES:
+:ID:       db3393af-6195-419b-aaaa-508cafc07589
+:END:
+
+In the =wip/user-avatars= branch, which should be rebased on the =wip/queue-avatars= branch, which should be rebased on =master= and depends on the =plz= queue feature, which is not yet released.  But these pieces already basically work, and it shouldn't take much to polish them up.
+
+** MAYBE Use line-prefix and/or wrap-prefix
+:LOGBOOK:
+-  State "MAYBE"      from              [2020-12-03 Thu 15:28]
+:END:
+
+These could be alternatives to using margins.  See [[info:elisp#Truncation][info:elisp#Truncation]].
+
+** MAYBE Use =persist.el= for saving session data
+
+It's in ELPA, and its code looks good.  Is there any reason not to use it?
+
+** PROJECT [[https://matrix.org/blog/2022/09/29/matrix-v-1-4-release][Spec v1.4 updates]]
 
 ** PROJECT Room search/discovery
 :LOGBOOK:
@@ -351,80 +442,6 @@ Example results from posting a query for ~Emacs~:
    (total_room_count_estimate . 63360))
 #+end_example
 
-** TODO Membership events in which nothing seems to change              :bug:
-
-e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", because nothing is changed, so I don't even know what this event is supposed to mean.
-
-#+begin_example elisp
-((:id . "$5tsYDxTf8SkJ1J8MLZfV4TtNMdXl3pKkU8T1T6oDszY")
- (:sender . "@key823:setada.de")
- (:content
-  (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
-  (displayname . "key823")
-  (membership . "join"))
- (:origin-server-ts . 1657024512875)
- (:type . "m.room.member")
- (:state-key . "@key823:setada.de")
- (:unsigned
-  (age . 2297)
-  (replaces_state . "$-J4JTEu_WIheqWQUe_1S4oP_D9zgxDS41XsaoKuvLVM")
-  (prev_content
-   (avatar_url . "mxc://setada.de/fGrtYfbbtrvhzPwfdKeCharl")
-   (displayname . "key823")
-   (membership . "join"))
-  (prev_sender . "@key823:setada.de"))
- (:receipts)
- (:local))
-#+end_example
-
-** TODO Render server ACL events
-:LOGBOOK:
-- State "TODO"       from              [2022-06-13 Mon 17:39]
-:END:
-
-e.g.
-
-#+begin_src js
-  {
-    "content": {
-      "allow": [
-        "*"
-      ],
-      "deny": [
-        "foo.bar",
-        "*.foo.bar"
-      ]
-    },
-    "origin_server_ts": 1655159830066,
-    "sender": "@user:server",
-    "state_key": "",
-    "type": "m.room.server_acl",
-    "unsigned": {},
-    "event_id": "$foobarbaz",
-    "room_id": "!foobar:baz"
-  }
-#+end_src
-
-** TODO Notifications for "@room" messages
-
-** UNDERWAY User avatars
-:PROPERTIES:
-:ID:       db3393af-6195-419b-aaaa-508cafc07589
-:END:
-
-In the =wip/user-avatars= branch, which should be rebased on the =wip/queue-avatars= branch, which should be rebased on =master= and depends on the =plz= queue feature, which is not yet released.  But these pieces already basically work, and it shouldn't take much to polish them up.
-
-** MAYBE Use line-prefix and/or wrap-prefix
-:LOGBOOK:
--  State "MAYBE"      from              [2020-12-03 Thu 15:28]
-:END:
-
-These could be alternatives to using margins.  See [[info:elisp#Truncation][info:elisp#Truncation]].
-
-** MAYBE Use =persist.el= for saving session data
-
-It's in ELPA, and its code looks good.  Is there any reason not to use it?
-
 ** PROJECT Backfilling paged events after interrupted sync
 
 e.g. when a system has been asleep for hours and syncs again, there may be more new events in a room than the server is willing to send in a single sync response, causing the response to be paged.  The old events need to be fetched in pages up to the old sync token.
@@ -508,6 +525,16 @@ The state of a room that the user has been invited to. These state events may on
 Like the "notifications" buffer in ~matrix-client~.
 
 [2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
+
+** DONE Propagating replying-to data through compose buffers           :bug:
+:LOGBOOK:
+- Note taken on [2022-11-17 Thu 16:51] \\
+  Got interrupted by some phone calls, so it didn't actually take this long.
+- State "DONE"       from "TODO"       [2022-11-17 Thu 16:50]
+CLOCK: [2022-11-17 Thu 14:53]--[2022-11-17 Thu 16:50] =>  1:57
+:END:
+
+
 
 ** DONE [#A] Submit to ELPA
 :LOGBOOK:
@@ -1090,23 +1117,6 @@ Anyway, here's what I currently understand to be the case:
 So as best I can tell, the server is violating the spec.
 
 [2021-07-25 Sun 14:12]  After carefully digging into the raw events, reviewing these notes, and talking with Michael (t3chguy) in =#matrix-dev:matrix.org=, I found that I was sending =/messages= the kind of filter that =/sync= expects, rather than the =RoomEventFilter= that is called for. (Actually, I wasn't sending =/messages= any filter before now, and then today I started by sending it the wrong kind.) After fixing that, finally, loading earlier messages gets the membership events for newly seen users, and the displaynames are seen!  Finally this can be put to rest.
-
-** TODO Only generated room avatars shown in newly renamed taxy-based room list :bug:
-:PROPERTIES:
-:milestone: 0.5
-:END:
-:LOGBOOK:
-- State "TODO"       from              [2022-10-27 Thu 08:21]
-:END:
-
-[2022-10-27 Thu 08:21]  I just noticed that the room list sidebar is only showing generated room avatars.  Probably made a mistake when renaming cache variables or something.
-
-** TODO Prevent "curl interrupted" message from being displayed
-:LOGBOOK:
-- State "TODO"       from              [2022-10-27 Thu 11:37]
-:END:
-
-[2022-10-27 Thu 11:36]  When a read-marker-update request is interrupted by another such request, the user should not see the message about the curl process being interrupted.
 
 * Reference
 
