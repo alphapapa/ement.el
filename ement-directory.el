@@ -150,6 +150,7 @@
 
 ;; TODO: Pagination of results.
 
+;;;###autoload
 (cl-defun ement-directory (&key server session since (limit 100))
   "View the public room directory on SERVER with SESSION.
 Show up to LIMIT rooms.  Interactively, with prefix, prompt for
@@ -194,6 +195,7 @@ SINCE may be a next-batch token."
                                 remaining)))))))
     (ement-message "Listing %s rooms on %s..." limit server)))
 
+;;;###autoload
 (cl-defun ement-directory-search (query &key server session since (limit 1000))
   "View public rooms on SERVER matching QUERY.
 QUERY is a string used to filter results."

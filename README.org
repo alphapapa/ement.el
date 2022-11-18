@@ -289,7 +289,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.5.1-pre
 
-Nothing new yet.
+*Fixes*
++ Autoload ~ement-directory~ commands.
 
 ** 0.5
 
