@@ -192,6 +192,8 @@ SINCE may be a next-batch token."
                                ;; FIXME: The server seems to report all of the rooms on
                                ;; the server as remaining even when searching for a
                                ;; specific term like "emacs".
+                               ;; TODO: Display this in a more permanent place (like a
+                               ;; header or footer).
                                (message
                                 (substitute-command-keys
                                  "%s rooms remaining (use \\[ement-directory-next] to fetch more)")
