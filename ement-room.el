@@ -999,6 +999,10 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
                          (ement-afirst (equal room-id (ement-room-id it))
                            (ement-session-rooms session))
                        (cl-assert it nil "Room %S not found on session %S" room-id session-id))))
+    ;; TODO: Put point at the end of the room buffer.  However, this doesn't seem easy or
+    ;; even possible, possibly because the bookmark library itself moves point after this
+    ;; function returns.  My attempts at setting the buffer's and window's points after
+    ;; calling `ement-view-room' have had no effect.
     (ement-view-room room session)))
 
 ;;;; Commands
