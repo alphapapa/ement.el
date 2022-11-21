@@ -287,7 +287,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.5.1-pre
+** 0.5.1
 
 *Fixes*
 + Autoload ~ement-directory~ commands.
