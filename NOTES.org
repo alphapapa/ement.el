@@ -71,7 +71,7 @@ e.g.
 
 ** TODO [#C] Make bookmark handler put point at end of room buffers
 :LOGBOOK:
-CLOCK: [2022-11-18 Fri 17:09]
+CLOCK: [2022-11-18 Fri 17:09]--[2022-11-18 Fri 17:28] =>  0:19
 :END:
 
 When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
@@ -1141,4 +1141,26 @@ So as best I can tell, the server is violating the spec.
 ** [[https://lists.gnu.org/archive/html/emacs-devel/2022-05/msg01224.html][emacs-devel: print-circle, and backtraces containing circular structures causing infinite loop/out-of-memory]]
 
 My thread on emacs-devel about using ~print-circle~ to prevent this problem.
+* Checklists
+
+** Stable release
+
+*** New minor version (non-bugfix)
+
++ [ ] Merge into ~stable~ branch
++ [ ] Push ~stable~ branch to repo
+
+*** New bugfix version
+
+On ~stable~ branch:
+
++ [ ] Make ~Meta:~ commit updating version to ~FOO-pre~
++ [ ] Apply changes
+  + [ ] Code
+  + [ ] Documentation
+  + [ ] Changelog
++ [ ] Test changes
++ [ ] Make ~Release:~ commit updating version to ~FOO~
++ [ ] Push ~stable~ branch to repo
++ [ ] Merge ~stable~ branch into ~master~ branch
 
