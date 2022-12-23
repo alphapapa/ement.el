@@ -257,7 +257,7 @@ the port, e.g.
         (let ((user-id (ement-user-id (ement-session-user session))))
           ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
           (setf (alist-get user-id ement-sessions nil nil #'equal) session)
-          (ement--sync session))
+          (ement--sync session :timeout ement-initial-sync-timeout))
       ;; Start password login flow.  Prompt for user ID and password
       ;; if not given (i.e. if not called interactively.)
       (unless user-id
@@ -461,7 +461,7 @@ a filter ID).  When unspecified, the value of
                                          (message "Ement: Sync %s (%s).  Syncing again..."
                                                   reason (ement-user-id (ement-session-user session))))
                                        ;; Set QUIET to allow the just-printed message to remain visible.
-                                       (ement--sync session :quiet t)))
+                                       (ement--sync session :timeout timeout :quiet t)))
                                     (`(,code . ,message)
                                      (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message) plz-error)))
                                     (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))
