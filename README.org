@@ -287,7 +287,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.5.2-pre
+** 0.5.2
 
 *Fixes*
 + Apply ~ement-initial-sync-timeout~ properly (important for when the homeserver is slow to respond).
