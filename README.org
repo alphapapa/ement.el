@@ -289,6 +289,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.6-pre
 
+*Additions*
++ Command ~ement-view-space~ to view a space's rooms in a directory buffer.
+
 *Changes*
 + Improve ~ement-describe-room~ command (formatting, bindings).
 

@@ -368,6 +368,47 @@ contents.  To be called by `ement-directory-search'."
       ;; must be set as the current buffer, so we have to do this explicitly here.
       (set-buffer buffer-name))))
 
+;;;; Spaces
+
+;; Viewing spaces and the rooms in them.
+
+(defun ement-view-space (space session)
+  ;; TODO: Use this for spaces instead of `ement-view-room' (or something like that).
+  ;; TODO: Display space's topic in the header or something.
+  "View child rooms in SPACE on SESSION.
+SPACE may be a room ID or an `ement-room' struct."
+  ;; TODO: "from" query parameter.
+  (interactive (ement-complete-room :predicate #'ement--room-space-p
+                 :prompt "Space: "))
+  (pcase-let* ((id (cl-typecase space
+                     (string space)
+                     (ement-room (ement-room-id space))))
+               (endpoint (format "rooms/%s/hierarchy" id))
+               (revert-function (lambda (&rest _ignore)
+                                  (interactive)
+                                  (ement-view-space space session))))
+    (ement-api session endpoint :version "v1"
+      :then (lambda (results)
+              (pcase-let (((map rooms ('next_batch next-batch))
+                           results))
+                (ement-directory--view rooms ;; :append-p since
+                  ;; TODO: Use space's alias where possible.
+                  :buffer-name (format "*Ement Directory: space \"%s\"" id)
+                  :root-section-name (format "*Ement Directory: space \"%s\"" id)
+                  :init-fn (lambda ()
+                             (setf (alist-get 'session ement-directory-etc) session
+                                   (alist-get 'next-batch ement-directory-etc) next-batch
+                                   ;; (alist-get 'limit ement-directory-etc) limit
+                                   (alist-get 'space ement-directory-etc) space)
+                             (setq-local revert-buffer-function revert-function)
+                             ;; TODO: Handle next batches.
+                             ;; (when remaining
+                             ;;   (message
+                             ;;    (substitute-command-keys
+                             ;;     "%s rooms remaining (use \\[ement-directory-next] to fetch more)")
+                             ;;    remaining))
+                             )))))))
+
 ;;;; Footer
 
 (provide 'ement-directory)
