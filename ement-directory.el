@@ -372,6 +372,7 @@ contents.  To be called by `ement-directory-search'."
 
 ;; Viewing spaces and the rooms in them.
 
+;;;###autoload
 (defun ement-view-space (space session)
   ;; TODO: Use this for spaces instead of `ement-view-room' (or something like that).
   ;; TODO: Display space's topic in the header or something.
