@@ -32,6 +32,11 @@ e.g. this one from an event in =#matrix:matrix.org= formats as "Unrecognized", b
  (:local))
 #+end_example
 
+** TODO [#B] ~ement-room-flush-colors~ seems to cause timestamp headers to be duplicated :bug:
+:LOGBOOK:
+- State "TODO"       from              [2023-02-21 Tue 23:18]
+:END:
+
 ** TODO Render server ACL events
 :LOGBOOK:
 - State "TODO"       from              [2022-06-13 Mon 17:39]
@@ -103,6 +108,11 @@ It's in ELPA, and its code looks good.  Is there any reason not to use it?
 ** PROJECT [[https://matrix.org/blog/2022/11/17/matrix-v-1-5-release/][Spec v1.5 updates]]
 :LOGBOOK:
 - State "PROJECT"    from              [2022-11-18 Fri 14:51]
+:END:
+
+** PROJECT Spec v1.6 updates
+:LOGBOOK:
+- State "PROJECT"    from              [2023-02-21 Tue 23:18]
 :END:
 
 ** PROJECT Backfilling paged events after interrupted sync
