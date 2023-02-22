@@ -3761,8 +3761,9 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                                               :test #'equal :key #'ement-event-state-key)
                                                     when left-event
                                                     collect left-event
-                                                    and do (setf rejoin-events (cl-delete (ement-event-state-key rejoin-event) rejoin-events
-                                                                                          :test #'equal :key #'ement-event-state-key)
+                                                    and do (setf rejoin-events (cl-delete
+                                                                                (ement-event-state-key rejoin-event) rejoin-events
+                                                                                :test #'equal :key #'ement-event-state-key)
                                                                  left-events (cl-delete (ement-event-state-key left-event) left-events
                                                                                         :test #'equal :key #'ement-event-state-key))))
              (format "Membership: %s."
