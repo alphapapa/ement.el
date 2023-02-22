@@ -3642,7 +3642,7 @@ a copy of the local keymap, and sets `header-line-format'."
            ("ban"
             (format "%s unbanned %s"
                     (sender-name-id-string)
-                    (new-displayname-sender-name-state-key-string)))
+                    state-key))
            (_ (format "%s left%s"
                       (prev-displayname-id-string)
                       (if reason
@@ -3698,7 +3698,9 @@ STRUCT should be an `ement-room-membership-events' struct."
         (0 (warn "No events in `ement-room-membership-events' struct"))
         (1 (ement-room--format-member-event (car events) room))
         (_ (let* ((left-events (cl-remove-if-not (lambda (event)
-                                                   (equal "leave" (cdr (membership-types event))))
+                                                   (and (equal "leave" (cdr (membership-types event)))
+                                                        (not (equal "ban" (map-nested-elt (ement-event-unsigned event)
+                                                                                          '(prev_content membership))))))
                                                  events))
                   (join-events (cl-remove-if-not (lambda (event)
                                                    (pcase-let ((`(,old . ,new) (membership-types event)))
@@ -3717,6 +3719,11 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                   (and (member (cdr (membership-types event)) '("invite" "leave"))
                                                        (equal "ban" (cdr (membership-types event)))))
                                                 events))
+                  (unban-events (cl-remove-if-not (lambda (event)
+                                                    (and (equal "ban" (map-nested-elt (ement-event-unsigned event)
+                                                                                      '(prev_content membership)))
+                                                         (equal "leave" (alist-get 'membership (ement-event-content event)))))
+                                                  events))
                   (kick-and-ban-events (cl-remove-if-not (lambda (event)
                                                            (and (equal "join" (car (membership-types event)))
                                                                 (equal "ban" (cdr (membership-types event)))))
@@ -3774,6 +3781,7 @@ STRUCT should be an `ement-room-membership-events' struct."
                                                            "rejoined and left" rejoin-and-leave-events
                                                            "invited" invite-events
                                                            "banned" ban-events
+                                                           "unbanned" unban-events
                                                            "kicked and banned" kick-and-ban-events
                                                            "changed name" rename-events
                                                            "changed avatar" avatar-events)
