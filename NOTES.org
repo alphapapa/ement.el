@@ -74,17 +74,6 @@ e.g.
 
 [2022-10-27 Thu 11:36]  When a read-marker-update request is interrupted by another such request, the user should not see the message about the curl process being interrupted.
 
-** TODO [#C] Make bookmark handler put point at end of room buffers
-:LOGBOOK:
-CLOCK: [2022-11-18 Fri 17:09]--[2022-11-18 Fri 17:28] =>  0:19
-:END:
-
-When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
-
-[2022-09-01 Thu 04:04]  Or maybe go to the fully-read marker instead.
-
-[2022-11-18 Fri 17:20] This may not be possible or feasible; see [[file:~/src/emacs/ement.el/ement-room.el::;; TODO: Put point at the end of the room buffer. However, this doesn't seem easy or][comment in ement-room-bookmark-handler]].
-
 ** UNDERWAY User avatars
 :PROPERTIES:
 :ID:       db3393af-6195-419b-aaaa-508cafc07589
@@ -198,6 +187,20 @@ The state of a room that the user has been invited to. These state events may on
 Like the "notifications" buffer in ~matrix-client~.
 
 [2021-09-26 Sun 19:56]  Mostly done, but I had some issues with margin text and displaying the room avatar, which I'd like to fix sometime.
+
+** DONE [#C] Make bookmark handler put point at end of room buffers
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2023-02-21 Tue 23:37]
+CLOCK: [2022-11-18 Fri 17:09]--[2022-11-18 Fri 17:28] =>  0:19
+:END:
+
+When restoring a room buffer bookmark, having point at the top of the buffer isn't very useful, because I almost always want it to be at the bottom so I can follow new messages.
+
+[2022-09-01 Thu 04:04]  Or maybe go to the fully-read marker instead.
+
+[2022-11-18 Fri 17:20] This may not be possible or feasible; see [[file:~/src/emacs/ement.el/ement-room.el::;; TODO: Put point at the end of the room buffer. However, this doesn't seem easy or][comment in ement-room-bookmark-handler]].
+
+[2023-02-21 Tue 23:36] Finally figured out the trick: use ~(run-at-time nil ...)~ to do it immediately after ~bookmark-jump~ returns!
 
 ** DONE [#A] Submit to ELPA
 :LOGBOOK:
