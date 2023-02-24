@@ -299,6 +299,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Retry sync for HTTP 502 "Bad Gateway" errors.
 + Formatting of unban events.
 + Update password authentication according to newer Matrix spec.  (Fixes compatibility with Conduit servers.  [[https://github.com/alphapapa/ement.el/issues/66][#66]].  Thanks to [[https://github.com/tpeacock19][Travis Peacock]], [[https://github.com/viiru-][Arto Jantunen]], and [[https://github.com/scd31][Stephen D]].)
++ Image scaling issues.  (Thanks to [[https://github.com/vizs][Visuwesh]].)
 
 ** 0.5.2
 
