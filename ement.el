@@ -236,7 +236,9 @@ the port, e.g.
                () (pcase-let* (((cl-struct ement-session user device-id initial-device-display-name) session)
                                ((cl-struct ement-user id) user)
                                (data (ement-alist "type" "m.login.password"
-                                                  "user" id
+                                                  "identifier"
+                                                  (ement-alist "type" "m.id.user"
+                                                               "user" id)
                                                   "password" password
                                                   "device_id" device-id
                                                   "initial_device_display_name" initial-device-display-name)))
