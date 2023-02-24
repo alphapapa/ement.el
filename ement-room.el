@@ -201,6 +201,8 @@ In that case, sender names are aligned to the margin edge.")
 
 ;; Variables from other files.
 (defvar ement-sessions)
+(defvar ement-syncs)
+(defvar ement-auto-sync)
 (defvar ement-users)
 (defvar ement-images-queue)
 (defvar ement-notify-limit-room-name-width)
