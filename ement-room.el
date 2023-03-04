@@ -2422,13 +2422,18 @@ function to `ement-room-event-fns', which see."
 
 (ement-room-defevent "m.room.tombstone"
   (pcase-let* (((cl-struct ement-event content) event)
-               ((map body replacement_room) content)
-               (footer (propertize (format "This room has been replaced.  Explanation:%S  Replacement room: <%s>" body replacement_room)
-                                   'face 'font-lock-warning-face)))
+               ((map body ('replacement_room new-room-id)) content)
+               (session ement-session)
+               (button (ement--button-buttonize
+                        (propertize new-room-id 'help-echo "Join replacement room")
+                        (lambda (_)
+                          (ement-room-join new-room-id session))))
+               (banner (format "This room has been replaced.  Explanation:%S  Replacement room: <%s>" body button)))
+    (add-face-text-property 0 (length banner) 'font-lock-warning-face t banner)
     ;; NOTE: We assume that no more typing events will be received,
     ;; which would replace the footer.
     (ement-room--insert-event event)
-    (ewoc-set-hf ement-ewoc "" footer)))
+    (ewoc-set-hf ement-ewoc banner banner)))
 
 ;;;;; Read markers
 
