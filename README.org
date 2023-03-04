@@ -292,6 +292,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Changes*
 
 + Improve display of room tombstones (displayed at top and bottom of buffer, and new room ID is linked to join).
++ Use descriptive prompts in ~ement-leave-room~ and ~ement-forget-room~ commands.
 
 ** 0.6
 
