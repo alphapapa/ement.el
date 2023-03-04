@@ -361,6 +361,7 @@ If DELETE (interactively, with prefix), delete it."
                                  (url-hexify-string user-id) (url-hexify-string room-id) (url-hexify-string tag)))
                (method (if delete 'delete 'put)))
     ;; TODO: "order".
+    ;; FIXME: Removing a tag on a left room doesn't seem to work (e.g. to unfavorite a room after leaving it, but not forgetting it).
     (ement-api session endpoint :version "v3" :method method :data (unless delete "{}")
       :then (lambda (data)
               (ement-debug "Changed tag on room" method tag data room)))))
