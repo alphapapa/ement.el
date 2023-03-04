@@ -1026,6 +1026,8 @@ e.g. `ement-room-send-org-filter')."
                              :content content :data))))
 
 (defalias 'ement--button-buttonize
+  ;; FIXME: This doesn't set the mouse-face to highlight, and it doesn't use the
+  ;; default-button category.  Neither does `button-buttonize', of course, but why?
   (if (version< emacs-version "28.1")
       (lambda (string callback &optional data)
         "Make STRING into a button and return it.
