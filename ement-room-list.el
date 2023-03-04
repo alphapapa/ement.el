@@ -242,9 +242,8 @@ from recent to non-recent for rooms updated in the past hour.")
 
 (ement-room-list-define-key topic (&key name regexp)
   (pcase-let ((`[,(cl-struct ement-room topic) ,_session] item))
-    (when topic
-      (when (string-match-p regexp topic)
-        name))))
+    (when (and topic (string-match-p regexp topic))
+      name)))
 
 (ement-room-list-define-key unread ()
   (pcase-let ((`[,room ,session] item))
