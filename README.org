@@ -129,6 +129,7 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
       -  ~ement-room-send-image~ to send an image.
       -  ~ement-room-set-topic~ to set a room's topic.
       -  ~ement-room-occur~ to search in a room's known events.
+      -  ~ement-room-override-name~ to override a room's display name.
       -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
       -  ~ement-room-set-message-format~ to set a room's message format buffer-locally.
       -  ~ement-directory~ to view a room directory.
@@ -201,6 +202,7 @@ These bindings are common to all of the following buffer types:
 + Set topic: ~r t~
 + Set message format: ~r f~
 + Set notification rules: ~r n~
++ Override display name: ~r N~
 + Tag/untag room: ~r T~
 
 *Room membership*

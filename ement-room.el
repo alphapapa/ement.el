@@ -1015,7 +1015,7 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
 ;;;; Commands
 
 (defun ement-room-override-name (name room session)
-  "Set NAME override for ROOM on SESSION.
+  "Set display NAME override for ROOM on SESSION.
 If NAME is the empty string, remove the override.
 
 Sets account-data event of type
