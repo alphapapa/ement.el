@@ -723,12 +723,14 @@ unseen user IDs to be input as well."
 	  selected-user))))
 
 (cl-defun ement-put-account-data
-    (session type data &key
+    (session type data &key room
              (then (lambda (received-data)
                      ;; Handle echoed-back account data event (the spec does not explain this,
                      ;; but see <https://github.com/matrix-org/matrix-react-sdk/blob/675b4271e9c6e33be354a93fcd7807253bd27fcd/src/settings/handlers/AccountSettingsHandler.ts#L150>).
                      ;; FIXME: Make session account-data a map instead of a list of events.
-                     (push received-data (ement-session-account-data session))
+                     (if room
+                         (push received-data (ement-room-account-data room))
+                       (push received-data (ement-session-account-data session)))
 
                      ;; NOTE: Commenting out this ement-debug form because a bug in Emacs
                      ;; causes this long string to be interpreted as the function's
@@ -738,10 +740,12 @@ unseen user IDs to be input as well."
                      ;;              (ement-user-id (ement-session-user session)) (json-encode data) received-data)
                      )))
   "Put account data of TYPE with DATA on SESSION.
-Also handle the echoed-back event."
+If ROOM, put it on that room's account data.  Also handle the
+echoed-back event."
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-session (user (cl-struct ement-user (id user-id)))) session)
-               (endpoint (format "user/%s/account_data/%s" (url-hexify-string user-id) type)))
+               (room-part (if room (format "/rooms/%s" (ement-room-id room)) ""))
+               (endpoint (format "user/%s%s/account_data/%s" (url-hexify-string user-id) room-part type)))
     (ement-api session endpoint :method 'put :data (json-encode data)
       :then then)))
 
