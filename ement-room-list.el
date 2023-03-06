@@ -475,7 +475,8 @@ To be called from `ement-after-initial-sync-hook'."
                                 )
   "Show a buffer listing Ement rooms, grouped with Taxy KEYS.
 The buffer is named BUFFER-NAME and is shown with
-DISPLAY-BUFFER-ACTION."
+DISPLAY-BUFFER-ACTION; or if DISPLAY-BUFFER-ACTION is nil, the
+buffer is not displayed."
   (interactive)
   (let (format-table column-sizes window-start)
     (cl-labels (;; (heading-face
@@ -603,7 +604,8 @@ DISPLAY-BUFFER-ACTION."
           (goto-char pos)
           (when (and section-ident (magit-get-section section-ident))
             (goto-char (oref (magit-get-section section-ident) start)))))
-      (display-buffer buffer-name display-buffer-action)
+      (when display-buffer-action
+        (display-buffer buffer-name display-buffer-action))
       (when (get-buffer-window buffer-name)
         (set-window-start (get-buffer-window buffer-name) window-start))
       ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
@@ -628,7 +630,7 @@ left."
 (defun ement-room-list-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Room-List buffer."
   (interactive)
-  (ement-room-list :display-buffer-action '(display-buffer-no-window (allow-no-window . t))))
+  (ement-room-list :display-buffer-action nil))
 
 (defun ement-room-list-mouse-1 (event)
   "Call `ement-room-list-RET' at EVENT."
@@ -686,11 +688,6 @@ left."
       (unless (region-active-p)
         ;; Don't refresh the list if the region is active (e.g. if the user is trying to
         ;; operate on multiple rooms).
-
-        ;; FIXME: This seems to redisplay the buffer even when it's buried.  But it
-        ;; shouldn't, because the revert function uses `display-buffer-no-window'.  But it
-        ;; doesn't always happen; it only seems to in certain circumstances, e.g. when the
-        ;; minibuffer is open, which should be unrelated to this.
         (revert-buffer)))))
 
 (defun ement-room-list--timestamp-colors ()
