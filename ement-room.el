@@ -157,6 +157,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "r t") #'ement-room-set-topic)
     (define-key map (kbd "r f") #'ement-room-set-message-format)
     (define-key map (kbd "r n") #'ement-room-set-notification-state)
+    (define-key map (kbd "r N") #'ement-room-override-name)
     (define-key map (kbd "r T") #'ement-tag-room)
 
     ;; Room membership
@@ -1012,6 +1013,26 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
                            (goto-char (point-max))))))
 
 ;;;; Commands
+
+(defun ement-room-override-name (name room session)
+  "Set NAME override for ROOM on SESSION.
+If NAME is the empty string, remove the override.
+
+Sets account-data event of type
+\"org.matrix.msc3015.m.room.name.override\".  This name is only
+used by clients that respect this proposed override.  See
+<https://github.com/matrix-org/matrix-spec-proposals/pull/3015#issuecomment-1451017296>."
+  (interactive (pcase-let* ((`(,room ,session) (ement-complete-room :suggest t))
+                            (name (read-string "Set name override: ")))
+                 (list name room session)))
+  (ement-put-account-data session "org.matrix.msc3015.m.room.name.override"
+    (if (string-empty-p name)
+        ;; `json-encode' wants an empty hash table to represent an empty map.  And
+        ;; apparently there's no way to DELETE account-data events, so we have to re-PUT
+        ;; it with empty content.
+        (make-hash-table)
+      (ement-alist "name" name))
+    :room room))
 
 (defun ement-room-flush-colors ()
   "Flush generated username/message colors.
@@ -2398,6 +2419,11 @@ function to `ement-room-event-fns', which see."
 
 (ement-room-defevent "m.room.avatar"
   (ement-room--insert-event event))
+
+(ement-room-defevent "org.matrix.msc3015.m.room.name.override"
+  (ignore event)
+  (setf (ement-room-display-name ement-room) (ement--room-display-name ement-room))
+  (rename-buffer (ement-room--buffer-name ement-room)))
 
 (ement-room-defevent "m.room.member"
   (with-silent-modifications
@@ -4245,6 +4271,14 @@ For use in `completion-at-point-functions'."
               ("r m" "List members" ement-list-members)
               ("r t" "Set topic" ement-room-set-topic)
               ("r f" "Set message format" ement-room-set-message-format)
+              ("r N" "Override name" ement-room-override-name
+               :description (lambda ()
+                              (format "Name override: %s"
+                                      (if-let* ((event (alist-get "org.matrix.msc3015.m.room.name.override"
+                                                                  (ement-room-account-data ement-room) nil nil #'equal))
+                                                (name (map-nested-elt event '(content name))))
+                                          (propertize name 'face 'transient-value)
+                                        (propertize "none" 'face 'transient-inactive-value)))))
               ("r n" "Set notification state" ement-room-set-notification-state
                :description (lambda ()
                               (let ((state (ement-room-notification-state ement-room ement-session)))

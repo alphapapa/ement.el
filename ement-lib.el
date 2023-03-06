@@ -1347,6 +1347,11 @@ Works in major-modes `ement-room-mode',
                (heroes joined)
                (format "%s, and %s others" (hero-names heroes)
                        (- joined (length heroes))))
+              (local-alias
+               () (when-let ((event (alist-get "org.matrix.msc3015.m.room.name.override"
+                                               (ement-room-account-data room)
+                                               nil nil #'equal)))
+                    (map-nested-elt event '(content name))))
               (empty-room
                (heroes joined) (cl-etypecase (length heroes)
                                  ((satisfies zerop) "Empty room")
@@ -1354,7 +1359,8 @@ Works in major-modes `ement-room-mode',
                                                        (hero-names heroes)))
                                  (t (format "Empty room (was %s)"
                                             (heroes-and-others heroes joined))))))
-    (or (latest-event "m.room.name" 'name)
+    (or (local-alias)
+        (latest-event "m.room.name" 'name)
         (latest-event "m.room.canonical_alias" 'alias)
         (heroes-name)
         (member-events-name)
