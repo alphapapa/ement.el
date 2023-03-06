@@ -461,7 +461,7 @@ a filter ID).  When unspecified, the value of
                                              (pcase (plz-response-status response)
                                                ((or 429 502) (setf reason "failed")))))
                                           ((pcase curl-error
-                                             (28 (setf reason "timed out")))))
+                                             (`(28 . ,_) (setf reason "timed out")))))
                                     (if reason
                                         (if (not ement-auto-sync)
                                             (run-hook-with-args 'ement-interrupted-sync-hook session)
