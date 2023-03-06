@@ -1347,7 +1347,7 @@ Works in major-modes `ement-room-mode',
                (heroes joined)
                (format "%s, and %s others" (hero-names heroes)
                        (- joined (length heroes))))
-              (local-alias
+              (name-override
                () (when-let ((event (alist-get "org.matrix.msc3015.m.room.name.override"
                                                (ement-room-account-data room)
                                                nil nil #'equal)))
@@ -1359,7 +1359,7 @@ Works in major-modes `ement-room-mode',
                                                        (hero-names heroes)))
                                  (t (format "Empty room (was %s)"
                                             (heroes-and-others heroes joined))))))
-    (or (local-alias)
+    (or (name-override)
         (latest-event "m.room.name" 'name)
         (latest-event "m.room.canonical_alias" 'alias)
         (heroes-name)
