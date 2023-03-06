@@ -990,7 +990,7 @@ suggested room."
                                  (when-let ((suggestion (ement--room-at-point)))
                                    (when (or (not predicate)
                                              (funcall predicate suggestion))
-                                     suggestion))))))
+                                     (ement--format-room suggestion 'topic)))))))
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (cl-defun ement-send-message (room session
@@ -1270,13 +1270,13 @@ IMAGE should be one as created by, e.g. `create-image'."
 Works in major-modes `ement-room-mode',
 `ement-tabulated-room-list-mode', and `ement-room-list-mode'."
   (pcase major-mode
-    ('ement-room-mode (ement--format-room ement-room 'topic))
-    ('ement-tabulated-room-list-mode (ement--format-room (tabulated-list-get-id) 'topic))
+    ('ement-room-mode ement-room)
+    ('ement-tabulated-room-list-mode (tabulated-list-get-id))
     ('ement-room-list-mode
      (cl-typecase (oref (magit-current-section) value)
        (taxy-magit-section nil)
        (t (pcase (oref (magit-current-section) value)
-            (`[,room ,_session] (ement--format-room room 'topic))))))))
+            (`[,room ,_session] room)))))))
 
 (defun ement--room-direct-p (room session)
   "Return non-nil if ROOM on SESSION is a direct chat."
