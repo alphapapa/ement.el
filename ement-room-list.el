@@ -470,13 +470,13 @@ To be called from `ement-after-initial-sync-hook'."
 ;;;###autoload
 (cl-defun ement-room-list (&key (buffer-name "*Ement Room List*")
                                 (keys ement-room-list-default-keys)
-                                (display-buffer-action '(display-buffer-same-window))
+                                (display-buffer-action '((display-buffer-reuse-window display-buffer-same-window)))
                                 ;; visibility-fn
                                 )
   "Show a buffer listing Ement rooms, grouped with Taxy KEYS.
-The buffer is named BUFFER-NAME and is shown with
-DISPLAY-BUFFER-ACTION; or if DISPLAY-BUFFER-ACTION is nil, the
-buffer is not displayed."
+After showing it, its window is selected.  The buffer is named
+BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
+DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
   (interactive)
   (let (format-table column-sizes window-start)
     (cl-labels (;; (heading-face
@@ -605,7 +605,8 @@ buffer is not displayed."
           (when (and section-ident (magit-get-section section-ident))
             (goto-char (oref (magit-get-section section-ident) start)))))
       (when display-buffer-action
-        (display-buffer buffer-name display-buffer-action))
+        (when-let ((window (display-buffer buffer-name display-buffer-action)))
+          (select-window window)))
       (when (get-buffer-window buffer-name)
         (set-window-start (get-buffer-window buffer-name) window-start))
       ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer

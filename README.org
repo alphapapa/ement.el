@@ -291,7 +291,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.8-pre
 
-Nothing new yet.
+*Changes*
+
++ Command ~ement-room-list~ reuses an existing window showing the room list when possible.  ([[https://github.com/alphapapa/ement.el/issues/131][#131]].  Thanks to [[https://github.com/jeffbowman][Jeff Bowman]] for suggesting.)
 
 ** 0.7
 
