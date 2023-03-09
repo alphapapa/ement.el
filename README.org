@@ -295,6 +295,10 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 + Command ~ement-room-list~ reuses an existing window showing the room list when possible.  ([[https://github.com/alphapapa/ement.el/issues/131][#131]].  Thanks to [[https://github.com/jeffbowman][Jeff Bowman]] for suggesting.)
 
+*Fixes*
+
++ Improve insertion of sender name headers when using the "Elemental" message format.
+
 ** 0.7
 
 *Additions*

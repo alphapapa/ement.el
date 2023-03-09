@@ -2832,7 +2832,7 @@ the first and last nodes in the buffer, respectively."
               ;; No previous node and event is a message: insert header.
               (insert-sender-before event-node)
             ;; Previous node exists.
-            (when (read-marker-p prev-node)
+            (when (read-marker-p (ewoc-data prev-node))
               ;; Previous node is a read marker: we want to act as if they don't exist, so
               ;; we set `prev-node' to the non-marker node before it.
               (setf prev-node (ement-room--ewoc-next-matching ewoc prev-node
