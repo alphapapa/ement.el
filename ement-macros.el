@@ -194,6 +194,22 @@ reporter's min-value to its max-value."
          (ement-debug (format "Ement: Progress reporter done (took %.2f seconds)"
                               (float-time (time-subtract (current-time) ,start-time-sym))))))))
 
+;;;;; Room-related macros
+
+(cl-defmacro ement-with-room-and-session (&rest body)
+  "Eval BODY with `ement-room' and `ement-session' bound.
+If in an `ement-room' buffer and `current-prefix-arg' is nil, use
+buffer-local value of `ement-room' and `ement-session';
+otherwise, prompt for them with `ement-complete-room'."
+  (declare (indent defun))
+  `(let ((ement-room ement-room)
+         (ement-session ement-session))
+     (when (or current-prefix-arg (not ement-room))
+       (pcase-let ((`(,room ,session) (ement-complete-room :suggest t)))
+         (setf ement-room room
+               ement-session session)))
+     ,@body))
+
 ;;;; Variables
 
 

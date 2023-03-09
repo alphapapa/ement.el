@@ -244,13 +244,13 @@ If UNIGNORE-P (interactively, with prefix), un-ignore USER."
               (message "Ement: User %s %s." user-id (if unignore-p "unignored" "ignored"))))))
 
 (defun ement-invite-user (user-id room session)
-  "Invite USER-ID to ROOM on SESSION."
+  "Invite USER-ID to ROOM on SESSION.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room."
   ;; SPEC: 10.4.2.1.
   (interactive
-   (let* ((session (ement-complete-session))
-          (user-id (ement-complete-user-id))
-          (room (car (ement-complete-room :session session))))
-     (list user-id room session)))
+   (ement-with-room-and-session
+     (list (ement-complete-user-id) ement-room ement-session)))
   (pcase-let* ((endpoint (format "rooms/%s/invite"
                                  (url-hexify-string (ement-room-id room))))
                (data (ement-alist "user_id" user-id) ))
@@ -263,9 +263,13 @@ If UNIGNORE-P (interactively, with prefix), un-ignore USER."
 
 (defun ement-list-members (room session bufferp)
   "Show members of ROOM on SESSION.
-If BUFFERP (interactively, with prefix), or if there are many
-members, show in a new buffer; otherwise show in echo area."
-  (interactive (list ement-room ement-session current-prefix-arg))
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.  If BUFFERP (interactively, with
+prefix), or if there are many members, show in a new buffer;
+otherwise show in echo area."
+  (interactive
+   (ement-with-room-and-session
+     (list ement-room ement-session current-prefix-arg)))
   (pcase-let* (((cl-struct ement-room members (local (map fetched-members-p))) room)
                (list-members
                 (lambda (&optional _)
@@ -386,16 +390,16 @@ Sets global displayname."
 
 (defun ement-room-set-display-name (display-name room session)
   "Set DISPLAY-NAME for user in ROOM on SESSION.
-Sets the name only in ROOM, not globally."
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.  Sets the name only in ROOM, not
+globally."
   (interactive
-   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
-                                         (list ement-room ement-session))
-                                       (ement-complete-room)))
-                (prompt (format "Set display-name in %S to: "
-                                (ement--format-room room)))
-                (display-name (read-string prompt nil nil
-                                           (ement-user-displayname (ement-session-user session)))))
-     (list display-name room session)))
+   (ement-with-room-and-session
+     (let* ((prompt (format "Set display-name in %S to: "
+                            (ement--format-room ement-room)))
+            (display-name (read-string prompt nil nil
+                                       (ement-user-displayname (ement-session-user ement-session)))))
+       (list display-name ement-room ement-session))))
   ;; NOTE: This does not seem to be documented in the spec, so we imitate the
   ;; "/myroomnick" command in SlashCommands.tsx from matrix-react-sdk.
   (pcase-let* (((cl-struct ement-room state) room)
@@ -426,9 +430,10 @@ Sets the name only in ROOM, not globally."
   "Ement-Describe-Room" "Major mode for `ement-describe-room' buffers.")
 
 (defun ement-describe-room (room session)
-  "Describe ROOM on SESSION."
-  (interactive (pcase-let ((`(,room ,session) (ement-complete-room :session ement-session)))
-                 (list room session)))
+  "Describe ROOM on SESSION.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room."
+  (interactive (ement-with-room-and-session (list ement-room ement-session)))
   (cl-labels ((heading (string)
                        (propertize (or string "") 'face 'font-lock-builtin-face))
               (id (string)
@@ -558,8 +563,9 @@ Returns one of nil (meaning default rules are used), `all-loud',
 
 (defun ement-room-set-notification-state (state room session)
   "Set notification STATE for ROOM on SESSION.
-STATE may be nil to set the rules to default, `all',
-`mentions-and-keywords', or `none'."
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.  STATE may be nil to set the rules to
+default, `all', `mentions-and-keywords', or `none'."
   ;; This merely attempts to reproduce the behavior of Element's simple notification
   ;; options.  It does not attempt to offer all of the features defined in the spec.  And,
   ;; yes, it is rather awkward, having to sometimes* make multiple requests of different
@@ -576,17 +582,15 @@ STATE may be nil to set the rules to default, `all',
 
   ;; TODO: Support `all-loud' ("all_messages_loud").
   (interactive
-   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
-                                         (list ement-room ement-session))
-                                       (ement-complete-room)))
-                (prompt (format "Set notification rules for %s: " (ement--format-room room)))
-                (available-states (ement-alist "Default" nil
-                                               "All messages" 'all
-                                               "Mentions and keywords" 'mentions-and-keywords
-                                               "None" 'none))
-                (selected-rule (completing-read prompt (mapcar #'car available-states) nil t))
-                (state (alist-get selected-rule available-states nil nil #'equal)))
-     (list state room session)))
+   (ement-with-room-and-session
+     (let* ((prompt (format "Set notification rules for %s: " (ement--format-room ement-room)))
+            (available-states (ement-alist "Default" nil
+                                           "All messages" 'all
+                                           "Mentions and keywords" 'mentions-and-keywords
+                                           "None" 'none))
+            (selected-rule (completing-read prompt (mapcar #'car available-states) nil t))
+            (state (alist-get selected-rule available-states nil nil #'equal)))
+       (list state ement-room ement-session))))
   (cl-labels ((set-rule (kind rule queue message-fn)
                         (pcase-let* (((cl-struct ement-room (id room-id)) room)
                                      (rule-id (url-hexify-string room-id))

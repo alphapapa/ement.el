@@ -113,7 +113,7 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
 
 1.  Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
 2.  Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
-3.  Use these commands:
+3.  Use these commands (room-related commands may be called with universal prefix to prompt for the room):
       -  ~ement-list-rooms~ to view the list of joined rooms.
       -  ~ement-view-room~ to view a room's buffer, selected with completion.
       -  ~ement-create-room~ to create a new room.
@@ -293,6 +293,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Changes*
 
++ Room-related commands may be called interactively with a universal prefix to prompt for the room/session (e.g. allowing to send events or change settings in rooms other than the current one).
 + Command ~ement-room-list~ reuses an existing window showing the room list when possible.  ([[https://github.com/alphapapa/ement.el/issues/131][#131]].  Thanks to [[https://github.com/jeffbowman][Jeff Bowman]] for suggesting.)
 
 *Fixes*

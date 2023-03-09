@@ -1016,15 +1016,19 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
 
 (defun ement-room-override-name (name room session)
   "Set display NAME override for ROOM on SESSION.
-If NAME is the empty string, remove the override.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.  If NAME is the empty string, remove
+the override.
 
 Sets account-data event of type
 \"org.matrix.msc3015.m.room.name.override\".  This name is only
 used by clients that respect this proposed override.  See
 <https://github.com/matrix-org/matrix-spec-proposals/pull/3015#issuecomment-1451017296>."
-  (interactive (pcase-let* ((`(,room ,session) (ement-complete-room :suggest t))
-                            (name (read-string "Set name override: ")))
-                 (list name room session)))
+  (interactive
+   (ement-with-room-and-session
+     (let* ((prompt (format "Set name override (%s): " (ement--format-room ement-room)))
+            (name (read-string prompt nil nil (ement-room-display-name ement-room))))
+       (list name ement-room ement-session))))
   (ement-put-account-data session "org.matrix.msc3015.m.room.name.override"
     (if (string-empty-p name)
         ;; `json-encode' wants an empty hash table to represent an empty map.  And
@@ -1170,11 +1174,14 @@ option."
 
 (defun ement-room-set-topic (session room topic)
   "Set ROOM's TOPIC on SESSION.
-Interactively, set the current buffer's ROOM's TOPIC."
-  (interactive (list ement-session ement-room
-                     (read-string (format "New topic (%s): "
-                                          (ement-room-display-name ement-room))
-                                  (ement-room-topic ement-room) nil nil 'inherit-input-method)))
+Interactively, with prefix, prompt for room and session,
+otherwise use current room."
+  (interactive
+   (ement-with-room-and-session
+     (list ement-session ement-room
+           (read-string (format "New topic (%s): "
+                                (ement-room-display-name ement-room))
+                        (ement-room-topic ement-room) nil nil 'inherit-input-method))))
   (pcase-let* (((cl-struct ement-room (id room-id) display-name) room)
                (endpoint (format "rooms/%s/state/m.room.topic" (url-hexify-string room-id)))
                (data (ement-alist "topic" topic)))
@@ -1183,14 +1190,18 @@ Interactively, set the current buffer's ROOM's TOPIC."
               (message "Topic set (%s): %s" display-name topic)))))
 
 (cl-defun ement-room-send-file (file body room session &key (msgtype "m.file"))
-  "Send FILE to ROOM on SESSION, using message BODY and MSGTYPE."
+  "Send FILE to ROOM on SESSION, using message BODY and MSGTYPE.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room."
   ;; TODO: Support URLs to remote files.
-  (interactive (ement-room-with-typing
-                 (let* ((file (read-file-name (format "Send file (%s): " (ement-room-display-name ement-room))
-                                              nil nil 'confirm))
-                        (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                                      (file-name-nondirectory file) nil nil 'inherit-input-method)))
-                   (list file body ement-room ement-session))))
+  (interactive
+   (ement-with-room-and-session
+     (ement-room-with-typing
+       (let* ((file (read-file-name (format "Send file (%s): " (ement-room-display-name ement-room))
+                                    nil nil 'confirm))
+              (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                            (file-name-nondirectory file) nil nil 'inherit-input-method)))
+         (list file body ement-room ement-session)))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
   (when (yes-or-no-p (format "Upload file %S to room %S? "
@@ -1223,14 +1234,18 @@ Interactively, set the current buffer's ROOM's TOPIC."
                                            :room room :session session :content content :data))))))))
 
 (defun ement-room-send-image (file body room session)
-  "Send image FILE to ROOM on SESSION, using message BODY."
+  "Send image FILE to ROOM on SESSION, using message BODY.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room."
   ;; TODO: Support URLs to remote files.
-  (interactive (ement-room-with-typing
-                 (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
-                                              nil nil 'confirm))
-                        (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                                      (file-name-nondirectory file) nil nil 'inherit-input-method)))
-                   (list file body ement-room ement-session))))
+  (interactive
+   (ement-with-room-and-session
+     (ement-room-with-typing
+       (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
+                                    nil nil 'confirm))
+              (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
+                                            (file-name-nondirectory file) nil nil 'inherit-input-method)))
+         (list file body ement-room ement-session)))))
   (ement-room-send-file file body room session :msgtype "m.image"))
 
 (defun ement-room-dnd-upload-file (uri _action)
@@ -1548,6 +1563,9 @@ EVENT should be an `ement-event' or `ement-room-membership-events' struct."
 
 (cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.
+
 REPLYING-TO-EVENT may be an event the message is in reply to; the
 message will reference it appropriately.
 
@@ -1555,15 +1573,13 @@ If `ement-room-send-message-filter' is non-nil, the message's
 content alist is passed through it before sending.  This may be
 used to, e.g. process the BODY into another format and add it to
 the content (e.g. see `ement-room-send-org-filter')."
-  (interactive (progn
-                 (cl-assert ement-room) (cl-assert ement-session)
-                 (let* ((room ement-room)
-                        (session ement-session)
-                        (prompt (format "Send message (%s): " (ement-room-display-name room)))
-                        (body (ement-room-with-typing
-                                (ement-room-read-string prompt nil nil nil
-                                                        'inherit-input-method))))
-                   (list room session :body body))))
+  (interactive
+   (ement-with-room-and-session
+     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+            (body (ement-room-with-typing
+                    (ement-room-read-string prompt nil nil nil
+                                            'inherit-input-method))))
+       (list ement-room ement-session :body body))))
   (ement-send-message room session :body body :formatted-body formatted-body
     :replying-to-event replying-to-event :filter ement-room-send-message-filter
     :then #'ement-room-send-event-callback)
@@ -1582,20 +1598,20 @@ the content (e.g. see `ement-room-send-org-filter')."
 
 (cl-defun ement-room-send-emote (room session &key body)
   "Send emote to ROOM on SESSION with BODY.
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.
 
 If `ement-room-send-message-filter' is non-nil, the message's
 content alist is passed through it before sending.  This may be
 used to, e.g. process the BODY into another format and add it to
 the content (e.g. see `ement-room-send-org-filter')."
-  (interactive (progn
-                 (cl-assert ement-room) (cl-assert ement-session)
-                 (let* ((room ement-room)
-                        (session ement-session)
-                        (prompt (format "Send emote (%s): " (ement-room-display-name room)))
-                        (body (ement-room-with-typing
-                                (ement-room-read-string prompt nil nil nil
-                                                        'inherit-input-method))))
-                   (list room session :body body))))
+  (interactive
+   (ement-with-room-and-session
+     (let* ((prompt (format "Send emote (%s): " (ement-room-display-name ement-room)))
+            (body (ement-room-with-typing
+                    (ement-room-read-string prompt nil nil nil
+                                            'inherit-input-method))))
+       (list ement-room ement-session :body body))))
   (cl-assert (not (string-empty-p body)))
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
                (window (when buffer (get-buffer-window buffer)))
@@ -3447,11 +3463,12 @@ HTML is rendered to Emacs text using `shr-insert-document'."
 
 (cl-defun ement-room-compose-message (room session &key body)
   "Compose a message to ROOM on SESSION.
-Interactively, compose to the current buffer's room.  With BODY,
-use it as the initial message contents."
-  (interactive (progn
-                 (cl-assert ement-room) (cl-assert ement-session)
-                 (list ement-room ement-session)))
+Interactively, with prefix, prompt for room and session,
+otherwise use current room.  With BODY, use it as the initial
+message contents."
+  (interactive
+   (ement-with-room-and-session
+     (list ement-room ement-session)))
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement--room-display-name ement-room))))
          (send-message-filter ement-room-send-message-filter))
     (with-current-buffer compose-buffer
