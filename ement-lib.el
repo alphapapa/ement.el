@@ -346,30 +346,38 @@ new one automatically if necessary."
                 (message "Room \"%s\" created for user %s.  Sending message..."
 	                 room-id user-id))))))
 
-(defun ement-tag-room (tag room session &optional delete)
-  "Add TAG to ROOM on SESSION.
-If DELETE (interactively, with prefix), delete it."
+(defun ement-tag-room (tag room session)
+  "Toggle TAG for ROOM on SESSION."
   (interactive
-   (pcase-let* ((`(,room ,session) (or (when (bound-and-true-p ement-room)
-                                         (list ement-room ement-session))
-                                       (ement-complete-room)))
-                (prompt (if current-prefix-arg "Delete tag: " "Add tag: "))
-                (default-tags (ement-alist "Favourite" "m.favourite"
-                                           "Low-priority" "m.lowpriority"))
-                (input (completing-read prompt default-tags))
-                (tag (alist-get input default-tags (concat "u." input) nil #'string=)))
-     (list tag room session current-prefix-arg)))
+   (ement-with-room-and-session
+     (let* ((prompt (format "Toggle tag (%s): " (ement--format-room ement-room)))
+            (default-tags
+              (ement-alist (propertize "Favourite"
+                                       'face (when (ement--room-tagged-p "m.favourite" ement-room)
+                                               'transient-value))
+                           "m.favourite"
+                           (propertize "Low-priority"
+                                       'face (when (ement--room-tagged-p "m.lowpriority" ement-room)
+                                               'transient-value))
+                           "m.lowpriority"))
+            (input (completing-read prompt default-tags))
+            (tag (alist-get input default-tags (concat "u." input) nil #'string=)))
+       (list tag ement-room ement-session))))
   (pcase-let* (((cl-struct ement-session user) session)
                ((cl-struct ement-user (id user-id)) user)
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "user/%s/rooms/%s/tags/%s"
                                  (url-hexify-string user-id) (url-hexify-string room-id) (url-hexify-string tag)))
-               (method (if delete 'delete 'put)))
+               (method (if (ement--room-tagged-p tag room) 'delete 'put)))
     ;; TODO: "order".
     ;; FIXME: Removing a tag on a left room doesn't seem to work (e.g. to unfavorite a room after leaving it, but not forgetting it).
-    (ement-api session endpoint :version "v3" :method method :data (unless delete "{}")
-      :then (lambda (data)
-              (ement-debug "Changed tag on room" method tag data room)))))
+    (ement-api session endpoint :version "v3" :method method :data (pcase method ('put "{}"))
+      :then (lambda (_)
+              (ement-message "%s tag %S on %s"
+                             (pcase method
+                               ('delete "Removed")
+                               ('put "Added"))
+                             tag (ement--format-room room)) ))))
 
 (defun ement-set-display-name (display-name session)
   "Set DISPLAY-NAME for user on SESSION.

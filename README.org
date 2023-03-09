@@ -121,7 +121,7 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
       -  ~ement-join-room~ to join a room.
       -  ~ement-leave-room~ to leave a room.
       -  ~ement-forget-room~ to forget a room.
-      -  ~ement-tag-room~ to add (or with interactive prefix, remove) a tag on a room (including favorite/low-priority status).
+      -  ~ement-tag-room~ to toggle a tag on a room (including favorite/low-priority status).
       -  ~ement-list-members~ to list members in a room.
       -  ~ement-send-direct-message~ to send a direct message to a user (in an existing direct room, or creating a new one automatically).
       -  ~ement-room-edit-message~ to edit a message at point.
@@ -295,6 +295,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 + Room-related commands may be called interactively with a universal prefix to prompt for the room/session (e.g. allowing to send events or change settings in rooms other than the current one).
 + Command ~ement-room-list~ reuses an existing window showing the room list when possible.  ([[https://github.com/alphapapa/ement.el/issues/131][#131]].  Thanks to [[https://github.com/jeffbowman][Jeff Bowman]] for suggesting.)
++ Command ~ement-tag-room~ toggles tags (rather than adding by default and removing when called with a prefix).
 
 *Fixes*
 
