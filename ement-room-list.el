@@ -40,12 +40,15 @@
 
 ;;;; Variables
 
+(declare-function ement-room-toggle-space "ement-room")
+
 (defvar ement-room-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ement-room-list-RET)
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
     (define-key map [tab] #'ement-room-list-section-toggle)
     (define-key map [mouse-1] #'ement-room-list-mouse-1)
+    (define-key map (kbd "s") #'ement-room-toggle-space)
     map))
 
 (defvar ement-room-list-timestamp-colors nil

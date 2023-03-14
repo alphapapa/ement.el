@@ -786,9 +786,55 @@ USER is an `ement-user' struct."
 ;; These functions aren't expected to be called by code in other packages (but if that
 ;; were necessary, they could be renamed accordingly).
 
+;; (defun ement--room-routing (room)
+;;   "Return a list of servers to route to ROOM through."
+;;   ;; See <https://spec.matrix.org/v1.2/appendices/#routing>.
+;;   ;; FIXME: Ensure highest power level user is at least level 50.
+;;   ;; FIXME: Ignore servers blocked due to server ACLs.
+;;   ;; FIXME: Ignore servers which are IP addresses.
+;;   (cl-labels ((most-powerful-user-in
+;;                (room))
+;;               (servers-by-population-in
+;;                (room))
+;;               (server-of (user)))
+;;     (let (first-server-by-power-level)
+;;       (delete-dups
+;;        (remq nil
+;;              (list
+;;               ;; 1.
+;;               (or (when-let ((user (most-powerful-user-in room)))
+;;                     (setf first-server-by-power-level t)
+;;                     (server-of user))
+;;                   (car (servers-by-population-in room)))
+;;               ;; 2.
+;;               (if first-server-by-power-level
+;;                   (car (servers-by-population-in room))
+;;                 (cl-second (servers-by-population-in room)))
+;;               ;; 3.
+;;               (cl-third (servers-by-population-in room))))))))
+
 (defun ement--room-space-p (room)
   "Return non-nil if ROOM is a space."
   (equal "m.space" (ement-room-type room)))
+
+(defun ement--room-in-space-p (room space)
+  "Return non-nil if ROOM is in SPACE on SESSION."
+  ;; We could use `ement---room-spaces', but since that returns rooms by looking them up
+  ;; by ID in the session's rooms list, this is more efficient.
+  (pcase-let* (((cl-struct ement-room (id parent-id) (local (map children))) space)
+               ((cl-struct ement-room (id child-id) (local (map parents))) room))
+    (or (member parent-id parents)
+        (member child-id children))))
+
+(defun ement--room-spaces (room session)
+  "Return list of ROOM's parent spaces on SESSION."
+  ;; NOTE: This only looks in the room's parents list; it doesn't look in every space's children
+  ;; list.  This should be good enough, assuming we add to the lists correctly elsewhere.
+  (pcase-let* (((cl-struct ement-session rooms) session)
+               ((cl-struct ement-room (local (map parents))) room))
+    (cl-remove-if-not (lambda (session-room-id)
+                        (member session-room-id parents))
+                      rooms :key #'ement-room-id)))
 
 (cl-defun ement--prism-color (string &key (contrast-with (face-background 'default nil 'default)))
   "Return a computed color for STRING.

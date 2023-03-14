@@ -166,6 +166,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "R l") #'ement-leave-room)
     (define-key map (kbd "R F") #'ement-forget-room)
     (define-key map (kbd "R n") #'ement-room-set-display-name)
+    (define-key map (kbd "R s") #'ement-room-toggle-space)
 
     ;; Other
     (define-key map (kbd "g") #'ement-room-sync)
@@ -1811,6 +1812,52 @@ reaction string, e.g. \"👍\"."
   (save-excursion
     (goto-char (button-start button))
     (call-interactively #'ement-room-toggle-reaction)))
+
+(defun ement-room-toggle-space (room space session)
+  ;; Naming things is hard, but this seems the best balance between concision, ambiguity,
+  ;; and consistency.  The docstring is always there.  (Or there's the sci-fi angle:
+  ;; "spacing" a room...)
+  "Toggle ROOM's membership in SPACE on SESSION."
+  (interactive
+   (ement-with-room-and-session
+     :room-form (ement-complete-room :session ement-session
+                  :predicate (lambda (room) (not (ement--room-space-p room))) )
+     (pcase-let* ((prompt (format "Toggle room %S's membership in space: "
+                                  (ement--format-room ement-room)))
+                  ;; TODO: Use different face for spaces the room is already in.
+                  (`(,space ,_session) (ement-complete-room :session ement-session :prompt prompt :suggest nil
+                                         :predicate #'ement--room-space-p)))
+       (list ement-room space ement-session))))
+  (pcase-let* (((cl-struct ement-room (id child-id)) room)
+               (routing-server (progn
+                                 (string-match (rx (1+ (not (any ":"))) ":" (group (1+ anything))) child-id)
+                                 (match-string 1 child-id)))
+               (action (if (ement--room-in-space-p room space)
+                           'remove 'add))
+               (data (pcase action
+                       ('add (ement-alist "via" (vector
+                                                 ;; FIXME: Finish and use the routing function.
+                                                 ;; (ement--room-routing room)
+                                                 routing-server)))
+                       ('remove (make-hash-table)))))
+    (ement-put-state space "m.space.child" child-id data session
+      :then (lambda (response-data)
+              ;; It appears that the server doesn't send the new event in the next sync (at
+              ;; least, not to the client that put the state), so we must simulate receiving it.
+              (pcase-let* (((map event_id) response-data)
+                           ((cl-struct ement-session user) session)
+                           ((cl-struct ement-room (id child-id)) room)
+                           (fake-event (make-ement-event :id event_id :type "m.space.child"
+                                                         :sender user :state-key child-id
+                                                         :content (json-read-from-string (json-encode data)))))
+                (push fake-event (ement-room-timeline space))
+                (run-hook-with-args 'ement-event-hook fake-event space session))
+              (ement-message "Room %S %s space %S"
+                             (ement--format-room room)
+                             (pcase action
+                               ('add "added to")
+                               ('remove "removed from"))
+                             (ement--format-room space))))))
 
 ;;;; Functions
 
@@ -4340,7 +4387,18 @@ For use in `completion-at-point-functions'."
                                       (propertize (ement--user-displayname-in
                                                    ement-room (gethash (ement-user-id (ement-session-user ement-session))
                                                                        ement-users))
-                                                  'face 'transient-value))))]]
+                                                  'face 'transient-value))))
+              ("R s" "Toggle spaces" ement-room-toggle-space
+               :description (lambda ()
+                              (format "Toggle spaces (%s)"
+                                      (if-let ((spaces (ement--room-spaces ement-room ement-session)))
+                                          (string-join
+                                           (mapcar (lambda (space)
+                                                     (propertize (ement-room-display-name space)
+                                                                 'face 'transient-value))
+                                                   spaces)
+                                           ", ")
+                                        (propertize "none" 'face 'transient-inactive-value)))))]]
   ["Other"
    ("v" "View event" ement-room-view-event)
    ("g" "Sync new messages" ement-room-sync
