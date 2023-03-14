@@ -272,18 +272,37 @@ from recent to non-recent for rooms updated in the past hour.")
       "Low-priority")))
 
 (defcustom ement-room-list-default-keys
-  '((space-p space)
+  '(;; First, group all invitations (this group will appear first since the rooms are
+    ;; already sorted first).
     ((membership :status 'invite))
-    (favourite)
-    (buffer)
+    ;; Group all left rooms (this group will appear last, because the rooms are already
+    ;; sorted last).
     ((membership :status 'leave))
-    (low-priority)
+    ;; Group all favorite rooms, which are already sorted first.
+    (favourite)
+    ;; Group all low-priority rooms, which are already sorted last, and within that group,
+    ;; group them by their space, if any.
+    (low-priority space)
+    ;; Group other rooms which are opened in a buffer.
+    (buffer)
+    ;; Group other rooms which are unread.
     (unread)
-    ((latest :name "Last 24h" :newer-than 86400))
-    (latest :name "Older than 90d" :older-than (* 86400 90))
-    people
-    freshness
-    (space))
+    ;; Group other rooms which are in a space by freshness, then by space.
+    ((and :name "Spaced"
+          :keys ((not space-p)
+                 space))
+     freshness space)
+    ;; Group spaces themselves by their parent space (since space headers can't also be
+    ;; items, we have to handle them separately; a bit of a hack, but not too bad).
+    ((and :name "Spaces" :keys (space-p))
+     space)
+    ;; Group rooms which aren't in spaces by their freshness.
+    ((and :name "Unspaced"
+          :keys ((not space)
+                 (not people)))
+     freshness)
+    ;; Group direct rooms by freshness.
+    (people freshness))
   "Default keys."
   :type 'sexp)
 
