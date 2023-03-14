@@ -49,6 +49,7 @@
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
     (define-key map [tab] #'ement-room-list-section-toggle)
     (define-key map [mouse-1] #'ement-room-list-mouse-1)
+    (define-key map (kbd "k") #'ement-room-list-kill-buffer)
     (define-key map (kbd "s") #'ement-room-toggle-space)
     map))
 
@@ -667,6 +668,18 @@ left."
     ;; default name, not any special ones with different names.
     (setf ement-room-list-visibility-cache magit-section-visibility-cache))
   (ement-room-list :display-buffer-action nil))
+
+(defun ement-room-list-kill-buffer (room)
+  "Kill ROOM's buffer."
+  (interactive
+   (ement-with-room-and-session
+     (ignore ement-session)
+     (list ement-room)))
+  (pcase-let (((cl-struct ement-room (local (map buffer))) room)
+              (kill-buffer-query-functions))
+    (when (buffer-live-p buffer)
+      (kill-buffer buffer)
+      (ement-room-list-revert))))
 
 (defun ement-room-list-mouse-1 (event)
   "Call `ement-room-list-RET' at EVENT."

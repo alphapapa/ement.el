@@ -224,6 +224,7 @@ These bindings are common to all of the following buffer types:
 +  Show buffer of next unread room: ~SPC~
 +  Move between room names: ~TAB~ / ~<backtab>~
 
++  Kill room's buffer: ~k~
 +  Toggle room's membership in a space: ~s~
 
 *** Directory buffers
@@ -298,6 +299,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Additions*
 + Command ~ement-room-toggle-space~ toggles a room's membership in a space (a way to group rooms in Matrix).
 + Visibility of sections in the room list is saved across sessions.
++ Command ~ement-room-list-kill-buffer~ kills a room's buffer from the room list.
 
 *Changes*
 
