@@ -224,7 +224,7 @@ These bindings are common to all of the following buffer types:
 +  Show buffer of next unread room: ~SPC~
 +  Move between room names: ~TAB~ / ~<backtab>~
 
-+  Toggle room's spaces: ~s~
++  Toggle room's membership in a space: ~s~
 
 *** Directory buffers
 
