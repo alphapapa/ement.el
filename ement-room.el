@@ -1820,8 +1820,8 @@ reaction string, e.g. \"👍\"."
   "Toggle ROOM's membership in SPACE on SESSION."
   (interactive
    (ement-with-room-and-session
-     :room-form (ement-complete-room :session ement-session
-                  :predicate (lambda (room) (not (ement--room-space-p room))) )
+     :prompt-form (ement-complete-room :session ement-session
+                    :predicate (lambda (room) (not (ement--room-space-p room))) )
      (pcase-let* ((prompt (format "Toggle room %S's membership in space: "
                                   (ement--format-room ement-room)))
                   ;; TODO: Use different face for spaces the room is already in.

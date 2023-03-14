@@ -198,25 +198,30 @@ reporter's min-value to its max-value."
 
 (cl-defmacro ement-with-room-and-session (&rest body)
   "Eval BODY with `ement-room' and `ement-session' bound.
-If in an `ement-room' buffer and `current-prefix-arg' is nil, use
-buffer-local value of `ement-room' and `ement-session';
-otherwise, prompt for them with `ement-complete-room'.
+If in an `ement-room-list-mode' buffer and `current-prefix-arg'
+is nil, use the room and session at point.  If in an `ement-room'
+buffer and `current-prefix-arg' is nil, use buffer-local value of
+`ement-room' and `ement-session'.  Otherwise, prompt for them
+with `ement-complete-room' or that given with :prompt-form.
 
 BODY may begin with property list arguments, including:
 
-  :room-form  A Lisp form evaluated for the binding of
-              `ement-room'."
+  :prompt-form  A Lisp form evaluated for the binding of
+                `ement-room'."
   (declare (indent defun))
   (pcase-let* ((plist (cl-loop while (keywordp (car body))
                                append (list (car body) (cadr body))
                                and do (setf body (cddr body))))
-               ((map :room-form) plist)
-               (room-form (or room-form
-                              '(ement-complete-room :suggest t))))
-    `(let ((ement-room ement-room)
-           (ement-session ement-session))
+               ((map :prompt-form) plist)
+               (prompt-form (or prompt-form
+                                '(ement-complete-room :suggest t))))
+    `(pcase-let* ((`[,list-room ,list-session] (if (eq 'ement-room-list-mode major-mode)
+                                                   (oref (magit-current-section) value)
+                                                 [nil nil]))
+                  (ement-room (or list-room ement-room))
+                  (ement-session (or list-session ement-session)))
        (when (or current-prefix-arg (not ement-room))
-         (pcase-let ((`(,room ,session) ,room-form))
+         (pcase-let ((`(,room ,session) ,prompt-form))
            (setf ement-room room
                  ement-session session)))
        ,@body)))
