@@ -584,7 +584,9 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                (taxy (cl-macrolet ((first-item
                                     (pred) `(lambda (taxy)
                                               (when (taxy-items taxy)
-                                                (,pred (car (taxy-items taxy)))))))
+                                                (,pred (car (taxy-items taxy))))))
+                                   (name= (name) `(lambda (taxy)
+                                                    (equal ,name (taxy-name taxy)))))
                        (thread-last
                          (make-fn
                           :name "Ement Rooms"
@@ -603,12 +605,12 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                          (taxy-sort #'t>nil #'item-left-p)
                          (taxy-sort* #'string< #'taxy-name)
                          (taxy-sort* #'> #'taxy-latest-ts)
+                         (taxy-sort* #'t<nil (name= "Buffers"))
                          (taxy-sort* #'t<nil (first-item item-unread-p))
                          (taxy-sort* #'t<nil (first-item item-favourite-p))
                          (taxy-sort* #'t<nil (first-item item-invited-p))
-                         (taxy-sort* #'t<nil (first-item item-buffer-p))
                          (taxy-sort* #'t>nil (first-item item-space-p))
-                         (taxy-sort* #'t>nil (first-item item-low-priority-p))
+                         (taxy-sort* #'t>nil (name= "Low-priority"))
                          (taxy-sort* #'t>nil (first-item item-left-p)))))
                (taxy-magit-section-insert-indent-items nil)
                (inhibit-read-only t)
