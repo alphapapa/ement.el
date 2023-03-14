@@ -662,6 +662,10 @@ left."
 (defun ement-room-list-revert (_ignore-auto _noconfirm)
   "Revert current Ement-Room-List buffer."
   (interactive)
+  (with-current-buffer "*Ement Room List*"
+    ;; FIXME: This caching of the visibility only supports the main buffer with the
+    ;; default name, not any special ones with different names.
+    (setf ement-room-list-visibility-cache magit-section-visibility-cache))
   (ement-room-list :display-buffer-action nil))
 
 (defun ement-room-list-mouse-1 (event)
