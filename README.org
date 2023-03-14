@@ -297,6 +297,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Additions*
 + Command ~ement-room-toggle-space~ toggles a room's membership in a space (a way to group rooms in Matrix).
++ Visibility of sections in the room list is saved across sessions.
 
 *Changes*
 

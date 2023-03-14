@@ -28,6 +28,7 @@
 (require 'button)
 (require 'rx)
 
+(require 'persist)
 (require 'svg-lib)
 (require 'taxy)
 (require 'taxy-magit-section)
@@ -57,6 +58,11 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 (defvar ement-sessions)
 (defvar ement-room-prism-minimum-contrast)
+
+;;;;; Persistent variables
+
+(persist-defvar ement-room-list-visibility-cache nil
+                "Applied to `magit-section-visibility-cache', which see.")
 
 ;;;; Customization
 
@@ -598,6 +604,9 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                 window-start (if (get-buffer-window buffer-name)
                                  (window-start (get-buffer-window buffer-name))
                                0))
+          (when ement-room-list-visibility-cache
+            (setf magit-section-visibility-cache ement-room-list-visibility-cache))
+          (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
           (delete-all-overlays)
           (erase-buffer)
           (save-excursion
@@ -680,6 +689,15 @@ left."
               ement-room-list-timestamp-colors (ement-room-list--timestamp-colors)))
 
 ;;;; Functions
+
+(defun ement-room-list--cache-visibility ()
+  "Save visibility cache.
+Sets `ement-room-list-visibility-cache' to the value of
+`magit-section-visibility-cache'.  To be called in
+`kill-buffer-hook'."
+  (ignore-errors
+    (when magit-section-visibility-cache
+      (setf ement-room-list-visibility-cache magit-section-visibility-cache))))
 
 ;;;###autoload
 (defun ement-room-list-auto-update (_session)
