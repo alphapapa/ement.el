@@ -1861,6 +1861,8 @@ reaction string, e.g. \"👍\"."
 
 ;;;; Functions
 
+(declare-function magit-current-section "magit-section")
+
 (defun ement-room-view (room session)
   "Switch to a buffer showing ROOM on SESSION.
 Uses action `ement-view-room-display-buffer-action', which see."

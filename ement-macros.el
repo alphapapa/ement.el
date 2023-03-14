@@ -196,6 +196,9 @@ reporter's min-value to its max-value."
 
 ;;;;; Room-related macros
 
+;; Prevent compiler from complaining that `value' is an unknown slot.
+(require 'magit-section)
+
 (cl-defmacro ement-with-room-and-session (&rest body)
   "Eval BODY with `ement-room' and `ement-session' bound.
 If in an `ement-room-list-mode' buffer and `current-prefix-arg'

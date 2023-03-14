@@ -57,6 +57,8 @@
   "List of colors used for timestamps.
 Set automatically when `ement-room-list-mode' is activated.")
 
+(defvar ement-room)
+(defvar ement-session)
 (defvar ement-sessions)
 (defvar ement-room-prism-minimum-contrast)
 
