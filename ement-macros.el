@@ -200,15 +200,26 @@ reporter's min-value to its max-value."
   "Eval BODY with `ement-room' and `ement-session' bound.
 If in an `ement-room' buffer and `current-prefix-arg' is nil, use
 buffer-local value of `ement-room' and `ement-session';
-otherwise, prompt for them with `ement-complete-room'."
+otherwise, prompt for them with `ement-complete-room'.
+
+BODY may begin with property list arguments, including:
+
+  :room-form  A Lisp form evaluated for the binding of
+              `ement-room'."
   (declare (indent defun))
-  `(let ((ement-room ement-room)
-         (ement-session ement-session))
-     (when (or current-prefix-arg (not ement-room))
-       (pcase-let ((`(,room ,session) (ement-complete-room :suggest t)))
-         (setf ement-room room
-               ement-session session)))
-     ,@body))
+  (pcase-let* ((plist (cl-loop while (keywordp (car body))
+                               append (list (car body) (cadr body))
+                               and do (setf body (cddr body))))
+               ((map :room-form) plist)
+               (room-form (or room-form
+                              '(ement-complete-room :suggest t))))
+    `(let ((ement-room ement-room)
+           (ement-session ement-session))
+       (when (or current-prefix-arg (not ement-room))
+         (pcase-let ((`(,room ,session) ,room-form))
+           (setf ement-room room
+                 ement-session session)))
+       ,@body)))
 
 ;;;; Variables
 
