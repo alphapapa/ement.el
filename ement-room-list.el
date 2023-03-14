@@ -659,7 +659,7 @@ left."
                               (window-parameters
 			       (no-delete-other-windows . t))))))
 
-(defun ement-room-list-revert (_ignore-auto _noconfirm)
+(defun ement-room-list-revert (&optional _ignore-auto _noconfirm)
   "Revert current Ement-Room-List buffer."
   (interactive)
   (with-current-buffer "*Ement Room List*"
