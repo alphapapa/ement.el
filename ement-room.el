@@ -483,6 +483,12 @@ Note that margin sizes must be set manually with
   "Number of messages to retrieve when loading earlier messages."
   :type 'integer)
 
+(defcustom ement-room-timestamp-headers t
+  "Insert timestamp headers.
+Timestamp headers can be formatted using `ement-room-timestamp-header-format'
+and `ement-room-timestamp-header-with-date-format'."
+  :type 'boolean)
+
 (defcustom ement-room-timestamp-header-format " %H:%M "
   "Format string for timestamp headers where date is unchanged.
 See function `format-time-string'.  If this string ends in a
@@ -2809,59 +2815,60 @@ PREDICATE is called with the full node."
   "Insert timestamp headers into current buffer's `ement-ewoc'.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (let* ((type-predicate (lambda (node-data)
-                           (and (ement-event-p node-data)
-                                (not (equal "m.room.member" (ement-event-type node-data))))))
-         (ewoc ement-ewoc)
-         (end-node (or end-node
-                       (ewoc-nth ewoc -1)))
-         (end-pos (if end-node
-                      (ewoc-location end-node)
-                    ;; HACK: Trying to work around a bug in case the
-                    ;; room doesn't seem to have any events yet.
-                    (point-max)))
-         (node-b (or start-node (ewoc-nth ewoc 0)))
-         node-a)
-    ;; On the first loop iteration, node-a is set to the first matching
-    ;; node after node-b; then it's set to the first node after node-a.
-    (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) type-predicate)
-                      node-b (when node-a
-                               (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
-                (not (or (> (ewoc-location node-a) end-pos)
-                         (when node-b
-                           (> (ewoc-location node-b) end-pos)))))
-      (cl-labels ((format-event
-                   (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
-                                   (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
-                                   (format-time-string "%Y-%m-%d %H:%M:%S"
-                                                       (/ (ement-event-origin-server-ts (ewoc-data event)) 1000))
-                                   (ement-user-id (ement-event-sender (ewoc-data event)))
-                                   (when (alist-get 'body (ement-event-content (ewoc-data event)))
-                                     (substring-no-properties
-                                      (truncate-string-to-width (alist-get 'body (ement-event-content (ewoc-data event))) 20))))))
-        (ement-debug "Comparing event timestamps:"
-                     (list 'A (format-event node-a))
-                     (list 'B (format-event node-b))))
-      ;; NOTE: Matrix timestamps are in milliseconds.
-      (let* ((a-ts (/ (ement-event-origin-server-ts (ewoc-data node-a)) 1000))
-             (b-ts (/ (ement-event-origin-server-ts (ewoc-data node-b)) 1000))
-             (diff-seconds (- b-ts a-ts))
-             (ement-room-timestamp-header-format ement-room-timestamp-header-format))
-        (when (and (>= diff-seconds ement-room-timestamp-header-delta)
-                   (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
-                          (pcase (ewoc-data node-after-a)
-                            (`(ts . ,_) t)
-                            ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t)))))
-          (unless (equal (time-to-days a-ts) (time-to-days b-ts))
-            ;; Different date: bind format to print date.
-            (let ((ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
-              ;; Insert the date-only header.
-              (setf node-a (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))
-          (with-silent-modifications
-            ;; Avoid marking a buffer as modified just because we inserted a ts
-            ;; header (this function may be called after other events which shouldn't
-            ;; cause it to be marked modified, like moving the read markers).
-            (ewoc-enter-after ewoc node-a (list 'ts b-ts))))))))
+  (when ement-room-timestamp-headers
+    (let* ((type-predicate (lambda (node-data)
+                             (and (ement-event-p node-data)
+                                  (not (equal "m.room.member" (ement-event-type node-data))))))
+           (ewoc ement-ewoc)
+           (end-node (or end-node
+                         (ewoc-nth ewoc -1)))
+           (end-pos (if end-node
+                        (ewoc-location end-node)
+                      ;; HACK: Trying to work around a bug in case the
+                      ;; room doesn't seem to have any events yet.
+                      (point-max)))
+           (node-b (or start-node (ewoc-nth ewoc 0)))
+           node-a)
+      ;; On the first loop iteration, node-a is set to the first matching
+      ;; node after node-b; then it's set to the first node after node-a.
+      (while (and (setf node-a (ement-room--ewoc-next-matching ewoc (or node-a node-b) type-predicate)
+                        node-b (when node-a
+                                 (ement-room--ewoc-next-matching ewoc node-a type-predicate)))
+                  (not (or (> (ewoc-location node-a) end-pos)
+                           (when node-b
+                             (> (ewoc-location node-b) end-pos)))))
+        (cl-labels ((format-event
+                     (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
+                                     (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
+                                     (format-time-string "%Y-%m-%d %H:%M:%S"
+                                                         (/ (ement-event-origin-server-ts (ewoc-data event)) 1000))
+                                     (ement-user-id (ement-event-sender (ewoc-data event)))
+                                     (when (alist-get 'body (ement-event-content (ewoc-data event)))
+                                       (substring-no-properties
+                                        (truncate-string-to-width (alist-get 'body (ement-event-content (ewoc-data event))) 20))))))
+          (ement-debug "Comparing event timestamps:"
+                       (list 'A (format-event node-a))
+                       (list 'B (format-event node-b))))
+        ;; NOTE: Matrix timestamps are in milliseconds.
+        (let* ((a-ts (/ (ement-event-origin-server-ts (ewoc-data node-a)) 1000))
+               (b-ts (/ (ement-event-origin-server-ts (ewoc-data node-b)) 1000))
+               (diff-seconds (- b-ts a-ts))
+               (ement-room-timestamp-header-format ement-room-timestamp-header-format))
+          (when (and (>= diff-seconds ement-room-timestamp-header-delta)
+                     (not (when-let ((node-after-a (ewoc-next ewoc node-a)))
+                            (pcase (ewoc-data node-after-a)
+                              (`(ts . ,_) t)
+                              ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker) t)))))
+            (unless (equal (time-to-days a-ts) (time-to-days b-ts))
+              ;; Different date: bind format to print date.
+              (let ((ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format))
+                ;; Insert the date-only header.
+                (setf node-a (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))
+            (with-silent-modifications
+              ;; Avoid marking a buffer as modified just because we inserted a ts
+              ;; header (this function may be called after other events which shouldn't
+              ;; cause it to be marked modified, like moving the read markers).
+              (ewoc-enter-after ewoc node-a (list 'ts b-ts)))))))))
 
 (cl-defun ement-room--insert-sender-headers
     (ewoc &optional (start-node (ewoc-nth ewoc 0)) (end-node (ewoc-nth ewoc -1)))
