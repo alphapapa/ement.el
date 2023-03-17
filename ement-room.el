@@ -565,6 +565,10 @@ not strictly the same as read receipts."
                  (const :tag "Also when sending" send)
                  (const :tag "Never" nil)))
 
+(defcustom ement-room-read-receipt t
+  "Show a read receipt marker."
+  :type 'boolean)
+
 (defcustom ement-room-send-typing t
   "Send typing notifications to the server while typing a message."
   :type 'boolean)
@@ -2572,55 +2576,56 @@ To be called from timer stored in
 (defun ement-room-update-read-receipt (window)
   "Update read receipt for room displayed in WINDOW.
 Also, mark room's buffer as unmodified."
-  (with-selected-window window
-    (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
-                               (lambda (node-data)
-                                 (eq 'ement-room-read-receipt-marker node-data))))
-          (window-end-node (or (ewoc-locate ement-ewoc (window-end nil t))
-                               (ewoc-nth ement-ewoc -1))))
-      (when (or
-             ;; The window's end has been scrolled to or past the position of the
-             ;; receipt marker.
-             (and read-receipt-node
-                  (>= (window-end nil t) (ewoc-location read-receipt-node)))
-             ;; The read receipt is outside of retrieved events.
-             (not read-receipt-node))
-        (let* ((event-node (when window-end-node
-                             ;; It seems like `window-end-node' shouldn't ever be nil,
-                             ;; but just in case...
-                             (cl-typecase (ewoc-data window-end-node)
-                               (ement-event window-end-node)
-                               (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
-                                    #'ement-event-p #'ewoc-prev)))))
-               (node-after-event (ewoc-next ement-ewoc event-node))
-               (event))
-          (when event-node
-            (unless (or (when node-after-event
-                          (<= (ewoc-location node-after-event) (window-end nil t)))
-                        (>= (window-end) (point-max)))
-              ;; The entire event is not visible: use the previous event.  (NOTE: This
-              ;; isn't quite perfect, because apparently `window-end' considers a position
-              ;; visible if even one pixel of its line is visible.  This will have to be
-              ;; good enough for now.)
-              ;; FIXME: Workaround that an entire line's height need not be displayed for it to be considered so.
-              (setf event-node (ement-room--ewoc-next-matching ement-ewoc event-node
-                                 #'ement-event-p #'ewoc-prev)))
-            (setf event (ewoc-data event-node))
-            ;; Mark the buffer as not modified so that will not contribute to its being
-            ;; considered unread.  NOTE: This will mean that any room buffer displayed in
-            ;; a window will have its buffer marked unmodified when this function is
-            ;; called.  This is probably for the best.
-            (set-buffer-modified-p nil)
-            (unless (alist-get event ement-room-read-receipt-request)
-              ;; No existing request for this event: cancel any outstanding request and
-              ;; send a new one.
-              (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
-                (when (process-live-p request-process)
-                  (interrupt-process request-process)))
-              (setf ement-room-read-receipt-request nil)
-              (setf (alist-get event ement-room-read-receipt-request)
-                    (ement-room-mark-read ement-room ement-session
-                      :read-event event)))))))))
+  (when ement-room-read-receipt
+    (with-selected-window window
+      (let ((read-receipt-node (ement-room--ewoc-last-matching ement-ewoc
+                                 (lambda (node-data)
+                                   (eq 'ement-room-read-receipt-marker node-data))))
+            (window-end-node (or (ewoc-locate ement-ewoc (window-end nil t))
+                                 (ewoc-nth ement-ewoc -1))))
+        (when (or
+               ;; The window's end has been scrolled to or past the position of the
+               ;; receipt marker.
+               (and read-receipt-node
+                    (>= (window-end nil t) (ewoc-location read-receipt-node)))
+               ;; The read receipt is outside of retrieved events.
+               (not read-receipt-node))
+          (let* ((event-node (when window-end-node
+                               ;; It seems like `window-end-node' shouldn't ever be nil,
+                               ;; but just in case...
+                               (cl-typecase (ewoc-data window-end-node)
+                                 (ement-event window-end-node)
+                                 (t (ement-room--ewoc-next-matching ement-ewoc window-end-node
+                                      #'ement-event-p #'ewoc-prev)))))
+                 (node-after-event (ewoc-next ement-ewoc event-node))
+                 (event))
+            (when event-node
+              (unless (or (when node-after-event
+                            (<= (ewoc-location node-after-event) (window-end nil t)))
+                          (>= (window-end) (point-max)))
+                ;; The entire event is not visible: use the previous event.  (NOTE: This
+                ;; isn't quite perfect, because apparently `window-end' considers a position
+                ;; visible if even one pixel of its line is visible.  This will have to be
+                ;; good enough for now.)
+                ;; FIXME: Workaround that an entire line's height need not be displayed for it to be considered so.
+                (setf event-node (ement-room--ewoc-next-matching ement-ewoc event-node
+                                   #'ement-event-p #'ewoc-prev)))
+              (setf event (ewoc-data event-node))
+              ;; Mark the buffer as not modified so that will not contribute to its being
+              ;; considered unread.  NOTE: This will mean that any room buffer displayed in
+              ;; a window will have its buffer marked unmodified when this function is
+              ;; called.  This is probably for the best.
+              (set-buffer-modified-p nil)
+              (unless (alist-get event ement-room-read-receipt-request)
+                ;; No existing request for this event: cancel any outstanding request and
+                ;; send a new one.
+                (when-let ((request-process (car (map-values ement-room-read-receipt-request))))
+                  (when (process-live-p request-process)
+                    (interrupt-process request-process)))
+                (setf ement-room-read-receipt-request nil)
+                (setf (alist-get event ement-room-read-receipt-request)
+                      (ement-room-mark-read ement-room ement-session
+                        :read-event event))))))))))
 
 (defun ement-room-goto-fully-read-marker ()
   "Move to the fully-read marker in the current room."
