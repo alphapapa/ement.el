@@ -150,9 +150,10 @@ the request."
 If FORCE-P, leave without prompting.  ROOM may be an `ement-room'
 struct, or a room ID or alias string."
   ;; TODO: Rename `room' argument to `room-or-id'.
-  (interactive (ement-complete-room :session (ement-complete-session)
-                 :prompt "Leave room: "))
-  (cl-assert room) (cl-assert session)
+  (interactive
+   (ement-with-room-and-session
+     :prompt-form (ement-complete-room :prompt "Leave room: ")
+     (list ement-room ement-session)))
   (cl-etypecase room
     (ement-room)
     (string (setf room (ement-afirst (or (equal room (ement-room-canonical-alias it))
@@ -190,8 +191,10 @@ struct, or a room ID or alias string."
   "Forget ROOM on SESSION.
 If FORCE-P (interactively, with prefix), prompt to leave the room
 when necessary, and forget the room without prompting."
-  (interactive (ement-complete-room :session (ement-complete-session)
-                 :prompt "Forget room: "))
+  (interactive
+   (ement-with-room-and-session
+     :prompt-form (ement-complete-room :prompt "Forget room: ")
+     (list ement-room ement-session current-prefix-arg)))
   (pcase-let* (((cl-struct ement-room id display-name status) room)
                (endpoint (format "rooms/%s/forget" (url-hexify-string id))))
     (pcase status
