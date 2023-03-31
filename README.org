@@ -301,6 +301,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-room-toggle-space~ toggles a room's membership in a space (a way to group rooms in Matrix).
 + Visibility of sections in the room list is saved across sessions.
 + Command ~ement-room-list-kill-buffer~ kills a room's buffer from the room list.
++ Set ~device_id~ and ~initial_device_display_name~ upon login (e.g. =Ement.el: username@hostname=).  ([[https://github.com/alphapapa/ement.el/issues/134][#134]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]] for reporting.)
 
 *Changes*
 
