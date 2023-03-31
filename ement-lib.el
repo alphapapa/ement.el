@@ -177,7 +177,7 @@ struct, or a room ID or alias string."
                                          (kill-buffer buffer))))))
                     (setf (symbol-function leave-fn-symbol) leave-fn)
                     (add-hook 'ement-sync-callback-hook leave-fn-symbol)))
-                (message "Left room: %s" (ement--format-room room)))
+                (ement-message "Left room: %s" (ement--format-room room)))
         :else (lambda (plz-error)
                 (pcase-let* (((cl-struct plz-error response) plz-error)
                              ((cl-struct plz-response status body) response)
@@ -223,7 +223,7 @@ when necessary, and forget the room without prompting."
                           (setf (ement-session-rooms session)
                                 (cl-remove room (ement-session-rooms session)))
                           ;; TODO: Indicate forgotten in footer in room buffer.
-                          (message "Room \"%s\" (%s) forgotten." display-name id))))))))
+                          (ement-message "Forgot room: %s." (ement--format-room room)))))))))
 
 (defun ement-ignore-user (user-id session &optional unignore-p)
   "Ignore USER-ID on SESSION.
