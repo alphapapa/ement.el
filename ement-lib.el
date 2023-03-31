@@ -126,7 +126,7 @@ the request."
 		     :name (read-string "New room name: ")
 		     :alias (read-string "New room alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
 		     :topic (read-string "New room topic: ")
-		     :visibility (completing-read "New room type: " '(private public))))
+		     :visibility (completing-read "New room visibility: " '(private public))))
   (cl-labels ((given-p
 	       (var) (and var (not (string-empty-p var)))))
     (pcase-let* ((endpoint "createRoom")
