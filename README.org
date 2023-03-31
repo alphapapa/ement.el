@@ -295,9 +295,14 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
+** 0.8.1
+
+Added missing changelog entry (of course).
+
 ** 0.8
 
 *Additions*
++ Command ~ement-create-space~ creates a new space.
 + Command ~ement-room-toggle-space~ toggles a room's membership in a space (a way to group rooms in Matrix).
 + Visibility of sections in the room list is saved across sessions.
 + Command ~ement-room-list-kill-buffer~ kills a room's buffer from the room list.
