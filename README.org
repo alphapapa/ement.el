@@ -111,47 +111,47 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
 - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
-1.  Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
-2.  Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
-3.  Use these commands (room-related commands may be called with universal prefix to prompt for the room):
-      -  ~ement-list-rooms~ to view the list of joined rooms.
-      -  ~ement-view-room~ to view a room's buffer, selected with completion.
-      -  ~ement-create-room~ to create a new room.
-      -  ~ement-create-space~ to create a space.
-      -  ~ement-invite-user~ to invite a user to a room.
-      -  ~ement-join-room~ to join a room.
-      -  ~ement-leave-room~ to leave a room.
-      -  ~ement-forget-room~ to forget a room.
-      -  ~ement-tag-room~ to toggle a tag on a room (including favorite/low-priority status).
-      -  ~ement-list-members~ to list members in a room.
-      -  ~ement-send-direct-message~ to send a direct message to a user (in an existing direct room, or creating a new one automatically).
-      -  ~ement-room-edit-message~ to edit a message at point.
-      -  ~ement-room-send-file~ to send a file.
-      -  ~ement-room-send-image~ to send an image.
-      -  ~ement-room-set-topic~ to set a room's topic.
-      -  ~ement-room-occur~ to search in a room's known events.
-      -  ~ement-room-override-name~ to override a room's display name.
-      -  ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
-      -  ~ement-room-set-message-format~ to set a room's message format buffer-locally.
-      -  ~ement-room-toggle-space~ to toggle a room's membership in a space (a way to group rooms in Matrix).
-      -  ~ement-directory~ to view a room directory.
-      -  ~ement-directory-search~ to search a room directory.
-4.  Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
-      -  See all new events that mention you in the =*Ement Mentions*= buffer.
-      -  See all new events in rooms that have open buffers in the =*Ement Notifications*= buffer.
+1. Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
+2. Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
+3. Use these commands (room-related commands may be called with universal prefix to prompt for the room):
+   - ~ement-list-rooms~ to view the list of joined rooms.
+   - ~ement-view-room~ to view a room's buffer, selected with completion.
+   - ~ement-create-room~ to create a new room.
+   - ~ement-create-space~ to create a space.
+   - ~ement-invite-user~ to invite a user to a room.
+   - ~ement-join-room~ to join a room.
+   - ~ement-leave-room~ to leave a room.
+   - ~ement-forget-room~ to forget a room.
+   - ~ement-tag-room~ to toggle a tag on a room (including favorite/low-priority status).
+   - ~ement-list-members~ to list members in a room.
+   - ~ement-send-direct-message~ to send a direct message to a user (in an existing direct room, or creating a new one automatically).
+   - ~ement-room-edit-message~ to edit a message at point.
+   - ~ement-room-send-file~ to send a file.
+   - ~ement-room-send-image~ to send an image.
+   - ~ement-room-set-topic~ to set a room's topic.
+   - ~ement-room-occur~ to search in a room's known events.
+   - ~ement-room-override-name~ to override a room's display name.
+   - ~ement-ignore-user~ to ignore a user (or with interactive prefix, un-ignore).
+   - ~ement-room-set-message-format~ to set a room's message format buffer-locally.
+   - ~ement-room-toggle-space~ to toggle a room's membership in a space (a way to group rooms in Matrix).
+   - ~ement-directory~ to view a room directory.
+   - ~ement-directory-search~ to search a room directory.
+4. Use these special buffers to see events from multiple rooms (you can also reply to messages from these buffers!):
+   - See all new events that mention you in the =*Ement Mentions*= buffer.
+   - See all new events in rooms that have open buffers in the =*Ement Notifications*= buffer.
 
 ** Bindings
 
 These bindings are common to all of the following buffer types:
 
-+  Switch to a room buffer: ~M-g M-r~
-+  Switch to the room list buffer: ~M-g M-l~
-+  Switch to the mentions buffer: ~M-g M-m~
-+  Switch to the notifications buffer: ~M-g M-n~
++ Switch to a room buffer: ~M-g M-r~
++ Switch to the room list buffer: ~M-g M-l~
++ Switch to the mentions buffer: ~M-g M-m~
++ Switch to the notifications buffer: ~M-g M-n~
 
 *** Room buffers
 
-+  Show command menu: ~?~
++ Show command menu: ~?~
 
 [[images/transient.png]]
 
@@ -217,16 +217,16 @@ These bindings are common to all of the following buffer types:
 
 *Other*
 
-+  Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
++ Sync new messages (not necessary if auto sync is enabled; with prefix to force new sync): ~g~
 
 *** Room list buffer
 
-+  Show buffer of room at point: ~RET~
-+  Show buffer of next unread room: ~SPC~
-+  Move between room names: ~TAB~ / ~<backtab>~
++ Show buffer of room at point: ~RET~
++ Show buffer of next unread room: ~SPC~
++ Move between room names: ~TAB~ / ~<backtab>~
 
-+  Kill room's buffer: ~k~
-+  Toggle room's membership in a space: ~s~
++ Kill room's buffer: ~k~
++ Toggle room's membership in a space: ~s~
 
 *** Directory buffers
 
@@ -235,27 +235,27 @@ These bindings are common to all of the following buffer types:
 
 *** Mentions/notifications buffers
 
-+  Move between events: ~TAB~ / ~<backtab>~
-+  Go to event at point in its room buffer: ~RET~
-+  Write reply to event at point (shows the event in its room while writing) : ~S-RET~
++ Move between events: ~TAB~ / ~<backtab>~
++ Go to event at point in its room buffer: ~RET~
++ Write reply to event at point (shows the event in its room while writing) : ~S-RET~
 
 ** Tips
 
 # TODO: Show sending messages in Org format.
 
-+  Desktop notifications are enabled by default for events that mention the local user.  They can also be shown for all events in rooms with open buffers.
-+  Send messages in Org mode format by customizing the option ~ement-room-send-message-filter~ (which enables Org format by default), or by calling ~ement-room-compose-org~ in a compose buffer (which enables it for a single message).  Then Org-formatted messages are automatically converted and sent as HTML-formatted messages (with the Org syntax as the plain-text fallback).  You can send syntax such as:
-     -  Bold, italic, underline, strikethrough
-     -  Links
-     -  Tables
-     -  Source blocks (including results with ~:exports both~)
-     -  Footnotes (okay, that might be pushing it, but you can!)
-     -  And, generally, anything that Org can export to HTML
-+  Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
-+  Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
-+  Images and other files can be uploaded to rooms using drag-and-drop.
-+  You can customize settings in the ~ement~ group.
-     -  *Note:* ~setq~ should not be used for certain options, because it will not call the associated setter function.  Users who have an aversion to the customization system may experience problems.
++ Desktop notifications are enabled by default for events that mention the local user.  They can also be shown for all events in rooms with open buffers.
++ Send messages in Org mode format by customizing the option ~ement-room-send-message-filter~ (which enables Org format by default), or by calling ~ement-room-compose-org~ in a compose buffer (which enables it for a single message).  Then Org-formatted messages are automatically converted and sent as HTML-formatted messages (with the Org syntax as the plain-text fallback).  You can send syntax such as:
+  - Bold, italic, underline, strikethrough
+  - Links
+  - Tables
+  - Source blocks (including results with ~:exports both~)
+  - Footnotes (okay, that might be pushing it, but you can!)
+  - And, generally, anything that Org can export to HTML
++ Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
++ Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
++ Images and other files can be uploaded to rooms using drag-and-drop.
++ You can customize settings in the ~ement~ group.
+  - *Note:* ~setq~ should not be used for certain options, because it will not call the associated setter function.  Users who have an aversion to the customization system may experience problems.
 
 *** Displaying symbols and emojis
 
@@ -278,15 +278,15 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 Why write a new Emacs Matrix client when there is already [[https://github.com/alphapapa/matrix-client.el][matrix-client.el]], by the same author, no less?  A few reasons:
 
--  ~matrix-client~ uses an older version of the Matrix spec, r0.3.0, with a few elements of r0.4.0 grafted in.  Bringing it up to date with the current version of the spec, r0.6.1, would be more work than to begin with the current version.  Ement.el targets r0.6.1 from the beginning.
--  ~matrix-client~ does not use Matrix's lazy-loading feature (which was added to the specification later), so initial sync requests can take a long time for the server to process and can be large (sometimes tens of megabytes of JSON for the client to process!).  Ement.el uses lazy-loading, which significantly improves performance.
--  ~matrix-client~ automatically makes buffers for every room a user has joined, even if the user doesn't currently want to watch a room.  Ement.el opens room buffers on-demand, improving performance by not having to insert events into buffers for rooms the user isn't watching.
--  ~matrix-client~ was developed without the intention of publishing it to, e.g. MELPA or ELPA.  It has several dependencies, and its code does not always install or compile cleanly due to macro-expansion issues (apparently depending on the user's Emacs config).  Ement.el is designed to have minimal dependencies outside of Emacs (currently only one, ~plz~, which could be imported into the project), and every file is linted and compiles cleanly using [[https://github.com/alphapapa/makem.sh][makem.sh]].
--  ~matrix-client~ uses EIEIO, probably unnecessarily, since few, if any, of the benefits of EIEIO are realized in it.  Ement.el uses structs instead.
--  ~matrix-client~ uses bespoke code for inserting messages into buffers, which works pretty well, but has a few minor bugs which are difficult to track down.  Ement.el uses Emacs's built-in (and perhaps little-known) ~ewoc~ library, which makes it much simpler and more reliable to insert and update messages in buffers, and enables the development of advanced UI features more easily.
--  ~matrix-client~ was, to a certain extent, designed to imitate other messaging apps.  The result is, at least when used with the ~matrix-client-frame~ command, fairly pleasing to use, but isn't especially "Emacsy."  Ement.el is intended to better fit into Emacs's paradigms.
--  ~matrix-client~'s long name makes for long symbol names, which makes for tedious, verbose code.  ~ement~ is easy to type and makes for concise, readable code.
--  The author has learned much since writing ~matrix-client~ and hopes to write simpler, more readable, more maintainable code in Ement.el.  It's hoped that this will enable others to contribute more easily.
+- ~matrix-client~ uses an older version of the Matrix spec, r0.3.0, with a few elements of r0.4.0 grafted in.  Bringing it up to date with the current version of the spec, r0.6.1, would be more work than to begin with the current version.  Ement.el targets r0.6.1 from the beginning.
+- ~matrix-client~ does not use Matrix's lazy-loading feature (which was added to the specification later), so initial sync requests can take a long time for the server to process and can be large (sometimes tens of megabytes of JSON for the client to process!).  Ement.el uses lazy-loading, which significantly improves performance.
+- ~matrix-client~ automatically makes buffers for every room a user has joined, even if the user doesn't currently want to watch a room.  Ement.el opens room buffers on-demand, improving performance by not having to insert events into buffers for rooms the user isn't watching.
+- ~matrix-client~ was developed without the intention of publishing it to, e.g. MELPA or ELPA.  It has several dependencies, and its code does not always install or compile cleanly due to macro-expansion issues (apparently depending on the user's Emacs config).  Ement.el is designed to have minimal dependencies outside of Emacs (currently only one, ~plz~, which could be imported into the project), and every file is linted and compiles cleanly using [[https://github.com/alphapapa/makem.sh][makem.sh]].
+- ~matrix-client~ uses EIEIO, probably unnecessarily, since few, if any, of the benefits of EIEIO are realized in it.  Ement.el uses structs instead.
+- ~matrix-client~ uses bespoke code for inserting messages into buffers, which works pretty well, but has a few minor bugs which are difficult to track down.  Ement.el uses Emacs's built-in (and perhaps little-known) ~ewoc~ library, which makes it much simpler and more reliable to insert and update messages in buffers, and enables the development of advanced UI features more easily.
+- ~matrix-client~ was, to a certain extent, designed to imitate other messaging apps.  The result is, at least when used with the ~matrix-client-frame~ command, fairly pleasing to use, but isn't especially "Emacsy."  Ement.el is intended to better fit into Emacs's paradigms.
+- ~matrix-client~'s long name makes for long symbol names, which makes for tedious, verbose code.  ~ement~ is easy to type and makes for concise, readable code.
+- The author has learned much since writing ~matrix-client~ and hopes to write simpler, more readable, more maintainable code in Ement.el.  It's hoped that this will enable others to contribute more easily.
 
 Note that, while ~matrix-client~ remains usable, and probably will for some time to come, Ement.el has now surpassed it in every way.  The only reason to choose ~matrix-client~ instead is if one is using an older version of Emacs that isn't supported by Ement.el.
 
