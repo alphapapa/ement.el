@@ -1082,10 +1082,10 @@ e.g. `ement-room-send-org-filter')."
                             (push (cons "formatted_body" formatted-body) it)
                             (push (cons "format" "org.matrix.custom.html") it))))
                (then (or then #'ignore)))
-    (when replying-to-event
-      (setf content (ement--add-reply content replying-to-event room)))
     (when filter
       (setf content (funcall filter content room)))
+    (when replying-to-event
+      (setf content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
                              ;; Data is added when calling back.

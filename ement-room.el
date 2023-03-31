@@ -4161,8 +4161,8 @@ compatibility), and the result is added to the CONTENT as
                     (with-current-buffer "*Org HTML Export*"
                       (prog1 (string-trim (buffer-string))
                         (kill-buffer)))))))
-    (push (cons "formatted_body" formatted-body) content)
-    (push (cons "format" "org.matrix.custom.html") content)
+    (setf (alist-get "formatted_body" content nil nil #'equal) formatted-body
+          (alist-get "format" content nil nil #'equal) "org.matrix.custom.html")
     content))
 
 (defun ement-room--org-html-src-block (src-block _contents info)
