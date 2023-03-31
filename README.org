@@ -117,6 +117,7 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
       -  ~ement-list-rooms~ to view the list of joined rooms.
       -  ~ement-view-room~ to view a room's buffer, selected with completion.
       -  ~ement-create-room~ to create a new room.
+      -  ~ement-create-space~ to create a space.
       -  ~ement-invite-user~ to invite a user to a room.
       -  ~ement-join-room~ to join a room.
       -  ~ement-leave-room~ to leave a room.

@@ -110,7 +110,7 @@ contrast colour with RGB as background and as foreground."
 ;;;;; Commands
 
 (cl-defun ement-create-room
-    (session &key name alias topic invite direct-p
+    (session &key name alias topic invite direct-p creation-content
              (then (lambda (data)
                      (message "Created new room: %s" (alist-get 'room_id data))))
              (visibility 'private))
@@ -118,7 +118,8 @@ contrast colour with RGB as background and as foreground."
 Then call function THEN with response data.  Optional string
 arguments are NAME, ALIAS, and TOPIC.  INVITE may be a list of
 user IDs to invite.  If DIRECT-P, set the \"is_direct\" flag in
-the request."
+the request.  CREATION-CONTENT may be an alist of extra keys to
+include with the request (see Matrix spec)."
   ;; TODO: Document other arguments.
   ;; SPEC: 10.1.1.
   (declare (indent defun))
@@ -141,9 +142,28 @@ the request."
 			 (when invite
 			   (push (cons "invite" invite) it))
 			 (when direct-p
-			   (push (cons "is_direct" t) it)))))
+			   (push (cons "is_direct" t) it))
+                         (when creation-content
+                           (push (cons "creation_content" creation-content) it)))))
       (ement-api session endpoint :method 'post :data (json-encode data)
         :then then))))
+
+(cl-defun ement-create-space
+    (session &key name alias topic
+             (then (lambda (data)
+                     (message "Created new space: %s" (alist-get 'room_id data))))
+             (visibility 'private))
+  "Create new space on SESSION.
+Then call function THEN with response data.  Optional string
+arguments are NAME, ALIAS, and TOPIC."
+  (declare (indent defun))
+  (interactive (list (ement-complete-session)
+		     :name (read-string "New space name: ")
+		     :alias (read-string "New space alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
+		     :topic (read-string "New space topic: ")
+		     :visibility (completing-read "New space visibility: " '(private public))))
+  (ement-create-room session :name name :alias alias :topic topic :visibility visibility
+    :creation-content (ement-alist "type" "m.space") :then then))
 
 (defun ement-room-leave (room session &optional force-p)
   "Leave ROOM on SESSION.
