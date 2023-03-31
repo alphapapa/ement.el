@@ -295,7 +295,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.8-pre
+** 0.8
 
 *Additions*
 + Command ~ement-room-toggle-space~ toggles a room's membership in a space (a way to group rooms in Matrix).
