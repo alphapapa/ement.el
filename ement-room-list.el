@@ -486,8 +486,15 @@ from recent to non-recent for rooms updated in the past hour.")
   ;; visual bug that sometimes causes room avatars to be displayed in a section heading
   ;; when a section is hidden.
   (interactive)
-  (call-interactively #'magit-section-toggle)
-  (revert-buffer))
+  (ignore-errors
+    ;; Ignore an error in case point is past the top-level section.
+    (cl-typecase (aref (oref (magit-current-section) value) 0)
+      (ement-room
+       ;; HACK: Don't hide rooms themselves (they end up permanently hidden).
+       nil)
+      (otherwise
+       (call-interactively #'magit-section-toggle)
+       (revert-buffer)))))
 
 ;;;###autoload
 (defun ement-room-list--after-initial-sync (&rest _ignore)
