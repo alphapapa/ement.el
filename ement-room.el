@@ -223,6 +223,12 @@ In that case, sender names are aligned to the margin edge.")
   "Options for room buffers."
   :group 'ement)
 
+(defcustom ement-room-timestamp-header-align 'right
+  "Where to align timestamp headers."
+  :type '(choice (const :tag "Left" left)
+                 (const :tag "Center" center)
+                 (const :tag "Right" right)))
+
 ;;;;; Faces
 
 (defface ement-room-name
@@ -3119,14 +3125,25 @@ seconds."
      (insert (propertize (ement--format-user thing)
                          'display ement-room-username-display-property)))
     (`(ts ,(and (pred numberp) ts)) ;; Insert a date header.
-     (insert
-      (if (equal ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format)
-          ;; HACK: Rather than using another variable, compare the format strings to
-          ;; determine whether the date is changing: if so, add a newline before the header.
-          "\n"
-        "")
-      (propertize (format-time-string ement-room-timestamp-header-format ts)
-                  'face 'ement-room-timestamp-header)))
+     (let* ((string (format-time-string ement-room-timestamp-header-format ts))
+            (width (string-width string))
+            (maybe-newline (if (equal ement-room-timestamp-header-format ement-room-timestamp-header-with-date-format)
+                               ;; HACK: Rather than using another variable, compare the format strings to
+                               ;; determine whether the date is changing: if so, add a newline before the header.
+                               (progn
+                                 (cl-incf width 3)
+                                 "\n")
+                             ""))
+            (alignment-space (pcase ement-room-timestamp-header-align
+                               ('right (propertize " "
+                                                   'display `(space :align-to (- text ,(1+ width)))))
+                               ('center (propertize " "
+                                                    'display `(space :align-to (- center ,(/ (1+ width) 2)))))
+                               (_ " "))))
+       (insert maybe-newline
+               alignment-space
+               (propertize string
+                           'face 'ement-room-timestamp-header))))
     ((or 'ement-room-read-receipt-marker 'ement-room-fully-read-marker)
      (insert (propertize " "
                          'display '(space :width text :height (1))

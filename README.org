@@ -297,7 +297,13 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.9-pre
 
-Nothing new yet.
+*Additions*
+
++ Option ~ement-room-timestamp-header-align~ controls how timestamp headers are aligned in room buffers.
+
+*Changes*
+
++ Using new option ~ement-room-timestamp-header-align~, timestamp headers default to right-aligned.  (With default settings, this keeps them near message timestamps and makes for a cleaner appearance.)
 
 ** 0.8.2
 
