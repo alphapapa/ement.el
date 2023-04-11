@@ -215,17 +215,7 @@ BODY may begin with property list arguments, including:
   (pcase-let* ((plist (cl-loop while (keywordp (car body))
                                append (list (car body) (cadr body))
                                and do (setf body (cddr body))))
-               ;; NOTE: The use of this (map :prompt-form) form may cause older versions
-               ;; of Emacs to produce a macro-expansion/void-variable error if this
-               ;; package is installed without first having installed and loaded the
-               ;; version of `map' required by this package.  AFAIK there is no way to
-               ;; solve this (because there's no way to make Emacs actually load the newer
-               ;; version of a library after installing it), other than to not use the
-               ;; form for enough years that such versions of Emacs or `map' are not
-               ;; in-use anymore.  Thankfully this problem seems to happen rarely, so
-               ;; let's use it anyway.
-               ((map :prompt-form) plist)
-               (prompt-form (or prompt-form
+               (prompt-form (or (plist-get plist :prompt-form)
                                 '(ement-complete-room :suggest t))))
     `(pcase-let* ((`[,list-room ,list-session] (if (eq 'ement-room-list-mode major-mode)
                                                    (oref (magit-current-section) value)

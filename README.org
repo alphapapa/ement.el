@@ -305,6 +305,12 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 + Using new option ~ement-room-timestamp-header-align~, timestamp headers default to right-aligned.  (With default settings, this keeps them near message timestamps and makes for a cleaner appearance.)
 
+** 0.8.3
+
+*Fixes*
+
++ Avoid use of ~pcase~'s ~(map :KEYWORD)~ form.  (This can cause a broken installation on older versions of Emacs that have an older version of the ~map~ library loaded, such as Emacs 27.2 included in Debian 11.  Since there's no way to force Emacs to actually load the version of ~map~ required by this package before installing it (which would naturally happen upon restarting Emacs), we can only avoid using such forms while these versions of Emacs are widely used.)
+
 ** 0.8.2
 
 *Fixes*
