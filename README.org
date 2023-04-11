@@ -296,7 +296,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :END:
 
 
-** 0.8.3-pre
+** 0.8.3
 
 *Fixes*
 
