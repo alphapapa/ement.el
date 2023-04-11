@@ -215,8 +215,7 @@ BODY may begin with property list arguments, including:
   (pcase-let* ((plist (cl-loop while (keywordp (car body))
                                append (list (car body) (cadr body))
                                and do (setf body (cddr body))))
-               ((map :prompt-form) plist)
-               (prompt-form (or prompt-form
+               (prompt-form (or (plist-get plist :prompt-form)
                                 '(ement-complete-room :suggest t))))
     `(pcase-let* ((`[,list-room ,list-session] (if (eq 'ement-room-list-mode major-mode)
                                                    (oref (magit-current-section) value)
