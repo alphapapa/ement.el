@@ -981,21 +981,13 @@ period, anywhere in the body."
     (pcase-let* (((cl-struct ement-room members) room)
                  (regexp (rx (or bos bow (1+ blank))
                              (or (seq (group
-                                       ;; Group 1: full MXID or @-prefixed displayname.
+                                       ;; Group 1: full @-prefixed MXID.
                                        "@" (group
-                                            ;; Group 2: MXID username or displayname.
-                                            ;; NOTE: We special-case the question mark,
-                                            ;; period, and comma so they can be used after
-                                            ;; a displayname or MXID in a sentence (if
-                                            ;; they are present in a displayname, too
-                                            ;; bad).
-                                            (1+ (not (any blank "?.,")))))
-                                      ;; NOTE: Including punctuation in this terminator
-                                      ;; means that wild displaynames with non-word
-                                      ;; characters might not get matched, but it's
-                                      ;; necessary so that a mention can be like "What
-                                      ;; about @foobar?"
-                                      (or eow eos (syntax punctuation) (seq ":" (1+ blank))))
+                                            ;; Group 2: displayname.  (NOTE: Does not work
+                                            ;; with displaynames containing spaces.)
+                                            (1+ (seq (optional ".") alnum)))
+                                       (optional ":" (1+ (seq (optional ".") alnum))))
+                                      (or ":" eow eos (syntax punctuation)))
                                  (seq (group
                                        ;; Group 3: MXID username or displayname.
                                        (1+ (not blank)))
@@ -1008,14 +1000,9 @@ period, anywhere in the body."
                         (setf replace-group 1)
                         (format template (match-string 1 body)
                                 (ement--xml-escape-string (ement--user-displayname-in room member))))
-                      (when-let* ((name (or (when (match-string 1 body)
-                                              ;; Found @-prefixed displayname: replace the
-                                              ;; whole thing, including the @, but only
-                                              ;; use the displayname for looking up the user.
+                      (when-let* ((name (or (when (match-string 2 body)
                                               (setf replace-group 1)
                                               (match-string 2 body))
-                                            (prog1 (match-string 2 body)
-                                              (setf replace-group 2))
                                             (prog1 (match-string 3 body)
                                               (setf replace-group 3))))
                                   (members (members-having-displayname name members))
