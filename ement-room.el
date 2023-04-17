@@ -4097,24 +4097,19 @@ Format defaults to `ement-room-message-format-spec', which see."
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
-                           (local (map ('redacted-by local-redacted-by))))
+                           (local (map ('redacted-by local-redacted-by)))
+                           (local (map ('reply reply-event))))
                 event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
+                     ('m.relates_to (map ('m.in_reply_to (map ('event_id reply-event-id)))))
                      ('m.new_content (map ('body new-body) ('formatted_body new-formatted-body)
                                           ('format new-content-format))))
                 content)
                (body (or new-body main-body))
                (formatted-body (or new-formatted-body formatted-body))
-               (body (if (or (not formatted-p) (not formatted-body))
-                         ;; Copy the string so as not to add face properties to the one in the struct.
-                         (copy-sequence body)
-                       (pcase (or new-content-format content-format)
-                         ("org.matrix.custom.html"
-                          (save-match-data
-                            (ement-room--render-html formatted-body)))
-                         (_ (format "[unknown body format: %s] %s"
-                                    (or new-content-format content-format) body)))))
+               (reply-in-body-p (and formatted-body
+                                     (string-match-p "<mx-reply>" formatted-body)))
                (appendix (pcase msgtype
                            ;; TODO: Face for m.notices.
                            ((or "m.text" "m.emote" "m.notice") nil)
@@ -4124,7 +4119,38 @@ If FORMATTED-P, return the formatted body content, when available."
                            ("m.audio" (ement-room--format-m.audio event))
                            (_ (if (or local-redacted-by unsigned-redacted-by)
                                   nil
-                                (format "[unsupported msgtype: %s]" msgtype ))))))
+                                (format "[unsupported msgtype: %s]" msgtype))))))
+    ;; When reply event is nil, try to fetch it.
+    (when (and reply-event-id
+               (not reply-in-body-p)
+               (not reply-event))
+      ;; During initial sync, `ement-ewoc' maybe nil.
+      (if-let* ((ement-ewoc (buffer-local-value 'ement-ewoc
+                               (alist-get 'buffer (ement-room-local ement-room))))
+                (node (and ement-ewoc
+                           (ement-room--ewoc-last-matching ement-ewoc
+                             (lambda (data)
+                               (and (ement-event-p data)
+                                    (equal (ement-event-id data) reply-event-id)))))))
+          (setf (map-elt (ement-event-local event) 'reply) (ewoc-data node)
+                reply-event (ewoc-data node))
+        (ement-api ement-session (format "rooms/%s/event/%s" (ement-room-id ement-room) reply-event-id)
+          :then (apply-partially #'ement-room--rich-reply-callback ement-room event))))
+    (setq body
+          (if (or (not formatted-p) (not formatted-body))
+              ;; Copy the string so as not to add face properties to the one in the struct.
+              (copy-sequence (if (and reply-event (null reply-in-body-p))
+                                 (ement-room--rich-reply-text ement-room reply-event body)
+                               body))
+            (pcase (or new-content-format content-format)
+              ("org.matrix.custom.html"
+               (save-match-data
+                 (ement-room--render-html
+                  (if (and reply-event (null reply-in-body-p))
+                      (ement-room--rich-reply-html ement-room reply-event formatted-body)
+                    formatted-body))))
+              (_ (format "[unknown body format: %s] %s"
+                         (or new-content-format content-format) body)))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
@@ -4145,6 +4171,44 @@ If FORMATTED-P, return the formatted body content, when available."
       ;; Message is an edit.
       (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
     body))
+
+(defun ement-room--rich-reply-callback (room event reply-event)
+  (when reply-event
+    (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
+      (setf (map-elt (ement-event-local event) 'reply) (ement--make-event reply-event))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                             (lambda (data) (eq data event)))))
+            (ewoc-invalidate ement-ewoc node)))))))
+
+(defun ement-room--rich-reply-text (room reply-event body)
+  (format "> <%s> %s
+
+%s"
+          (ement-user-id (ement-event-sender reply-event))
+          (map-elt (ement-event-content reply-event) 'body)
+          body))
+
+(defun ement-room--rich-reply-html (room reply-event body)
+  (format
+   "<mx-reply><blockquote>
+    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
+    <a href=\"https://matrix.to/#/%s\">%s</a>
+    <br />
+%s
+  </blockquote></mx-reply>
+%s"
+   (ement-room-id ement-room)
+   (ement-event-id reply-event)
+   (ement-user-id (ement-event-sender reply-event))
+   (or (ement-user-displayname (ement-event-sender reply-event))
+       (ement-user-id (ement-event-sender reply-event)))
+   (let ((content (ement-event-content reply-event)))
+     (if (equal (map-elt content 'format) "org.matrix.custom.html")
+         (map-elt content 'formatted_body)
+       (map-elt content 'body)))
+   body))
 
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
