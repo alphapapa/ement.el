@@ -1906,8 +1906,6 @@ Uses action `ement-view-room-display-buffer-action', which see."
       (goto-char (ewoc-location node))
     (error "Event not found in buffer: %S" (ement-event-id event))))
 
-(declare-function ement--make-event "ement.el")
-(declare-function ement--put-event "ement.el")
 (cl-defun ement-room-retro-callback (room session data
                                           &key (set-prev-batch t))
   "Push new DATA to ROOM on SESSION and add events to room buffer.
@@ -1915,6 +1913,8 @@ If SET-PREV-BATCH is nil, don't set ROOM's prev-batch slot to the
 \"prev_batch\" token in response DATA (this should be set,
 e.g. when filling timeline gaps as opposed to retrieving messages
 before the earliest-seen message)."
+  (declare (function ement--make-event "ement.el")
+           (function ement--put-event "ement.el"))
   (pcase-let* (((cl-struct ement-room local) room)
 	       ((map _start end chunk state) data)
                ((map buffer) local)

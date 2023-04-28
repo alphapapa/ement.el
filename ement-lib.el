@@ -62,6 +62,30 @@
 (defvar ement-room-prism-minimum-contrast)
 (defvar ement-room-unread-only-counts-notifications)
 
+;;;; Function declarations
+
+;; Instead of using top-level `declare-function' forms (which can easily become obsolete
+;; if not kept with the code that needs them), this allows the use of `(declare (function
+;; ...))' forms in each function definition, so that if a function is moved or removed,
+;; the `declare-function' goes with it.
+
+;; TODO: Propose this upstream.
+
+(eval-and-compile
+  (defun ement--byte-run--declare-function (_name _args &rest values)
+    "Return a `declare-function' form with VALUES.
+Allows the use of a form like:
+
+  (declare (function FN FILE ...))
+
+inside of a function definition, effectively keeping its
+`declare-function' form inside the function definition, ensuring
+that stray such forms don't remain if the function is removed."
+    `(declare-function ,@values))
+
+  (cl-pushnew '(function ement--byte-run--declare-function) defun-declarations-alist :test #'equal)
+  (cl-pushnew '(function ement--byte-run--declare-function) macro-declarations-alist :test #'equal))
+
 ;;;; Compatibility
 
 ;; These workarounds should be removed when they aren't needed.
