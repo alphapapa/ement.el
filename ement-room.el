@@ -229,6 +229,12 @@ In that case, sender names are aligned to the margin edge.")
                  (const :tag "Center" center)
                  (const :tag "Right" right)))
 
+(defcustom ement-room-view-hook
+  '(ement-room-view-hook-room-list-auto-update)
+  "Functions called when `ement-room-view' is called.
+Called with two arguments, the room and the session."
+  :type 'hook)
+
 ;;;;; Faces
 
 (defface ement-room-name
@@ -1884,8 +1890,17 @@ Uses action `ement-view-room-display-buffer-action', which see."
     ;; FIXME: This doesn't seem to work as desired, e.g. when
     ;; `ement-view-room-display-buffer-action' is set to `display-buffer-no-window'; I
     ;; guess because `pop-to-buffer' selects a window.
-    (pop-to-buffer buffer ement-view-room-display-buffer-action)))
+    (pop-to-buffer buffer ement-view-room-display-buffer-action)
+    (run-hook-with-args 'ement-room-view-hook room session)))
 (defalias 'ement-view-room #'ement-room-view)
+
+(defun ement-room-view-hook-room-list-auto-update (_room session)
+  "Call `ement-room-list-auto-update' with SESSION.
+To be used in `ement-room-view-hook', which see."
+  ;; This function is necessary because the hook is called with the room argument, which
+  ;; `ement-room-list-auto-update' doesn't need.
+  (declare (function ement-room-list-auto-update "ement-room-list"))
+  (ement-room-list-auto-update session))
 
 (defun ement-room--buffer-name (room)
   "Return name for ROOM's buffer."
