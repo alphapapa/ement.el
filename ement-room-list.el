@@ -66,9 +66,22 @@ a symbol, it should be unquoted.."
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
     (define-key map [tab] #'ement-room-list-section-toggle)
     (define-key map [mouse-1] (ement-room-list-define-mouse-command ement-room-list-RET))
+    (define-key map [mouse-2] (ement-room-list-define-mouse-command ement-room-list-kill-buffer))
     (define-key map (kbd "k") #'ement-room-list-kill-buffer)
     (define-key map (kbd "s") #'ement-room-toggle-space)
-    map))
+    map)
+  "Keymap for `ement-room-list' buffers.
+See also `ement-room-list-button-map'.")
+
+(defvar ement-room-list-button-map
+  ;; This map is needed because some columns are propertized as buttons, which override
+  ;; the main keymap.
+  ;; TODO: Is it possible to adjust the button properties to obviate this map?
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mouse-1] (ement-room-list-define-mouse-command ement-room-list-RET))
+    (define-key map [mouse-2] (ement-room-list-define-mouse-command ement-room-list-kill-buffer))
+    map)
+  "Keymap for buttonized text in `ement-room-list' buffers.")
 
 (defvar ement-room-list-timestamp-colors nil
   "List of colors used for timestamps.
@@ -386,9 +399,10 @@ from recent to non-recent for rooms updated in the past hour.")
              (push 'ement-room-list-invited (map-elt face :inherit)))
             ('leave
              (push 'ement-room-list-left (map-elt face :inherit))))
-          (propertize (ement--button-buttonize display-name #'ement-room-list-mouse-1)
+          (propertize display-name
                       'face face
-                      'mouse-face 'highlight))
+                      'mouse-face 'highlight
+                      'keymap ement-room-list-button-map))
         "")))
 
 (ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
