@@ -39,6 +39,23 @@
   "Group Ement rooms with Taxy."
   :group 'ement)
 
+;;;; Mouse commands
+
+;; Since mouse-activated commands must handle mouse events, we define a simple macro to
+;; wrap a command into a mouse-event-accepting one.
+
+(defmacro ement-room-list-define-mouse-command (command)
+  "Define a command that calls COMMAND interactively with point at mouse event.
+COMMAND should be a form that evaluates to a function symbol; if
+a symbol, it should be unquoted.."
+  (let ((docstring (format "Call command `%s' interactively with point at EVENT." command))
+        (name (intern (format "ement-room-list-mouse-%s" command))))
+    `(defun ,name (event)
+       ,docstring
+       (interactive "e")
+       (mouse-set-point event)
+       (call-interactively #',command))))
+
 ;;;; Variables
 
 (declare-function ement-room-toggle-space "ement-room")
@@ -48,7 +65,7 @@
     (define-key map (kbd "RET") #'ement-room-list-RET)
     (define-key map (kbd "SPC") #'ement-room-list-next-unread)
     (define-key map [tab] #'ement-room-list-section-toggle)
-    (define-key map [mouse-1] #'ement-room-list-mouse-1)
+    (define-key map [mouse-1] (ement-room-list-define-mouse-command ement-room-list-RET))
     (define-key map (kbd "k") #'ement-room-list-kill-buffer)
     (define-key map (kbd "s") #'ement-room-toggle-space)
     map))
@@ -691,12 +708,6 @@ left."
     (when (buffer-live-p buffer)
       (kill-buffer buffer)
       (ement-room-list-revert))))
-
-(defun ement-room-list-mouse-1 (event)
-  "Call `ement-room-list-RET' at EVENT."
-  (interactive "e")
-  (mouse-set-point event)
-  (call-interactively #'ement-room-list-RET))
 
 (declare-function ement-view-room "ement-room")
 (defun ement-room-list-RET ()
