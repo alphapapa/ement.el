@@ -3396,6 +3396,7 @@ If FORMATTED-P, return the formatted body content, when available."
                            ((or "m.text" "m.emote" "m.notice") nil)
                            ("m.image" (ement-room--format-m.image event))
                            ("m.file" (ement-room--format-m.file event))
+                           ("m.video" (ement-room--format-m.video event))
                            (_ (if (or local-redacted-by unsigned-redacted-by)
                                   nil
                                 (format "[unsupported msgtype: %s]" msgtype ))))))
@@ -4123,6 +4124,31 @@ Then invalidate EVENT's node to show the image."
                       (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
+    (concat (propertize string
+                        'action #'browse-url
+                        'button t
+                        'button-data url
+                        'category t
+                        'face 'button
+                        'follow-link t
+                        'help-echo url
+                        'keymap button-map
+                        'mouse-face 'highlight)
+            (propertize " "
+                        'display '(space :relative-height 1.5)))))
+
+(defun ement-room--format-m.video (event)
+  "Return \"m.video\" EVENT formatted as a string."
+  ;; TODO: Insert thumbnail images when enabled.
+  (pcase-let* (((cl-struct ement-event
+                           (content (map body
+                                         ('info (map mimetype size w h))
+                                         ('url mxc-url))))
+                event)
+               (url (when mxc-url
+                      (ement--mxc-to-url mxc-url ement-session)))
+               (human-size (file-size-human-readable size))
+               (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
                         'action #'browse-url
                         'button t
