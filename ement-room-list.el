@@ -620,7 +620,8 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                         thereis (ement-session-rooms session)))
           (ement-message "No rooms have been joined")
         (with-current-buffer (get-buffer-create buffer-name)
-          (ement-room-list-mode)
+          (unless (eq 'ement-room-list-mode major-mode)
+            (ement-room-list-mode))
           (let* ((room-session-vectors
                   (cl-loop for (_id . session) in ement-sessions
                            append (cl-loop for room in (ement-session-rooms session)
