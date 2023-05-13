@@ -311,6 +311,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 *Fixes*
 
 + Recognition of certain MXID or displayname forms in outgoing messages when linkifying (aka "pilling") them.
++ Unreadable room avatar images no longer cause errors.  (Fixes [[https://github.com/alphapapa/ement.el/issues/147][#147]].  Thanks to [[https://github.com/jgarte][@jgarte]] for reporting.)
 
 ** 0.8.3
 

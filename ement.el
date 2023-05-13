@@ -874,16 +874,22 @@ and `session' to the session.  Adds function to
                                                 :ascent 'center
                                                 :max-width ement-room-avatar-max-width
                                                 :max-height ement-room-avatar-max-height)))
-                       (when (fboundp 'imagemagick-types)
-                         ;; Only do this when ImageMagick is supported.
-                         ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
-                         (setf (image-property image :type) 'imagemagick))
-                       ;; We set the room-avatar slot to a propertized string that
-                       ;; displays as the image.  This seems the most convenient thing to
-                       ;; do.  We also unset the cached room-list-avatar so it can be
-                       ;; remade.
-                       (setf (ement-room-avatar room) (propertize " " 'display image)
-                             (alist-get 'room-list-avatar (ement-room-local room)) nil))))))
+                       (if (not image)
+                           (progn
+                             (display-warning 'ement (format "Room avatar seems unreadable:  ROOM-ID:%S  AVATAR-URL:%S"
+                                                             (ement-room-id room) (ement--mxc-to-url url session)))
+                             (setf (ement-room-avatar room) nil
+                                   (alist-get 'room-list-avatar (ement-room-local room)) nil))
+                         (when (fboundp 'imagemagick-types)
+                           ;; Only do this when ImageMagick is supported.
+                           ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+                           (setf (image-property image :type) 'imagemagick))
+                         ;; We set the room-avatar slot to a propertized string that
+                         ;; displays as the image.  This seems the most convenient thing to
+                         ;; do.  We also unset the cached room-list-avatar so it can be
+                         ;; remade.
+                         (setf (ement-room-avatar room) (propertize " " 'display image)
+                               (alist-get 'room-list-avatar (ement-room-local room)) nil)))))))
       ;; Unset avatar.
       (setf (ement-room-avatar room) nil
             (alist-get 'room-list-avatar (ement-room-local room)) nil))))
