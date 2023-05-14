@@ -296,6 +296,10 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
+** 0.9.1-pre
+
+Nothing new yet.
+
 ** 0.9
 
 *Additions*
