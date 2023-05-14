@@ -4272,8 +4272,8 @@ Web-compatible HTML output, using HTML like:
 Uses members in the current buffer's room.  For use in
 `completion-at-point-functions'."
   (let ((beg (save-excursion
-               (re-search-backward (rx (or bol bos blank)))
-               (1+ (point))))
+               (when (re-search-backward (rx (or bol bos blank) "@") nil t)
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any
@@ -4281,14 +4281,15 @@ Uses members in the current buffer's room.  For use in
                         ;; seems to say that it should use the argument.
                         (lambda (_ignore)
                           (ement-room--member-names-and-ids)))))
-    (list beg end collection-fn :exclusive 'no)))
+    (when beg
+      (list beg end collection-fn :exclusive 'no))))
 
 (defun ement-room--complete-rooms-at-point ()
   "Complete room aliases and IDs at point.
 For use in `completion-at-point-functions'."
   (let ((beg (save-excursion
-               (re-search-backward (rx (or bol bos blank)))
-               (1+ (point))))
+               (when (re-search-backward (rx (or bol bos blank) (or "!" "#")) nil t)
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any
@@ -4296,7 +4297,8 @@ For use in `completion-at-point-functions'."
                         ;; seems to say that it should use the argument.
                         (lambda (_ignore)
                           (ement-room--room-aliases-and-ids)))))
-    (list beg end collection-fn :exclusive 'no)))
+    (when beg
+      (list beg end collection-fn :exclusive 'no))))
 
 ;; TODO: Use `cl-pushnew' in these two functions instead of `delete-dups'.
 
