@@ -198,24 +198,36 @@ function elisp-byte-compile-file {
     cat >"$file" <<EOF
 (defun makem-batch-byte-compile (&rest args)
   ""
-  (let ((num-errors 0))
+  (let ((num-errors 0)
+        (num-warnings 0))
     ;; NOTE: Only accepts files as args, not directories.
     (dolist (file command-line-args-left)
-      (unless (makem-byte-compile-file file)
-        (cl-incf num-errors)))
+      (pcase-let ((\`(,errors ,warnings) (makem-byte-compile-file file)))
+        (cl-incf num-errors errors)
+        (cl-incf num-warnings warnings)))
     (zerop num-errors)))
 
 (defun makem-byte-compile-file (filename &optional load)
-  "Call \`byte-compile-warn', returning nil if there are any warnings."
-  (let ((num-warnings 0))
+  "Call \`byte-compile-warn', returning the number of errors and the number of warnings."
+  (let ((num-warnings 0)
+        (num-errors 0))
     (cl-letf (((symbol-function 'byte-compile-warn)
                (lambda (format &rest args)
                  ;; Copied from \`byte-compile-warn'.
                  (cl-incf num-warnings)
                  (setq format (apply #'format-message format args))
-                 (byte-compile-log-warning format t :warning))))
+                 (byte-compile-log-warning format t :warning)))
+              ((symbol-function 'byte-compile-report-error)
+               (lambda (error-info &optional fill &rest args)
+                 (cl-incf num-errors)
+                 ;; Copied from \`byte-compile-report-error'.
+                 (setq byte-compiler-error-flag t)
+                 (byte-compile-log-warning
+                  (if (stringp error-info) error-info
+                    (error-message-string error-info))
+                  fill :error))))
       (byte-compile-file filename load))
-    (zerop num-warnings)))
+    (list num-errors num-warnings)))
 EOF
     echo "$file"
 }
@@ -360,7 +372,7 @@ function byte-compile-file {
     run_emacs \
         --load "$(elisp-byte-compile-file)" \
         "${error_on_warn[@]}" \
-        --eval "(unless (makem-byte-compile-file \"$file\") (kill-emacs 1))" \
+        --eval "(pcase-let ((\`(,num-errors ,num-warnings) (makem-byte-compile-file \"$file\"))) (when (or (and byte-compile-error-on-warn (not (zerop num-warnings))) (not (zerop num-errors))) (kill-emacs 1)))" \
         && verbose 3 "Compiling $file finished without errors." \
             || { verbose 3 "Compiling file failed: $file"; return 1; }
 }
@@ -997,7 +1009,8 @@ function test-buttercup {
 
     run_emacs \
         $(args-load-files "${files_project_test[@]}") \
-        -f buttercup-run \
+        --load "$buttercup_file" \
+        --eval "(progn (setq backtrace-on-error-noninteractive nil) (buttercup-run))" \
         && success "Buttercup tests finished without errors." \
             || error "Buttercup tests failed."
 }
