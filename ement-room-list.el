@@ -547,7 +547,8 @@ After showing it, its window is selected.  The buffer is named
 BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
 DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
   (interactive)
-  (let (format-table column-sizes window-start room-session-vectors)
+  (let ((inhibit-read-only t)
+        format-table column-sizes window-start room-session-vectors)
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
@@ -657,7 +658,6 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                            (taxy-sort* #'t>nil (name= "Low-priority"))
                            (taxy-sort* #'t>nil (first-item item-left-p)))))
                  (taxy-magit-section-insert-indent-items nil)
-                 (inhibit-read-only t)
                  (format-cons (taxy-magit-section-format-items
                                ement-room-list-columns ement-room-list-column-formatters taxy))
                  (pos (point))
