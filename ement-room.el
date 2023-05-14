@@ -4316,10 +4316,6 @@ members list and return already-seen members instead.  For use in
                             (buffer-local-value
                              'ement-session (window-buffer (minibuffer-selected-window)))
                           ement-session))
-               (ewoc (if (minibufferp)
-                         (buffer-local-value
-                          'ement-ewoc (window-buffer (minibuffer-selected-window)))
-                       ement-ewoc))
                ((cl-struct ement-room members) room)
                (members (if (alist-get 'fetched-members-p (ement-room-local room))
                             (hash-table-values members)
@@ -4330,7 +4326,7 @@ members list and return already-seen members instead.  For use in
                               :then (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil))
                               :else (lambda (_) (setf (alist-get 'getting-members-p (ement-room-local room)) nil))))
                           (mapcar #'ement-event-sender
-                                  (ewoc-collect ewoc #'ement-event-p)))))
+                                  (ement-room-timeline ement-room)))))
     (delete-dups
      (cl-loop for member in members
               collect (ement-user-id member)
