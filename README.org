@@ -313,6 +313,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Recognition of certain MXID or displayname forms in outgoing messages when linkifying (aka "pilling") them.
 + Unreadable room avatar images no longer cause errors.  (Fixes [[https://github.com/alphapapa/ement.el/issues/147][#147]].  Thanks to [[https://github.com/jgarte][@jgarte]] for reporting.)
 + Don't error in ~ement-room-list~ when no rooms are joined.  (Fixes [[https://github.com/alphapapa/ement.el/issues/123][#123]].  Thanks to [[https://github.com/Kabouik][@Kabouik]] and [[https://github.com/oantolin][Omar Antolín Camarena]] for reporting.)
++ Enable member/room completion in compose buffers.  (Fixes [[https://github.com/alphapapa/ement.el/issues/115][#115]].  Thanks to Thanks to [[https://github.com/piater][Justus Piater]] and [[https://github.com/chasecaleb][Caleb Chase]] for reporting.)
 
 ** 0.8.3
 

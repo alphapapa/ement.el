@@ -3660,6 +3660,9 @@ a copy of the local keymap, and sets `header-line-format'."
   (setq-local ement-room room)
   (setq-local ement-session session)
   (setf ement-room-compose-buffer t)
+  (setq-local completion-at-point-functions
+              (append '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
+                      completion-at-point-functions))
   ;; FIXME: Compose with local map?
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
