@@ -3,7 +3,7 @@
 #+PROPERTY: LOGGING nil
 
 # Export options.
-#+OPTIONS: broken-links:t *:t
+#+OPTIONS: broken-links:t *:t num:1 toc:1
 
 # Info export options.
 #+EXPORT_FILE_NAME: ement.texi
@@ -298,7 +298,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.10-pre
 
-Nothing new yet.
+*Changes*
+
++ Improve readme export settings.
 
 ** 0.9.1
 
