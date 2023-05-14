@@ -547,7 +547,7 @@ After showing it, its window is selected.  The buffer is named
 BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
 DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
   (interactive)
-  (let (format-table column-sizes window-start)
+  (let (format-table column-sizes window-start room-session-vectors)
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
@@ -615,69 +615,71 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
       ;;   (kill-buffer buffer-name))
       (unless ement-sessions
         (error "Ement: Not connected.  Use `ement-connect' to connect"))
+      (setf room-session-vectors
+            (cl-loop for (_id . session) in ement-sessions
+                     append (cl-loop for room in (ement-session-rooms session)
+                                     collect (vector room session))))
       (with-current-buffer (get-buffer-create buffer-name)
         (ement-room-list-mode)
-        (let* ((room-session-vectors
-                (cl-loop for (_id . session) in ement-sessions
-                         append (cl-loop for room in (ement-session-rooms session)
-                                         collect (vector room session))))
-               (taxy (cl-macrolet ((first-item
-                                    (pred) `(lambda (taxy)
-                                              (when (taxy-items taxy)
-                                                (,pred (car (taxy-items taxy))))))
-                                   (name= (name) `(lambda (taxy)
-                                                    (equal ,name (taxy-name taxy)))))
-                       (thread-last
-                         (make-fn
-                          :name "Ement Rooms"
-                          :take (taxy-make-take-function keys ement-room-list-keys))
-                         (taxy-fill room-session-vectors)
-                         (taxy-sort #'> #'item-latest-ts)
-                         (taxy-sort #'t<nil #'item-invited-p)
-                         (taxy-sort #'t<nil #'item-favourite-p)
-                         (taxy-sort #'t>nil #'item-low-priority-p)
-                         (taxy-sort #'t<nil #'item-unread-p)
-                         (taxy-sort #'t<nil #'item-space-p)
-                         ;; Within each taxy, left rooms should be sorted last so that one
-                         ;; can never be the first room in the taxy (unless it's the taxy
-                         ;; of left rooms), which would cause the taxy to be incorrectly
-                         ;; sorted last.
-                         (taxy-sort #'t>nil #'item-left-p)
-                         (taxy-sort* #'string< #'taxy-name)
-                         (taxy-sort* #'> #'taxy-latest-ts)
-                         (taxy-sort* #'t<nil (name= "Buffers"))
-                         (taxy-sort* #'t<nil (first-item item-unread-p))
-                         (taxy-sort* #'t<nil (first-item item-favourite-p))
-                         (taxy-sort* #'t<nil (first-item item-invited-p))
-                         (taxy-sort* #'t>nil (first-item item-space-p))
-                         (taxy-sort* #'t>nil (name= "Low-priority"))
-                         (taxy-sort* #'t>nil (first-item item-left-p)))))
-               (taxy-magit-section-insert-indent-items nil)
-               (inhibit-read-only t)
-               (format-cons (taxy-magit-section-format-items
-                             ement-room-list-columns ement-room-list-column-formatters taxy))
-               (pos (point))
-               (section-ident (when (magit-current-section)
-                                (magit-section-ident (magit-current-section)))))
-          (setf format-table (car format-cons)
-                column-sizes (cdr format-cons)
-                header-line-format (taxy-magit-section-format-header
-                                    column-sizes ement-room-list-column-formatters)
-                window-start (if (get-buffer-window buffer-name)
-                                 (window-start (get-buffer-window buffer-name))
-                               0))
-          (when ement-room-list-visibility-cache
-            (setf magit-section-visibility-cache ement-room-list-visibility-cache))
-          (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
-          (delete-all-overlays)
-          (erase-buffer)
-          (save-excursion
-            (taxy-magit-section-insert taxy :items 'first
-              ;; :blank-between-depth bufler-taxy-blank-between-depth
-              :initial-depth 0))
-          (goto-char pos)
-          (when (and section-ident (magit-get-section section-ident))
-            (goto-char (oref (magit-get-section section-ident) start)))))
+        (delete-all-overlays)
+        (erase-buffer)
+        (if (not room-session-vectors)
+            (insert "No joined rooms.  Use command `ement-join-room' to join a room, or `ement-directory' or `ement-directory-search' to find rooms.")
+          (let* ((taxy (cl-macrolet ((first-item
+                                      (pred) `(lambda (taxy)
+                                                (when (taxy-items taxy)
+                                                  (,pred (car (taxy-items taxy))))))
+                                     (name= (name) `(lambda (taxy)
+                                                      (equal ,name (taxy-name taxy)))))
+                         (thread-last
+                           (make-fn
+                            :name "Ement Rooms"
+                            :take (taxy-make-take-function keys ement-room-list-keys))
+                           (taxy-fill room-session-vectors)
+                           (taxy-sort #'> #'item-latest-ts)
+                           (taxy-sort #'t<nil #'item-invited-p)
+                           (taxy-sort #'t<nil #'item-favourite-p)
+                           (taxy-sort #'t>nil #'item-low-priority-p)
+                           (taxy-sort #'t<nil #'item-unread-p)
+                           (taxy-sort #'t<nil #'item-space-p)
+                           ;; Within each taxy, left rooms should be sorted last so that one
+                           ;; can never be the first room in the taxy (unless it's the taxy
+                           ;; of left rooms), which would cause the taxy to be incorrectly
+                           ;; sorted last.
+                           (taxy-sort #'t>nil #'item-left-p)
+                           (taxy-sort* #'string< #'taxy-name)
+                           (taxy-sort* #'> #'taxy-latest-ts)
+                           (taxy-sort* #'t<nil (name= "Buffers"))
+                           (taxy-sort* #'t<nil (first-item item-unread-p))
+                           (taxy-sort* #'t<nil (first-item item-favourite-p))
+                           (taxy-sort* #'t<nil (first-item item-invited-p))
+                           (taxy-sort* #'t>nil (first-item item-space-p))
+                           (taxy-sort* #'t>nil (name= "Low-priority"))
+                           (taxy-sort* #'t>nil (first-item item-left-p)))))
+                 (taxy-magit-section-insert-indent-items nil)
+                 (inhibit-read-only t)
+                 (format-cons (taxy-magit-section-format-items
+                               ement-room-list-columns ement-room-list-column-formatters taxy))
+                 (pos (point))
+                 (section-ident (when (magit-current-section)
+                                  (magit-section-ident (magit-current-section)))))
+            (setf format-table (car format-cons)
+                  column-sizes (cdr format-cons)
+                  header-line-format (taxy-magit-section-format-header
+                                      column-sizes ement-room-list-column-formatters)
+                  window-start (if (get-buffer-window buffer-name)
+                                   (window-start (get-buffer-window buffer-name))
+                                 0))
+            (when ement-room-list-visibility-cache
+              (setf magit-section-visibility-cache ement-room-list-visibility-cache))
+            (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
+            (save-excursion
+              (taxy-magit-section-insert taxy :items 'first
+                ;; :blank-between-depth bufler-taxy-blank-between-depth
+                :initial-depth 0))
+            (goto-char pos)
+            (when (and section-ident (magit-get-section section-ident))
+              (goto-char (oref (magit-get-section section-ident) start))))))
       (when display-buffer-action
         (when-let ((window (display-buffer buffer-name display-buffer-action)))
           (select-window window)))
