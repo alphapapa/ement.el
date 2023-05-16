@@ -548,7 +548,7 @@ BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
 DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
   (interactive)
   (let ((inhibit-read-only t)
-        format-table column-sizes window-start room-session-vectors)
+        pos format-table column-sizes window-start room-session-vectors)
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
@@ -621,6 +621,7 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                      append (cl-loop for room in (ement-session-rooms session)
                                      collect (vector room session))))
       (with-current-buffer (get-buffer-create buffer-name)
+        (setf pos (point))
         (ement-room-list-mode)
         (delete-all-overlays)
         (erase-buffer)
@@ -660,7 +661,6 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                  (taxy-magit-section-insert-indent-items nil)
                  (format-cons (taxy-magit-section-format-items
                                ement-room-list-columns ement-room-list-column-formatters taxy))
-                 (pos (point))
                  (section-ident (when (magit-current-section)
                                   (magit-section-ident (magit-current-section)))))
             (setf format-table (car format-cons)
