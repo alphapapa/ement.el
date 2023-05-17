@@ -298,7 +298,8 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.9.3-pre
 
-Nothing new yet.
+*Fixes*
++ Another attempt at restoring position in room list when refreshing.
 
 ** 0.9.2
 

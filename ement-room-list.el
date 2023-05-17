@@ -547,7 +547,8 @@ After showing it, its window is selected.  The buffer is named
 BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
 DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
   (interactive)
-  (let (format-table column-sizes window-start)
+  (let ((window-start 0) (window-point 0)
+        format-table column-sizes)
     (cl-labels (;; (heading-face
                 ;;  (depth) (list :inherit (list 'bufler-group (bufler-level-face depth))))
                 (format-item (item) (gethash item format-table))
@@ -615,77 +616,92 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
       ;;   (kill-buffer buffer-name))
       (unless ement-sessions
         (error "Ement: Not connected.  Use `ement-connect' to connect"))
-      (with-current-buffer (get-buffer-create buffer-name)
-        (ement-room-list-mode)
-        (let* ((room-session-vectors
-                (cl-loop for (_id . session) in ement-sessions
-                         append (cl-loop for room in (ement-session-rooms session)
-                                         collect (vector room session))))
-               (taxy (cl-macrolet ((first-item
-                                    (pred) `(lambda (taxy)
-                                              (when (taxy-items taxy)
-                                                (,pred (car (taxy-items taxy))))))
-                                   (name= (name) `(lambda (taxy)
-                                                    (equal ,name (taxy-name taxy)))))
-                       (thread-last
-                         (make-fn
-                          :name "Ement Rooms"
-                          :take (taxy-make-take-function keys ement-room-list-keys))
-                         (taxy-fill room-session-vectors)
-                         (taxy-sort #'> #'item-latest-ts)
-                         (taxy-sort #'t<nil #'item-invited-p)
-                         (taxy-sort #'t<nil #'item-favourite-p)
-                         (taxy-sort #'t>nil #'item-low-priority-p)
-                         (taxy-sort #'t<nil #'item-unread-p)
-                         (taxy-sort #'t<nil #'item-space-p)
-                         ;; Within each taxy, left rooms should be sorted last so that one
-                         ;; can never be the first room in the taxy (unless it's the taxy
-                         ;; of left rooms), which would cause the taxy to be incorrectly
-                         ;; sorted last.
-                         (taxy-sort #'t>nil #'item-left-p)
-                         (taxy-sort* #'string< #'taxy-name)
-                         (taxy-sort* #'> #'taxy-latest-ts)
-                         (taxy-sort* #'t<nil (name= "Buffers"))
-                         (taxy-sort* #'t<nil (first-item item-unread-p))
-                         (taxy-sort* #'t<nil (first-item item-favourite-p))
-                         (taxy-sort* #'t<nil (first-item item-invited-p))
-                         (taxy-sort* #'t>nil (first-item item-space-p))
-                         (taxy-sort* #'t>nil (name= "Low-priority"))
-                         (taxy-sort* #'t>nil (first-item item-left-p)))))
-               (taxy-magit-section-insert-indent-items nil)
-               (inhibit-read-only t)
-               (format-cons (taxy-magit-section-format-items
-                             ement-room-list-columns ement-room-list-column-formatters taxy))
-               (pos (point))
-               (section-ident (when (magit-current-section)
-                                (magit-section-ident (magit-current-section)))))
-          (setf format-table (car format-cons)
-                column-sizes (cdr format-cons)
-                header-line-format (taxy-magit-section-format-header
-                                    column-sizes ement-room-list-column-formatters)
-                window-start (if (get-buffer-window buffer-name)
-                                 (window-start (get-buffer-window buffer-name))
-                               0))
-          (when ement-room-list-visibility-cache
-            (setf magit-section-visibility-cache ement-room-list-visibility-cache))
-          (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
-          (delete-all-overlays)
-          (erase-buffer)
-          (save-excursion
-            (taxy-magit-section-insert taxy :items 'first
-              ;; :blank-between-depth bufler-taxy-blank-between-depth
-              :initial-depth 0))
-          (goto-char pos)
-          (when (and section-ident (magit-get-section section-ident))
-            (goto-char (oref (magit-get-section section-ident) start)))))
-      (when display-buffer-action
-        (when-let ((window (display-buffer buffer-name display-buffer-action)))
-          (select-window window)))
-      (when (get-buffer-window buffer-name)
-        (set-window-start (get-buffer-window buffer-name) window-start))
-      ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
-      ;; must be set as the current buffer, so we have to do this explicitly here.
-      (set-buffer buffer-name))))
+      (if (not (cl-loop for (_id . session) in ement-sessions
+                        thereis (ement-session-rooms session)))
+          (ement-message "No rooms have been joined")
+        (with-current-buffer (get-buffer-create buffer-name)
+          (ement-room-list-mode)
+          (let* ((room-session-vectors
+                  (cl-loop for (_id . session) in ement-sessions
+                           append (cl-loop for room in (ement-session-rooms session)
+                                           collect (vector room session))))
+                 (taxy (cl-macrolet ((first-item
+                                      (pred) `(lambda (taxy)
+                                                (when (taxy-items taxy)
+                                                  (,pred (car (taxy-items taxy))))))
+                                     (name= (name) `(lambda (taxy)
+                                                      (equal ,name (taxy-name taxy)))))
+                         (thread-last
+                           (make-fn
+                            :name "Ement Rooms"
+                            :take (taxy-make-take-function keys ement-room-list-keys))
+                           (taxy-fill room-session-vectors)
+                           (taxy-sort #'> #'item-latest-ts)
+                           (taxy-sort #'t<nil #'item-invited-p)
+                           (taxy-sort #'t<nil #'item-favourite-p)
+                           (taxy-sort #'t>nil #'item-low-priority-p)
+                           (taxy-sort #'t<nil #'item-unread-p)
+                           (taxy-sort #'t<nil #'item-space-p)
+                           ;; Within each taxy, left rooms should be sorted last so that one
+                           ;; can never be the first room in the taxy (unless it's the taxy
+                           ;; of left rooms), which would cause the taxy to be incorrectly
+                           ;; sorted last.
+                           (taxy-sort #'t>nil #'item-left-p)
+                           (taxy-sort* #'string< #'taxy-name)
+                           (taxy-sort* #'> #'taxy-latest-ts)
+                           (taxy-sort* #'t<nil (name= "Buffers"))
+                           (taxy-sort* #'t<nil (first-item item-unread-p))
+                           (taxy-sort* #'t<nil (first-item item-favourite-p))
+                           (taxy-sort* #'t<nil (first-item item-invited-p))
+                           (taxy-sort* #'t>nil (first-item item-space-p))
+                           (taxy-sort* #'t>nil (name= "Low-priority"))
+                           (taxy-sort* #'t>nil (first-item item-left-p)))))
+                 (taxy-magit-section-insert-indent-items nil)
+                 (inhibit-read-only t)
+                 (format-cons (taxy-magit-section-format-items
+                               ement-room-list-columns ement-room-list-column-formatters taxy))
+                 (pos (point))
+                 (section-ident (when (magit-current-section)
+                                  (magit-section-ident (magit-current-section)))))
+            (setf format-table (car format-cons)
+                  column-sizes (cdr format-cons)
+                  header-line-format (taxy-magit-section-format-header
+                                      column-sizes ement-room-list-column-formatters))
+            (when-let ((window (get-buffer-window (current-buffer))))
+              (setf window-point (window-point window)
+                    window-start (window-start window)))
+            (when ement-room-list-visibility-cache
+              (setf magit-section-visibility-cache ement-room-list-visibility-cache))
+            (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
+            ;; Before this point, no changes have been made to the buffer's contents.
+            (delete-all-overlays)
+            (erase-buffer)
+            (save-excursion
+              (taxy-magit-section-insert taxy :items 'first
+                ;; :blank-between-depth bufler-taxy-blank-between-depth
+                :initial-depth 0))
+            (if-let* ((section-ident)
+                      (section (magit-get-section section-ident)))
+                (goto-char (oref section start))
+              (goto-char pos))))
+        (when display-buffer-action
+          (when-let ((window (display-buffer buffer-name display-buffer-action)))
+            (select-window window)))
+        (when-let ((window (get-buffer-window buffer-name)))
+          (set-window-start window window-start)
+          (set-window-point window window-point))
+        ;; FIXME: Despite all this code to save and restore point and window point and
+        ;; window start, when I send a message from the minibuffer, or when I abort
+        ;; sending a message from the minibuffer, point is moved to the beginning of the
+        ;; buffer.  While the minibuffer is open (and the typing messages are being sent
+        ;; to the server, causing it to repeatedly sync), the point stays in the correct
+        ;; place.  I can't find any reason why this happens.  It makes no sense.  And
+        ;; while trying to debug the problem, somehow Emacs got put into an unbreakable,
+        ;; infinite loop twice; even C-g and SIGUSR2 didn't stop it.
+
+        ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
+        ;; must be set as the current buffer, so we have to do this explicitly here.
+        (set-buffer buffer-name)))))
 
 (cl-defun ement-room-list-side-window (&key (side 'left))
   "Show room list in side window on SIDE.
