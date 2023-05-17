@@ -296,7 +296,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 :TOC:      :depth 0
 :END:
 
-** 0.9.3-pre
+** 0.9.3
 
 *Fixes*
 + Another attempt at restoring position in room list when refreshing.
