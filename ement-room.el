@@ -710,6 +710,11 @@ When using a light theme, it may be necessary to use a negative
 number (to darken rather than lighten)."
   :type 'integer)
 
+(defcustom ement-room-send-rich-replies nil
+  "Whether to send rich replies when replying to messages.
+When non-nil, rather than quoting the replied-to message in the
+body, a `rich reply' is sent instead.")
+
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
@@ -1800,7 +1805,8 @@ Interactively, to event at point."
                            (ement-room-read-string prompt nil 'ement-room-message-history
                                                    nil 'inherit-input-method)))
                    (replying-to-event (ement--original-event-for event ement-session)))
-        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
+        (ement-room-send-message room session :body body :replying-to-event replying-to-event
+                                 :rich-reply ement-room-send-rich-replies)))))
 
 (defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
