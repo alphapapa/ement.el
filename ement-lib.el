@@ -1112,7 +1112,7 @@ suggested room."
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (cl-defun ement-send-message (room session
-                                   &key body formatted-body replying-to-event filter then)
+                                   &key body formatted-body replying-to-event rich-reply filter then)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
 THEN may be a function to call after the event is sent
 successfully.  It is called with keyword arguments for ROOM,
@@ -1120,6 +1120,7 @@ SESSION, CONTENT, and DATA.
 
 REPLYING-TO-EVENT may be an event the message is
 in reply to; the message will reference it appropriately.
+If RICH-REPLY is non-nil, then a rich-reply is sent instead.
 
 FILTER may be a function through which to pass the message's
 content object before sending (see,
@@ -1143,7 +1144,10 @@ e.g. `ement-room-send-org-filter')."
       (setf content (funcall filter content room)))
     (when replying-to-event
       (setf replying-to-event (ement--original-event-for replying-to-event session)
-            content (ement--add-reply content replying-to-event room)))
+            content (if rich-reply
+                        (cons `(m.relates_to (m.in_reply_to (event_id . ,(ement-event-id replying-to-event))))
+                              content)
+                      (ement--add-reply content replying-to-event room))))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
                              ;; Data is added when calling back.
