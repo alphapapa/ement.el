@@ -4187,9 +4187,15 @@ If FORMATTED-P, return the formatted body content, when available."
   "Return text for QUOTED-EVENT."
   (pcase-let* (((cl-struct ement-event sender (content (map body))) quoted-event)
                ((cl-struct ement-user (id sender-id)) sender))
-    ;; FIXME: If the body spans lines, how should we handle them?  Omit subsequent lines,
-    ;; collapse into one line, or quote-prefix each line?
-    (format "> <%s> %s" sender-id body)))
+    (with-temp-buffer
+      (insert "> " "<" sender-id ">" body)
+      (goto-char (point-min))
+      (forward-line 1)
+      (while (not (eobp))
+        (insert "> ")
+        (forward-line 1))
+      (insert "\n")
+      (buffer-string))))
 
 (defun ement-room--format-quotation-html (quoted-event room)
   "Return HTML for QUOTED-EVENT in ROOM."
