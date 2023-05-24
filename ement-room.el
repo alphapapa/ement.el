@@ -3701,7 +3701,8 @@ a copy of the local keymap, and sets `header-line-format'."
   ;; NOTE: The widget needs something before and after "%v" to correctly apply the
   ;; `ement-room-membership' face. We could use a zero-width space, but that won't work on
   ;; a TTY. So we use a regular space but replace it with nothing with a display spec.
-  :format (let ((zws (propertize " " 'display ""))) (concat "%{" zws "%v" zws "%}"))
+  :format (let ((zws (propertize " " 'display "")))
+            (concat "%{" zws "%v" zws "%}"))
   :sample-face 'ement-room-membership
   :value-create (lambda (widget)
                   (pcase-let* ((event (widget-value widget)))
