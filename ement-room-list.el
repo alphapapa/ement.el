@@ -745,7 +745,9 @@ left."
   (interactive)
   (cl-etypecase (oref (magit-current-section) value)
     (vector (pcase-let ((`[,room ,session] (oref (magit-current-section) value)))
-              (ement-view-room room session)))
+              (if (ement--room-space-p room)
+                  (ement-view-space room session)
+                (ement-view-room room session))))
     (taxy-magit-section (call-interactively #'ement-room-list-section-toggle))
     (null nil)))
 
