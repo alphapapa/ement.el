@@ -800,6 +800,11 @@ Returns nil if unable to read `ement-sessions-file'."
                                  :transaction-id transaction-id))))
     (message "Ement: Writing sessions...")
     (with-temp-file ement-sessions-file
+      ;; Ensure that `epa-file-encrypt-to' carries the correct value by making it buffer-local.
+      ;; This hack is inspired by this section of auth-sources.el:
+      ;; https://github.com/emacs-mirror/emacs/blob/73582ed6d4f227216d4c56c3f5f98c56e48796ca/lisp/auth-source.el#L1501-L1506
+      (unless (local-variable-p 'epa-file-encrypt-to (current-buffer))
+        (make-local-variable 'epa-file-encrypt-to))
       (pcase-let* ((print-level nil)
                    (print-length nil)
                    ;; Very important to use `print-circle', although it doesn't
