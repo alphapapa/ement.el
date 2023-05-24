@@ -524,7 +524,12 @@ otherwise use current room."
                          ;; alignment problems.
                          (spec (format "%%-%ss %%s" name-width)))
               (save-excursion
-                (insert "\"" (propertize (or display-name canonical-alias room-id) 'face 'font-lock-doc-face) "\"" " is a room "
+                (insert "\"" (propertize (or display-name canonical-alias room-id) 'face 'font-lock-doc-face) "\"" " is a "
+                        (propertize (if (ement--room-space-p room)
+                                        "space"
+                                      "room")
+                                    'face 'font-lock-type-face)
+                        " "
                         (propertize (pcase status
                                       ('invite "invited")
                                       ('join "joined")
