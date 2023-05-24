@@ -2098,6 +2098,7 @@ see."
   "Return buffer named NAME showing ROOM's events on SESSION.
 If ROOM has no buffer, one is made and stored in the room's local
 data slot."
+  (declare (function ement-view-space "ement-directory"))
   (or (map-elt (ement-room-local room) 'buffer)
       (let ((new-buffer (generate-new-buffer name)))
         (with-current-buffer new-buffer
@@ -2142,7 +2143,23 @@ data slot."
                                                            (kill-buffer)
                                                            (message "Joining room... (buffer will be reopened after joining)")
                                                            (ement-room-join (ement-room-id room) session))))))
-                          (_ ""))))
+                          (_ (if (ement--space-p room)
+                                 (concat (propertize "This room is a space.  It is not for messaging, but only a grouping of other rooms.  "
+                                                     'face 'font-lock-type-face)
+                                         (propertize "[View rooms in this space]"
+                                                     'button '(t)
+                                                     'category 'default-button
+                                                     'mouse-face 'highlight
+                                                     'follow-link t
+                                                     'action (lambda (_button)
+                                                               ;; Kill the room buffer so it can be recreated after joining
+                                                               ;; (which will cleanly update the room's name, footer, etc).
+                                                               (let ((room ement-room)
+                                                                     (session ement-session))
+                                                                 (kill-buffer)
+                                                                 (message "Viewing space...")
+                                                                 (ement-view-space room session)))))
+                               "")))))
             (ewoc-set-hf ement-ewoc header footer))
           (setf
            ;; Clear new-events, because those only matter when a buffer is already open.

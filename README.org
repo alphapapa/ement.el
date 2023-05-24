@@ -303,6 +303,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-describe-room~ shows whether a room is a space or a normal room.
 + Activating a space in the room list uses ~ement-view-space~ (which shows a directory of rooms in the space) instead of ~ement-view-room~ (which shows events in the space, which is generally not useful).
 + Command ~ement-view-space~ shows the space's name and alias.
++ Command ~ement-view-room~, when used for a space, shows a footer explaining that the buffer is showing a space rather than a normal room, with a button to call ~ement-view-space~ for it (which lists rooms in the space).
 + Improve readme export settings.
 
 ** 0.9.3
