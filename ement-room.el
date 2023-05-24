@@ -2586,11 +2586,13 @@ function to `ement-room-event-fns', which see."
 
 (defface ement-room-read-receipt-marker
   '((t (:inherit show-paren-match)))
-  "Read marker line in rooms.")
+  "Read marker line in rooms."
+  :group 'ement-room)
 
 (defface ement-room-fully-read-marker
   '((t (:inherit isearch)))
-  "Fully read marker line in rooms.")
+  "Fully read marker line in rooms."
+  :group 'ement-room)
 
 (defcustom ement-room-send-read-receipts t
   "Whether to send read receipts.
