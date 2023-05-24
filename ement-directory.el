@@ -394,8 +394,11 @@ SPACE may be a room ID or an `ement-room' struct."
                            results))
                 (ement-directory--view rooms ;; :append-p since
                   ;; TODO: Use space's alias where possible.
-                  :buffer-name (format "*Ement Directory: space \"%s\"" id)
-                  :root-section-name (format "*Ement Directory: space \"%s\"" id)
+                  :buffer-name (format "*Ement Directory: space %s" (ement--format-room space session))
+                  :root-section-name (format "*Ement Directory: rooms in %s %s"
+                                             (propertize "space"
+                                                         'face 'font-lock-type-face)
+                                             (ement--format-room space session))
                   :init-fn (lambda ()
                              (setf (alist-get 'session ement-directory-etc) session
                                    (alist-get 'next-batch ement-directory-etc) next-batch
