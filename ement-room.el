@@ -1837,12 +1837,12 @@ reaction string, e.g. \"👍\"."
   (interactive
    (ement-with-room-and-session
      :prompt-form (ement-complete-room :session ement-session
-                    :predicate (lambda (room) (not (ement--room-space-p room))) )
+                    :predicate (lambda (room) (not (ement--space-p room))) )
      (pcase-let* ((prompt (format "Toggle room %S's membership in space: "
                                   (ement--format-room ement-room)))
                   ;; TODO: Use different face for spaces the room is already in.
                   (`(,space ,_session) (ement-complete-room :session ement-session :prompt prompt :suggest nil
-                                         :predicate #'ement--room-space-p)))
+                                         :predicate #'ement--space-p)))
        (list ement-room space ement-session))))
   (pcase-let* (((cl-struct ement-room (id child-id)) room)
                (routing-server (progn
@@ -1882,7 +1882,7 @@ reaction string, e.g. \"👍\"."
 Uses action `ement-view-room-display-buffer-action', which see."
   (interactive (ement-complete-room :session (ement-complete-session) :suggest nil
                  :predicate (lambda (room)
-                              (not (ement--room-space-p room)))))
+                              (not (ement--space-p room)))))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
     (unless (buffer-live-p buffer)
       (setf buffer (ement-room--buffer session room (ement-room--buffer-name room))

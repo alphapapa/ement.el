@@ -525,7 +525,7 @@ otherwise use current room."
                          (spec (format "%%-%ss %%s" name-width)))
               (save-excursion
                 (insert "\"" (propertize (or display-name canonical-alias room-id) 'face 'font-lock-doc-face) "\"" " is a "
-                        (propertize (if (ement--room-space-p room)
+                        (propertize (if (ement--space-p room)
                                         "space"
                                       "room")
                                     'face 'font-lock-type-face)
@@ -865,7 +865,7 @@ USER is an `ement-user' struct."
 ;;               ;; 3.
 ;;               (cl-third (servers-by-population-in room))))))))
 
-(defun ement--room-space-p (room)
+(defun ement--space-p (room)
   "Return non-nil if ROOM is a space."
   (equal "m.space" (ement-room-type room)))
 

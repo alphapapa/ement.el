@@ -379,7 +379,7 @@ contents.  To be called by `ement-directory-search'."
   "View child rooms in SPACE on SESSION.
 SPACE may be a room ID or an `ement-room' struct."
   ;; TODO: "from" query parameter.
-  (interactive (ement-complete-room :predicate #'ement--room-space-p
+  (interactive (ement-complete-room :predicate #'ement--space-p
                  :prompt "Space: "))
   (pcase-let* ((id (cl-typecase space
                      (string space)
