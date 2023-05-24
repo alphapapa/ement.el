@@ -742,6 +742,7 @@ left."
 (declare-function ement-view-room "ement-room")
 (defun ement-room-list-RET ()
   "View room at point, or cycle section at point."
+  (declare (function ement-view-space "ement-room"))
   (interactive)
   (cl-etypecase (oref (magit-current-section) value)
     (vector (pcase-let ((`[,room ,session] (oref (magit-current-section) value)))
