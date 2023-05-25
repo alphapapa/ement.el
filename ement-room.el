@@ -3163,7 +3163,7 @@ seconds."
                                ;; HACK: Rather than using another variable, compare the format strings to
                                ;; determine whether the date is changing: if so, add a newline before the header.
                                (progn
-                                 (cl-incf width 1)
+                                 (cl-incf width 3)
                                  "\n")
                              ""))
             (alignment-space (pcase ement-room-timestamp-header-align
