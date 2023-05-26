@@ -217,6 +217,10 @@ In that case, sender names are aligned to the margin edge.")
 ;; Defined in Emacs 28.1: silence byte-compilation warning in earlier versions.
 (defvar browse-url-handlers)
 
+;; Defined in the visual-fill-collumn package.
+(defvar visual-fill-column-extra-text-width)
+(make-variable-buffer-local 'visual-fill-column-extra-text-width)
+
 ;;;; Customization
 
 (defgroup ement-room nil
@@ -1180,7 +1184,8 @@ option."
   (cl-assert ement-ewoc)
   (ement-room-message-format-spec-setter 'ement-room-message-format-spec format-spec 'local)
   (setf left-margin-width ement-room-left-margin-width
-        right-margin-width ement-room-right-margin-width)
+        right-margin-width ement-room-right-margin-width
+        visual-fill-column-extra-text-width `(,(- left-margin-width) . ,(- right-margin-width)))
   (set-window-margins nil left-margin-width right-margin-width)
   (if ement-room-sender-in-headers
       (ement-room--insert-sender-headers ement-ewoc)
@@ -2051,6 +2056,7 @@ and erases the buffer."
   (setf buffer-read-only t
         left-margin-width ement-room-left-margin-width
         right-margin-width ement-room-right-margin-width
+        visual-fill-column-extra-text-width `(,(- left-margin-width) . ,(- right-margin-width))
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
