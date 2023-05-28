@@ -285,6 +285,10 @@ Long lines can be wrapped, and even centered, with the [[https://codeberg.org/jo
   (add-hook 'ement-room-mode-hook 'my/ement-room-visual-fill-column-setup)
 #+END_SRC
 
+And this is what it looks like:
+
+[[images/screenshot-visual-fill-column.png]]
+
 ** Encrypted room support through Pantalaimon
 
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]].  After configuring it according to its documentation, call ~ement-connect~ with the appropriate hostname and port, like:
