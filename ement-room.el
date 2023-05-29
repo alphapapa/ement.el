@@ -2650,8 +2650,10 @@ function to `ement-room-event-fns', which see."
                     (with-current-buffer buffer
                       (ewoc-map
                        (lambda (data)
-                         (and (ement-event-p data)
-                              (equal (ement-event-sender data) sender)))
+                         (or (and (ement-event-p data)
+                                  (equal (ement-event-sender data) sender))
+                             (and (ement-user-p data)
+                                  (equal data sender))))
                        ement-ewoc)))))))))
 
 (require 'svg-lib)
@@ -3713,14 +3715,13 @@ ROOM defaults to the value of `ement-room'."
                     (t 'ement-room-user)))
         (string (if (and ement-room-show-user-avatars ement-room-sender-in-headers)
                     (concat (propertize " "
-                                        'display (list '(margin left-margin)
-                                                       (or (ement-user-avatar user)
-                                                           (setf (ement-user-avatar user)
-                                                                 (ement--make-avatar (ement--user-displayname-in room user)
-                                                                                     (or (ement-user-color user)
-                                                                                         (setf (ement-user-color user)
-                                                                                               (ement-room--user-color user))))))))
-                            "" (ement--user-displayname-in room user) )
+                                        'display (or (ement-user-avatar user)
+                                                     (setf (ement-user-avatar user)
+                                                           (ement--make-avatar (ement--user-displayname-in room user)
+                                                                               (or (ement-user-color user)
+                                                                                   (setf (ement-user-color user)
+                                                                                         (ement-room--user-color user)))))))
+                            " " (ement--user-displayname-in room user) )
                   (ement--user-displayname-in room user))))
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents
