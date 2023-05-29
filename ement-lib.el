@@ -56,6 +56,7 @@
 (defvar ement-room)
 (defvar ement-session)
 
+(defvar ement-room-show-user-avatars)
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
 (defvar ement-room-leave-kill-buffer)
@@ -1001,7 +1002,7 @@ ROOM defaults to the value of `ement-room'."
                      (t 'ement-room-user)))
          (string (ement--user-displayname-in room user)))
     (when with-avatar-p
-      (setf string (concat (ement-user-avatar user) " " string)))
+      (setf string (concat (propertize " " 'display (ement-user-avatar user)) "󠀠" string)))
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents
     ;; the display name from being used if the state event arrives later.

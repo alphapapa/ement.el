@@ -230,6 +230,7 @@ Does not include filenames, emotes, etc.")
 (defvar ement-images-queue)
 (defvar ement-notify-limit-room-name-width)
 (defvar ement-view-room-display-buffer-action)
+(defvar ement-room-show-user-avatars)
 
 ;; Defined in Emacs 28.1: silence byte-compilation warning in earlier versions.
 (defvar browse-url-handlers)
@@ -251,6 +252,10 @@ Does not include filenames, emotes, etc.")
   "Functions called when `ement-room-view' is called.
 Called with two arguments, the room and the session."
   :type 'hook)
+
+(defcustom ement-room-show-user-avatars t
+  "Show user avatars."
+  :type 'boolean)
 
 ;;;;; Faces
 
@@ -425,7 +430,10 @@ non-nil, set the variables buffer-locally (i.e. when called from
                      ,@(cl-loop for (symbol value) on pairs by #'cddr
                                 collect `(if local
                                              (set (make-local-variable ',symbol) ,value)
-                                           (set ',symbol ,value))))))
+                                           (set ',symbol ,value)))))
+                (left-margin
+                  ;; FIXME: Kind of a hack.
+                  () `(if ement-room-show-user-avatars 14 12)))
     (if local
         (set (make-local-variable option) value)
       (set-default option value))
@@ -438,7 +446,7 @@ non-nil, set the variables buffer-locally (i.e. when called from
                  ement-room-sender-in-headers t
                  ement-room-sender-in-left-margin nil))
       ("%S%L%B%r%R%t" ;; "IRC-style using margins"
-       (set-vars ement-room-left-margin-width 12
+       (set-vars ement-room-left-margin-width (left-margin)
                  ement-room-right-margin-width 8
                  ement-room-sender-headers nil
                  ement-room-sender-in-headers nil
@@ -451,7 +459,7 @@ non-nil, set the variables buffer-locally (i.e. when called from
                  ement-room-sender-in-left-margin nil))
       (_ (set-vars ement-room-left-margin-width
                    (if (string-match-p "%L" value)
-                       12 0)
+                       (left-margin) 0)
                    ement-room-right-margin-width
                    (if (string-match-p "%R" value)
                        8 0)
@@ -925,6 +933,7 @@ spec) without requiring all events to use the same margin width."
     (with-current-buffer (or buffer (current-buffer))
       (when ement-room-sender-in-left-margin
         ;; Sender in left margin: truncate/pad appropriately.
+        ;; FIXME: Import `org-string-width'.
         (setf sender
               (if (< (string-width sender) ement-room-left-margin-width)
                   ;; Using :align-to or :width space display properties doesn't
@@ -2601,10 +2610,6 @@ function to `ement-room-event-fns', which see."
   (setf (ement-room-display-name ement-room) (ement--room-display-name ement-room))
   (rename-buffer (ement-room--buffer-name ement-room)))
 
-(defcustom ement-room-show-user-avatars t
-  "Show user avatars."
-  :type 'boolean)
-
 (cl-defun ement--update-user-avatar (user room session &key (then #'ignore))
   "Update USER's avatar in ROOM on SESSION."
   (ignore session)
@@ -3715,7 +3720,7 @@ ROOM defaults to the value of `ement-room'."
                     (t 'ement-room-user)))
         (string (if (and ement-room-show-user-avatars ement-room-sender-in-headers (ement-user-avatar user))
                     (concat (propertize " " 'display (ement-user-avatar user))
-                            " " (ement--user-displayname-in room user) )
+                            "󠀠" (ement--user-displayname-in room user) )
                   (ement--user-displayname-in room user))))
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents

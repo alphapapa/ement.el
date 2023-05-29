@@ -970,6 +970,7 @@ and `session' to the session.  Adds function to
 
 (ement-defevent "m.room.member"
   "Put/update member on `ement-users' and room's members table."
+  (ignore session)
   (pcase-let* (((cl-struct ement-room members) room)
                ((cl-struct ement-event state-key
                            (content (map displayname membership
