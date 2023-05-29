@@ -917,7 +917,7 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?S
   "Sender display name."
   (ignore session)
-  (pcase-let ((sender (ement--format-user (ement-event-sender event) room))
+  (pcase-let ((sender (ement--format-user (ement-event-sender event) :room room))
               ((cl-struct ement-room (local (map buffer))) room))
     ;; NOTE: When called from an `ement-notify' function, ROOM may have no buffer.  In
     ;; that case, just use the current buffer (which should be a temp buffer used to
@@ -2616,12 +2616,14 @@ function to `ement-room-event-fns', which see."
               'get (ement--mxc-to-url avatar-url session) :as 'binary :noquery t
               :then (lambda (data)
                       (if-let ((image (create-image data nil 'data-p)))
-                          (display-warning
-                           'ement (format "Unable to read avatar for user %S in room %S"
-                                          (ement--format-user user room session)
-                                          (ement--format-room room)))
-                        (setf (image-property image :ascent) 'center
-                              (ement-user-avatar user) (propertize " " :display `(image ,image))))
+                          (setf (image-property image :ascent) 'center
+                                ;; FIXME: If the font size changes, this won't update.
+                                image (ement--resize-image image nil (frame-char-height))
+                                (ement-user-avatar user) image)
+                        (display-warning
+                         'ement (format "Unable to read avatar for user %S in room %S"
+                                        (ement--format-user user :room room :session session)
+                                        (ement--format-room room))))
                       (funcall then)))))
           (ement-room-generate-user-avatars
            (setf (ement-user-avatar user)

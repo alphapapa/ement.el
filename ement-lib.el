@@ -531,7 +531,7 @@ otherwise use current room."
             ;; returning a cons which we destructure.
             (pcase-let* ((`(,member-pairs . ,name-width)
                           (cl-loop for user being the hash-values of members
-                                   for formatted = (ement--format-user user room session)
+                                   for formatted = (ement--format-user user :room room :session session)
                                    for id = (format "<%s>" (id (ement-user-id user)))
                                    collect (cons formatted id)
                                    into pairs
@@ -988,21 +988,24 @@ avatars, etc."
                                                    "white" "black")))))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
-(cl-defun ement--format-user (user &optional (room ement-room) (session ement-session))
+(cl-defun ement--format-user (user &key (with-avatar-p ement-room-show-user-avatars) (room ement-room) (session ement-session))
   "Format `ement-user' USER for ROOM on SESSION.
 ROOM defaults to the value of `ement-room'."
-  (let ((face (cond ((equal (ement-user-id (ement-session-user session))
-                            (ement-user-id user))
-                     'ement-room-self)
-                    (ement-room-prism
-                     `(:inherit ement-room-user :foreground ,(or (ement-user-color user)
-                                                                 (setf (ement-user-color user)
-                                                                       (ement--prism-color user)))))
-                    (t 'ement-room-user))))
+  (let* ((face (cond ((equal (ement-user-id (ement-session-user session))
+                             (ement-user-id user))
+                      'ement-room-self)
+                     (ement-room-prism
+                      `(:inherit ement-room-user :foreground ,(or (ement-user-color user)
+                                                                  (setf (ement-user-color user)
+                                                                        (ement--prism-color user)))))
+                     (t 'ement-room-user)))
+         (string (ement--user-displayname-in room user)))
+    (when with-avatar-p
+      (setf string (concat (ement-user-avatar user) " " string)))
     ;; FIXME: If a membership state event has not yet been received, this
     ;; sets the display name in the room to the user ID, and that prevents
     ;; the display name from being used if the state event arrives later.
-    (propertize (ement--user-displayname-in room user)
+    (propertize string
                 'face face
                 'help-echo (ement-user-id user))))
 
