@@ -3713,14 +3713,8 @@ ROOM defaults to the value of `ement-room'."
                                                                  (setf (ement-user-color user)
                                                                        (ement-room--user-color user)))))
                     (t 'ement-room-user)))
-        (string (if (and ement-room-show-user-avatars ement-room-sender-in-headers)
-                    (concat (propertize " "
-                                        'display (or (ement-user-avatar user)
-                                                     (setf (ement-user-avatar user)
-                                                           (ement--make-avatar (ement--user-displayname-in room user)
-                                                                               (or (ement-user-color user)
-                                                                                   (setf (ement-user-color user)
-                                                                                         (ement-room--user-color user)))))))
+        (string (if (and ement-room-show-user-avatars ement-room-sender-in-headers (ement-user-avatar user))
+                    (concat (propertize " " 'display (ement-user-avatar user))
                             " " (ement--user-displayname-in room user) )
                   (ement--user-displayname-in room user))))
     ;; FIXME: If a membership state event has not yet been received, this
