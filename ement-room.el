@@ -950,12 +950,6 @@ spec) without requiring all events to use the same margin width."
     ;; So `ement--format-user' returns a string propertized with `help-echo' as a string.
     (concat sender "​")))
 
-(ement-room-define-event-formatter ?S
-  "Sender display name."
-  (ignore session)
-  (pcase-let ((sender (ement-room--format-user (ement-event-sender event) room)))
-    sender))
-
 (defcustom ement-room-generate-user-avatars t
   "Generate Element-like avatars for users who have none."
   :type 'boolean)
