@@ -298,6 +298,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.10-pre
 
+*Additions*
++ Support for Single Sign-On (SSO) authentication.  ([[https://github.com/alphapapa/ement.el/issues/24][#24]].  Thanks to [[https://github.com/Necronian][Jeffrey Stoffers]] for development, and to [[https://github.com/phil-s][Phil Sainty]], [[https://github.com/FrostyX][Jakub Kadlčík]], and [[https://github.com/oneingan][Juanjo Presa]] for testing.)
+
 *Changes*
 
 + Activating a space in the room list uses ~ement-view-space~ (which shows a directory of rooms in the space) instead of ~ement-view-room~ (which shows events in the space, which is generally not useful).
