@@ -314,6 +314,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Customization group for faces.
 + Don't reinitialize ~ement-room-list-mode~ when room list buffer is refreshed.  ([[https://github.com/alphapapa/ement.el/issues/146][#146]].  Thanks to [[https://github.com/treed][Ted Reed]] for reporting.)
 + Don't fetch old events when scrolling to the bottom of a room buffer (only when scrolling to the top).  (Thanks to [[https://github.com/Stebalien][Steven Allen]].)
++ Minor improvements to auto-detection of homeserver URIs.  (See [[https://github.com/alphapapa/ement.el/issues/24#issuecomment-1569518713][#24]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.9.3
 
