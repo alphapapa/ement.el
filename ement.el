@@ -439,9 +439,12 @@ If no URI is found, prompt the user for the hostname."
                       ("" hostname)
                       (_ input))))
               (parse (string)
-                     (if-let ((object (ignore-errors (json-read-from-string string))))
-                         ;; Return extracted value.
-                         (map-nested-elt object '(m.homeserver base_url))
+                     (if-let* ((object (ignore-errors (json-read-from-string string)))
+                               (url (map-nested-elt object '(m.homeserver base_url)))
+                               ((string-match-p
+                                 (rx bos "http" (optional "s") "://" (1+ nonl))
+                                 url)))
+                         url
                        ;; Parsing error: FAIL_PROMPT.
                        (fail-prompt))))
     (condition-case err
