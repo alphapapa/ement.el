@@ -307,6 +307,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-view-room~, when used for a space, shows a footer explaining that the buffer is showing a space rather than a normal room, with a button to call ~ement-view-space~ for it (which lists rooms in the space).
 + Command ~ement-describe-room~ shows whether a room is a space or a normal room.
 + Command ~ement-view-space~ shows the space's name and alias.
++ Command ~ement-room-scroll-up-mark-read~ moves the fully read marker to the top of the window (when the marker's position is within the range of known events), rather than only moving it when at the end of the buffer.  (This eases the process of gradually reading a long backlog of messages.)
 + Improve readme export settings.
 
 *Fixes*
