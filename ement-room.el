@@ -127,6 +127,7 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
     (define-key map (kbd "S-SPC") #'ement-room-scroll-down-command)
     (define-key map (kbd "M-SPC") #'ement-room-goto-fully-read-marker)
+    (define-key map (kbd "m") #'ement-room-mark-read)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
 
@@ -4394,7 +4395,8 @@ For use in `completion-at-point-functions'."
               ("<backtab>" "Previous event" ement-room-goto-prev)
               ("SPC" "Scroll up and mark read" ement-room-scroll-up-mark-read)
               ("S-SPC" "Scroll down" ement-room-scroll-down-command)
-              ("M-SPC" "Jump to fully-read marker" ement-room-goto-fully-read-marker)]
+              ("M-SPC" "Jump to fully-read marker" ement-room-goto-fully-read-marker)
+              ("m" "Move read markers to point" ement-room-mark-read)]
              ["Switching"
               ("M-g M-l" "List rooms" ement-room-list)
               ("M-g M-r" "Switch to other room" ement-view-room)

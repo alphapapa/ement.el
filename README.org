@@ -162,6 +162,7 @@ These bindings are common to all of the following buffer types:
 + Scroll up and mark read: ~SPC~
 + Scroll down: ~S-SPC~
 + Jump to fully-read marker: ~M-SPC~
++ Move read markers to point: ~m~
 + Load older messages: at top of buffer, scroll contents up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
 
 *Switching*
@@ -300,6 +301,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Additions*
 + Support for Single Sign-On (SSO) authentication.  ([[https://github.com/alphapapa/ement.el/issues/24][#24]].  Thanks to [[https://github.com/Necronian][Jeffrey Stoffers]] for development, and to [[https://github.com/phil-s][Phil Sainty]], [[https://github.com/FrostyX][Jakub Kadlčík]], and [[https://github.com/oneingan][Juanjo Presa]] for testing.)
++ Bind ~m~ in room buffers to ~ement-room-mark-read~ (which moves read markers to point).
 
 *Changes*
 
