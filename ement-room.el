@@ -2620,7 +2620,7 @@ function to `ement-room-event-fns', which see."
                                 image (ement--resize-image image nil (frame-char-height))
                                 (ement-user-avatar user) image)
                         (display-warning
-                         'ement (format "Unable to read avatar for user %S in room %S"
+                         'ement (format "Unable to read avatar for user %s in room %s"
                                         (ement--format-user user :room room :session session)
                                         (ement--format-room room))))
                       (funcall then)))))
