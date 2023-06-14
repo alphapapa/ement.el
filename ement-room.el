@@ -1227,11 +1227,7 @@ otherwise use current room."
     (pcase-let* ((filename (file-name-nondirectory file))
                  (extension (or (file-name-extension file) ""))
                  (mime-type (mailcap-extension-to-mime extension))
-                 (data (with-temp-buffer
-                         ;; NOTE: Using (set-buffer-multibyte nil) doesn't
-                         ;; seem to be necessary, but I don't know why not.
-                         (insert-file-contents file)
-                         (buffer-string)))
+                 (data `(file ,file))
                  (size (length data)))
       (ement-upload session :data data :filename filename :content-type mime-type
         :then (lambda (data)
