@@ -299,6 +299,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 ** 0.10-pre
 
+*Security Fixes*
++ When uploading a GPG-encrypted file (i.e. one whose filename ends in ~.gpg~), if the recipient's private key or the symmetric encryption key were cached by Emacs (or a configured agent, like ~gpg-agent~), Emacs would automatically decrypt the file while reading its contents and then upload the decrypted contents.  (This happened because the function ~insert-file-contents~ was used, which does many things automatically, some of which are not even mentioned in its docstring; refer to its entry in the Elisp Info manual for details.  The fix is to use ~insert-file-contents-literally~ instead.)  Thanks to ~@welkinsl:matrix.org~ for reporting.
+
 *Additions*
 + Support for Single Sign-On (SSO) authentication.  ([[https://github.com/alphapapa/ement.el/issues/24][#24]].  Thanks to [[https://github.com/Necronian][Jeffrey Stoffers]] for development, and to [[https://github.com/phil-s][Phil Sainty]], [[https://github.com/FrostyX][Jakub Kadlčík]], and [[https://github.com/oneingan][Juanjo Presa]] for testing.)
 + Bind ~m~ in room buffers to ~ement-room-mark-read~ (which moves read markers to point).
