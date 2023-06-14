@@ -1244,20 +1244,25 @@ DATA is an unsent message event's data alist."
   "Return non-nil if event A replaces event B.
 That is, if event A replaces B in their
 \"m.relates_to\"/\"m.relations\" and \"m.replace\" metadata."
-  (pcase-let* (((cl-struct ement-event (id a-id)
+  (pcase-let* (((cl-struct ement-event (id a-id) (origin-server-ts a-ts)
                            (content (map ('m.relates_to
                                           (map ('rel_type a-rel-type)
                                                ('event_id a-replaces-event-id))))))
                 a)
-               ((cl-struct ement-event (id b-id)
-                           ;; Not sure why this ends up in the unsigned key, but it does.
-                           (unsigned (map ('m.relations
-                                           (map ('m.replace
-                                                 (map ('event_id b-replaced-by-event-id))))))))
+               ((cl-struct ement-event (id b-id) (origin-server-ts b-ts)
+                           (content (map ('m.relates_to
+                                          (map ('rel_type b-rel-type)
+                                               ('event_id b-replaces-event-id)))
+                                         ('m.relations
+                                          (map ('m.replace
+                                                (map ('event_id b-replaced-by-event-id))))))))
                 b))
-    (or (and (equal "m.replace" a-rel-type)
-             (equal a-replaces-event-id b-id))
-        (equal a-id b-replaced-by-event-id))))
+    (or (equal a-id b-replaced-by-event-id)
+        (and (equal "m.replace" a-rel-type)
+             (or (equal a-replaces-event-id b-id)
+                 (and (equal "m.replace" b-rel-type)
+                      (equal a-replaces-event-id b-replaces-event-id)
+                      (>= a-ts b-ts)))))))
 
 (defun ement--events-equal-p (a b)
   "Return non-nil if events A and B are essentially equal.
