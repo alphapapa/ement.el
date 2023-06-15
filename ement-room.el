@@ -957,20 +957,24 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?a
   "Sender avatar."
   (ignore session room)
-  (pcase-let (((cl-struct ement-event sender) event))
-    (if-let (avatar (ement-user-avatar sender))
-        ;; (propertize " " 'display `((:align-to left-margin) ,avatar))
-        (propertize " " 'display avatar)
-      (if ement-room-generate-user-avatars
-          (propertize " "
-                      'display (setf (ement-user-avatar sender)
-                                     (ement--make-avatar (ement--user-displayname-in room sender)
-                                                         (or (ement-user-color sender)
-                                                             (setf (ement-user-color sender)
-                                                                   (ement-room--user-color sender))))))
-        ;; User avatars seem to be about 2 characters wide on average, so if the user has
-        ;; none, use two spaces.
-        " "))))
+  (if ement-room-show-user-avatars
+      (pcase-let (((cl-struct ement-event sender) event))
+        (if-let (avatar (ement-user-avatar sender))
+            ;; (propertize " " 'display `((:align-to left-margin) ,avatar))
+            (propertize " " 'display avatar)
+          (if ement-room-generate-user-avatars
+              (propertize " "
+                          'display (setf (ement-user-avatar sender)
+                                         (ement--make-avatar (ement--user-displayname-in room sender)
+                                                             (or (ement-user-color sender)
+                                                                 (setf (ement-user-color sender)
+                                                                       (ement-room--user-color sender))))))
+            ;; User avatars seem to be about 2 characters wide on average, so if the user has
+            ;; none, use two spaces.
+            " ")))
+    ;; Avatars are disabled: return an empty string.  This way users can disable avatars with
+    ;; one option, rather than having to also remove this from the message format spec.
+    ""))
 
 (ement-room-define-event-formatter ?r
   "Reactions."
