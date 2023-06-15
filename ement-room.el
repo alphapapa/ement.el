@@ -2619,10 +2619,12 @@ function to `ement-room-event-fns', which see."
                                 ;; FIXME: If the font size changes, this won't update.
                                 image (ement--resize-image image nil (frame-char-height))
                                 (ement-user-avatar user) image)
-                        (display-warning
-                         'ement (format "Unable to read avatar for user %s in room %s"
-                                        (ement--format-user user :room room :session session)
-                                        (ement--format-room room))))
+                        ;; Likely an unsupported image format, such as WEBP.  No need to
+                        ;; bother the user about this every time it happens.
+                        (ement-debug (format "Unable to read avatar for user %s in room %s.  Avatar URL: <%s>"
+                                             (ement--format-user user :room room :session session)
+                                             (ement--format-room room)
+                                             (ement--mxc-to-url (ement-user-avatar-url user) session))))
                       (funcall then)))))
           (ement-room-generate-user-avatars
            (setf (ement-user-avatar user)
