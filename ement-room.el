@@ -3593,26 +3593,6 @@ Format defaults to `ement-room-message-format-spec', which see."
                          'display `((margin right-margin) ,string))))))
       (buffer-string))))
 
-
-
-(defun ement--string-width (string)
-  "Return the display width in characters of STRING.
-Attempts to include the width of any images in it.  Assumes that
-any overriding `display' properties in STRING only override with
-images, not with other text."
-  (let* ((length (length string))
-         (pos -1)
-         (images-width 0))
-    (while (and (setf pos (text-property-not-all (1+ pos) length 'display nil string))
-                (< pos length))
-      (let* ((display (get-text-property pos 'display string))
-             (image (if (eq 'image (car display))
-                        display
-                      (cl-find 'image display :key #'car))))
-        (when image
-          (cl-incf images-width (floor (car (image-size image)))))))
-    (+ images-width (string-width string))))
-
 (cl-defun ement-room--format-message-body (event &key (formatted-p t))
   "Return formatted body of \"m.room.message\" EVENT.
 If FORMATTED-P, return the formatted body content, when available."

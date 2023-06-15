@@ -1782,6 +1782,62 @@ seconds, etc."
            (minutes (dividef seconds 60)))
       (list years days hours minutes seconds))))
 
+(cl-defun ement--string-width (s &optional (property 'display) (beg 0) (end (length s)))
+  "Return the width in characters of the visible part of string S.
+Visible part is determined according to text PROPERTY, which is
+either `invisible' or `display'."
+  ;; Copied from `org--string-from-props'.
+  (let ((width 0)
+        (cursor beg))
+    (while (setq beg (text-property-not-all beg end property nil s))
+      (let* ((next (next-single-property-change beg property s end))
+	     (props (text-properties-at beg s))
+	     (spec (plist-get props property))
+	     (value
+	      (pcase-exhaustive property
+		(`invisible
+		 ;; If `invisible' property in PROPS means text is to
+		 ;; be invisible, return 0.  Otherwise return nil so
+		 ;; as to resume search.
+		 (and (or (eq t buffer-invisibility-spec)
+			  (assoc-string spec buffer-invisibility-spec))
+		      0))
+		(`display
+		 (pcase spec
+		   (`nil nil)
+		   (`(space . ,props)
+		    (let ((width (plist-get props :width)))
+		      (and (wholenump width) width)))
+		   (`(image . ,_)
+                    (and (fboundp 'image-size)
+                         (ceiling (car (image-size spec)))))
+		   ((pred stringp)
+		    ;; Displayed string could contain invisible parts,
+		    ;; but no nested display.
+		    (ement--string-width spec 'invisible 0 (length spec)))
+		   (_
+		    ;; Un-handled `display' value.  Ignore it.
+		    ;; Consider the original string instead.
+		    nil))))))
+	(when value
+	  (cl-incf width
+		   ;; When looking for `display' parts, we still need
+		   ;; to look for `invisible' property elsewhere.
+		   (+ (cond ((eq property 'display)
+			     (ement--string-width s 'invisible cursor beg))
+			    ((= cursor beg) 0)
+			    (t (string-width (substring s cursor beg))))
+		      value))
+	  (setq cursor next))
+	(setq beg next)))
+    (+ width
+       ;; Look for `invisible' property in the last part of the
+       ;; string.  See above.
+       (cond ((eq property 'display)
+	      (ement--string-width s 'invisible cursor end))
+	     ((= cursor end) 0)
+	     (t (string-width (substring s cursor end)))))))
+
 ;;; Footer
 
 (provide 'ement-lib)
