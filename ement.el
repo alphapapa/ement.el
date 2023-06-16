@@ -193,6 +193,14 @@ handled (e.g. how to be notified)."
 It shouldn't usually be necessary to change this."
   :type 'integer)
 
+(defcustom ement-user-avatars-enabled t
+  "Download and show user avatars."
+  :type 'boolean)
+
+(defcustom ement-user-avatars-height-factor 1
+  "Render user avatars at the `frame-char-height' multiplied by this."
+  :type 'number)
+
 ;;;; Commands
 
 ;;;###autoload

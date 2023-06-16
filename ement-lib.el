@@ -56,7 +56,7 @@
 (defvar ement-room)
 (defvar ement-session)
 
-(defvar ement-room-show-user-avatars)
+(defvar ement-user-avatars-enabled)
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
 (defvar ement-room-leave-kill-buffer)
@@ -989,7 +989,7 @@ avatars, etc."
                                                    "white" "black")))))))
       (apply #'color-rgb-to-hex (append color-rgb (list 2))))))
 
-(cl-defun ement--format-user (user &key (with-avatar-p ement-room-show-user-avatars) (room ement-room) (session ement-session))
+(cl-defun ement--format-user (user &key (with-avatar-p ement-user-avatars-enabled) (room ement-room) (session ement-session))
   "Format `ement-user' USER for ROOM on SESSION.
 ROOM defaults to the value of `ement-room'."
   (let* ((face (cond ((equal (ement-user-id (ement-session-user session))

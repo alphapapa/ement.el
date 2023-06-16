@@ -230,7 +230,7 @@ Does not include filenames, emotes, etc.")
 (defvar ement-images-queue)
 (defvar ement-notify-limit-room-name-width)
 (defvar ement-view-room-display-buffer-action)
-(defvar ement-room-show-user-avatars)
+(defvar ement-user-avatars-enabled)
 
 ;; Defined in Emacs 28.1: silence byte-compilation warning in earlier versions.
 (defvar browse-url-handlers)
@@ -252,10 +252,6 @@ Does not include filenames, emotes, etc.")
   "Functions called when `ement-room-view' is called.
 Called with two arguments, the room and the session."
   :type 'hook)
-
-(defcustom ement-room-show-user-avatars t
-  "Show user avatars."
-  :type 'boolean)
 
 ;;;;; Faces
 
@@ -433,7 +429,7 @@ non-nil, set the variables buffer-locally (i.e. when called from
                                            (set ',symbol ,value)))))
                 (left-margin
                   ;; FIXME: Kind of a hack.
-                  () `(if ement-room-show-user-avatars 14 12)))
+                  () `(if ement-user-avatars-enabled 14 12)))
     (if local
         (set (make-local-variable option) value)
       (set-default option value))
@@ -957,7 +953,7 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?a
   "Sender avatar."
   (ignore session room)
-  (if ement-room-show-user-avatars
+  (if ement-user-avatars-enabled
       (pcase-let (((cl-struct ement-event sender) event))
         (if-let (avatar (ement-user-avatar sender))
             ;; (propertize " " 'display `((:align-to left-margin) ,avatar))
@@ -2608,12 +2604,13 @@ function to `ement-room-event-fns', which see."
   (setf (ement-room-display-name ement-room) (ement--room-display-name ement-room))
   (rename-buffer (ement-room--buffer-name ement-room)))
 
-(cl-defun ement--update-user-avatar (user session &key (then #'ignore) (height-factor 1))
+(cl-defun ement--update-user-avatar
+    (user session
+          &key (then #'ignore) (height-factor ement-user-avatars-height-factor))
   "Update USER's avatar on SESSION."
-  (ignore session)
   (declare (indent defun))
-  (pcase-let* (((cl-struct ement-user avatar-url) user))
-    (cond ((and ement-room-show-user-avatars avatar-url (not (string-empty-p avatar-url)))
+  (pcase-let (((cl-struct ement-user avatar-url) user))
+    (cond ((and ement-user-avatars-enabled avatar-url (not (string-empty-p avatar-url)))
            (plz-run
             (plz-queue ement-images-queue
               'get (ement--mxc-to-url avatar-url session) :as 'binary :noquery t
@@ -2638,6 +2635,18 @@ function to `ement-room-event-fns', which see."
                                                (ement-room--user-color user)))))
            (funcall then)))))
 
+(defun ement--update-user-avatars ()
+  (pcase-dolist (`(,_id . ,session) ement-sessions)
+    ;; FIXME: With multiple sessions, this is wasteful.
+    (map-do (lambda (_ user)
+              (when (ement-user-avatar user)
+                (ement--update-user-avatar user session)))
+            ement-users)
+    (dolist (buffer (buffer-list))
+      (when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
+        (with-current-buffer buffer
+          (ewoc-refresh ement-ewoc))))))
+
 (ement-room-defevent "m.room.member"
   (pcase-let* (((cl-struct ement-event sender
                            ;; (content (map ('avatar_url avatar-url)))
@@ -2646,7 +2655,7 @@ function to `ement-room-event-fns', which see."
                (room ement-room))
     (with-silent-modifications
       (ement-room--insert-event event))
-    (when ement-room-show-user-avatars
+    (when ement-user-avatars-enabled
       ;; FIXME: This is probably going to happen excessively.
       (ement--update-user-avatar sender ement-session
                                  :then (lambda ()
@@ -3698,7 +3707,7 @@ ROOM defaults to the value of `ement-room'."
                                                                  (setf (ement-user-color user)
                                                                        (ement-room--user-color user)))))
                     (t 'ement-room-user)))
-        (string (if (and ement-room-show-user-avatars ement-room-sender-in-headers (ement-user-avatar user))
+        (string (if (and ement-user-avatars-enabled ement-room-sender-in-headers (ement-user-avatar user))
                     (concat (propertize " " 'display (ement-user-avatar user))
                             "󠀠" (ement--user-displayname-in room user) )
                   (ement--user-displayname-in room user))))
