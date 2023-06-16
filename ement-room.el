@@ -2608,8 +2608,8 @@ function to `ement-room-event-fns', which see."
   (setf (ement-room-display-name ement-room) (ement--room-display-name ement-room))
   (rename-buffer (ement-room--buffer-name ement-room)))
 
-(cl-defun ement--update-user-avatar (user room session &key (then #'ignore))
-  "Update USER's avatar in ROOM on SESSION."
+(cl-defun ement--update-user-avatar (user session &key (then #'ignore) (height-factor 1))
+  "Update USER's avatar on SESSION."
   (ignore session)
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-user avatar-url) user))
@@ -2621,18 +2621,18 @@ function to `ement-room-event-fns', which see."
                       (if-let ((image (create-image data nil 'data-p)))
                           (setf (image-property image :ascent) 'center
                                 ;; FIXME: If the font size changes, this won't update.
-                                image (ement--resize-image image nil (frame-char-height))
+                                image (ement--resize-image image nil (* height-factor (frame-char-height)))
                                 (ement-user-avatar user) image)
                         ;; Likely an unsupported image format, such as WEBP.  No need to
                         ;; bother the user about this every time it happens.
-                        (ement-debug (format "Unable to read avatar for user %s in room %s.  Avatar URL: <%s>"
-                                             (ement--format-user user :room room :session session)
-                                             (ement--format-room room)
+                        (ement-debug (format "Unable to read avatar for user %s.  Avatar URL: <%s>"
+                                             (ement--format-user user :session session)
                                              (ement--mxc-to-url (ement-user-avatar-url user) session))))
                       (funcall then)))))
           (ement-room-generate-user-avatars
            (setf (ement-user-avatar user)
-                 (ement--make-avatar (ement--user-displayname-in room user)
+                 (ement--make-avatar (or (ement-user-displayname user)
+                                         (ement-user-id user))
                                      (or (ement-user-color user)
                                          (setf (ement-user-color user)
                                                (ement-room--user-color user)))))
@@ -2648,18 +2648,18 @@ function to `ement-room-event-fns', which see."
       (ement-room--insert-event event))
     (when ement-room-show-user-avatars
       ;; FIXME: This is probably going to happen excessively.
-      (ement--update-user-avatar sender room ement-session
-        :then (lambda ()
-                (pcase-let (((cl-struct ement-room (local (map buffer))) room))
-                  (when buffer
-                    (with-current-buffer buffer
-                      (ewoc-map
-                       (lambda (data)
-                         (or (and (ement-event-p data)
-                                  (equal (ement-event-sender data) sender))
-                             (and (ement-user-p data)
-                                  (equal data sender))))
-                       ement-ewoc)))))))))
+      (ement--update-user-avatar sender ement-session
+                                 :then (lambda ()
+                                         (pcase-let (((cl-struct ement-room (local (map buffer))) room))
+                                           (when buffer
+                                             (with-current-buffer buffer
+                                               (ewoc-map
+                                                (lambda (data)
+                                                  (or (and (ement-event-p data)
+                                                           (equal (ement-event-sender data) sender))
+                                                      (and (ement-user-p data)
+                                                           (equal data sender))))
+                                                ement-ewoc)))))))))
 
 (require 'svg-lib)
 (defun ement--make-avatar (string background)
