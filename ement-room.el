@@ -3962,10 +3962,10 @@ STRUCT should be an `ement-room-membership-events' struct."
 (defvar ement-room-image-keymap
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map image-map)
-    ;; TODO: Make RET work for showing images too.
-    ;; (define-key map (kbd "RET") #'ement-room-image-show)
+    (define-key map (kbd "M-RET") #'ement-room-image-scale)
+    (define-key map (kbd "RET") #'ement-room-image-show)
     (define-key map [mouse-1] #'ement-room-image-scale-mouse)
-    (define-key map [double-mouse-1] #'ement-room-image-show)
+    (define-key map [double-mouse-1] #'ement-room-image-show-mouse)
     map)
   "Keymap for images in room buffers.")
 
@@ -3998,51 +3998,62 @@ Scale image to fit within the window's body.  If image is already
 fit to the window, reduce its max-height to 10% of the window's
 height."
   (interactive "e")
-  (pcase-let* ((`(,_type ,position ,_count) event)
-               (window (posn-window position))
-               (pos (event-start position)))
+  (let* ((pos (event-start event))
+         (window (posn-window pos)))
     (with-selected-window window
-      (pcase-let* ((image (get-text-property pos 'display))
-                   (window-width (window-body-width nil t))
-                   (window-height (window-body-height nil t))
-                   ;; Image scaling commands set :max-height and friends to nil so use the
-                   ;; impossible dummy value -1.  See <https://github.com/alphapapa/ement.el/issues/39>.
-                   (new-height (if (= window-height (or (image-property image :max-height) -1))
-                                   (/ window-height 10)
-                                 window-height)))
-        (when (fboundp 'imagemagick-types)
-          ;; Only do this when ImageMagick is supported.
-          ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
-          (setf (image-property image :type) 'imagemagick))
-        ;; Set :scale to nil since image scaling commands might have changed it.
-        (setf (image-property image :scale) nil
-              (image-property image :max-width) window-width
-              (image-property image :max-height) new-height)))))
+      (ement-room-image-scale (posn-point pos)))))
 
-(defun ement-room-image-show (event)
+(defun ement-room-image-scale (pos)
+  "Toggle scale of image at POS.
+Scale image to fit within the window's body.  If image is already
+fit to the window, reduce its max-height to 10% of the window's
+height."
+  (interactive "d")
+  (pcase-let* ((image (get-text-property pos 'display))
+               (window-width (window-body-width nil t))
+               (window-height (window-body-height nil t))
+               ;; Image scaling commands set :max-height and friends to nil so use the
+               ;; impossible dummy value -1.  See <https://github.com/alphapapa/ement.el/issues/39>.
+               (new-height (if (= window-height (or (image-property image :max-height) -1))
+                               (/ window-height 10)
+                             window-height)))
+    (when (fboundp 'imagemagick-types)
+      ;; Only do this when ImageMagick is supported.
+      ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+      (setf (image-property image :type) 'imagemagick))
+    ;; Set :scale to nil since image scaling commands might have changed it.
+    (setf (image-property image :scale) nil
+          (image-property image :max-width) window-width
+          (image-property image :max-height) new-height)))
+
+(defun ement-room-image-show-mouse (event)
   "Show image at mouse EVENT in a new buffer."
   (interactive "e")
-  (pcase-let* ((`(,_type ,position ,_count) event)
-               (window (posn-window position)))
-    (with-current-buffer (window-buffer window)
-      (pcase-let* ((pos (event-start position))
-                   (image (copy-sequence (get-text-property pos 'display)))
-                   (ement-event (ewoc-data (ewoc-locate ement-ewoc pos)))
-                   ((cl-struct ement-event id) ement-event)
-                   (buffer-name (format "*Ement image: %s*" id))
-                   (new-buffer (get-buffer-create buffer-name)))
-        (when (fboundp 'imagemagick-types)
-          ;; Only do this when ImageMagick is supported.
-          ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
-          (setf (image-property image :type) 'imagemagick))
-        (setf (image-property image :scale) 1.0
-              (image-property image :max-width) nil
-              (image-property image :max-height) nil)
-        (with-current-buffer new-buffer
-          (erase-buffer)
-          (insert-image image))
-        (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
-        (set-frame-parameter nil 'fullscreen 'maximized)))))
+  (let* ((pos (event-start event))
+         (window (posn-window pos)))
+    (with-selected-window window
+      (ement-room-image-show (posn-point pos)))))
+
+(defun ement-room-image-show (pos)
+  "Show image at POS in a new buffer."
+  (interactive "d")
+  (pcase-let* ((image (copy-sequence (get-text-property pos 'display)))
+               (ement-event (ewoc-data (ewoc-locate ement-ewoc pos)))
+               ((cl-struct ement-event id) ement-event)
+               (buffer-name (format "*Ement image: %s*" id))
+               (new-buffer (get-buffer-create buffer-name)))
+    (when (fboundp 'imagemagick-types)
+      ;; Only do this when ImageMagick is supported.
+      ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
+      (setf (image-property image :type) 'imagemagick))
+    (setf (image-property image :scale) 1.0
+          (image-property image :max-width) nil
+          (image-property image :max-height) nil)
+    (with-current-buffer new-buffer
+      (erase-buffer)
+      (insert-image image))
+    (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
+    (set-frame-parameter nil 'fullscreen 'maximized)))
 
 (defun ement-room--format-m.image (event)
   "Return \"m.image\" EVENT formatted as a string.
