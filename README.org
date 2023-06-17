@@ -300,10 +300,11 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 ** 0.11-pre
 
 *Additions*
-+ Images can now be scaled and viewed with the keyboard. Use the ~ement-room-image-show~ and ~ement-room-image-scale~ commands (bound to ~RET~ and ~M-RET~ by default when an image is selected).
++ Commands ~ement-room-image-show~ and ~ement-room-image-scale~ (bound to ~RET~ and ~M-RET~ when point is at an image) view and scale images.  (Thanks to [[https://github.com/Stebalien][Steven Allen]] for these and other image-related improvements.)
++ Command ~ement-room-image-show-mouse~ is used to show an image with the mouse.
 
 *Changes*
-+ Command ~ement-room-image-show~ no longer expects to be bound to a mouse button, bind ~ement-room-image-show-mouse~.
++ Command ~ement-room-image-show~ is not used for mouse events.
 
 ** 0.10
 
