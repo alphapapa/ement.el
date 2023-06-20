@@ -2663,27 +2663,31 @@ function to `ement-room-event-fns', which see."
           (ewoc-refresh ement-ewoc))))))
 
 (ement-room-defevent "m.room.member"
+  ;; FIXME: AFAICT user avatars are not set per-room, so this should probably not be done in a room-defevent.
   (pcase-let* (((cl-struct ement-event sender
-                           ;; (content (map ('avatar_url avatar-url)))
-                           )
+                           (content (map ('avatar_url event-avatar-url))))
                 event)
+               ((cl-struct ement-user (avatar-url sender-avatar-url)) sender)
                (room ement-room))
     (with-silent-modifications
       (ement-room--insert-event event))
-    (when ement-user-avatars-enabled
-      ;; FIXME: This is probably going to happen excessively.  Should compare avatar URL in event with one already known.
-      (ement--update-user-avatar sender ement-session
-                                 :then (lambda ()
-                                         (pcase-let (((cl-struct ement-room (local (map buffer))) room))
-                                           (when buffer
-                                             (with-current-buffer buffer
-                                               (ewoc-map
-                                                (lambda (data)
-                                                  (or (and (ement-event-p data)
-                                                           (equal (ement-event-sender data) sender))
-                                                      (and (ement-user-p data)
-                                                           (equal data sender))))
-                                                ement-ewoc)))))))))
+    (when (and ement-user-avatars-enabled
+               (not ement-room-retro-loading))
+      ;; FIXME: This will happen for every such event retrieved rather than just the
+      ;; latest one, and we probably only want to do it for the latest one.
+      (unless (equal event-avatar-url sender-avatar-url)
+        (ement--update-user-avatar sender ement-session
+          :then (lambda ()
+                  (pcase-let (((cl-struct ement-room (local (map buffer))) room))
+                    (when buffer
+                      (with-current-buffer buffer
+                        (ewoc-map
+                         (lambda (data)
+                           (or (and (ement-event-p data)
+                                    (equal (ement-event-sender data) sender))
+                               (and (ement-user-p data)
+                                    (equal data sender))))
+                         ement-ewoc))))))))))
 
 (require 'svg-lib)
 (defun ement--make-avatar (string background)
