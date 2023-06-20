@@ -2671,7 +2671,7 @@ function to `ement-room-event-fns', which see."
     (with-silent-modifications
       (ement-room--insert-event event))
     (when ement-user-avatars-enabled
-      ;; FIXME: This is probably going to happen excessively.
+      ;; FIXME: This is probably going to happen excessively.  Should compare avatar URL in event with one already known.
       (ement--update-user-avatar sender ement-session
                                  :then (lambda ()
                                          (pcase-let (((cl-struct ement-room (local (map buffer))) room))
