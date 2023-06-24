@@ -183,18 +183,19 @@ margins in Emacs.  But it's useful, anyway."
   "Send notifications for EVENT in ROOM on SESSION.
 Sends if all of `ement-notify-ignore-predicates' return nil.
 Does not do anything if session hasn't finished initial sync."
-  (when (and (ement-session-has-synced-p session)
-             (cl-loop for pred in ement-notify-ignore-predicates
-                      never (funcall pred event room session)))
-    (when (and ement-notify-dbus-p
-               (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session))
-      (ement-notify--notifications-notify event room session))
-    (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
-      (ement-notify--log-to-buffer event room session))
-    (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
-      (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))
-    (when (run-hook-with-args-until-success 'ement-notify-mark-frame-urgent-predicates event room session)
-      (ement-notify--mark-frame-urgent event room session))))
+  (with-demoted-errors "ement-notify: Error: %S"
+    (when (and (ement-session-has-synced-p session)
+               (cl-loop for pred in ement-notify-ignore-predicates
+                        never (funcall pred event room session)))
+      (when (and ement-notify-dbus-p
+                 (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session))
+        (ement-notify--notifications-notify event room session))
+      (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
+        (ement-notify--log-to-buffer event room session))
+      (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
+        (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))
+      (when (run-hook-with-args-until-success 'ement-notify-mark-frame-urgent-predicates event room session)
+        (ement-notify--mark-frame-urgent event room session)))))
 
 (defun ement-notify--mark-frame-urgent (_event room _session)
   "Mark frame showing ROOM's buffer as urgent.
