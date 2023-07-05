@@ -1646,16 +1646,15 @@ The message must be one sent by the local user."
   (interactive (ement-room-with-highlighted-event-at (point)
                  (cl-assert ement-session) (cl-assert ement-room)
                  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
-                              ((cl-struct ement-session user) ement-session)
-                              ((cl-struct ement-event sender
+                              ((cl-struct ement-session user events) ement-session)
+                              ((cl-struct ement-event sender id
                                           (content (map body ('m.relates_to relates-to))))
                                event))
                    (unless (equal (ement-user-id sender) (ement-user-id user))
                      (user-error "You may only edit your own messages"))
                    (when relates-to
-                     ;; FIXME: This isn't quite right.  When we show edits by replacing
-                     ;; the original event, this will need to be changed.
-                     (user-error "Only original messages may be edited, not the edit events themselves"))
+                     ;; Editing an already-edited event: get the original event.
+                     (setf event (gethash id events)))
                    ;; Remove any leading asterisk from the plain-text body.
                    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
                    (ement-room-with-typing

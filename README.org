@@ -307,6 +307,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-room-image-show~ is not used for mouse events.
 
 *Fixes*
++ Allow editing of already-edited events.
 + Don't stop syncing if an error is signaled while sending a notification.
 
 ** 0.10
