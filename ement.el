@@ -278,7 +278,12 @@ the port, e.g.
                                            "initial_device_display_name" initial-device-display-name)))
                          (ement-api session "login" :method 'post
                            :data (json-encode data)
-                           :then (apply-partially #'ement--login-callback session)))
+                           :then (apply-partially #'ement--login-callback session))
+                         (process-send-string process "HTTP/1.0 202 Accepted
+Content-Type: text/plain; charset=utf-8
+
+Ement: SSO login accepted; session token received.  Connecting to Matrix server.  (You may close this page.)")
+                         (process-send-eof process))
                      (delete-process sso-server-process)
                      (delete-process process))))
                 (sso-login ()
