@@ -292,7 +292,9 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
                                   :name "ement-sso" :family 'ipv4 :host 'local :service ement-sso-server-port
                                   :filter #'sso-filter :server t :noquery t))
                            ;; Kill server after 2 minutes in case of problems.
-                           (run-at-time 120 nil #'delete-process sso-server-process)
+                           (run-at-time 120 nil (lambda ()
+                                                  (when (process-live-p sso-server-process)
+                                                    (delete-process sso-server-process))))
                            (funcall browse-url-secondary-browser-function
                                     (concat (ement-server-uri-prefix (ement-session-server session))
                                             "/_matrix/client/r0/login/sso/redirect?redirectUrl=http://localhost:"
