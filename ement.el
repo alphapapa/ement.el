@@ -542,7 +542,7 @@ a filter ID).  When unspecified, the value of
     (when process
       (setf (map-elt ement-syncs session) process)
       (when (and (not quiet) (ement--sync-messages-p session))
-        (message "Ement: Sync request sent, waiting for response...")))))
+        (ement-message "Sync request sent.  Waiting for response...")))))
 
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.
