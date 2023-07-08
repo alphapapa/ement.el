@@ -339,6 +339,13 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
         (when (ement-api session "login" :then #'flows-callback)
           (message "Ement: Checking server's login flows..."))))))
 
+(defun ement-refresh (session)
+  "Refresh SESSION.
+To be used after the server forces a soft-logout.  Logs in again
+or refreshes token as necessary."
+  (interactive (list (ement-complete-session)))
+  (ement-connect :session session :force-login t))
+
 (defun ement-disconnect (sessions)
   "Disconnect from SESSIONS.
 Interactively, with prefix, disconnect from all sessions.  If
