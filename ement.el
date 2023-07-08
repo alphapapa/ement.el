@@ -512,31 +512,7 @@ a filter ID).  When unspecified, the value of
                (process (ement-api session "sync" :params params
                           :timeout timeout
                           :then (apply-partially #'ement--sync-callback session)
-                          :else (lambda (plz-error)
-                                  (setf (map-elt ement-syncs session) nil)
-                                  ;; TODO: plz probably needs nicer error handling.
-                                  ;; Ideally we would use `condition-case', but since the
-                                  ;; error is signaled in `plz--sentinel'...
-                                  (pcase-let (((cl-struct plz-error curl-error response) plz-error)
-                                              (reason))
-                                    (cond ((when response
-                                             (pcase (plz-response-status response)
-                                               ((or 429 502) (setf reason "failed")))))
-                                          ((pcase curl-error
-                                             (`(28 . ,_) (setf reason "timed out")))))
-                                    (if reason
-                                        (if (not ement-auto-sync)
-                                            (run-hook-with-args 'ement-interrupted-sync-hook session)
-                                          (message "Ement: Sync %s (%s).  Syncing again..."
-                                                   reason (ement-user-id (ement-session-user session)))
-                                          ;; Set QUIET to allow the just-printed message to remain visible.
-                                          (ement--sync session :timeout timeout :quiet t))
-                                      ;; Unrecognized errors:
-                                      (pcase curl-error
-                                        (`(,code . ,message)
-                                         (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message)
-                                                                        plz-error)))
-                                        (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))))
+                          :else (apply-partially #'ement--sync-else :session session :timeout timeout :plz-error)
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
                                           (when (ement--sync-messages-p session)
@@ -608,6 +584,41 @@ Runs `ement-sync-callback-hook' with SESSION."
                          ;; Show tip after initial sync.
                          (setf (ement-session-has-synced-p session) t)
                          "  Use commands `ement-list-rooms' or `ement-view-room' to view a room."))))))
+
+(cl-defun ement--sync-else (&key session (timeout 40) plz-error)
+  "Error callback for `ement--sync', which receives SESSION and PLZ-ERROR."
+  (setf (map-elt ement-syncs session) nil)
+  ;; TODO: plz probably needs nicer error handling.
+  ;; Ideally we would use `condition-case', but since the
+  ;; error is signaled in `plz--sentinel'...
+  (pcase-let (((cl-struct plz-error curl-error response) plz-error)
+              ((cl-struct ement-session (user (cl-struct ement-user id))))
+              (reason))
+    (cond ((when response
+             (pcase (plz-response-status response)
+               (401 (when (alist-get 'soft_logout (json-read-from-string (plz-response-body response)))
+                      ;; TODO: Refresh using refresh token.
+                      ;; Soft logout.
+                      (signal 'ement-api-error
+                              (list (format "Ement: Server forced soft-logout of session %S.  Call command `ement-refresh' to reconnect"
+                                            id)))))
+               ((or 429 502) (setf reason "failed")))))
+          ((pcase curl-error
+             (`(28 . ,_) (setf reason "timed out")))))
+    (if reason
+        ;; Reason is one we should retry for.
+        (if (not ement-auto-sync)
+            (run-hook-with-args 'ement-interrupted-sync-hook session)
+          (message "Ement: Sync %s (%s).  Syncing again..."
+                   reason (ement-user-id (ement-session-user session)))
+          ;; Set QUIET to allow the just-printed message to remain visible.
+          (ement--sync session :timeout timeout :quiet t))
+      ;; Unrecognized errors:
+      (pcase curl-error
+        (`(,code . ,message)
+         (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message)
+                                        plz-error)))
+        (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))))
 
 (defun ement--push-invite-room-events (session invited-room)
   "Push events for INVITED-ROOM into that room in SESSION."
