@@ -305,9 +305,12 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Changes*
 + Command ~ement-room-image-show~ is not used for mouse events.
++ Show useful message in SSO login page.
 
 *Fixes*
 + Allow editing of already-edited events.
++ Call external browser for SSO login page.  (JavaScript is usually required, which EWW doesn't support, and loading the page twice seems to change state on the server that causes the SSO login to fail, so it's best to load the page in the external browser directly).
++ Clean up SSO server process after two minutes in case SSO login fails.
 + Don't stop syncing if an error is signaled while sending a notification.
 
 ** 0.10
