@@ -192,7 +192,7 @@ It shouldn't usually be necessary to change this."
 ;;;; Commands
 
 ;;;###autoload
-(cl-defun ement-connect (&key user-id password uri-prefix session)
+(cl-defun ement-connect (&key user-id password uri-prefix session force-login)
   "Connect to Matrix with USER-ID and PASSWORD, or using SESSION.
 Interactively, with prefix, ignore a saved session and log in
 again; otherwise, use a saved session if `ement-save-sessions' is
@@ -207,7 +207,10 @@ server's API URI, including protocol, hostname, and optionally
 the port, e.g.
 
   \"https://matrix-client.matrix.org\"
-  \"http://localhost:8080\""
+  \"http://localhost:8080\"
+
+If FORCE-LOGIN, use SESSION and log in again, reusing session
+slots as appropriate."
   (interactive (if current-prefix-arg
                    ;; Force new session.
                    (list :user-id (read-string "User ID: "))
@@ -222,6 +225,7 @@ the port, e.g.
                    (0 (list :user-id (read-string "User ID: ")))
                    (1 (list :session (cdar ement-sessions)))
                    (otherwise (list :session (ement-complete-session))))))
+  (cl-assert (not (and session (not force-login))) nil "SESSION passed without FORCE-LOGIN")
   (let (sso-server-process)
     (cl-labels ((new-session
                  () (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
@@ -315,7 +319,7 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
                                  ("sso" (sso-login))
                                  (else (error "Ement: Unsupported login flow:%S  Server:%S  Supported flows:%S"
                                               else (ement-server-uri-prefix (ement-session-server session)) flows))))))))
-      (if session
+      (if (and session (not force-login))
           ;; Start syncing given session.
           (let ((user-id (ement-user-id (ement-session-user session))))
             ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
@@ -325,7 +329,13 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
         ;; if not given (i.e. if not called interactively.)
         (unless user-id
           (setf user-id (read-string "User ID: ")))
-        (setf session (new-session))
+        (setf session (if (and session force-login)
+                          ;; Make new session reusing appropriate slots.
+                          (pcase-let (((cl-struct ement-session user server device-id initial-device-display-name)
+                                       session))
+                            (make-ement-session :user user :server server :device-id device-id
+                                                :initial-device-display-name initial-device-display-name))
+                        (new-session)))
         (when (ement-api session "login" :then #'flows-callback)
           (message "Ement: Checking server's login flows..."))))))
 
