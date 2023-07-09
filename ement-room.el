@@ -2628,7 +2628,8 @@ Also, mark room's buffer as unmodified."
   (interactive)
   (if-let ((fully-read-pos (when ement-room-fully-read-marker
                              (ewoc-location ement-room-fully-read-marker))))
-      (setf (point) fully-read-pos (window-start) fully-read-pos)
+      (progn (goto-char fully-read-pos)
+             (setf (window-start) fully-read-pos))
     ;; Unlike the fully-read marker, there doesn't seem to be a
     ;; simple way to get the user's read-receipt marker.  So if
     ;; we haven't seen either marker in the retrieved events, we
