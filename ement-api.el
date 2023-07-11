@@ -138,7 +138,12 @@ Handles certain errors specially (e.g. soft logouts)."
                                             (alist-get 'error json-object))
                                           curl-message
                                           plz-message))))
-
+    (when (and (= 401 http-status)
+               (alist-get 'soft_logout json-object))
+      ;; TODO: Refresh using refresh token.
+      (setf error-message
+            (format "Ement: Server forced soft-logout of session %S.  Call command `ement-refresh' to reconnect"
+                    user-id)))
     (signal 'ement-api-error (list error-message))))
 
 ;;;; Footer
