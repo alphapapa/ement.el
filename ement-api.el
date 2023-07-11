@@ -116,21 +116,24 @@ usually the DATA argument should be passed through
 
 (define-error 'ement-api-error "Ement API error" 'error)
 
-(defun ement-api-error (plz-error)
-  "Signal an Ement API error for PLZ-ERROR."
+(defun ement-api-error (plz-error session)
+  "Signal an Ement API error for PLZ-ERROR on SESSION.
+Handles certain errors specially (e.g. soft logouts)."
   ;; This feels a little messy, but it seems to be reasonable.
   (pcase-let* (((cl-struct plz-error response
                            (message plz-message) (curl-error `(,curl-exit-code . ,curl-message)))
                 plz-error)
-               (status (when (plz-response-p response)
-                         (plz-response-status response)))
+               ((cl-struct ement-session (user (cl-struct ement-user (id user-id))))
+                session)
+               (http-status (when (plz-response-p response)
+                              (plz-response-status response)))
                (body (when (plz-response-p response)
                        (plz-response-body response)))
                (json-object (when body
                               (ignore-errors
                                 (json-read-from-string body))))
                (error-message (format "%S: %s"
-                                      (or curl-exit-code status)
+                                      (or curl-exit-code http-status)
                                       (or (when json-object
                                             (alist-get 'error json-object))
                                           curl-message

@@ -630,12 +630,9 @@ Runs `ement-sync-callback-hook' with SESSION."
                    reason (ement-user-id (ement-session-user session)))
           ;; Set QUIET to allow the just-printed message to remain visible.
           (ement--sync session :timeout timeout :quiet t))
-      ;; Unrecognized errors:
-      (pcase curl-error
-        (`(,code . ,message)
-         (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message)
-                                        plz-error)))
-        (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))))
+      ;; Other reason: Call `ement-api-error' with the error struct so it can dispatch
+      ;; based on the error (e.g. for soft logout).
+      (ement-api-error plz-error session))))
 
 (defun ement--push-invite-room-events (session invited-room)
   "Push events for INVITED-ROOM into that room in SESSION."

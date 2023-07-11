@@ -677,9 +677,9 @@ default, `all', `mentions-and-keywords', or `none'."
                                                 ;; error.
                                                 nil)
                                                (_ ;; Unexpected error: re-signal.
-                                                (ement-api-error plz-error))))
+                                                (ement-api-error plz-error session))))
                                         (_ ;; Unexpected error: re-signal.
-                                         (ement-api-error plz-error)))))))))
+                                         (ement-api-error plz-error session)))))))))
     (pcase-let* ((available-states
                   (ement-alist
                    nil (ement-alist
