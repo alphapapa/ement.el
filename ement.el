@@ -626,8 +626,7 @@ Runs `ement-sync-callback-hook' with SESSION."
         ;; Reason is one we should retry for.
         (if (not ement-auto-sync)
             (run-hook-with-args 'ement-interrupted-sync-hook session)
-          (message "Ement: Sync %s (%s).  Syncing again..."
-                   reason (ement-user-id (ement-session-user session)))
+          (message "Ement: Sync %s for <%s>.  Syncing again..." reason id)
           ;; Set QUIET to allow the just-printed message to remain visible.
           (ement--sync session :timeout timeout :quiet t))
       ;; Other reason: Call `ement-api-error' with the error struct so it can dispatch
