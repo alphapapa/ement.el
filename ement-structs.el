@@ -66,7 +66,7 @@
   device-id initial-device-display-name has-synced-p
   account-data
   ;; Hash table of all seen events, keyed on event ID.
-  events)
+  (events (make-hash-table :test #'equal)))
 
 (cl-defstruct ement-room
   id display-name prev-batch
