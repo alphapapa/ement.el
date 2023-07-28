@@ -668,12 +668,30 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                   column-sizes (cdr format-cons)
                   header-line-format (taxy-magit-section-format-header
                                       column-sizes ement-room-list-column-formatters))
-            (when-let ((window (get-buffer-window (current-buffer))))
+            (when-let ((window (get-buffer-window (current-buffer) t)))
               (setf window-point (window-point window)
                     window-start (window-start window)))
             (when ement-room-list-visibility-cache
               (setf magit-section-visibility-cache ement-room-list-visibility-cache))
             (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
+            ;; Change relevant `quit-restore' markers to plain positions so they won't
+            ;; be reset to to 1 (on account of erasing the text containing the marker).
+            ;; See (info "(elisp) Quitting Windows") and `display-buffer-record-window'
+            ;; for `quit-restore', and (info "(elisp) Overview of Markers") regarding
+            ;; deleting text around a marker’s position.
+            (let ((roomlist (current-buffer)))
+              (cl-flet ((process (win)
+                                 (when-let* ((qr (window-parameter win 'quit-restore))
+                                             ((eq (car qr) 'other))
+                                             (obuffer (nth 1 qr))
+                                             ((eq (nth 0 obuffer) roomlist))
+                                             ((markerp (nth 2 obuffer))))
+                                   (setf (nth 2 obuffer)
+                                         (marker-position (nth 2 obuffer))))))
+                (walk-windows #'process t t)))
+            ;; For the same reasons, ensure that `switch-to-buffer' will not use
+            ;; a marker from `window-prev-buffers' for setting the window point.
+            (setq-local switch-to-buffer-preserve-window-point nil)
             ;; Before this point, no changes have been made to the buffer's contents.
             (delete-all-overlays)
             (erase-buffer)
@@ -689,16 +707,10 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
           (when-let ((window (display-buffer buffer-name display-buffer-action)))
             (select-window window)))
         (when-let ((window (get-buffer-window buffer-name)))
-          (set-window-start window window-start)
-          (set-window-point window window-point))
-        ;; FIXME: Despite all this code to save and restore point and window point and
-        ;; window start, when I send a message from the minibuffer, or when I abort
-        ;; sending a message from the minibuffer, point is moved to the beginning of the
-        ;; buffer.  While the minibuffer is open (and the typing messages are being sent
-        ;; to the server, causing it to repeatedly sync), the point stays in the correct
-        ;; place.  I can't find any reason why this happens.  It makes no sense.  And
-        ;; while trying to debug the problem, somehow Emacs got put into an unbreakable,
-        ;; infinite loop twice; even C-g and SIGUSR2 didn't stop it.
+          (when (> window-start 0)
+            (set-window-start window window-start))
+          (when (> window-point 0)
+            (set-window-point window window-point)))
 
         ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
         ;; must be set as the current buffer, so we have to do this explicitly here.
