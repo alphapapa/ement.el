@@ -674,31 +674,46 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
             (when ement-room-list-visibility-cache
               (setf magit-section-visibility-cache ement-room-list-visibility-cache))
             (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
-            ;; Change relevant `quit-restore' markers to plain positions so they won't
-            ;; be reset to to 1 (on account of erasing the text containing the marker).
-            ;; See (info "(elisp) Quitting Windows") and `display-buffer-record-window'
-            ;; for `quit-restore', and (info "(elisp) Overview of Markers") regarding
-            ;; deleting text around a marker’s position.
-            (let ((roomlist (current-buffer)))
-              (cl-flet ((process (win)
-                                 (when-let* ((qr (window-parameter win 'quit-restore))
-                                             ((eq (car qr) 'other))
-                                             (obuffer (nth 1 qr))
-                                             ((eq (nth 0 obuffer) roomlist))
-                                             ((markerp (nth 2 obuffer))))
-                                   (setf (nth 2 obuffer)
-                                         (marker-position (nth 2 obuffer))))))
-                (walk-windows #'process t t)))
-            ;; For the same reasons, ensure that `switch-to-buffer' will not use
-            ;; a marker from `window-prev-buffers' for setting the window point.
+            ;; Deal with markers which will be reset to to 1 when the buffer
+            ;; content is erased.  See (info "(elisp) Overview of Markers")
+            ;; regarding deleting the text around a marker’s position.
             (setq-local switch-to-buffer-preserve-window-point nil)
-            ;; Before this point, no changes have been made to the buffer's contents.
-            (delete-all-overlays)
-            (erase-buffer)
-            (save-excursion
-              (taxy-magit-section-insert taxy :items 'first
-                ;; :blank-between-depth bufler-taxy-blank-between-depth
-                :initial-depth 0))
+            ;; Capture the current positions of known internal markers.
+            (let ((roomlist (current-buffer))
+                  roomlist-markers)
+              (cl-flet* ((store-marker (m)
+                                       (when (markerp m)
+                                         (push (cons m (marker-position m))
+                                               roomlist-markers)))
+                         (doit (win)
+                               ;; See (info "(elisp) Quitting Windows") and function
+                               ;; `display-buffer-record-window' about the `quit-restore'
+                               ;; parameter.
+                               (when-let* ((qr (window-parameter win 'quit-restore))
+                                           ((eq (car qr) 'other))
+                                           (obuffer (nth 1 qr))
+                                           ((eq (nth 0 obuffer) roomlist)))
+                                 (store-marker (nth 2 obuffer)))
+                               ;; Deal with `window-prev-buffers' used by
+                               ;; `select-prev-buffer' and `select-next-buffer'.
+                               ;; See Emacs bug#64911.
+                               (let ((prevbufs (window-prev-buffers win)))
+                                 (dolist (bufdata prevbufs)
+                                   (when (eq (car bufdata) roomlist)
+                                     (store-marker (cadr bufdata))
+                                     (store-marker (caddr bufdata)))))))
+                (walk-windows #'doit t t))
+              ;; Before this point, no changes have been made to the buffer's contents.
+              (delete-all-overlays)
+              (erase-buffer)
+              (save-excursion
+                (taxy-magit-section-insert taxy :items 'first
+                  ;; :blank-between-depth bufler-taxy-blank-between-depth
+                  :initial-depth 0))
+              ;; Restore the original positions of the known markers.
+              (dolist (mpos roomlist-markers)
+                (set-marker (car mpos) (cdr mpos))))
+            ;; Restore point.
             (if-let* ((section-ident)
                       (section (magit-get-section section-ident)))
                 (goto-char (oref section start))
