@@ -258,9 +258,12 @@ makes a best effort to keep it accurate.")
 (defvar ement-room-reaction-map
   (let ((map (make-sparse-keymap)))
     (define-key map "c" #'insert-char)
-    (define-key map "i" 'emoji-insert)
-    (define-key map "s" 'emoji-search)
-    (define-key map "m" #'ement-room-select-emoji-input-method)
+    (when (commandp 'emoji-insert)
+      (define-key map "i" 'emoji-insert))
+    (when (commandp 'emoji-search)
+      (define-key map "s" 'emoji-search))
+    (when (assoc "emoji" input-method-alist)
+      (define-key map "m" #'ement-room-use-emoji-input-method))
     map)
   "Keymap used in `ement-room-send-reaction'.")
 
@@ -754,12 +757,15 @@ emoji and inserts it into the current buffer.  In Emacs 29
 reasonable choices include `emoji-insert' which uses a transient
 interface, and `emoji-search' which uses `completing-read'.  If
 those are not available, one can use `insert-char'."
-  :type '(choice
+  :type `(choice
           (const :tag "Complete unicode character name" insert-char)
-          (const :tag "Complete emoji name" emoji-search)
-          (const :tag "Transient emoji menu" emoji-insert)
-          (const :tag "Emoji input method"
-                 ement-room-select-emoji-input-method)
+          ,@(when (commandp 'emoji-insert)
+              '((const :tag "Transient emoji menu" emoji-insert)))
+          ,@(when (commandp 'emoji-search)
+              '((const :tag "Complete emoji name" emoji-search)))
+          ,@(when (assoc "emoji" input-method-alist)
+              '((const :tag "Emoji input method"
+                       ement-room-use-emoji-input-method)))
           (const :tag "Type an emoji without assistance" ignore)
           (function :tag "Use other command")))
 
@@ -2246,10 +2252,11 @@ Interactively, to event at point."
                    (replying-to-event (ement--original-event-for event ement-session)))
         (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
-(defun ement-room-select-emoji-input-method ()
-  "Activate the emoji input method in the current buffer."
-  (interactive)
-  (set-input-method "emoji"))
+(when (assoc "emoji" input-method-alist)
+  (defun ement-room-use-emoji-input-method ()
+    "Activate the emoji input method in the current buffer."
+    (interactive)
+    (set-input-method "emoji")))
 
 (defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
