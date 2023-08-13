@@ -768,7 +768,8 @@ left."
                         (ement-room-goto-fully-read-marker)
                         (cl-return t))
                    else do (forward-line 1)
-                   while (> (line-number-at-pos) starting-line))
+                   while (and (not (eobp))
+                              (> (line-number-at-pos) starting-line)))
     ;; No more unread rooms.
     (message "No more unread rooms")))
 
