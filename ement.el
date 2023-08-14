@@ -295,10 +295,11 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
                            (run-at-time 120 nil (lambda ()
                                                   (when (process-live-p sso-server-process)
                                                     (delete-process sso-server-process))))
-                           (funcall browse-url-secondary-browser-function
-                                    (concat (ement-server-uri-prefix (ement-session-server session))
-                                            "/_matrix/client/r0/login/sso/redirect?redirectUrl=http://localhost:"
-                                            (number-to-string ement-sso-server-port))))
+                           (let ((url (concat (ement-server-uri-prefix (ement-session-server session))
+                                              "/_matrix/client/r0/login/sso/redirect?redirectUrl=http://localhost:"
+                                              (number-to-string ement-sso-server-port))))
+                             (funcall browse-url-secondary-browser-function url)
+                             (message "Browsing to single sign-on page <%s>..." url)))
                 (flows-callback
                  (data) (let ((flows (cl-loop for flow across (map-elt data 'flows)
                                               for type = (map-elt flow 'type)
