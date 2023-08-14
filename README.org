@@ -70,19 +70,29 @@ The default formatting style resembles IRC clients, with each message being pref
 
 ** GNU ELPA
 
-Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]], so it may be installed in Emacs with the command ~M-x package-install RET ement RET~.  This is the recommended way to install Ement.el, as it will install the current stable release.
+Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]] as [[https://elpa.gnu.org/packages/ement.html][ement]], so it may be installed in Emacs with the command ~M-x package-install RET ement RET~.  This is the recommended way to install Ement.el, as it will install the current stable release.
 
 ** GNU Guix
 
-Ement.el is also available in [[https://guix.gnu.org/][GNU Guix]] as [[https://packages.guix.gnu.org/packages/emacs-ement/][emacs-ement]].
+Ement.el is available in [[https://guix.gnu.org/][GNU Guix]] as [[https://packages.guix.gnu.org/packages/emacs-ement/][emacs-ement]].
 
-** Debian
+** Debian, Ubuntu
 
-Ement.el is also available in Debian as [[https://packages.debian.org/elpa-ement][elpa-ement]].
+Ement.el is available in [[https://packages.debian.org/elpa-ement][Debian as elpa-ement]] and in [[https://packages.ubuntu.com/search?suite=default&section=all&arch=any&keywords=elpa-ement&searchon=names][Ubuntu as elpa-ement]].
+
+** Nix
+
+Ement.el is available in [[https://nixos.org/][NixOS]] as [[https://search.nixos.org/packages?channel=23.05&show=emacsPackages.ement&from=0&size=50&sort=relevance&type=packages&query=ement][emacsPackages.ement]].
+
+** Other distributions
+
+Ement.el is also available in some other distributions.  See [[https://repology.org/project/emacs:ement/related][Repology]] for details.
 
 ** Git master
 
-The ~master~ branch of the Git repository is intended to be usable at all times; only minor bugs are expected to be found in it before a new stable release is made.  To install from this, it is recommended to use [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]], like this:
+The ~master~ branch of the Git repository is intended to be usable at all times; only minor bugs are expected to be found in it before a new stable release is made.
+
+To install, it is recommended to use [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]], like this (using [[https://github.com/alphapapa/unpackaged.el#upgrade-a-quelpa-use-package-forms-package][this helpful command]] for upgrading versions):
 
 #+BEGIN_SRC elisp
   ;; Install and load `quelpa-use-package'.
@@ -94,7 +104,7 @@ The ~master~ branch of the Git repository is intended to be usable at all times;
     :quelpa (ement :fetcher github :repo "alphapapa/ement.el"))
 #+END_SRC
 
-One might also use systems like [[https://github.com/radian-software/straight.el][Straight]] (which is also used by [[https://github.com/doomemacs/doomemacs][DOOM]]) to install from Git, but the author cannot offer support for them.
+One might also use systems like [[https://github.com/progfolio/elpaca][Elpaca]] or [[https://github.com/radian-software/straight.el][Straight]] (which is also used by [[https://github.com/doomemacs/doomemacs][DOOM]]), but the author cannot offer support for them.
 
 ** Manual
 
