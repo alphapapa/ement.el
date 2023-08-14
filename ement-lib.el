@@ -41,6 +41,7 @@
 
 (require 'color)
 (require 'map)
+(require 'seq)
 (require 'xml)
 
 (require 'ement-api)
@@ -597,12 +598,12 @@ Returns one of nil (meaning default rules are used), `all-loud',
                                          (equal "room_id" key)
                                          (equal (ement-room-id room) pattern)))))
                 (mute-rule-p
-                 (rule) (and (= 1 (length (alist-get 'actions rule)))
-                             (equal "dont_notify" (elt (alist-get 'actions rule) 0))))
+                 (rule) (when-let ((actions (alist-get 'actions rule)))
+                          (seq-contains-p actions "dont_notify")))
                 (tweak-rule-p
-                 (type rule) (pcase-let (((map ('actions `[,action ,alist])) rule))
-                               (and (equal "notify" action)
-                                    (equal type (alist-get 'set_tweak alist))))))
+                 (type rule) (when-let ((actions (alist-get 'actions rule)))
+                               (and (seq-contains-p actions "notify")
+                                    (seq-contains-p actions `(set_tweak . ,type) 'seq-contains-p)))))
       ;; If none of these match, nil is returned, meaning that the default rule is used
       ;; for the room.
       (if (override-mute-rule-for-room-p room)

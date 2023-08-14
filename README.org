@@ -309,6 +309,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 
 *Fixes*
 + Allow editing of already-edited events.
++ Push rules' actions may be listed in any order.  (Fixes compatibility with [[https://spec.matrix.org/v1.7/client-server-api/#actions][v1.7 of the spec]].  Thanks to [[https://github.com/Stebalien][Steven Allen]].)
 + Call external browser for SSO login page.  (JavaScript is usually required, which EWW doesn't support, and loading the page twice seems to change state on the server that causes the SSO login to fail, so it's best to load the page in the external browser directly).
 + Clean up SSO server process after two minutes in case SSO login fails.
 + Don't stop syncing if an error is signaled while sending a notification.
