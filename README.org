@@ -75,7 +75,7 @@ Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]], so it may be instal
 
 ** GNU Guix
 
-Ement.el is also available in [[https://guix.gnu.org/][GNU Guix]] as [https://packages.guix.gnu.org/packages/emacs-ement/][emacs-ement]].
+Ement.el is also available in [[https://guix.gnu.org/][GNU Guix]] as [[https://packages.guix.gnu.org/packages/emacs-ement/][emacs-ement]].
 
 ** Debian
 
