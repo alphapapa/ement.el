@@ -4050,7 +4050,8 @@ height."
           (image-property image :max-height) nil)
     (with-current-buffer new-buffer
       (erase-buffer)
-      (insert-image image))
+      (insert-image image)
+      (image-mode))
     (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
     (set-frame-parameter nil 'fullscreen 'maximized)))
 

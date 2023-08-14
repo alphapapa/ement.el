@@ -304,6 +304,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-room-image-show-mouse~ is used to show an image with the mouse.
 
 *Changes*
++ Enable ~image-mode~ when showing images in a new buffer.  (Thanks to [[https://github.com/Stebalien][Steven Allen]].)
 + Command ~ement-room-image-show~ is not used for mouse events.
 + Show useful message in SSO login page.
 
