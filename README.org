@@ -316,6 +316,9 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Command ~ement-room-list-next-unread~ could enter an infinite loop.  (Thanks to [[https://github.com/vizs][Visuwesh]] and ~@mrtnmrtn:matrix.org~.)
 + Events in notifications buffer could appear out-of-order.  ([[https://github.com/alphapapa/ement.el/issues/191][#191]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
+*Internal*
++ The ~ement-read-receipt-idle-timer~ could be duplicated when using multiple sessions.  ([[https://github.com/alphapapa/ement.el/issues/196][#196]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+
 ** 0.10
 
 *Security Fixes*

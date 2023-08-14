@@ -401,14 +401,16 @@ Useful in, e.g. `ement-disconnect-hook', which see."
   "Run idle timer that updates read receipts.
 To be called from `ement-after-initial-sync-hook'.  Timer is
 stored in `ement-read-receipt-idle-timer'."
-  (setf ement-read-receipt-idle-timer (run-with-idle-timer 3 t #'ement-room-read-receipt-idle-timer)))
+  (unless (timerp ement-read-receipt-idle-timer)
+    (setf ement-read-receipt-idle-timer (run-with-idle-timer 3 t #'ement-room-read-receipt-idle-timer))))
 
 (defun ement--stop-idle-timer (&rest _ignore)
   "Stop idle timer stored in `ement-read-receipt-idle-timer'.
 To be called from `ement-disconnect-hook'."
-  (when (timerp ement-read-receipt-idle-timer)
-    (cancel-timer ement-read-receipt-idle-timer)
-    (setf ement-read-receipt-idle-timer nil)))
+  (unless ement-sessions
+    (when (timerp ement-read-receipt-idle-timer)
+      (cancel-timer ement-read-receipt-idle-timer)
+      (setf ement-read-receipt-idle-timer nil))))
 
 (defun ement-view-initial-rooms (session)
   "View rooms for SESSION configured in `ement-auto-view-rooms'."
