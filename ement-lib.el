@@ -1132,23 +1132,26 @@ e.g. `ement-room-send-org-filter')."
                              :content content :data))))
 
 (defalias 'ement--button-buttonize
-  ;; FIXME: This doesn't set the mouse-face to highlight, and it doesn't use the
-  ;; default-button category.  Neither does `button-buttonize', of course, but why?
-  (if (version< emacs-version "28.1")
-      (lambda (string callback &optional data)
-        "Make STRING into a button and return it.
+  ;; This isn't nice, but what can you do.
+  (cond ((version<= "29.1" emacs-version) #'buttonize)
+        ((version<= "28.1" emacs-version) (with-suppressed-warnings ((obsolete button-buttonize))
+                                            #'button-buttonize))
+        ((version< emacs-version "28.1")
+         ;; FIXME: This doesn't set the mouse-face to highlight, and it doesn't use the
+         ;; default-button category.  Neither does `button-buttonize', of course, but why?
+         (lambda (string callback &optional data)
+           "Make STRING into a button and return it.
 When clicked, CALLBACK will be called with the DATA as the
 function argument.  If DATA isn't present (or is nil), the button
 itself will be used instead as the function argument."
-        (propertize string
-                    'face 'button
-                    'button t
-                    'follow-link t
-                    'category t
-                    'button-data data
-                    'keymap button-map
-                    'action callback))
-    #'button-buttonize))
+           (propertize string
+                       'face 'button
+                       'button t
+                       'follow-link t
+                       'category t
+                       'button-data data
+                       'keymap button-map
+                       'action callback)))))
 
 (defun ement--add-reply (data replying-to-event room)
   "Return DATA adding reply data for REPLYING-TO-EVENT in ROOM.
