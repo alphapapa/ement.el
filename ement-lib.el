@@ -100,10 +100,10 @@ that stray such forms don't remain if the function is removed."
 (eval-and-compile
   (unless (boundp 'color-luminance-dark-limit)
     (defconst ement--color-luminance-dark-limit 0.325
-      "The relative luminance below which a color is considered 'dark'.
-A 'dark' color in this sense provides better contrast with white
-than with black; see `color-dark-p'.
-This value was determined experimentally.")))
+      "The relative luminance below which a color is considered \"dark.\"
+A \"dark\" color in this sense provides better contrast with
+white than with black; see `color-dark-p'.  This value was
+determined experimentally.")))
 
 (defalias 'ement--color-dark-p
   (if (fboundp 'color-dark-p)
