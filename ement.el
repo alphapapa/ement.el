@@ -305,18 +305,23 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
                                               when (member type '("m.login.password" "m.login.sso"))
                                               collect type)))
                           (pcase (length flows)
+                            (0 (error "Ement: No supported login flows:  Server:%S  Supported flows:%S"
+                                      (ement-server-uri-prefix (ement-session-server session))
+                                      (map-elt data 'flows)))
                             (1 (pcase (car flows)
                                  ("m.login.password" (password-login))
                                  ("m.login.sso" (sso-login))
-                                 (_ (error "Ement: Unsupported login flow: %s  Server:%s"
-                                           (car flows) (ement-server-uri-prefix (ement-session-server session))))))
+                                 (_ (error "Ement: Unsupported login flow: %s  Server:%S  Supported flows:%S"
+                                           (car flows) (ement-server-uri-prefix (ement-session-server session))
+                                           (map-elt data 'flows)))))
                             (_ (pcase (completing-read "Select authentication method: "
                                                        (cl-loop for flow in flows
                                                                 collect (string-trim-left flow (rx "m.login."))))
                                  ("password" (password-login))
                                  ("sso" (sso-login))
                                  (else (error "Ement: Unsupported login flow:%S  Server:%S  Supported flows:%S"
-                                              else (ement-server-uri-prefix (ement-session-server session)) flows))))))))
+                                              else (ement-server-uri-prefix (ement-session-server session))
+                                              (map-elt data 'flows)))))))))
       (if session
           ;; Start syncing given session.
           (let ((user-id (ement-user-id (ement-session-user session))))
