@@ -41,6 +41,7 @@
 
 (require 'color)
 (require 'map)
+(require 'seq)
 (require 'xml)
 
 (require 'ement-api)
