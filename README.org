@@ -72,6 +72,8 @@ The default formatting style resembles IRC clients, with each message being pref
 
 Ement.el is published in [[http://elpa.gnu.org/][GNU ELPA]] as [[https://elpa.gnu.org/packages/ement.html][ement]], so it may be installed in Emacs with the command ~M-x package-install RET ement RET~.  This is the recommended way to install Ement.el, as it will install the current stable release.
 
+The latest development build may be installed from [[https://elpa.gnu.org/devel/ement.html][ELPA-devel]] or from Git (see below).
+
 ** GNU Guix
 
 Ement.el is available in [[https://guix.gnu.org/][GNU Guix]] as [[https://packages.guix.gnu.org/packages/emacs-ement/][emacs-ement]].
