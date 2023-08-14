@@ -600,6 +600,9 @@ Returns one of nil (meaning default rules are used), `all-loud',
                 (mute-rule-p
                  (rule) (when-let ((actions (alist-get 'actions rule)))
                           (seq-contains-p actions "dont_notify")))
+                  ;; NOTE: Although v1.7 of the spec says that "dont_notify" is
+                  ;; obsolete, the latest revision of matrix-react-sdk (released last week
+                  ;; as v3.77.1) still works as modeled here.
                 (tweak-rule-p
                  (type rule) (when-let ((actions (alist-get 'actions rule)))
                                (and (seq-contains-p actions "notify")
@@ -618,7 +621,7 @@ Returns one of nil (meaning default rules are used), `all-loud',
                  'all)
                 ((mute-rule-p room-rule)
                  ;; According to comment, a room-level mute still allows mentions to
-                 ;; notify.
+                 ;; notify.  NOTE: See note above.
                  'mentions-and-keywords)
                 ((tweak-rule-p "sound" room-rule) 'all-loud)))))))
 
