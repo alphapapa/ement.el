@@ -933,8 +933,8 @@ avatars, etc."
            (ratio (/ id-hash (float most-positive-fixnum)))
            (color-num (round (* (* 255 255 255) ratio)))
            (color-rgb (list (/ (float (logand color-num 255)) 255)
-                            (/ (float (lsh (logand color-num 65280) -8)) 255)
-                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
+                            (/ (float (ash (logand color-num 65280) -8)) 255)
+                            (/ (float (ash (logand color-num 16711680) -16)) 255)))
            (contrast-with-rgb (color-name-to-rgb contrast-with)))
       (when (< (contrast-ratio color-rgb contrast-with-rgb) ement-room-prism-minimum-contrast)
         (setf color-rgb (increase-contrast color-rgb contrast-with-rgb ement-room-prism-minimum-contrast

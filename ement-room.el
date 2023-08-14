@@ -3556,8 +3556,8 @@ HTML is rendered to Emacs text using `shr-insert-document'."
            (ratio (/ id-hash (float most-positive-fixnum)))
            (color-num (round (* (* 255 255 255) ratio)))
            (color-rgb (list (/ (float (logand color-num 255)) 255)
-                            (/ (float (lsh (logand color-num 65280) -8)) 255)
-                            (/ (float (lsh (logand color-num 16711680) -16)) 255)))
+                            (/ (float (ash (logand color-num 65280) -8)) 255)
+                            (/ (float (ash (logand color-num 16711680) -16)) 255)))
            (background-rgb (color-name-to-rgb (face-background 'default))))
       (when (< (contrast-ratio color-rgb background-rgb) ement-room-prism-minimum-contrast)
         (setf color-rgb (increase-contrast color-rgb background-rgb ement-room-prism-minimum-contrast
