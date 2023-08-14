@@ -281,36 +281,40 @@ If ROOM has no existing buffer, do nothing."
     ;; just to be safe...
     (when (equal "m.room.message" (ement-event-type event))
       (with-current-buffer (ement-notify--log-buffer buffer-name)
-        (let* ((ement-session session)
-               (ement-room room)
-               (ement-room-sender-in-left-margin nil)
-               (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
-               (new-node (ement-room--insert-event event))
-               (inhibit-read-only t)
-               start end)
-          (ewoc-goto-node ement-ewoc new-node)
-          (setf start (point))
-          (if-let (next-node (ewoc-next ement-ewoc new-node))
-              (ewoc-goto-node ement-ewoc next-node)
-            (goto-char (point-max)))
-          (setf end (- (point) 2))
-          (add-text-properties start end
-                               (list 'button '(t)
-                                     'category 'default-button
-                                     'action #'ement-notify-button-action
-                                     'session session
-                                     'room room
-                                     'event event))
-          ;; Remove button face property.
-          (alter-text-property start end 'face
-                               (lambda (face)
-                                 (pcase face
-                                   ('button nil)
-                                   ((pred listp) (remq 'button face))
-                                   (_ face))))
-          (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notify--room-background-color room)
-                                                    :extend t))))))))
+        (save-window-excursion
+          (when-let ((buffer-window (get-buffer-window (current-buffer))))
+            ;; Select the buffer's window to avoid EWOC bug.  (See #191.)
+            (select-window buffer-window))
+          (let* ((ement-session session)
+                 (ement-room room)
+                 (ement-room-sender-in-left-margin nil)
+                 (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
+                 (new-node (ement-room--insert-event event))
+                 (inhibit-read-only t)
+                 start end)
+            (ewoc-goto-node ement-ewoc new-node)
+            (setf start (point))
+            (if-let (next-node (ewoc-next ement-ewoc new-node))
+                (ewoc-goto-node ement-ewoc next-node)
+              (goto-char (point-max)))
+            (setf end (- (point) 2))
+            (add-text-properties start end
+                                 (list 'button '(t)
+                                       'category 'default-button
+                                       'action #'ement-notify-button-action
+                                       'session session
+                                       'room room
+                                       'event event))
+            ;; Remove button face property.
+            (alter-text-property start end 'face
+                                 (lambda (face)
+                                   (pcase face
+                                     ('button nil)
+                                     ((pred listp) (remq 'button face))
+                                     (_ face))))
+            (when ement-notify-prism-background
+              (add-face-text-property start end (list :background (ement-notify--room-background-color room)
+                                                      :extend t)))))))))
 
 (defun ement-notify--log-buffer (name)
   "Return an Ement notifications buffer named NAME."

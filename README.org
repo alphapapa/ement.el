@@ -314,6 +314,7 @@ Note that, while ~matrix-client~ remains usable, and probably will for some time
 + Clean up SSO server process after two minutes in case SSO login fails.
 + Don't stop syncing if an error is signaled while sending a notification.
 + Command ~ement-room-list-next-unread~ could enter an infinite loop.  (Thanks to [[https://github.com/vizs][Visuwesh]] and ~@mrtnmrtn:matrix.org~.)
++ Events in notifications buffer could appear out-of-order.  ([[https://github.com/alphapapa/ement.el/issues/191][#191]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.10
 
