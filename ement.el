@@ -301,7 +301,9 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
                                             (number-to-string ement-sso-server-port))))
                 (flows-callback
                  (data) (let ((flows (cl-loop for flow across (map-elt data 'flows)
-                                              collect (map-elt flow 'type))))
+                                              for type = (map-elt flow 'type)
+                                              when (member type '("m.login.password" "m.login.sso"))
+                                              collect type)))
                           (pcase (length flows)
                             (1 (pcase (car flows)
                                  ("m.login.password" (password-login))
