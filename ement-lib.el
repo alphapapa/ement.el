@@ -39,6 +39,7 @@
 
 (require 'cl-lib)
 
+(require 'button)
 (require 'color)
 (require 'map)
 (require 'seq)
@@ -1352,6 +1353,10 @@ can cause undesirable underlining."
 (defun ement--resize-image (image max-width max-height)
   "Return a copy of IMAGE set to MAX-WIDTH and MAX-HEIGHT.
 IMAGE should be one as created by, e.g. `create-image'."
+  (declare
+   ;; This silences a lint warning on our GitHub CI runs, which use a build of Emacs
+   ;; without image support.
+   (function image-property "image"))
   ;; It would be nice if the image library had some simple functions to do this sort of thing.
   (let ((new-image (cl-copy-list image)))
     (when (fboundp 'imagemagick-types)
@@ -1613,14 +1618,15 @@ problems."
 Before Emacs 28, ignores `xml-invalid-character' errors (and any
 invalid characters cause STRING to remain unescaped).  After
 Emacs 28, uses the NOERROR argument to `xml-escape-string'."
-  (condition-case _
-      (xml-escape-string string 'noerror)
-    (wrong-number-of-arguments
-     (condition-case _
-         (xml-escape-string string)
-       (xml-invalid-character
-        ;; We still don't want to error on this, so just return the string.
-        string)))))
+  (with-suppressed-warnings ((callargs xml-escape-string))
+    (condition-case _
+        (xml-escape-string string 'noerror)
+      (wrong-number-of-arguments
+       (condition-case _
+           (xml-escape-string string)
+         (xml-invalid-character
+          ;; We still don't want to error on this, so just return the string.
+          string))))))
 
 (defun ement--mark-room-direct (room session)
   "Mark ROOM on SESSION as a direct room.

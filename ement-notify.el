@@ -200,6 +200,12 @@ Does not do anything if session hasn't finished initial sync."
 (defun ement-notify--mark-frame-urgent (_event room _session)
   "Mark frame showing ROOM's buffer as urgent.
 If ROOM has no existing buffer, do nothing."
+  (declare
+   ;; These silence lint warnings on our GitHub CI runs, which use a build of Emacs
+   ;; without GUI support.
+   (function dbus-get-unique-name "dbusbind.c")
+   (function x-change-window-property "xfns.c")
+   (function x-window-property "xfns.c"))
   (cl-labels ((mark-frame-urgent
                (frame) (let* ((prop "WM_HINTS")
                               (hints (cl-coerce
