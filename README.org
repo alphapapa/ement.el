@@ -294,7 +294,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.12-pre
 
-Nothing new yet.
+*Additions*
+
++ Face ~ement-room-quote~, applied to quoted parts of replies.
 
 ** 0.11
 

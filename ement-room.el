@@ -277,6 +277,11 @@ normal text.")
   '((t (:inherit italic)))
   "Emote message bodies.")
 
+(defface ement-room-quote
+  '((t (:height 0.9)))
+  "Quoted parts of messages.
+Anything wrapped by HTML BLOCKQUOTE tag.")
+
 (defface ement-room-redacted
   '((t (:strike-through t)))
   "Redacted messages.")
@@ -3474,6 +3479,8 @@ HTML is rendered to Emacs text using `shr-insert-document'."
                        (add-text-properties beg (point-max)
                                             '(wrap-prefix "    "
                                                           line-prefix "    "))))))
+                       ;; NOTE: We use our own gv, `ement-text-property'; very convenient.
+                       (add-face-text-property beg (point-max) 'ement-room-quote 'append)))))
           (shr-insert-document
            (libxml-parse-html-region (point-min) (point-max))))))
     (string-trim (buffer-substring (point) (point-max)))))
