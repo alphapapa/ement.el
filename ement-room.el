@@ -404,12 +404,12 @@ received from setting the customization option.  If LOCAL is
 non-nil, set the variables buffer-locally (i.e. when called from
 `ement-room-set-message-format'."
   (cl-macrolet ((set-vars (&rest pairs)
-                          ;; Set variable-value pairs, locally if LOCAL is non-nil.
-                          `(progn
-                             ,@(cl-loop for (symbol value) on pairs by #'cddr
-                                        collect `(if local
-                                                     (set (make-local-variable ',symbol) ,value)
-                                                   (set ',symbol ,value))))))
+                  ;; Set variable-value pairs, locally if LOCAL is non-nil.
+                  `(progn
+                     ,@(cl-loop for (symbol value) on pairs by #'cddr
+                                collect `(if local
+                                             (set (make-local-variable ',symbol) ,value)
+                                           (set ',symbol ,value))))))
     (if local
         (set (make-local-variable option) value)
       (set-default option value))
@@ -976,11 +976,10 @@ Note that, if ROOM has no buffer, STRING is returned unchanged."
                                 (with-current-buffer buffer
                                   (save-excursion
                                     (goto-char (point-min))
-                                    (cl-labels ((found-sender-p
-                                                 (ewoc-data)
-                                                 (when (ement-event-p ewoc-data)
-                                                   (equal member-name
-                                                          (gethash (ement-event-sender ewoc-data) (ement-room-displaynames room))))))
+                                    (cl-labels ((found-sender-p (ewoc-data)
+                                                  (when (ement-event-p ewoc-data)
+                                                    (equal member-name
+                                                           (gethash (ement-event-sender ewoc-data) (ement-room-displaynames room))))))
                                       (cl-loop with regexp = (regexp-quote member-name)
                                                while (re-search-forward regexp nil t)
                                                ;; NOTE: I don't know why, but sometimes the regexp
@@ -1131,15 +1130,14 @@ are passed to `browse-url'."
 (defun ement-room-find-event (event-id)
   "Go to EVENT-ID in current buffer."
   (interactive)
-  (cl-labels ((goto-event
-               (event-id) (progn
-                            (push-mark)
-                            (goto-char
-                             (ewoc-location
-                              (ement-room--ewoc-last-matching ement-ewoc
-                                (lambda (data)
-                                  (and (ement-event-p data)
-                                       (equal event-id (ement-event-id data))))))))))
+  (cl-labels ((goto-event (event-id)
+                (push-mark)
+                (goto-char
+                 (ewoc-location
+                  (ement-room--ewoc-last-matching ement-ewoc
+                    (lambda (data)
+                      (and (ement-event-p data)
+                           (equal event-id (ement-event-id data)))))))))
     (if (or (cl-find event-id (ement-room-timeline ement-room)
                      :key #'ement-event-id :test #'equal)
             (cl-find event-id (ement-room-state ement-room)
@@ -1519,16 +1517,16 @@ sync requests.  Also, update any room list buffers."
 EVENT should be an `ement-event' or `ement-room-membership-events' struct."
   (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
   (require 'pp)
-  (cl-labels ((event-alist
-               (event) (ement-alist :id (ement-event-id event)
-                                    :sender (ement-user-id (ement-event-sender event))
-                                    :content (ement-event-content event)
-                                    :origin-server-ts (ement-event-origin-server-ts event)
-                                    :type (ement-event-type event)
-                                    :state-key (ement-event-state-key event)
-                                    :unsigned (ement-event-unsigned event)
-                                    :receipts (ement-event-receipts event)
-                                    :local (ement-event-local event))))
+  (cl-labels ((event-alist (event)
+                (ement-alist :id (ement-event-id event)
+                             :sender (ement-user-id (ement-event-sender event))
+                             :content (ement-event-content event)
+                             :origin-server-ts (ement-event-origin-server-ts event)
+                             :type (ement-event-type event)
+                             :state-key (ement-event-state-key event)
+                             :unsigned (ement-event-unsigned event)
+                             :receipts (ement-event-receipts event)
+                             :local (ement-event-local event))))
     (let* ((buffer-name (format "*Ement event: %s*"
                                 (cl-typecase event
                                   (ement-room-membership-events "[multiple events]")
@@ -1749,28 +1747,27 @@ reaction string, e.g. \"👍\"."
   "Toggle reaction of KEY to EVENT in ROOM on SESSION."
   (interactive
    (cl-labels
-       ((face-at-point-p
-         (face) (let ((face-at-point (get-text-property (point) 'face)))
-                  (or (eq face face-at-point)
-                      (and (listp face-at-point)
-                           (member face face-at-point)))))
-        (buffer-substring-while
-         (beg pred &key (forward-fn #'forward-char))
-         "Return substring of current buffer from BEG while PRED is true."
-         (save-excursion
-           (goto-char beg)
-           (cl-loop while (funcall pred)
-                    do (funcall forward-fn)
-                    finally return (buffer-substring-no-properties beg (point)))))
-        (key-at
-         (pos) (cond ((face-at-point-p 'ement-room-reactions-key)
-                      (buffer-substring-while
-                       pos (lambda () (face-at-point-p 'ement-room-reactions-key))))
-                     ((face-at-point-p 'ement-room-reactions)
-                      ;; Point is in a reaction button but after the key.
-                      (buffer-substring-while
-                       (button-start (button-at pos))
-                       (lambda () (face-at-point-p 'ement-room-reactions-key)))))))
+       ((face-at-point-p (face)
+          (let ((face-at-point (get-text-property (point) 'face)))
+            (or (eq face face-at-point)
+                (and (listp face-at-point)
+                     (member face face-at-point)))))
+        (buffer-substring-while (beg pred &key (forward-fn #'forward-char))
+          "Return substring of current buffer from BEG while PRED is true."
+          (save-excursion
+            (goto-char beg)
+            (cl-loop while (funcall pred)
+                     do (funcall forward-fn)
+                     finally return (buffer-substring-no-properties beg (point)))))
+        (key-at (pos)
+          (cond ((face-at-point-p 'ement-room-reactions-key)
+                 (buffer-substring-while
+                  pos (lambda () (face-at-point-p 'ement-room-reactions-key))))
+                ((face-at-point-p 'ement-room-reactions)
+                 ;; Point is in a reaction button but after the key.
+                 (buffer-substring-while
+                  (button-start (button-at pos))
+                  (lambda () (face-at-point-p 'ement-room-reactions-key)))))))
      (list (or (key-at (point))
                (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): ")))
            (ewoc-data (ewoc-locate ement-ewoc))
@@ -2754,22 +2751,22 @@ updates the markers in ROOM's buffer, not on the server; see
 `ement-room-mark-read' for that."
   (declare (indent defun))
   (cl-labels ((update-marker (symbol to-event)
-                             (let* ((old-node (symbol-value symbol))
-                                    (new-event-id (cl-etypecase to-event
-                                                    (ement-event (ement-event-id to-event))
-                                                    (string to-event)))
-                                    (event-node (ement-room--ewoc-last-matching ement-ewoc
-                                                  (lambda (data)
-                                                    (and (ement-event-p data)
-                                                         (equal (ement-event-id data) new-event-id)))))
-                                    (inhibit-read-only t))
-                               (with-silent-modifications
-                                 (when old-node
-                                   (ewoc-delete ement-ewoc old-node))
-                                 (set symbol (when event-node
-                                               ;; If the event hasn't been inserted into the buffer yet,
-                                               ;; this might be nil.  That shouldn't happen, but...
-                                               (ewoc-enter-after ement-ewoc event-node symbol)))))))
+                (let* ((old-node (symbol-value symbol))
+                       (new-event-id (cl-etypecase to-event
+                                       (ement-event (ement-event-id to-event))
+                                       (string to-event)))
+                       (event-node (ement-room--ewoc-last-matching ement-ewoc
+                                     (lambda (data)
+                                       (and (ement-event-p data)
+                                            (equal (ement-event-id data) new-event-id)))))
+                       (inhibit-read-only t))
+                  (with-silent-modifications
+                    (when old-node
+                      (ewoc-delete ement-ewoc old-node))
+                    (set symbol (when event-node
+                                  ;; If the event hasn't been inserted into the buffer yet,
+                                  ;; this might be nil.  That shouldn't happen, but...
+                                  (ewoc-enter-after ement-ewoc event-node symbol)))))))
     (when-let ((buffer (alist-get 'buffer (ement-room-local room))))
       ;; MAYBE: Error if no buffer?  Or does it matter?
       (with-current-buffer buffer
@@ -2888,15 +2885,15 @@ the first and last nodes in the buffer, respectively."
                 (not (or (> (ewoc-location node-a) end-pos)
                          (when node-b
                            (> (ewoc-location node-b) end-pos)))))
-      (cl-labels ((format-event
-                   (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
-                                   (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
-                                   (format-time-string "%Y-%m-%d %H:%M:%S"
-                                                       (/ (ement-event-origin-server-ts (ewoc-data event)) 1000))
-                                   (ement-user-id (ement-event-sender (ewoc-data event)))
-                                   (when (alist-get 'body (ement-event-content (ewoc-data event)))
-                                     (substring-no-properties
-                                      (truncate-string-to-width (alist-get 'body (ement-event-content (ewoc-data event))) 20))))))
+      (cl-labels ((format-event (event)
+                    (format "TS:%S (%s)  Sender:%s  Message:%S"
+                            (/ (ement-event-origin-server-ts (ewoc-data event)) 1000)
+                            (format-time-string "%Y-%m-%d %H:%M:%S"
+                                                (/ (ement-event-origin-server-ts (ewoc-data event)) 1000))
+                            (ement-user-id (ement-event-sender (ewoc-data event)))
+                            (when (alist-get 'body (ement-event-content (ewoc-data event)))
+                              (substring-no-properties
+                               (truncate-string-to-width (alist-get 'body (ement-event-content (ewoc-data event))) 20))))))
         (ement-debug "Comparing event timestamps:"
                      (list 'A (format-event node-a))
                      (list 'B (format-event node-b))))
@@ -2927,14 +2924,14 @@ the first and last nodes in the buffer, respectively."
   "Insert sender headers into EWOC.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (cl-labels ((read-marker-p
-               (data) (member data '(ement-room-fully-read-marker
-                                     ement-room-read-receipt-marker)))
-              (message-event-p
-               (data) (and (ement-event-p data)
-                           (equal "m.room.message" (ement-event-type data))))
-              (insert-sender-before
-               (node) (ewoc-enter-before ewoc node (ement-event-sender (ewoc-data node)))))
+  (cl-labels ((read-marker-p (data)
+                (member data '(ement-room-fully-read-marker
+                               ement-room-read-receipt-marker)))
+              (message-event-p (data)
+                (and (ement-event-p data)
+                     (equal "m.room.message" (ement-event-type data))))
+              (insert-sender-before (node)
+                (ewoc-enter-before ewoc node (ement-event-sender (ewoc-data node)))))
     (let* ((event-node (if (ement-event-p (ewoc-data start-node))
                            start-node
                          (ement-room--ewoc-next-matching ewoc start-node
@@ -2988,10 +2985,10 @@ the first and last nodes in the buffer, respectively."
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
 Return absorbing node if coalesced."
-  (cl-labels ((coalescable-p
-               (node) (or (and (ement-event-p (ewoc-data node))
-                               (member (ement-event-type (ewoc-data node)) '("m.room.member")))
-                          (ement-room-membership-events-p (ewoc-data node)))))
+  (cl-labels ((coalescable-p (node)
+                (or (and (ement-event-p (ewoc-data node))
+                         (member (ement-event-type (ewoc-data node)) '("m.room.member")))
+                    (ement-room-membership-events-p (ewoc-data node)))))
     (when (and (coalescable-p a) (coalescable-p b))
       (let* ((absorbing-node (if (or (ement-room-membership-events-p (ewoc-data a))
                                      (not (ement-room-membership-events-p (ewoc-data b))))
@@ -3010,40 +3007,39 @@ Return absorbing node if coalesced."
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
-  (cl-labels ((format-event
-               (event) (format "TS:%S (%s)  Sender:%s  Message:%S"
-                               (/ (ement-event-origin-server-ts event) 1000)
-                               (format-time-string "%Y-%m-%d %H:%M:%S"
-                                                   (/ (ement-event-origin-server-ts event) 1000))
-                               (ement-user-id (ement-event-sender event))
-                               (when (alist-get 'body (ement-event-content event))
-                                 (substring-no-properties
-                                  (truncate-string-to-width (alist-get 'body (ement-event-content event)) 20)))))
-              (find-node-if
-               (ewoc pred &key (move #'ewoc-prev) (start (ewoc-nth ewoc -1)))
-               "Return node in EWOC whose data matches PRED.
+  (cl-labels ((format-event (event)
+                (format "TS:%S (%s)  Sender:%s  Message:%S"
+                        (/ (ement-event-origin-server-ts event) 1000)
+                        (format-time-string "%Y-%m-%d %H:%M:%S"
+                                            (/ (ement-event-origin-server-ts event) 1000))
+                        (ement-user-id (ement-event-sender event))
+                        (when (alist-get 'body (ement-event-content event))
+                          (substring-no-properties
+                           (truncate-string-to-width (alist-get 'body (ement-event-content event)) 20)))))
+              (find-node-if (ewoc pred &key (move #'ewoc-prev) (start (ewoc-nth ewoc -1)))
+                "Return node in EWOC whose data matches PRED.
 Search starts from node START and moves by NEXT."
-               (cl-loop for node = start then (funcall move ewoc node)
-                        while node
-                        when (funcall pred (ewoc-data node))
-                        return node))
+                (cl-loop for node = start then (funcall move ewoc node)
+                         while node
+                         when (funcall pred (ewoc-data node))
+                         return node))
               (timestamped-node-p (data)
-                                  (pcase data
-                                    ((pred ement-event-p) t)
-                                    ((pred ement-room-membership-events-p) t)
-                                    (`(ts . ,_) t)))
+                (pcase data
+                  ((pred ement-event-p) t)
+                  ((pred ement-room-membership-events-p) t)
+                  (`(ts . ,_) t)))
               (node-ts (data)
-                       (pcase data
-                         ((pred ement-event-p) (ement-event-origin-server-ts data))
-                         ((pred ement-room-membership-events-p)
-                          ;; Not sure whether to use earliest or latest ts; let's try this for now.
-                          (ement-room-membership-events-earliest-ts data))
-                         (`(ts ,ts)
-                          ;; Matrix server timestamps are in ms, so we must convert back.
-                          (* 1000 ts))))
+                (pcase data
+                  ((pred ement-event-p) (ement-event-origin-server-ts data))
+                  ((pred ement-room-membership-events-p)
+                   ;; Not sure whether to use earliest or latest ts; let's try this for now.
+                   (ement-room-membership-events-earliest-ts data))
+                  (`(ts ,ts)
+                   ;; Matrix server timestamps are in ms, so we must convert back.
+                   (* 1000 ts))))
               (node< (a b)
-                     "Return non-nil if event A's timestamp is before B's."
-                     (< (node-ts a) (node-ts b))))
+                "Return non-nil if event A's timestamp is before B's."
+                (< (node-ts a) (node-ts b))))
     (ement-debug "INSERTING NEW EVENT: " (format-event event))
     (let* ((ewoc ement-ewoc)
            (event-node-before (ement-room--ewoc-node-before ewoc event #'node< :pred #'timestamped-node-p))
@@ -3126,11 +3122,11 @@ Search from FROM (either `first' or `last')."
   (if (null (ewoc-nth ewoc 0))
       (ement-debug "EWOC is empty: returning nil.")
     (ement-debug "EWOC has data: add at appropriate place.")
-    (cl-labels ((next-matching
-                 (ewoc node next-fn pred) (cl-loop do (setf node (funcall next-fn ewoc node))
-                                                   until (or (null node)
-                                                             (funcall pred (ewoc-data node)))
-                                                   finally return node)))
+    (cl-labels ((next-matching (ewoc node next-fn pred)
+                  (cl-loop do (setf node (funcall next-fn ewoc node))
+                           until (or (null node)
+                                     (funcall pred (ewoc-data node)))
+                           finally return node)))
       (let* ((next-fn (pcase from ('first #'ewoc-next) ('last #'ewoc-prev)))
              (start-node (ewoc-nth ewoc (pcase from ('first 0) ('last -1)))))
         (unless (funcall pred (ewoc-data start-node))
@@ -3273,38 +3269,38 @@ Formats according to `ement-room-message-format-spec', which see."
   "Return formatted reactions to EVENT."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
   (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
-      (cl-labels ((format-reaction
-                   (ks) (pcase-let* ((`(,key . ,senders) ks)
-                                     (key (propertize key 'face 'ement-room-reactions-key))
-                                     (count (propertize (format " (%s)" (length senders))
-                                                        'face 'ement-room-reactions))
-                                     (string
-                                      (propertize (concat key count)
-                                                  'button '(t)
-                                                  'category 'default-button
-                                                  'action #'ement-room-reaction-button-action
-                                                  'follow-link t
-                                                  'help-echo (lambda (_window buffer _pos)
-                                                               ;; NOTE: If the reaction key string is a Unicode character composed
-                                                               ;; with, e.g. "VARIATION SELECTOR-16", `string-to-char' ignores the
-                                                               ;; composed modifier/variation-selector and just returns the first
-                                                               ;; character of the string.  This should be fine, since it's just
-                                                               ;; for the tooltip.
-                                                               (concat
-                                                                (get-char-code-property (string-to-char key) 'name) ": "
-                                                                (senders-names senders (buffer-local-value 'ement-room buffer))))))
-                                     (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
-                                                              :key #'ement-user-id :test #'equal)))
-                          (when local-user-p
-                            (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
-                                                    nil string))
-                          (ement--remove-face-property string 'button)
-                          string))
-                  (senders-names
-                   (senders room) (cl-loop for sender in senders
-                                           collect (ement--user-displayname-in room sender)
-                                           into names
-                                           finally return (string-join names ", "))))
+      (cl-labels ((format-reaction (ks)
+                    (pcase-let* ((`(,key . ,senders) ks)
+                                 (key (propertize key 'face 'ement-room-reactions-key))
+                                 (count (propertize (format " (%s)" (length senders))
+                                                    'face 'ement-room-reactions))
+                                 (string
+                                  (propertize (concat key count)
+                                              'button '(t)
+                                              'category 'default-button
+                                              'action #'ement-room-reaction-button-action
+                                              'follow-link t
+                                              'help-echo (lambda (_window buffer _pos)
+                                                           ;; NOTE: If the reaction key string is a Unicode character composed
+                                                           ;; with, e.g. "VARIATION SELECTOR-16", `string-to-char' ignores the
+                                                           ;; composed modifier/variation-selector and just returns the first
+                                                           ;; character of the string.  This should be fine, since it's just
+                                                           ;; for the tooltip.
+                                                           (concat
+                                                            (get-char-code-property (string-to-char key) 'name) ": "
+                                                            (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                                 (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
+                                                          :key #'ement-user-id :test #'equal)))
+                      (when local-user-p
+                        (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
+                                                nil string))
+                      (ement--remove-face-property string 'button)
+                      string))
+                  (senders-names (senders room)
+                    (cl-loop for sender in senders
+                             collect (ement--user-displayname-in room sender)
+                             into names
+                             finally return (string-join names ", "))))
         (cl-loop with keys-senders
                  for reaction in reactions
                  for key = (map-nested-elt (ement-event-content reaction) '(m.relates_to key))
@@ -3477,8 +3473,8 @@ HTML is rendered to Emacs text using `shr-insert-document'."
                      (let ((beg (point-marker)))
                        (funcall old-fn dom)
                        (add-text-properties beg (point-max)
-                                            '(wrap-prefix "    "
-                                                          line-prefix "    "))))))
+                                            '( wrap-prefix "    "
+                                               line-prefix "    "))
                        ;; NOTE: We use our own gv, `ement-text-property'; very convenient.
                        (add-face-text-property beg (point-max) 'ement-room-quote 'append)))))
           (shr-insert-document
@@ -3496,8 +3492,8 @@ HTML is rendered to Emacs text using `shr-insert-document'."
     ;; HACK: So we use the username slot, which was created just for this, for now.
     (when body
       (cl-macrolet ((matches-body-p
-                     (form) `(when-let ((string ,form))
-                               (string-match-p (regexp-quote string) body))))
+                      (form) `(when-let ((string ,form))
+                                (string-match-p (regexp-quote string) body))))
         (or (matches-body-p (ement-user-username user))
             (matches-body-p (ement--user-displayname-in room user))
             (matches-body-p (ement-user-id user)))))))
@@ -3536,31 +3532,30 @@ HTML is rendered to Emacs text using `shr-insert-document'."
 
 (defun ement-room--user-color (user)
   "Return a color in which to display USER's messages."
-  (cl-labels ((relative-luminance
-               ;; Copy of `modus-themes-wcag-formula', an elegant
-               ;; implementation by Protesilaos Stavrou.  Also see
-               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
-               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
-                              for x in rgb
-                              sum (* k (if (<= x 0.03928)
-                                           (/ x 12.92)
-                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
-              (contrast-ratio
-               ;; Copy of `modus-themes-contrast'; see above.
-               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
-                                  (+ (relative-luminance b) 0.05))))
-                       (max ct (/ ct))))
-              (increase-contrast
-               (color against target toward)
-               (let ((gradient (cdr (color-gradient color toward 20)))
-                     new-color)
-                 (cl-loop do (setf new-color (pop gradient))
-                          while new-color
-                          until (>= (contrast-ratio new-color against) target)
-                          ;; Avoid infinite loop in case of weirdness
-                          ;; by returning color as a fallback.
-                          finally return (or new-color color)))))
+  (cl-labels ((relative-luminance (rgb)
+                ;; Copy of `modus-themes-wcag-formula', an elegant
+                ;; implementation by Protesilaos Stavrou.  Also see
+                ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+                ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+                (cl-loop for k in '(0.2126 0.7152 0.0722)
+                         for x in rgb
+                         sum (* k (if (<= x 0.03928)
+                                      (/ x 12.92)
+                                    (expt (/ (+ x 0.055) 1.055) 2.4)))))
+              (contrast-ratio (a b)
+                ;; Copy of `modus-themes-contrast'; see above.
+                (let ((ct (/ (+ (relative-luminance a) 0.05)
+                             (+ (relative-luminance b) 0.05))))
+                  (max ct (/ ct))))
+              (increase-contrast (color against target toward)
+                (let ((gradient (cdr (color-gradient color toward 20)))
+                      new-color)
+                  (cl-loop do (setf new-color (pop gradient))
+                           while new-color
+                           until (>= (contrast-ratio new-color against) target)
+                           ;; Avoid infinite loop in case of weirdness
+                           ;; by returning color as a fallback.
+                           finally return (or new-color color)))))
     (let* ((id (ement-user-id user))
            (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
            ;; TODO: Wrap-around the value to get the color I want.
@@ -3739,24 +3734,24 @@ a copy of the local keymap, and sets `header-line-format'."
                 event)
                (sender-name (ement--user-displayname-in ement-room sender)))
     (cl-macrolet ((nes (var)
-                       ;; For "non-empty-string".  Needed because the displayname can be
-                       ;; an empty string, but apparently is never null.  (Note that the
-                       ;; argument should be a variable, never any other form, to avoid
-                       ;; multiple evaluation.)
-                       `(when (and ,var (not (string-empty-p ,var)))
-                          ,var))
-                  (sender-name-id-string
-                   () `(propertize sender-name
-                                   'help-echo (ement-user-id sender)))
-                  (new-displayname-sender-name-state-key-string
-                   () `(propertize (or (nes new-displayname) (nes sender-name) (nes state-key))
-                                   'help-echo state-key))
-                  (sender-name-state-key-string
-                   () `(propertize sender-name
-                                   'help-echo state-key))
-                  (prev-displayname-id-string
-                   () `(propertize (or prev-displayname sender-name)
-                                   'help-echo (ement-user-id sender))))
+                    ;; For "non-empty-string".  Needed because the displayname can be
+                    ;; an empty string, but apparently is never null.  (Note that the
+                    ;; argument should be a variable, never any other form, to avoid
+                    ;; multiple evaluation.)
+                    `(when (and ,var (not (string-empty-p ,var)))
+                       ,var))
+                  (sender-name-id-string ()
+                    `(propertize sender-name
+                                 'help-echo (ement-user-id sender)))
+                  (new-displayname-sender-name-state-key-string ()
+                    `(propertize (or (nes new-displayname) (nes sender-name) (nes state-key))
+                                 'help-echo state-key))
+                  (sender-name-state-key-string ()
+                    `(propertize sender-name
+                                 'help-echo state-key))
+                  (prev-displayname-id-string ()
+                    `(propertize (or prev-displayname sender-name)
+                                 'help-echo (ement-user-id sender))))
       (pcase-exhaustive new-membership
         ("invite"
          (pcase prev-membership
@@ -3853,14 +3848,16 @@ a copy of the local keymap, and sets `header-line-format'."
 (defun ement-room--format-membership-events (struct room)
   "Return string for STRUCT in ROOM.
 STRUCT should be an `ement-room-membership-events' struct."
-  (cl-labels ((event-user
-               (event) (propertize (if-let (user (gethash (ement-event-state-key event) ement-users))
-                                       (ement--user-displayname-in room user)
-                                     (ement-event-state-key event))
-                                   'help-echo (concat (ement-room--format-member-event event room)
-                                                      " <" (ement-event-state-key event) ">")))
-              (old-membership (event) (map-nested-elt (ement-event-unsigned event) '(prev_content membership)))
-              (new-membership (event) (alist-get 'membership (ement-event-content event))))
+  (cl-labels ((event-user (event)
+                (propertize (if-let (user (gethash (ement-event-state-key event) ement-users))
+                                (ement--user-displayname-in room user)
+                              (ement-event-state-key event))
+                            'help-echo (concat (ement-room--format-member-event event room)
+                                               " <" (ement-event-state-key event) ">")))
+              (old-membership (event)
+                (map-nested-elt (ement-event-unsigned event) '(prev_content membership)))
+              (new-membership (event)
+                (alist-get 'membership (ement-event-content event))))
     (pcase-let* (((cl-struct ement-room-membership-events events) struct))
       (pcase (length events)
         (0 (warn "No events in `ement-room-membership-events' struct"))
