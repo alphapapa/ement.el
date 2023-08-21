@@ -293,6 +293,7 @@ this one automatically.")
   "Timestamp headers.")
 
 (defface ement-room-mention
+  ;; TODO(30.1): Remove when not supporting Emacs 27 anymore.
   (if (version< emacs-version "27.1")
       '((t (:inherit hl-line)))
     '((t (:inherit hl-line :extend t))))
