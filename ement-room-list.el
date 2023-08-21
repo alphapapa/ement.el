@@ -215,8 +215,7 @@ from recent to non-recent for rooms updated in the past hour.")
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
-                                 (or name (concat "Space: " (ement-room-display-name room)))
-                                 ))
+                                 (or name (concat "Space: " (ement-room-display-name room)))))
                         ;; ID not specified.
                         (pcase (length parents)
                           (0 nil)
