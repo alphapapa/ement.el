@@ -298,6 +298,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Face ~ement-room-quote~, applied to quoted parts of replies.
 
+*Fixes*
+
++ File event formatter assumed that file size metadata would be present (a malformed, e.g. spam, event might not have it).
+
 ** 0.11
 
 *Additions*

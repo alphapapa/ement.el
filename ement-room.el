@@ -4170,7 +4170,8 @@ Then invalidate EVENT's node to show the image."
                 event)
                (url (when mxc-url
                       (ement--mxc-to-url mxc-url ement-session)))
-               (human-size (file-size-human-readable size))
+               (human-size (when size
+                             (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
                         'action #'browse-url
