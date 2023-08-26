@@ -50,6 +50,7 @@ is passed through `ement--make-event'."
 
 ;;;; Variables
 
+(declare-function ement-room-list "ement-room-list")
 (defvar ement-notifications-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "S-<return>") #'ement-notify-reply)
