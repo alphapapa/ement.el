@@ -50,10 +50,25 @@ is passed through `ement--make-event'."
 
 ;;;; Variables
 
+(defvar ement-notifications-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "S-<return>") #'ement-notify-reply)
+    (define-key map (kbd "M-g M-l") #'ement-room-list)
+    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
+    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
+    (define-key map [remap scroll-down-command] #'ement-notifications-scroll-down-command)
+    (define-key map [remap mwheel-scroll] #'ement-notifications-mwheel-scroll)
+    (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
+  "Map for Ement notification buffers.")
+
 (defvar ement-notifications-hook '(ement-notifications-log-to-buffer)
   "Functions called for `ement-notifications' notifications.
 Each function is called with two arguments, the session and the
 `ement-notification' struct.")
+
+(defvar-local ement-notifications-retro-loading nil
+  "Non-nil when earlier messages are being loaded.
+Used to avoid overlapping requests.")
 
 (defvar-local ement-notifications-metadata nil
   "Metadata for `ement-notifications' buffers.")
@@ -61,12 +76,15 @@ Each function is called with two arguments, the session and the
 ;;;; Commands
 
 ;;;###autoload
-(cl-defun ement-notifications (session &key from limit only)
+(cl-defun ement-notifications
+    (session &key from limit only
+             (then (apply-partially #'ement-notifications-callback session)) else)
   "Show the notifications buffer for SESSION.
 FROM may be a \"next_token\" token from a previous request.
 LIMIT may be a maximum number of events to return.  ONLY may be
 the string \"highlight\" to only return notifications that have
-the highlight tweak set."
+the highlight tweak set.  THEN and ELSE may be callbacks passed
+to `ement-api', which see."
   (interactive (list (ement-complete-session)
                      :only (when current-prefix-arg
                              "highlight")))
@@ -78,22 +96,68 @@ the highlight tweak set."
                               (list "limit" (number-to-string limit)))
                             (when only
                               (list "only" only))))))
-    (ement-api session endpoint :params params
-      :then (lambda (data)
-              (pcase-let (((map notifications next_token) data))
-                (with-current-buffer (ement-notifications--log-buffer)
-                  (setf (map-elt ement-notifications-metadata :next-token) next_token)
-                  (cl-loop for notification across notifications
-                           do (run-hook-with-args 'ement-notifications-hook
-                                                  session (ement-notifications--make notification)))
-                  (ement-room--insert-ts-headers)
-                  (pop-to-buffer (current-buffer))))))))
+    (ement-api session endpoint :params params :then then :else else)))
+
+(cl-defun ement-notifications-callback (session data &key (buffer (ement-notifications--log-buffer)))
+  "Callback for `ement-notifications' on SESSION which receives DATA."
+  (pcase-let (((map notifications next_token) data))
+    (with-current-buffer buffer
+      (setf (map-elt ement-notifications-metadata :next-token) next_token)
+      (cl-loop for notification across notifications
+               do (run-hook-with-args 'ement-notifications-hook
+                                      session (ement-notifications--make notification)))
+      (ement-room--insert-ts-headers)
+      (pop-to-buffer (current-buffer)))))
+
+(defun ement-notifications-scroll-down-command ()
+  "Scroll down, and load NUMBER earlier messages when at top."
+  (interactive)
+  (condition-case _err
+      (scroll-down nil)
+    (beginning-of-buffer
+     (call-interactively #'ement-notifications-retro))))
+
+(defun ement-notifications-mwheel-scroll (event)
+  "Scroll according to EVENT, loading earlier messages when at top."
+  (interactive "e")
+  (with-selected-window (posn-window (event-start event))
+    (mwheel-scroll event)
+    (when (= (point-min) (window-start))
+      (call-interactively #'ement-notifications-retro))))
+
+(cl-defun ement-notifications-retro (session number)
+  ;; FIXME: Naming things is hard.
+  "Retrieve NUMBER older notifications on SESSION."
+  ;; FIXME: Support multiple sessions.
+  (interactive (list (ement-complete-session)
+                     (cl-typecase current-prefix-arg
+                       (null 100)
+                       (list (read-number "Number of messages: "))
+                       (number current-prefix-arg))))
+  (cl-assert (eq 'ement-notifications-mode major-mode))
+  (cl-assert (map-elt ement-notifications-metadata :next-token) nil
+             "No more notifications for %s" (ement-user-id (ement-session-user ement-session)))
+  (let ((buffer (current-buffer)))
+    (unless ement-notifications-retro-loading
+      (ement-notifications
+       session :limit number
+       :from (map-elt ement-notifications-metadata :next-token)
+       ;; TODO: Use a :finally for resetting `ement-notifications-retro-loading'?
+       :then (lambda (data)
+               (unwind-protect
+                   (ement-notifications-callback session data :buffer buffer)
+                 (setf (buffer-local-value 'ement-notifications-retro-loading buffer) nil)))
+       :else (lambda (plz-error)
+               (setf (buffer-local-value 'ement-notifications-retro-loading buffer) nil)
+               (ement-api-error plz-error)))
+      (message "Loading %s earlier messages..." number)
+      (setf ement-notifications-retro-loading t))))
 
 ;;;; Functions
 
 ;; FIXME: The buffer name is the same as used in `ement-notify--log-to-buffer', except capitalized.
 
-(cl-defun ement-notifications-log-to-buffer (session notification &key (buffer-name "*Ement NOTIFICATIONS*"))
+(cl-defun ement-notifications-log-to-buffer (session notification &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM on SESSION to \"*Ement NOTIFICATIONS*\" buffer."
   (with-demoted-errors "ement-notifications-log-to-buffer: %S"
     (with-current-buffer (ement-notifications--log-buffer :name buffer-name)
@@ -104,8 +168,9 @@ the highlight tweak set."
         ;; TODO: Use the :readp slot to mark unread events.
         (pcase-let* (((cl-struct ement-notification room-id event) notification)
                      (ement-session session)
-                     (ement-room (cl-find room-id (ement-session-rooms session)
-                                          :key #'ement-room-id :test #'equal))
+                     (ement-room (or (cl-find room-id (ement-session-rooms session)
+                                              :key #'ement-room-id :test #'equal)
+                                     (error "ement-notifications-log-to-buffer: Can't find room <%s>; discarding notification" room-id)))
                      (ement-room-sender-in-left-margin nil)
                      (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
                      (new-node (ement-room--insert-event event))
@@ -132,10 +197,21 @@ the highlight tweak set."
                                    ((pred listp) (remq 'button face))
                                    (_ face))))
           (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notify--room-background-color ement-room)
+            (add-face-text-property start end (list :background (ement-notifications--room-background-color ement-room)
                                                     :extend t))))))))
 
-(cl-defun ement-notifications--log-buffer (&key (name "*Ement NOTIFICATIONS*"))
+(defun ement-notifications--room-background-color (room)
+  "Return a background color on which to display ROOM's messages."
+  (or (alist-get 'notify-background-color (ement-room-local room))
+      (setf (alist-get 'notify-background-color (ement-room-local room))
+            (let ((color (color-desaturate-name
+                          (ement--prism-color (ement-room-id room) :contrast-with (face-foreground 'default))
+                          50)))
+              (if (ement--color-dark-p (color-name-to-rgb (face-background 'default)))
+                  (color-darken-name color 25)
+                (color-lighten-name color 25))))))
+
+(cl-defun ement-notifications--log-buffer (&key (name "*Ement Notifications*"))
   "Return an Ement notifications buffer named NAME."
   (or (get-buffer name)
       (with-current-buffer (get-buffer-create name)
