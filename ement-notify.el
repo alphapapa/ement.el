@@ -171,7 +171,7 @@ margins in Emacs.  But it's useful, anyway."
   "Switch to \"*Ement Notifications*\" buffer."
   (declare (function ement-notifications--log-buffer "ement-notifications"))
   (interactive)
-  (switch-to-buffer (ement-notifications--log-buffer :name "*Ement Notifications*")))
+  (call-interactively #'ement-notifications))
 
 (defun ement-notify-switch-to-mentions-buffer ()
   "Switch to \"*Ement Mentions*\" buffer."

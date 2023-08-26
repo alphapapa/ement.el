@@ -89,15 +89,18 @@ to `ement-api', which see."
   (interactive (list (ement-complete-session)
                      :only (when current-prefix-arg
                              "highlight")))
-  (let ((endpoint "notifications")
-        (params (remq nil
-                      (list (when from
-                              (list "from" from))
-                            (when limit
-                              (list "limit" (number-to-string limit)))
-                            (when only
-                              (list "only" only))))))
-    (ement-api session endpoint :params params :then then :else else)))
+  (if-let ((buffer (get-buffer "*Ement Notifications*")))
+      (pop-to-buffer buffer)
+    (let ((endpoint "notifications")
+          (params (remq nil
+                        (list (when from
+                                (list "from" from))
+                              (when limit
+                                (list "limit" (number-to-string limit)))
+                              (when only
+                                (list "only" only))))))
+      (ement-api session endpoint :params params :then then :else else)
+      (ement-message "Fetching notifications for <%s>..." (ement-user-id (ement-session-user session))))))
 
 (cl-defun ement-notifications-callback (session data &key (buffer (ement-notifications--log-buffer)))
   "Callback for `ement-notifications' on SESSION which receives DATA."
@@ -151,7 +154,7 @@ to `ement-api', which see."
        :else (lambda (plz-error)
                (setf (buffer-local-value 'ement-notifications-retro-loading buffer) nil)
                (ement-api-error plz-error)))
-      (message "Loading %s earlier messages..." number)
+      (ement-message "Loading %s earlier messages..." number)
       (setf ement-notifications-retro-loading t))))
 
 ;;;; Functions
