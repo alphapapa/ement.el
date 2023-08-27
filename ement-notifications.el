@@ -120,6 +120,7 @@ to `ement-api', which see."
       (cl-loop for notification across notifications
                do (run-hook-with-args 'ement-notifications-hook
                                       session (ement-notifications--make notification)))
+      ;; TODO: Pass start/end nodes to `ement-room--insert-ts-headers' if possible.
       (ement-room--insert-ts-headers)
       (switch-to-buffer (current-buffer)))))
 
