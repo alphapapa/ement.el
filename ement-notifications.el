@@ -31,7 +31,9 @@
 (require 'cl-lib)
 (require 'map)
 
-(require 'ement)
+(require 'ement-lib)
+(require 'ement-room)
+(require 'ement-notify)
 
 ;;;; Structs
 
@@ -44,6 +46,7 @@
 NOTIFICATION is an alist representing a notification returned
 from the \"/notifications\" endpoint.  The notification's event
 is passed through `ement--make-event'."
+  (declare (function ement--make-event "ement"))
   (pcase-let (((map room_id _actions _ts event read) notification))
     (make-ement-notification :room-id room_id :readp read
                              :event (ement--make-event event))))
@@ -73,6 +76,13 @@ Used to avoid overlapping requests.")
 
 (defvar-local ement-notifications-metadata nil
   "Metadata for `ement-notifications' buffers.")
+
+;; Variables from other files.
+(defvar ement-ewoc)
+(defvar ement-session)
+(defvar ement-notify-prism-background)
+(defvar ement-room-message-format-spec)
+(defvar ement-room-sender-in-left-margin)
 
 ;;;; Commands
 
