@@ -170,8 +170,6 @@ to `ement-api', which see."
 
 ;;;; Functions
 
-;; FIXME: The buffer name is the same as used in `ement-notify--log-to-buffer', except capitalized.
-
 (cl-defun ement-notifications-log-to-buffer (session notification &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM on SESSION to \"*Ement NOTIFICATIONS*\" buffer."
   (with-demoted-errors "ement-notifications-log-to-buffer: %S"
