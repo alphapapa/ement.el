@@ -206,6 +206,13 @@ In that case, sender names are aligned to the margin edge.")
       (optional "?" (group (1+ anything))))
   "Regexp matching \"matrix.to\" URLs.")
 
+(defvar ement-room-message-history nil
+  "History list of messages entered with `ement-room' commands.
+Does not include filenames, emotes, etc.")
+
+(defvar ement-room-emote-history nil
+  "History list of emotes entered with `ement-room' commands.")
+
 ;; Variables from other files.
 (defvar ement-sessions)
 (defvar ement-syncs)
@@ -1221,8 +1228,9 @@ otherwise use current room."
      (ement-room-with-typing
        (let* ((file (read-file-name (format "Send file (%s): " (ement-room-display-name ement-room))
                                     nil nil 'confirm))
-              (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                            (file-name-nondirectory file) nil nil 'inherit-input-method)))
+              (body (ement-room-read-string
+                     (format "Message body (%s): " (ement-room-display-name ement-room))
+                     (file-name-nondirectory file) 'file-name-history nil 'inherit-input-method)))
          (list file body ement-room ement-session)))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
@@ -1261,8 +1269,9 @@ otherwise use current room."
      (ement-room-with-typing
        (let* ((file (read-file-name (format "Send image file (%s): " (ement-room-display-name ement-room))
                                     nil nil 'confirm))
-              (body (ement-room-read-string (format "Message body (%s): " (ement-room-display-name ement-room))
-                                            (file-name-nondirectory file) nil nil 'inherit-input-method)))
+              (body (ement-room-read-string
+                     (format "Message body (%s): " (ement-room-display-name ement-room))
+                     (file-name-nondirectory file) 'file-name-history nil 'inherit-input-method)))
          (list file body ement-room ement-session)))))
   (ement-room-send-file file body room session :msgtype "m.image"))
 
@@ -1558,8 +1567,8 @@ the content (e.g. see `ement-room-send-org-filter')."
    (ement-with-room-and-session
      (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
             (body (ement-room-with-typing
-                    (ement-room-read-string prompt nil nil nil
-                                            'inherit-input-method))))
+                    (ement-room-read-string prompt nil 'ement-room-message-history
+                                            nil 'inherit-input-method))))
        (list ement-room ement-session :body body))))
   (ement-send-message room session :body body :formatted-body formatted-body
     :replying-to-event replying-to-event :filter ement-room-send-message-filter
@@ -1590,8 +1599,8 @@ the content (e.g. see `ement-room-send-org-filter')."
    (ement-with-room-and-session
      (let* ((prompt (format "Send emote (%s): " (ement-room-display-name ement-room)))
             (body (ement-room-with-typing
-                    (ement-room-read-string prompt nil nil nil
-                                            'inherit-input-method))))
+                    (ement-room-read-string prompt nil 'ement-room-emote-history
+                                            nil 'inherit-input-method))))
        (list ement-room ement-session :body body))))
   (cl-assert (not (string-empty-p body)))
   (pcase-let* (((cl-struct ement-room (id room-id) (local (map buffer))) room)
@@ -1664,8 +1673,8 @@ The message must be one sent by the local user."
                    (ement-room-with-typing
                      (let* ((prompt (format "Edit message (%s): "
                                             (ement-room-display-name ement-room)))
-                            (body (ement-room-read-string prompt body nil nil
-                                                          'inherit-input-method)))
+                            (body (ement-room-read-string prompt body 'ement-room-message-history
+                                                          nil 'inherit-input-method)))
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
@@ -1713,7 +1722,8 @@ The message must be one sent by the local user."
                   (lambda ()
                     (setq-local ement-room-replying-to-event event)))
                  (body (ement-room-with-typing
-                         (ement-room-read-string prompt nil nil nil 'inherit-input-method))))
+                         (ement-room-read-string prompt nil 'ement-room-message-history
+                                                 nil 'inherit-input-method))))
       (ement-room-send-message room session :body body :replying-to-event event))))
 
 (defun ement-room-send-reaction (key position)
@@ -3680,8 +3690,10 @@ To be called from an `ement-room-compose' buffer."
                                      (eq data replying-to-event))))))
            (body (if replying-to-event
                      (ement-room-with-highlighted-event-at pos
-                       (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method))
-                   (ement-room-read-string prompt (car kill-ring) nil nil 'inherit-input-method)) ))
+                       (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
+                                               nil 'inherit-input-method))
+                   (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
+                                           nil 'inherit-input-method)) ))
       (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event))))
 
 (defun ement-room-init-compose-buffer (room session)
