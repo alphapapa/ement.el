@@ -297,7 +297,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Additions*
 
 + Face ~ement-room-quote~, applied to quoted parts of replies.
-+ Commands that read a string from the minibuffer in ~ement-room~ buffers use separate history list variables.
++ Commands that read a string from the minibuffer in ~ement-room~ buffers and ~ement-connect~ user ID prompts use separate history list variables.
 
 *Fixes*
 

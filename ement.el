@@ -106,6 +106,9 @@ by users; ones who do so should know what they're doing.")
 (defvar ement-read-receipt-idle-timer nil
   "Idle timer used to update read receipts.")
 
+(defvar ement-connect-user-id-history nil
+  "History list of user IDs entered into `ement-connect'.")
+
 ;; From other files.
 (defvar ement-room-avatar-max-width)
 (defvar ement-room-avatar-max-height)
@@ -210,7 +213,7 @@ the port, e.g.
   \"http://localhost:8080\""
   (interactive (if current-prefix-arg
                    ;; Force new session.
-                   (list :user-id (read-string "User ID: "))
+                   (list :user-id (read-string "User ID: " nil 'ement-connect-user-id-history))
                  ;; Use known session.
                  (unless ement-sessions
                    ;; Read sessions from disk.
@@ -219,7 +222,7 @@ the port, e.g.
                      (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."
                                                             (error-message-string err))))))
                  (cl-case (length ement-sessions)
-                   (0 (list :user-id (read-string "User ID: ")))
+                   (0 (list :user-id (read-string "User ID: " nil 'ement-connect-user-id-history)))
                    (1 (list :session (cdar ement-sessions)))
                    (otherwise (list :session (ement-complete-session))))))
   (let (sso-server-process)
@@ -332,7 +335,7 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
         ;; Start password login flow.  Prompt for user ID and password
         ;; if not given (i.e. if not called interactively.)
         (unless user-id
-          (setf user-id (read-string "User ID: ")))
+          (setf user-id (read-string "User ID: " nil 'ement-connect-user-id-history)))
         (setf session (new-session))
         (when (ement-api session "login" :then #'flows-callback)
           (message "Ement: Checking server's login flows..."))))))
