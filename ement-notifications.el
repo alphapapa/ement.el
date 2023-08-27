@@ -100,7 +100,7 @@ to `ement-api', which see."
                      :only (when current-prefix-arg
                              "highlight")))
   (if-let ((buffer (get-buffer "*Ement Notifications*")))
-      (pop-to-buffer buffer)
+      (switch-to-buffer buffer)
     (let ((endpoint "notifications")
           (params (remq nil
                         (list (when from
@@ -121,7 +121,7 @@ to `ement-api', which see."
                do (run-hook-with-args 'ement-notifications-hook
                                       session (ement-notifications--make notification)))
       (ement-room--insert-ts-headers)
-      (pop-to-buffer (current-buffer)))))
+      (switch-to-buffer (current-buffer)))))
 
 (defun ement-notifications-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
