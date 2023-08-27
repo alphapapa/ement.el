@@ -257,7 +257,7 @@ to `ement-api', which see."
 (defun ement-notifications-bookmark-handler (bookmark)
   "Show `ement-notifications' buffer for BOOKMARK."
   (pcase-let ((`(,_bookmark-name . ,(map buffer-name)) bookmark))
-    (switch-to-buffer (ement-notifications--log-buffer buffer-name))))
+    (switch-to-buffer (ement-notifications--log-buffer :name buffer-name))))
 
 ;;; Footer
 

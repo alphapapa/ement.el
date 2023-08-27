@@ -337,7 +337,7 @@ According to the room's notification configuration on the server."
 (defun ement-notify-bookmark-handler (bookmark)
   "Show Ement notifications buffer for BOOKMARK."
   (pcase-let ((`(,_bookmark-name . ,(map buffer-name)) bookmark))
-    (switch-to-buffer (ement-notifications--log-buffer buffer-name))))
+    (switch-to-buffer (ement-notifications--log-buffer :name buffer-name))))
 
 ;;;; Footer
 
