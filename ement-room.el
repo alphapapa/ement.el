@@ -1240,7 +1240,7 @@ otherwise use current room."
                  (extension (or (file-name-extension file) ""))
                  (mime-type (mailcap-extension-to-mime extension))
                  (data `(file ,file))
-                 (size (length data)))
+                 (size (file-attribute-size (file-attributes file))))
       (ement-upload session :data data :filename filename :content-type mime-type
         :then (lambda (data)
                 (message "Uploaded file %S.  Sending message..." file)
