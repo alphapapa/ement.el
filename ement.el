@@ -357,6 +357,7 @@ in them won't work."
     (let ((user-id (ement-user-id (ement-session-user session))))
       (when-let ((process (map-elt ement-syncs session)))
         (ignore-errors
+          (setf (map-elt (ement-session-etc session) 'disconnectingp) t)
           (delete-process process)))
       ;; NOTE: I'd like to use `map-elt' here, but not until
       ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=47368> is fixed, I guess.
@@ -549,6 +550,10 @@ a filter ID).  When unspecified, the value of
                                         (`(,code . ,message)
                                          (signal 'ement-api-error (list (format "Ement: Network error: %s: %s" code message)
                                                                         plz-error)))
+                                        ((and (guard (map-elt (ement-session-etc session) 'disconnectingp))
+                                              `(,_ . "curl process killed"))
+                                         ;; Disconnecting: no error.
+                                         nil)
                                         (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))))
                           :json-read-fn (lambda ()
                                           "Print a message, then call `json-read'."
