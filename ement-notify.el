@@ -1,6 +1,6 @@
 ;;; ement-notify.el --- Notifications for Ement events  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
