@@ -476,6 +476,26 @@ globally."
                        (ement-user-id (ement-session-user session))
                        (ement--format-room room))))))
 
+(defun ement-set-avatar (filename session)
+  "Set FILENAME as the profile avatar on SESSION."
+  (interactive
+   (let ((session (ement-complete-session))
+         (filename (read-file-name "Avatar file: " nil nil t)))
+     (list filename session)))
+  (ement-upload session
+    :data `(file ,filename)
+    :filename filename
+    :content-type (mailcap-extension-to-mime (file-name-extension filename))
+    :then (lambda (data)
+            (pcase-let* (((map ('content_uri uri)) data)
+                         ((cl-struct ement-session user) session)
+                         ((cl-struct ement-user (id user-id)) user))
+              (ement-api session (format "profile/%s/avatar_url" (url-hexify-string user-id))
+                :method 'put :version "v3" :data (json-encode (ement-alist "avatar_url" uri))
+                :then (lambda (_)
+                        (message "Ement: Avatar set to %s for <%s>" filename
+                                 (ement-user-id (ement-session-user session)))))))))
+
 ;;;;;; Describe room
 
 (defvar ement-describe-room-mode-map
