@@ -2047,7 +2047,7 @@ and erases the buffer."
                           (and browse-url-browser-function
                                (list (cons "." browse-url-browser-function))))))))
   (setq-local completion-at-point-functions
-              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
+              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))  
   (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
                                            ("^file:" . ement-room-dnd-upload-file))
                                          dnd-protocol-alist)))
