@@ -4141,6 +4141,7 @@ If FORMATTED-P, return the formatted body content, when available."
           :then (let ((room ement-room)
                       (session ement-session))
                   (lambda (fetched-event)
+                    ;; FIXME: Do we need to use `when'?  Shouldn't `fetched-event' always be present?
                     (when fetched-event
                       (pcase-let* ((new-event (ement--make-event fetched-event))
                                    ((cl-struct ement-room (local (map buffer))) room))
