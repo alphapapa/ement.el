@@ -1728,8 +1728,7 @@ The message must be one sent by the local user."
                     (setq-local ement-room-replying-to-event event)))
                  (body (ement-room-with-typing
                          (ement-room-read-string prompt nil 'ement-room-message-history nil 'inherit-input-method))))
-      (ement-room-send-message room session :body body :replying-to-event event
-                               :rich-reply ement-room-send-rich-replies))))
+      (ement-room-send-message room session :body body :replying-to-event event))))
 
 (defun ement-room-send-reaction (key position)
   "Send reaction of KEY to event at POSITION.
