@@ -2272,8 +2272,7 @@ Interactively, to event at point."
                                                    nil 'inherit-input-method))))
         ;; NOTE: `ement-room-send-message' looks up the original event, so we pass `event'
         ;; as :replying-to-event.
-        (ement-room-send-message room session :body body :replying-to-event event
-                                 :rich-reply ement-room-send-rich-replies)))))
+        (ement-room-send-message room session :body body :replying-to-event event)))))
 
 (when (assoc "emoji" input-method-alist)
   (defun ement-room-use-emoji-input-method ()
