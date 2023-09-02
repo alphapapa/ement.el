@@ -1082,9 +1082,11 @@ number (to darken rather than lighten)."
   :type 'integer)
 
 (defcustom ement-room-send-rich-replies nil
+  ;; TODO: Switch this default to non-nil in the future, and eventually remove the option.
   "Whether to send rich replies when replying to messages.
-When non-nil, rather than quoting the replied-to message in the
-body, a `rich reply' is sent instead.")
+When non-nil, \"rich replies\" are sent, which encode the
+relationship between messages in their metadata."
+  :link '(url-link "https://spec.matrix.org/v1.3/client-server-api/#rich-replies"))
 
 ;;;; Macros
 
