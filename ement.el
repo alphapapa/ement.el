@@ -1,12 +1,12 @@
 ;;; ement.el --- Matrix client                       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.10-pre
-;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.2") (taxy "0.10") (taxy-magit-section "0.12.1") (svg-lib "0.2.5") (transient "0.3.7"))
+;; Version: 0.12-pre
+;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.12.1") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -106,6 +106,9 @@ by users; ones who do so should know what they're doing.")
 (defvar ement-read-receipt-idle-timer nil
   "Idle timer used to update read receipts.")
 
+(defvar ement-connect-user-id-history nil
+  "History list of user IDs entered into `ement-connect'.")
+
 ;; From other files.
 (defvar ement-room-avatar-max-width)
 (defvar ement-room-avatar-max-height)
@@ -184,6 +187,11 @@ handled (e.g. how to be notified)."
   :type 'hook
   :options '(ement-interrupted-sync-message ement-interrupted-sync-warning))
 
+(defcustom ement-sso-server-port 4567
+  "TCP port used for local HTTP server for SSO logins.
+It shouldn't usually be necessary to change this."
+  :type 'integer)
+
 ;;;; Commands
 
 ;;;###autoload
@@ -205,8 +213,7 @@ the port, e.g.
   \"http://localhost:8080\""
   (interactive (if current-prefix-arg
                    ;; Force new session.
-                   (list :user-id (read-string "User ID: ")
-                         :password (read-passwd "Password: "))
+                   (list :user-id (read-string "User ID: " nil 'ement-connect-user-id-history))
                  ;; Use known session.
                  (unless ement-sessions
                    ;; Read sessions from disk.
@@ -215,66 +222,123 @@ the port, e.g.
                      (error (display-warning 'ement (format "Unable to read session data from disk (%s).  Prompting to log in again."
                                                             (error-message-string err))))))
                  (cl-case (length ement-sessions)
-                   (0 (list :user-id (read-string "User ID: ")
-                            :password (read-passwd "Password: ")))
+                   (0 (list :user-id (read-string "User ID: " nil 'ement-connect-user-id-history)))
                    (1 (list :session (cdar ement-sessions)))
                    (otherwise (list :session (ement-complete-session))))))
-  (cl-labels ((new-session
-               () (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
-                                            ":" (group (optional (1+ (not (any blank)))))) ; Server name
-                                        user-id)
-                    (user-error "Invalid user ID format: use @USERNAME:SERVER"))
-               (let* ((username (match-string 1 user-id))
-                      (server-name (match-string 2 user-id))
-                      (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
-                      (user (make-ement-user :id user-id :username username))
-                      (server (make-ement-server :name server-name :uri-prefix uri-prefix))
-                      (transaction-id (ement--initial-transaction-id))
-                      (initial-device-display-name (format "Ement.el: %s@%s"
-                                                           ;; Just to be extra careful:
-                                                           (or user-login-name "[unknown user-login-name]")
-                                                           (or (system-name) "[unknown system-name]")))
-                      (device-id (secure-hash 'sha256 initial-device-display-name)))
-                 (make-ement-session :user user :server server :transaction-id transaction-id
-                                     :device-id device-id :initial-device-display-name initial-device-display-name
-                                     :events (make-hash-table :test #'equal))))
-              (password-login
-               () (pcase-let* (((cl-struct ement-session user device-id initial-device-display-name) session)
-                               ((cl-struct ement-user id) user)
-                               (data (ement-alist "type" "m.login.password"
-                                                  "identifier"
-                                                  (ement-alist "type" "m.id.user"
-                                                               "user" id)
-                                                  "password" password
-                                                  "device_id" device-id
-                                                  "initial_device_display_name" initial-device-display-name)))
-                    ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
-                    (ement-api session "login" :method 'post :data (json-encode data)
-                      :then (apply-partially #'ement--login-callback session))))
-              (flows-callback
-               (data) (if (cl-loop for flow across (map-elt data 'flows)
-                                   thereis (equal (map-elt flow 'type) "m.login.password"))
-                          (progn
-                            (message "Ement: Logging in with password...")
-                            (password-login))
-                        (error "Matrix server doesn't support m.login.password login flow.  Supported flows: %s"
-                               (cl-loop for flow in (map-elt data 'flows)
-                                        collect (map-elt flow 'type))))))
-    (if session
-        ;; Start syncing given session.
-        (let ((user-id (ement-user-id (ement-session-user session))))
-          ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
-          (setf (alist-get user-id ement-sessions nil nil #'equal) session)
-          (ement--sync session :timeout ement-initial-sync-timeout))
-      ;; Start password login flow.  Prompt for user ID and password
-      ;; if not given (i.e. if not called interactively.)
-      (unless user-id
-        (setf user-id (read-string "User ID: ")))
-      (unless password
-        (setf password (read-passwd (format "Password for %s: " user-id))))
-      (setf session (new-session))
-      (when (ement-api session "login" :then #'flows-callback)
-        (message "Ement: Checking server's login flows...")))))
+  (let (sso-server-process)
+    (cl-labels ((new-session
+                 () (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
+                                              ":" (group (optional (1+ (not (any blank)))))) ; Server name
+                                          user-id)
+                      (user-error "Invalid user ID format: use @USERNAME:SERVER"))
+                 (let* ((username (match-string 1 user-id))
+                        (server-name (match-string 2 user-id))
+                        (uri-prefix (or uri-prefix (ement--hostname-uri server-name)))
+                        (user (make-ement-user :id user-id :username username))
+                        (server (make-ement-server :name server-name :uri-prefix uri-prefix))
+                        (transaction-id (ement--initial-transaction-id))
+                        (initial-device-display-name (format "Ement.el: %s@%s"
+                                                             ;; Just to be extra careful:
+                                                             (or user-login-name "[unknown user-login-name]")
+                                                             (or (system-name) "[unknown system-name]")))
+                        (device-id (secure-hash 'sha256 initial-device-display-name)))
+                   (make-ement-session :user user :server server :transaction-id transaction-id
+                                       :device-id device-id :initial-device-display-name initial-device-display-name
+                                       :events (make-hash-table :test #'equal))))
+                (password-login
+                 () (pcase-let* (((cl-struct ement-session user device-id initial-device-display-name) session)
+                                 ((cl-struct ement-user id) user)
+                                 (data (ement-alist "type" "m.login.password"
+                                                    "identifier"
+                                                    (ement-alist "type" "m.id.user"
+                                                                 "user" id)
+                                                    "password" (or password
+                                                                   (read-passwd (format "Password for %s: " id)))
+                                                    "device_id" device-id
+                                                    "initial_device_display_name" initial-device-display-name)))
+                      ;; TODO: Clear password in callback (if we decide to hold on to it for retrying login timeouts).
+                      (ement-api session "login" :method 'post :data (json-encode data)
+                        :then (apply-partially #'ement--login-callback session))
+                      (ement-message "Logging in with password...")))
+                (sso-filter
+                 (process string)
+                 ;; NOTE: This is technically wrong, because it's not guaranteed that the
+                 ;; string will be a complete request--it could just be a chunk.  But in
+                 ;; practice, if this works, it's much simpler than setting up process log
+                 ;; functions and per-client buffers for this throwaway, pretend HTTP server.
+                 (when (string-match (rx "GET /?loginToken=" (group (0+ nonl)) " " (0+ nonl)) string)
+                   (unwind-protect
+                       (pcase-let* ((token (match-string 1 string))
+                                    ((cl-struct ement-session user device-id initial-device-display-name)
+                                     session)
+                                    ((cl-struct ement-user id) user)
+                                    (data (ement-alist
+                                           "type" "m.login.token"
+                                           "identifier" (ement-alist "type" "m.id.user"
+                                                                     "user" id)
+                                           "token" token
+                                           "device_id" device-id
+                                           "initial_device_display_name" initial-device-display-name)))
+                         (ement-api session "login" :method 'post
+                           :data (json-encode data)
+                           :then (apply-partially #'ement--login-callback session))
+                         (process-send-string process "HTTP/1.0 202 Accepted
+Content-Type: text/plain; charset=utf-8
+
+Ement: SSO login accepted; session token received.  Connecting to Matrix server.  (You may close this page.)")
+                         (process-send-eof process))
+                     (delete-process sso-server-process)
+                     (delete-process process))))
+                (sso-login ()
+                           (setf sso-server-process
+                                 (make-network-process
+                                  :name "ement-sso" :family 'ipv4 :host 'local :service ement-sso-server-port
+                                  :filter #'sso-filter :server t :noquery t))
+                           ;; Kill server after 2 minutes in case of problems.
+                           (run-at-time 120 nil (lambda ()
+                                                  (when (process-live-p sso-server-process)
+                                                    (delete-process sso-server-process))))
+                           (let ((url (concat (ement-server-uri-prefix (ement-session-server session))
+                                              "/_matrix/client/r0/login/sso/redirect?redirectUrl=http://localhost:"
+                                              (number-to-string ement-sso-server-port))))
+                             (funcall browse-url-secondary-browser-function url)
+                             (message "Browsing to single sign-on page <%s>..." url)))
+                (flows-callback
+                 (data) (let ((flows (cl-loop for flow across (map-elt data 'flows)
+                                              for type = (map-elt flow 'type)
+                                              when (member type '("m.login.password" "m.login.sso"))
+                                              collect type)))
+                          (pcase (length flows)
+                            (0 (error "Ement: No supported login flows:  Server:%S  Supported flows:%S"
+                                      (ement-server-uri-prefix (ement-session-server session))
+                                      (map-elt data 'flows)))
+                            (1 (pcase (car flows)
+                                 ("m.login.password" (password-login))
+                                 ("m.login.sso" (sso-login))
+                                 (_ (error "Ement: Unsupported login flow: %s  Server:%S  Supported flows:%S"
+                                           (car flows) (ement-server-uri-prefix (ement-session-server session))
+                                           (map-elt data 'flows)))))
+                            (_ (pcase (completing-read "Select authentication method: "
+                                                       (cl-loop for flow in flows
+                                                                collect (string-trim-left flow (rx "m.login."))))
+                                 ("password" (password-login))
+                                 ("sso" (sso-login))
+                                 (else (error "Ement: Unsupported login flow:%S  Server:%S  Supported flows:%S"
+                                              else (ement-server-uri-prefix (ement-session-server session))
+                                              (map-elt data 'flows)))))))))
+      (if session
+          ;; Start syncing given session.
+          (let ((user-id (ement-user-id (ement-session-user session))))
+            ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
+            (setf (alist-get user-id ement-sessions nil nil #'equal) session)
+            (ement--sync session :timeout ement-initial-sync-timeout))
+        ;; Start password login flow.  Prompt for user ID and password
+        ;; if not given (i.e. if not called interactively.)
+        (unless user-id
+          (setf user-id (read-string "User ID: " nil 'ement-connect-user-id-history)))
+        (setf session (new-session))
+        (when (ement-api session "login" :then #'flows-callback)
+          (message "Ement: Checking server's login flows..."))))))
 
 (defun ement-disconnect (sessions)
   "Disconnect from SESSIONS.
@@ -348,14 +412,16 @@ Useful in, e.g. `ement-disconnect-hook', which see."
   "Run idle timer that updates read receipts.
 To be called from `ement-after-initial-sync-hook'.  Timer is
 stored in `ement-read-receipt-idle-timer'."
-  (setf ement-read-receipt-idle-timer (run-with-idle-timer 3 t #'ement-room-read-receipt-idle-timer)))
+  (unless (timerp ement-read-receipt-idle-timer)
+    (setf ement-read-receipt-idle-timer (run-with-idle-timer 3 t #'ement-room-read-receipt-idle-timer))))
 
 (defun ement--stop-idle-timer (&rest _ignore)
   "Stop idle timer stored in `ement-read-receipt-idle-timer'.
 To be called from `ement-disconnect-hook'."
-  (when (timerp ement-read-receipt-idle-timer)
-    (cancel-timer ement-read-receipt-idle-timer)
-    (setf ement-read-receipt-idle-timer nil)))
+  (unless ement-sessions
+    (when (timerp ement-read-receipt-idle-timer)
+      (cancel-timer ement-read-receipt-idle-timer)
+      (setf ement-read-receipt-idle-timer nil))))
 
 (defun ement-view-initial-rooms (session)
   "View rooms for SESSION configured in `ement-auto-view-rooms'."
@@ -395,9 +461,12 @@ If no URI is found, prompt the user for the hostname."
                       ("" hostname)
                       (_ input))))
               (parse (string)
-                     (if-let ((object (ignore-errors (json-read-from-string string))))
-                         ;; Return extracted value.
-                         (map-nested-elt object '(m.homeserver base_url))
+                     (if-let* ((object (ignore-errors (json-read-from-string string)))
+                               (url (map-nested-elt object '(m.homeserver base_url)))
+                               ((string-match-p
+                                 (rx bos "http" (optional "s") "://" (1+ nonl))
+                                 url)))
+                         url
                        ;; Parsing error: FAIL_PROMPT.
                        (fail-prompt))))
     (condition-case err
@@ -495,7 +564,7 @@ a filter ID).  When unspecified, the value of
     (when process
       (setf (map-elt ement-syncs session) process)
       (when (and (not quiet) (ement--sync-messages-p session))
-        (message "Ement: Sync request sent, waiting for response...")))))
+        (ement-message "Sync request sent.  Waiting for response...")))))
 
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.

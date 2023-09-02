@@ -1,6 +1,6 @@
 ;;; ement-room-list.el --- List Ement rooms  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
@@ -215,8 +215,7 @@ from recent to non-recent for rooms updated in the past hour.")
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
-                                 (or name (concat "Space: " (ement-room-display-name room)))
-                                 ))
+                                 (or name (concat "Space: " (ement-room-display-name room)))))
                         ;; ID not specified.
                         (pcase (length parents)
                           (0 nil)
@@ -620,7 +619,8 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                         thereis (ement-session-rooms session)))
           (ement-message "No rooms have been joined")
         (with-current-buffer (get-buffer-create buffer-name)
-          (ement-room-list-mode)
+          (unless (eq 'ement-room-list-mode major-mode)
+            (ement-room-list-mode))
           (let* ((room-session-vectors
                   (cl-loop for (_id . session) in ement-sessions
                            append (cl-loop for room in (ement-session-rooms session)
@@ -742,10 +742,13 @@ left."
 (declare-function ement-view-room "ement-room")
 (defun ement-room-list-RET ()
   "View room at point, or cycle section at point."
+  (declare (function ement-view-space "ement-room"))
   (interactive)
   (cl-etypecase (oref (magit-current-section) value)
     (vector (pcase-let ((`[,room ,session] (oref (magit-current-section) value)))
-              (ement-view-room room session)))
+              (if (ement--space-p room)
+                  (ement-view-space room session)
+                (ement-view-room room session))))
     (taxy-magit-section (call-interactively #'ement-room-list-section-toggle))
     (null nil)))
 
@@ -764,7 +767,8 @@ left."
                         (ement-room-goto-fully-read-marker)
                         (cl-return t))
                    else do (forward-line 1)
-                   while (> (line-number-at-pos) starting-line))
+                   while (and (not (eobp))
+                              (> (line-number-at-pos) starting-line)))
     ;; No more unread rooms.
     (message "No more unread rooms")))
 

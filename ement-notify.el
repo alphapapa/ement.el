@@ -1,6 +1,6 @@
 ;;; ement-notify.el --- Notifications for Ement events  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
@@ -183,22 +183,29 @@ margins in Emacs.  But it's useful, anyway."
   "Send notifications for EVENT in ROOM on SESSION.
 Sends if all of `ement-notify-ignore-predicates' return nil.
 Does not do anything if session hasn't finished initial sync."
-  (when (and (ement-session-has-synced-p session)
-             (cl-loop for pred in ement-notify-ignore-predicates
-                      never (funcall pred event room session)))
-    (when (and ement-notify-dbus-p
-               (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session))
-      (ement-notify--notifications-notify event room session))
-    (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
-      (ement-notify--log-to-buffer event room session))
-    (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
-      (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))
-    (when (run-hook-with-args-until-success 'ement-notify-mark-frame-urgent-predicates event room session)
-      (ement-notify--mark-frame-urgent event room session))))
+  (with-demoted-errors "ement-notify: Error: %S"
+    (when (and (ement-session-has-synced-p session)
+               (cl-loop for pred in ement-notify-ignore-predicates
+                        never (funcall pred event room session)))
+      (when (and ement-notify-dbus-p
+                 (run-hook-with-args-until-success 'ement-notify-notification-predicates event room session))
+        (ement-notify--notifications-notify event room session))
+      (when (run-hook-with-args-until-success 'ement-notify-log-predicates event room session)
+        (ement-notify--log-to-buffer event room session))
+      (when (run-hook-with-args-until-success 'ement-notify-mention-predicates event room session)
+        (ement-notify--log-to-buffer event room session :buffer-name "*Ement Mentions*"))
+      (when (run-hook-with-args-until-success 'ement-notify-mark-frame-urgent-predicates event room session)
+        (ement-notify--mark-frame-urgent event room session)))))
 
 (defun ement-notify--mark-frame-urgent (_event room _session)
   "Mark frame showing ROOM's buffer as urgent.
 If ROOM has no existing buffer, do nothing."
+  (declare
+   ;; These silence lint warnings on our GitHub CI runs, which use a build of Emacs
+   ;; without GUI support.
+   (function dbus-get-unique-name "dbusbind.c")
+   (function x-change-window-property "xfns.c")
+   (function x-window-property "xfns.c"))
   (cl-labels ((mark-frame-urgent
                (frame) (let* ((prop "WM_HINTS")
                               (hints (cl-coerce
@@ -280,36 +287,40 @@ If ROOM has no existing buffer, do nothing."
     ;; just to be safe...
     (when (equal "m.room.message" (ement-event-type event))
       (with-current-buffer (ement-notify--log-buffer buffer-name)
-        (let* ((ement-session session)
-               (ement-room room)
-               (ement-room-sender-in-left-margin nil)
-               (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
-               (new-node (ement-room--insert-event event))
-               (inhibit-read-only t)
-               start end)
-          (ewoc-goto-node ement-ewoc new-node)
-          (setf start (point))
-          (if-let (next-node (ewoc-next ement-ewoc new-node))
-              (ewoc-goto-node ement-ewoc next-node)
-            (goto-char (point-max)))
-          (setf end (- (point) 2))
-          (add-text-properties start end
-                               (list 'button '(t)
-                                     'category 'default-button
-                                     'action #'ement-notify-button-action
-                                     'session session
-                                     'room room
-                                     'event event))
-          ;; Remove button face property.
-          (alter-text-property start end 'face
-                               (lambda (face)
-                                 (pcase face
-                                   ('button nil)
-                                   ((pred listp) (remq 'button face))
-                                   (_ face))))
-          (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notify--room-background-color room)
-                                                    :extend t))))))))
+        (save-window-excursion
+          (when-let ((buffer-window (get-buffer-window (current-buffer))))
+            ;; Select the buffer's window to avoid EWOC bug.  (See #191.)
+            (select-window buffer-window))
+          (let* ((ement-session session)
+                 (ement-room room)
+                 (ement-room-sender-in-left-margin nil)
+                 (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
+                 (new-node (ement-room--insert-event event))
+                 (inhibit-read-only t)
+                 start end)
+            (ewoc-goto-node ement-ewoc new-node)
+            (setf start (point))
+            (if-let (next-node (ewoc-next ement-ewoc new-node))
+                (ewoc-goto-node ement-ewoc next-node)
+              (goto-char (point-max)))
+            (setf end (- (point) 2))
+            (add-text-properties start end
+                                 (list 'button '(t)
+                                       'category 'default-button
+                                       'action #'ement-notify-button-action
+                                       'session session
+                                       'room room
+                                       'event event))
+            ;; Remove button face property.
+            (alter-text-property start end 'face
+                                 (lambda (face)
+                                   (pcase face
+                                     ('button nil)
+                                     ((pred listp) (remq 'button face))
+                                     (_ face))))
+            (when ement-notify-prism-background
+              (add-face-text-property start end (list :background (ement-notify--room-background-color room)
+                                                      :extend t)))))))))
 
 (defun ement-notify--log-buffer (name)
   "Return an Ement notifications buffer named NAME."

@@ -1,6 +1,6 @@
 ;;; ement-directory.el --- Public room directory support                       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2023  Free Software Foundation, Inc.
 
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
@@ -379,7 +379,7 @@ contents.  To be called by `ement-directory-search'."
   "View child rooms in SPACE on SESSION.
 SPACE may be a room ID or an `ement-room' struct."
   ;; TODO: "from" query parameter.
-  (interactive (ement-complete-room :predicate #'ement--room-space-p
+  (interactive (ement-complete-room :predicate #'ement--space-p
                  :prompt "Space: "))
   (pcase-let* ((id (cl-typecase space
                      (string space)
@@ -394,8 +394,11 @@ SPACE may be a room ID or an `ement-room' struct."
                            results))
                 (ement-directory--view rooms ;; :append-p since
                   ;; TODO: Use space's alias where possible.
-                  :buffer-name (format "*Ement Directory: space \"%s\"" id)
-                  :root-section-name (format "*Ement Directory: space \"%s\"" id)
+                  :buffer-name (format "*Ement Directory: space %s" (ement--format-room space session))
+                  :root-section-name (format "*Ement Directory: rooms in %s %s"
+                                             (propertize "space"
+                                                         'face 'font-lock-type-face)
+                                             (ement--format-room space session))
                   :init-fn (lambda ()
                              (setf (alist-get 'session ement-directory-etc) session
                                    (alist-get 'next-batch ement-directory-etc) next-batch
