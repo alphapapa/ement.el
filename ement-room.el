@@ -4152,23 +4152,22 @@ If FORMATTED-P, return the formatted body content, when available."
                                                ;; to test the event ID.
                                                (lambda (data) (eq data event)))))
                               (ewoc-invalidate ement-ewoc node)))))))))))
-    (setq body
-          (if (or (not formatted-p) (not formatted-body))
-              (if (and event-replied-to (not quote-in-body-p))
-                  (concat (ement-room--format-quotation-text event-replied-to)
-                          "\n" body)
-                ;; Copy the string so as not to add face properties to the one in the struct.
-                (copy-sequence body))
-            (pcase (or new-content-format content-format)
-              ("org.matrix.custom.html"
-               (save-match-data
-                 (ement-room--render-html
-                  (if (and event-replied-to (not quote-in-body-p))
-                      (concat (ement-room--format-quotation-html event-replied-to ement-room)
-                              "\n" formatted-body)
-                    formatted-body))))
-              (_ (format "[unknown body format: %s] %s"
-                         (or new-content-format content-format) body)))))
+    (setf body (if (or (not formatted-p) (not formatted-body))
+                   (if (and event-replied-to (not quote-in-body-p))
+                       (concat (ement-room--format-quotation-text event-replied-to)
+                               "\n" body)
+                     ;; Copy the string so as not to add face properties to the one in the struct.
+                     (copy-sequence body))
+                 (pcase (or new-content-format content-format)
+                   ("org.matrix.custom.html"
+                    (save-match-data
+                      (ement-room--render-html
+                       (if (and event-replied-to (not quote-in-body-p))
+                           (concat (ement-room--format-quotation-html event-replied-to ement-room)
+                                   "\n" formatted-body)
+                         formatted-body))))
+                   (_ (format "[unknown body format: %s] %s"
+                              (or new-content-format content-format) body)))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
