@@ -4142,18 +4142,16 @@ If FORMATTED-P, return the formatted body content, when available."
           :then (let ((room ement-room)
                       (session ement-session))
                   (lambda (fetched-event)
-                    ;; FIXME: Do we need to use `when'?  Shouldn't `fetched-event' always be present?
-                    (when fetched-event
-                      (pcase-let* ((new-event (ement--make-event fetched-event))
-                                   ((cl-struct ement-room (local (map buffer))) room))
-                        (ement--put-event new-event room session)
-                        (when (buffer-live-p buffer)
-                          (with-current-buffer buffer
-                            (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
-                                               ;; This is probably ok, but it might be safer
-                                               ;; to test the event ID.
-                                               (lambda (data) (eq data event)))))
-                              (ewoc-invalidate ement-ewoc node)))))))))))
+                    (pcase-let* ((new-event (ement--make-event fetched-event))
+                                 ((cl-struct ement-room (local (map buffer))) room))
+                      (ement--put-event new-event room session)
+                      (when (buffer-live-p buffer)
+                        (with-current-buffer buffer
+                          (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                                             ;; This is probably ok, but it might be safer
+                                             ;; to test the event ID.
+                                             (lambda (data) (eq data event)))))
+                            (ewoc-invalidate ement-ewoc node))))))))))
     (setf body (if (or (not formatted-p) (not formatted-body))
                    (if (and event-replied-to (not quote-in-body-p))
                        (concat (ement-room--format-quotation-text event-replied-to)
