@@ -21,8 +21,14 @@
 ;;; Commentary:
 
 ;; This library implements support for Matrix notifications.  It differs from
-;; ement-notify.el, which implements a kind of bespoke notification system for events
-;; received via sync requests rather than Matrix's own notifications endpoint.
+;; `ement-notify', which implements a kind of bespoke notification system for events
+;; received via sync requests rather than Matrix's own notifications endpoint.  These two
+;; libraries currently integrate somewhat, as newly arriving events are handled and
+;; notified about by `ement-notify', and old notifications are fetched and listed by
+;; `ement-notifications' in the same "*Ement Notifications*" buffer.
+
+;; In the future, these libraries will likely be consolidated and enhanced to more closely
+;; follow the Matrix API's and Element client's examples.
 
 ;;; Code:
 
