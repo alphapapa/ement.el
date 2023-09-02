@@ -1805,8 +1805,7 @@ Interactively, to event at point."
                            (ement-room-read-string prompt nil 'ement-room-message-history
                                                    nil 'inherit-input-method)))
                    (replying-to-event (ement--original-event-for event ement-session)))
-        (ement-room-send-message room session :body body :replying-to-event replying-to-event
-                                 :rich-reply ement-room-send-rich-replies)))))
+        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
 (defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
