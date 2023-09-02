@@ -4145,7 +4145,7 @@ If FORMATTED-P, return the formatted body content, when available."
                     (when fetched-event
                       (pcase-let* ((new-event (ement--make-event fetched-event))
                                    ((cl-struct ement-room (local (map buffer))) room))
-                        (puthash (ement-event-id new-event) new-event (ement-session-events session))
+                        (ement--put-event new-event room session)
                         (when (buffer-live-p buffer)
                           (with-current-buffer buffer
                             (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
