@@ -1086,6 +1086,7 @@ number (to darken rather than lighten)."
   "Whether to send rich replies when replying to messages.
 When non-nil, \"rich replies\" are sent, which encode the
 relationship between messages in their metadata."
+  :type 'boolean
   :link '(url-link "https://spec.matrix.org/v1.3/client-server-api/#rich-replies"))
 
 ;;;; Macros
