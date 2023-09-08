@@ -60,6 +60,7 @@
 ;; This package.
 (require 'ement-lib)
 (require 'ement-room)
+(require 'ement-notifications)
 (require 'ement-notify)
 
 ;;;; Variables

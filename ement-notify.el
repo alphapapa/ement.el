@@ -169,13 +169,15 @@ margins in Emacs.  But it's useful, anyway."
 
 (defun ement-notify-switch-to-notifications-buffer ()
   "Switch to \"*Ement Notifications*\" buffer."
+  (declare (function ement-notifications "ement-notifications"))
   (interactive)
-  (switch-to-buffer (ement-notify--log-buffer "*Ement Notifications*")))
+  (call-interactively #'ement-notifications))
 
 (defun ement-notify-switch-to-mentions-buffer ()
   "Switch to \"*Ement Mentions*\" buffer."
+  (declare (function ement-notifications--log-buffer "ement-notifications"))
   (interactive)
-  (switch-to-buffer (ement-notify--log-buffer "*Ement Mentions*")))
+  (switch-to-buffer (ement-notifications--log-buffer :name "*Ement Mentions*")))
 
 ;;;; Functions
 
@@ -272,73 +274,13 @@ If ROOM has no existing buffer, do nothing."
                                (delete-file filename)))
     filename))
 
-(define-derived-mode ement-notify-mode ement-room-mode "Ement Notify"
-  (setf ement-room-sender-in-left-margin nil
-        left-margin-width 0
-        right-margin-width 8)
-  (setq-local ement-room-message-format-spec "[%o%O] %S> %B%R%t"
-              bookmark-make-record-function #'ement-notify-bookmark-make-record))
-
 (cl-defun ement-notify--log-to-buffer (event room session &key (buffer-name "*Ement Notifications*"))
   "Log EVENT in ROOM on SESSION to \"*Ement Notifications*\" buffer."
-  (with-demoted-errors "ement-notify--log-to-buffer: %S"
-    ;; HACK: We only log "m.room.message" events for now.  This shouldn't be necessary
-    ;; since we have `ement-notify--event-message-p' in `ement-notify-predicates', but
-    ;; just to be safe...
-    (when (equal "m.room.message" (ement-event-type event))
-      (with-current-buffer (ement-notify--log-buffer buffer-name)
-        (save-window-excursion
-          (when-let ((buffer-window (get-buffer-window (current-buffer))))
-            ;; Select the buffer's window to avoid EWOC bug.  (See #191.)
-            (select-window buffer-window))
-          (let* ((ement-session session)
-                 (ement-room room)
-                 (ement-room-sender-in-left-margin nil)
-                 (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
-                 (new-node (ement-room--insert-event event))
-                 (inhibit-read-only t)
-                 start end)
-            (ewoc-goto-node ement-ewoc new-node)
-            (setf start (point))
-            (if-let (next-node (ewoc-next ement-ewoc new-node))
-                (ewoc-goto-node ement-ewoc next-node)
-              (goto-char (point-max)))
-            (setf end (- (point) 2))
-            (add-text-properties start end
-                                 (list 'button '(t)
-                                       'category 'default-button
-                                       'action #'ement-notify-button-action
-                                       'session session
-                                       'room room
-                                       'event event))
-            ;; Remove button face property.
-            (alter-text-property start end 'face
-                                 (lambda (face)
-                                   (pcase face
-                                     ('button nil)
-                                     ((pred listp) (remq 'button face))
-                                     (_ face))))
-            (when ement-notify-prism-background
-              (add-face-text-property start end (list :background (ement-notify--room-background-color room)
-                                                      :extend t)))))))))
-
-(defun ement-notify--log-buffer (name)
-  "Return an Ement notifications buffer named NAME."
-  (or (get-buffer name)
-      (with-current-buffer (get-buffer-create name)
-        (ement-notify-mode)
-        (current-buffer))))
-
-(defun ement-notify--room-background-color (room)
-  "Return a background color on which to display ROOM's messages."
-  (or (alist-get 'notify-background-color (ement-room-local room))
-      (setf (alist-get 'notify-background-color (ement-room-local room))
-            (let ((color (color-desaturate-name
-                          (ement--prism-color (ement-room-id room) :contrast-with (face-foreground 'default))
-                          50)))
-              (if (ement--color-dark-p (color-name-to-rgb (face-background 'default)))
-                  (color-darken-name color 25)
-                (color-lighten-name color 25))))))
+  (declare (function ement-notifications-log-to-buffer "ement-notifications")
+           (function make-ement-notification "ement-notifications"))
+  (pcase-let* (((cl-struct ement-room (id room-id)) room)
+               (notification (make-ement-notification :room-id room-id :event event)))
+    (ement-notifications-log-to-buffer session notification :buffer-name buffer-name)))
 
 ;;;;; Predicates
 
@@ -395,7 +337,7 @@ According to the room's notification configuration on the server."
 (defun ement-notify-bookmark-handler (bookmark)
   "Show Ement notifications buffer for BOOKMARK."
   (pcase-let ((`(,_bookmark-name . ,(map buffer-name)) bookmark))
-    (switch-to-buffer (ement-notify--log-buffer buffer-name))))
+    (switch-to-buffer (ement-notifications--log-buffer :name buffer-name))))
 
 ;;;; Footer
 
