@@ -821,20 +821,48 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?b
   "Plain-text body content."
   ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
-  (let ((body (save-match-data
-                (ement-room--format-message-body event :formatted-p nil)))
-        (face (ement-room--event-body-face event room session)))
-    (add-face-text-property 0 (length body) face 'append body)
+  (let* ((body (save-match-data
+                 (ement-room--format-message-body event :formatted-p nil)))
+         (face (ement-room--event-body-face event room session))
+         (quote-start (ement--text-property-search-forward 'face
+                        (lambda (value)
+                          (pcase value
+                            ('ement-room-quote t)
+                            ((pred listp) (member 'ement-room-quote value))))
+                        body))
+         (quote-end (when quote-start
+                      (ement--text-property-search-forward 'face
+                        (lambda (value)
+                          (pcase value
+                            ('ement-room-quote nil)
+                            ((pred listp) (not (member 'ement-room-quote value)))
+                            (_ t)))
+                        body :start quote-start))))
+    (add-face-text-property (or quote-end 0) (length body) face 'append body)
     (when ement-room-prism-addressee
       (ement-room--add-member-face body room))
     body))
 
 (ement-room-define-event-formatter ?B
   "Formatted body content (i.e. rendered HTML)."
-  (let ((body (save-match-data
-                (ement-room--format-message-body event)))
-        (face (ement-room--event-body-face event room session)))
-    (add-face-text-property 0 (length body) face 'append body)
+  (let* ((body (save-match-data
+                 (ement-room--format-message-body event)))
+         (face (ement-room--event-body-face event room session))
+         (quote-start (ement--text-property-search-forward 'face
+                        (lambda (value)
+                          (pcase value
+                            ('ement-room-quote t)
+                            ((pred listp) (member 'ement-room-quote value))))
+                        body))
+         (quote-end (when quote-start
+                      (ement--text-property-search-forward 'face
+                        (lambda (value)
+                          (pcase value
+                            ('ement-room-quote nil)
+                            ((pred listp) (not (member 'ement-room-quote value)))
+                            (_ t)))
+                        body :start quote-start))))
+    (add-face-text-property (or quote-end 0) (length body) face 'append body)
     (when ement-room-prism-addressee
       (ement-room--add-member-face body room))
     body))

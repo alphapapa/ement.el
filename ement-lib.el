@@ -1350,6 +1350,15 @@ can cause undesirable underlining."
              while next-face-change-pos
              do (setf pos next-face-change-pos))))
 
+(cl-defun ement--text-property-search-forward (property predicate string &key (start 0))
+  "Return the position at which PROPERTY in STRING matches PREDICATE.
+Return nil if not found.  Starts searching from START."
+  (declare (indent defun))
+  (cl-loop for pos = start then (next-single-property-change pos property string)
+           while pos
+           when (funcall predicate (get-text-property pos property string))
+           return pos))
+
 (defun ement--resize-image (image max-width max-height)
   "Return a copy of IMAGE set to MAX-WIDTH and MAX-HEIGHT.
 IMAGE should be one as created by, e.g. `create-image'."

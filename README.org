@@ -300,6 +300,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Commands that read a string from the minibuffer in ~ement-room~ buffers and ~ement-connect~ user ID prompts use separate history list variables.
 + Command ~ement-notifications~ shows recent notifications, similar to the pane in the Element client.  (This new command fetches recent notifications from the server and allows scrolling up to retrieve older ones.  Newly received notifications, as configured in the ~ement-notify~ options, are displayed in the same buffer.  This functionality will be consolidated in the future.)
 
+*Changes*
++ The quoted part of a reply now omits the face applied to the rest of the message, helping to distinguish them.
+
 *Fixes*
 
 + File event formatter assumed that file size metadata would be present (a malformed, e.g. spam, event might not have it).
