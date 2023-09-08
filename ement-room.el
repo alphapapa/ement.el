@@ -2667,7 +2667,7 @@ function to `ement-room-event-fns', which see."
   (pcase-let* (((cl-struct ement-event sender
                            (content (map ('avatar_url event-avatar-url))))
                 event)
-               ((cl-struct ement-user (avatar-url sender-avatar-url)) sender)
+               ((cl-struct ement-user avatar (avatar-url sender-avatar-url)) sender)
                (room ement-room))
     (with-silent-modifications
       (ement-room--insert-event event))
@@ -2675,7 +2675,7 @@ function to `ement-room-event-fns', which see."
                (not ement-room-retro-loading))
       ;; FIXME: This will happen for every such event retrieved rather than just the
       ;; latest one, and we probably only want to do it for the latest one.
-      (unless (equal event-avatar-url sender-avatar-url)
+      (when (or (not avatar) (not (equal event-avatar-url sender-avatar-url)))
         (ement--update-user-avatar sender ement-session
           :then (lambda ()
                   (pcase-let (((cl-struct ement-room (local (map buffer))) room))
