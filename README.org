@@ -168,11 +168,11 @@ These bindings are common to all of the following buffer types:
 
 *Movement*
 
-+ Next event: ~TAB~
-+ Previous event: ~<backtab>~
++ Next event: ~n~
++ Previous event: ~p~
 + Scroll up and mark read: ~SPC~
 + Scroll down: ~S-SPC~
-+ Jump to fully-read marker: ~M-SPC~
++ Jump to fully-read marker: ~M-g M-p~
 + Move read markers to point: ~m~
 + Load older messages: at top of buffer, scroll contents up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
 
@@ -302,6 +302,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *Changes*
 + The quoted part of a reply now omits the face applied to the rest of the message, helping to distinguish them.
++ Room buffer bindings:
+  + ~ement-room-goto-next~ and ~ement-room-goto-prev~ are bound to ~n~ and ~p~, respectively.
+  + ~ement-room-goto-fully-read-marker~ is bound to ~M-g M-p~ (the mnemonic being "go to previously read").
 
 *Fixes*
 
