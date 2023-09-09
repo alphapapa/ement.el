@@ -818,6 +818,10 @@ spec) without requiring all events to use the same margin width."
   (setf ement-room--format-message-wrap-prefix t)
   (propertize " " 'wrap-prefix-end t))
 
+;; FIXME(v0.12): The quote-end may be detected in the wrong position when, e.g. a link is
+;; in the middle of the quoted part.  We need to search backward from the end to find
+;; where the quote face finally ends.
+
 (ement-room-define-event-formatter ?b
   "Plain-text body content."
   ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
