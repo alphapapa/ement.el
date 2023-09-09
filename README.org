@@ -305,6 +305,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Room buffer bindings:
   + ~ement-room-goto-next~ and ~ement-room-goto-prev~ are bound to ~n~ and ~p~, respectively.
   + ~ement-room-goto-fully-read-marker~ is bound to ~M-g M-p~ (the mnemonic being "go to previously read").
++ Use Emacs's Jansson-based JSON-parsing functions when available.  (This results in a 3-5x speed improvement for parsing JSON responses, which can be significant for large initial sync responses.  Thanks to [[https://github.com/rrix/][Ryan Rix]] for discovering this!)
 
 *Fixes*
 

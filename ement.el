@@ -552,13 +552,13 @@ a filter ID).  When unspecified, the value of
                                                                         plz-error)))
                                         (_ (signal 'ement-api-error (list "Ement: Unrecognized network error" plz-error)))))))
                           :json-read-fn (lambda ()
-                                          "Print a message, then call `json-read'."
+                                          "Print a message, then call `ement--json-parse-buffer'."
                                           (when (ement--sync-messages-p session)
                                             (message "Ement: Response arrived after %.2f seconds.  Reading %s JSON response..."
                                                      (- (time-to-seconds) sync-start-time)
                                                      (file-size-human-readable (buffer-size))))
                                           (let ((start-time (time-to-seconds)))
-                                            (prog1 (json-read)
+                                            (prog1 (ement--json-parse-buffer)
                                               (when (ement--sync-messages-p session)
                                                 (message "Ement: Reading JSON took %.2f seconds"
                                                          (- (time-to-seconds) start-time)))))))))

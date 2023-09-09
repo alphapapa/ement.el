@@ -92,6 +92,17 @@ that stray such forms don't remain if the function is removed."
 
 ;; These workarounds should be removed when they aren't needed.
 
+(defalias 'ement--json-parse-buffer
+  ;; For non-libjansson builds (those that do have libjansson will see a 4-5x improvement
+  ;; in the time needed to parse JSON responses).
+
+  ;; TODO: Suggest mentioning in manual and docstrings that `json-read', et al do not use
+  ;; libjansson, while `json-parse-buffer', et al do.
+  (if (fboundp 'json-parse-buffer)
+      (lambda () (json-parse-buffer :object-type 'alist :null-object nil
+                                    :false-object :json-false))
+    'json-read))
+
 ;;;;; Emacs 28 color features.
 
 ;; Copied from Emacs 28.  See <https://github.com/alphapapa/ement.el/issues/99>.
