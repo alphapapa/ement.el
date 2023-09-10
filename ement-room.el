@@ -792,7 +792,8 @@ room, and the session.  See macro
 BODY is wrapped in a lambda form that binds `event', `room', and
 `session', and the lambda is added to the variable
 `ement-room-event-formatters', which see."
-  (declare (indent defun))
+  (declare (indent defun)
+           (debug (characterp stringp def-body)))
   `(setf (alist-get ,char ement-room-event-formatters nil nil #'equal)
          (lambda (event room session)
            ,docstring
