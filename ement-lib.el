@@ -1369,7 +1369,7 @@ can cause undesirable underlining."
 
 (cl-defun ement--text-property-search-forward (property predicate string &key (start 0))
   "Return the position at which PROPERTY in STRING matches PREDICATE.
-Return nil if not found.  Starts searching from START."
+Return nil if not found.  Searches forward from START."
   (declare (indent defun))
   (cl-loop for pos = start then (next-single-property-change pos property string)
            while pos
