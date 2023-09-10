@@ -828,6 +828,7 @@ spec) without requiring all events to use the same margin width."
   ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
   (let* ((body (save-match-data
                  (ement-room--format-message-body event :formatted-p nil)))
+         (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
                         (lambda (value)
@@ -836,14 +837,13 @@ spec) without requiring all events to use the same margin width."
                             ((pred listp) (member 'ement-room-quote value))))
                         body))
          (quote-end (when quote-start
-                      (ement--text-property-search-forward 'face
+                      (ement--text-property-search-backward 'face
                         (lambda (value)
                           (pcase value
-                            ('ement-room-quote nil)
-                            ((pred listp) (not (member 'ement-room-quote value)))
-                            (_ t)))
-                        body :start quote-start))))
-    (add-face-text-property (or quote-end 0) (length body) face 'append body)
+                            ('ement-room-quote t)
+                            ((pred listp) (member 'ement-room-quote value))))
+                        body))))
+    (add-face-text-property (or quote-end 0) body-length face 'append body)
     (when ement-room-prism-addressee
       (ement-room--add-member-face body room))
     body))
@@ -852,6 +852,7 @@ spec) without requiring all events to use the same margin width."
   "Formatted body content (i.e. rendered HTML)."
   (let* ((body (save-match-data
                  (ement-room--format-message-body event)))
+         (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
                         (lambda (value)
@@ -860,14 +861,13 @@ spec) without requiring all events to use the same margin width."
                             ((pred listp) (member 'ement-room-quote value))))
                         body))
          (quote-end (when quote-start
-                      (ement--text-property-search-forward 'face
+                      (ement--text-property-search-backward 'face
                         (lambda (value)
                           (pcase value
-                            ('ement-room-quote nil)
-                            ((pred listp) (not (member 'ement-room-quote value)))
-                            (_ t)))
-                        body :start quote-start))))
-    (add-face-text-property (or quote-end 0) (length body) face 'append body)
+                            ('ement-room-quote t)
+                            ((pred listp) (member 'ement-room-quote value))))
+                        body :start (length body)))))
+    (add-face-text-property (or quote-end 0) body-length face 'append body)
     (when ement-room-prism-addressee
       (ement-room--add-member-face body room))
     body))

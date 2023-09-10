@@ -1376,6 +1376,15 @@ Return nil if not found.  Searches forward from START."
            when (funcall predicate (get-text-property pos property string))
            return pos))
 
+(cl-defun ement--text-property-search-backward (property predicate string &key (start 0))
+  "Return the position at which PROPERTY in STRING matches PREDICATE.
+Return nil if not found.  Searches backward from START."
+  (declare (indent defun))
+  (cl-loop for pos = start then (previous-single-property-change pos property string)
+           while (and pos (> pos 1))
+           when (funcall predicate (get-text-property (1- pos) property string))
+           return pos))
+
 (defun ement--resize-image (image max-width max-height)
   "Return a copy of IMAGE set to MAX-WIDTH and MAX-HEIGHT.
 IMAGE should be one as created by, e.g. `create-image'."
