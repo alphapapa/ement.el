@@ -285,7 +285,7 @@ normal text.")
   "Emote message bodies.")
 
 (defface ement-room-quote
-  '((t (:height 0.9)))
+  '((t (:height 0.9 :inherit font-lock-comment-face)))
   "Quoted parts of messages.
 Anything wrapped by HTML BLOCKQUOTE tag.")
 
