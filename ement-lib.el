@@ -99,8 +99,14 @@ that stray such forms don't remain if the function is removed."
   ;; TODO: Suggest mentioning in manual and docstrings that `json-read', et al do not use
   ;; libjansson, while `json-parse-buffer', et al do.
   (if (fboundp 'json-parse-buffer)
-      (lambda () (json-parse-buffer :object-type 'alist :null-object nil
-                                    :false-object :json-false))
+      (lambda ()
+        (condition-case err
+            (json-parse-buffer :object-type 'alist :null-object nil :false-object :json-false)
+          (json-parse-error
+           (ement-message "`json-parse-buffer' signaled `json-parse-error'; falling back to `json-read'... (%S)"
+                          (error-message-string err))
+           (goto-char (point-min))
+           (json-read))))
     'json-read))
 
 ;;;;; Emacs 28 color features.
