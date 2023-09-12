@@ -1379,7 +1379,7 @@ buffer).  It receives two arguments, the room and the session."
   (if (>= (point) (- (point-max) 2))
       ;; Point is actually on the last event, but it doesn't appear to be: move point to
       ;; the beginning of that event.
-      (ewoc-goto-node ement-ewoc (ewoc-locate ement-ewoc))
+      (ewoc-goto-node ement-ewoc (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p))
     ;; Go to previous event.
     (ement-room-goto-next :next-fn #'ewoc-prev)))
 
@@ -1391,7 +1391,11 @@ see."
   (if-let (node (ement-room--ewoc-next-matching ement-ewoc
                   (ewoc-locate ement-ewoc) #'ement-event-p next-fn))
       (ewoc-goto-node ement-ewoc node)
-    (user-error "End of events")))
+    (if (= (point) (point-max))
+        ;; Already at end of buffer: signal error.
+        (user-error "End of events")
+      ;; Go to end-of-buffer so new messages will auto-scroll.
+      (goto-char (point-max)))))
 
 (defun ement-room-scroll-down-command ()
   "Scroll down, and load NUMBER earlier messages when at top."
