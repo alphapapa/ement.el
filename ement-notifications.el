@@ -185,39 +185,40 @@ to `ement-api', which see."
           ;; Select the buffer's window to avoid EWOC bug.  (See #191.)
           (select-window buffer-window))
         ;; TODO: Use the :readp slot to mark unread events.
-        (pcase-let* (((cl-struct ement-notification room-id event) notification)
-                     (ement-session session)
-                     (ement-room (or (cl-find room-id (ement-session-rooms session)
-                                              :key #'ement-room-id :test #'equal)
-                                     (error "ement-notifications-log-to-buffer: Can't find room <%s>; discarding notification" room-id)))
-                     (ement-room-sender-in-left-margin nil)
-                     (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
-                     (new-node (ement-room--insert-event event))
-                     (inhibit-read-only t)
-                     (start) (end))
-          (ewoc-goto-node ement-ewoc new-node)
-          (setf start (point))
-          (if-let (next-node (ewoc-next ement-ewoc new-node))
-              (ewoc-goto-node ement-ewoc next-node)
-            (goto-char (point-max)))
-          (setf end (- (point) 2))
-          (add-text-properties start end
-                               (list 'button '(t)
-                                     'category 'default-button
-                                     'action #'ement-notify-button-action
-                                     'session session
-                                     'room ement-room
-                                     'event event))
-          ;; Remove button face property.
-          (alter-text-property start end 'face
-                               (lambda (face)
-                                 (pcase face
-                                   ('button nil)
-                                   ((pred listp) (remq 'button face))
-                                   (_ face))))
-          (when ement-notify-prism-background
-            (add-face-text-property start end (list :background (ement-notifications--room-background-color ement-room)
-                                                    :extend t))))))))
+        (save-mark-and-excursion
+          (pcase-let* (((cl-struct ement-notification room-id event) notification)
+                       (ement-session session)
+                       (ement-room (or (cl-find room-id (ement-session-rooms session)
+                                                :key #'ement-room-id :test #'equal)
+                                       (error "ement-notifications-log-to-buffer: Can't find room <%s>; discarding notification" room-id)))
+                       (ement-room-sender-in-left-margin nil)
+                       (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
+                       (new-node (ement-room--insert-event event))
+                       (inhibit-read-only t)
+                       (start) (end))
+            (ewoc-goto-node ement-ewoc new-node)
+            (setf start (point))
+            (if-let (next-node (ewoc-next ement-ewoc new-node))
+                (ewoc-goto-node ement-ewoc next-node)
+              (goto-char (point-max)))
+            (setf end (- (point) 2))
+            (add-text-properties start end
+                                 (list 'button '(t)
+                                       'category 'default-button
+                                       'action #'ement-notify-button-action
+                                       'session session
+                                       'room ement-room
+                                       'event event))
+            ;; Remove button face property.
+            (alter-text-property start end 'face
+                                 (lambda (face)
+                                   (pcase face
+                                     ('button nil)
+                                     ((pred listp) (remq 'button face))
+                                     (_ face))))
+            (when ement-notify-prism-background
+              (add-face-text-property start end (list :background (ement-notifications--room-background-color ement-room)
+                                                      :extend t)))))))))
 
 (defun ement-notifications--room-background-color (room)
   "Return a background color on which to display ROOM's messages."
