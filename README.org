@@ -312,6 +312,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + File event formatter assumed that file size metadata would be present (a malformed, e.g. spam, event might not have it).
 + Send correct file size when sending files/images.
++ Underscores are no longer interpreted as denoting subscripts when sending messages in Org format.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.11
 

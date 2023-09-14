@@ -4267,6 +4267,7 @@ Then invalidate EVENT's node to show the image."
 (defvar org-export-with-toc)
 (defvar org-export-with-broken-links)
 (defvar org-export-with-section-numbers)
+(defvar org-export-with-sub-superscripts)
 (defvar org-html-inline-images)
 
 (declare-function org-element-property "org-element")
@@ -4314,6 +4315,7 @@ compatibility), and the result is added to the CONTENT as
                       (let ((org-export-with-toc nil)
                             (org-export-with-broken-links t)
                             (org-export-with-section-numbers nil)
+                            (org-export-with-sub-superscripts nil)
                             (org-html-inline-images nil))
                         (org-html-export-as-html nil nil nil 'body-only)))
                     (with-current-buffer "*Org HTML Export*"
