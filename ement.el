@@ -1063,6 +1063,26 @@ To be called after initial sync."
             (when-let ((child-room (cl-find child-id rooms :key #'ement-room-id :test #'equal)))
               (cl-pushnew parent-id (alist-get 'parents (ement-room-local child-room)) :test #'equal))))))))
 
+;;;;; Savehist compatibility
+
+;; See <https://github.com/alphapapa/ement.el/issues/216>.
+
+(defvar savehist-save-hook)
+
+(with-eval-after-load 'savehist
+  ;; TODO: Consider using a symbol property on our commands and checking that rather than
+  ;; symbol names; would avoid consing.
+  (defun ement--savehist-save-hook ()
+    "Remove all `ement-' commands from `command-history'.
+Because when `savehist' saves `command-history', it includes the
+interactive arguments passed to the command, which in our case
+includes large data structures that should never be persisted!"
+    (setf command-history
+          (cl-remove-if (pcase-lambda (`(,command . ,_))
+                          (string-match-p (rx bos "ement-") (symbol-name command)))
+                        command-history)))
+  (cl-pushnew 'ement--savehist-save-hook savehist-save-hook))
+
 ;;;; Footer
 
 (provide 'ement)

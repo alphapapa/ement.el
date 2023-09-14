@@ -313,6 +313,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + File event formatter assumed that file size metadata would be present (a malformed, e.g. spam, event might not have it).
 + Send correct file size when sending files/images.
 + Underscores are no longer interpreted as denoting subscripts when sending messages in Org format.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Add workaround for ~savehist-mode~'s serializing of the ~command-history~ variable's arguments.  (For ~ement-~ commands, that may include large data structures, like ~ement-session~ structs, which should never be serialized or reused, and ~savehist~'s doing so could cause noticeable delays for users who enabled it).  (See [[https://github.com/alphapapa/ement.el/issues/216][#216]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] and other users who helped to discover this problem.)
 
 ** 0.11
 
