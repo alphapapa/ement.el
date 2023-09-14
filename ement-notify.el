@@ -173,11 +173,17 @@ margins in Emacs.  But it's useful, anyway."
   (interactive)
   (call-interactively #'ement-notifications))
 
+(defvar ement-notifications-mode-map)
 (defun ement-notify-switch-to-mentions-buffer ()
   "Switch to \"*Ement Mentions*\" buffer."
   (declare (function ement-notifications--log-buffer "ement-notifications"))
   (interactive)
-  (switch-to-buffer (ement-notifications--log-buffer :name "*Ement Mentions*")))
+  (switch-to-buffer (ement-notifications--log-buffer :name "*Ement Mentions*"))
+  ;; HACK: Undo remapping of scroll commands which don't apply in this buffer.
+  (let ((map (copy-keymap ement-notifications-mode-map)))
+    (define-key map [remap scroll-down-command] nil)
+    (define-key map [remap mwheel-scroll] nil)
+    (use-local-map map)))
 
 ;;;; Functions
 
