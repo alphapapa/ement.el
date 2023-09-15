@@ -127,7 +127,7 @@
   (pcase-let (((map ('canonical_alias alias)) item))
     (or alias "")))
 
-(ement-directory-define-column "Size" ()
+(ement-directory-define-column "Size" (:align 'right)
   (pcase-let (((map ('num_joined_members size)) item))
     (number-to-string size)))
 
