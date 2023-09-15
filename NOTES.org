@@ -1018,7 +1018,7 @@ I wonder how Element and other clients handle this.  It would seem like the alte
 
 [2020-12-05 Sat 02:19]  I wonder if the ~/members~ response isn't including the membership events because I'm not passing a lazy-load-members filter parameter.  Maybe it's assuming that I'm not using lazy-loading and that I already have all of the member events for the room.
 
-[2020-12-05 Sat 16:37]  I added the default sync filter to the ~/members~ request, but it still isn't returning the membership events for senders of earlier messages.  I guess I'll try enabling the "redundant" option...  
+[2020-12-05 Sat 16:37]  I added the default sync filter to the ~/members~ request, but it still isn't returning the membership events for senders of earlier messages.  I guess I'll try enabling the "redundant" option...
 
 Nope, I still don't receive membership state events for senders of earlier messages, even though I set ~include_redundant_members~ to true in both the StateFilter and the RoomEventFilter.
 
@@ -1160,20 +1160,131 @@ My thread on emacs-devel about using ~print-circle~ to prevent this problem.
 
 *** New minor version (non-bugfix)
 
-+ [ ] Merge into ~stable~ branch
-+ [ ] Push ~stable~ branch to repo
++ [X] Commit changes
+  + [X] Code
+  + [X] Documentation
+  + [X] Changelog
++ [X] Lint/test
++ [X] Make ~Release:~ commit updating version to ~FOO~
+  + [X] In README.org
+  + [X] in ement.el
++ [X] Merge (non-fast-forward) into ~stable~ branch (for ELPA)
++ [X] Push ~stable~ branch to repo
++ [X] Make ~Meta:~ commit on ~master~ updating version to ~FOO+1-pre~
+  + [X] In README.org
+  + [X] in ement.el
++ [X] Push ~Meta:~ commit to ~master~
++ [X] Make release on GitHub
++ [X] Announce release to TWIM room.
++ [X] Announce release on Reddit.
 
 *** New bugfix version
 
 On ~stable~ branch:
 
 + [ ] Make ~Meta:~ commit updating version to ~FOO-pre~
-+ [ ] Apply changes
+  + [ ] In README.org
+  + [ ] in ement.el
++ [ ] Commit changes
   + [ ] Code
   + [ ] Documentation
   + [ ] Changelog
 + [ ] Test changes
 + [ ] Make ~Release:~ commit updating version to ~FOO~
+  + [ ] In README.org
+  + [ ] in ement.el
 + [ ] Push ~stable~ branch to repo
 + [ ] Merge ~stable~ branch into ~master~ branch
+* Misc 
+** Issue form
 
+I've spent too much time asking people to provide basic info.  Maybe this will help.
+
++ See: [[https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository][Configuring issue templates for your repository - GitHub Docs]]
+
+  #+begin_src yaml
+    name: Bug Report
+    description: File a bug report
+    labels: ["bug"]
+    assignees:
+      - alphapapa
+    body:
+      - type: markdown
+        attributes:
+          value: |
+            Thanks for taking the time to fill out this bug report!
+      - type: input
+        attributes:
+          label: OS/platform
+          description: What operating system or platform are you running Emacs on?
+          id: os-platform
+        validations:
+          required: true
+      - type: textarea
+        attributes:
+          label: Emacs version and provenance
+          description: What version of Emacs are you using, where did you acquire it, and how did you install it?
+          id: emacs-provenance
+        validations:
+          required: true
+      - type: input
+        attributes:
+          label: Emacs command
+          description: By what method did you run Emacs?  (i.e. what command did you run?)
+          id: emacs-command
+        validations:
+          required: true
+      - type: input
+        attributes:
+          label: Emacs frame type
+          description: Did the problem happen on a GUI or tty Emacs frame?
+          id: emacs-frame
+        validations:
+          required: true
+      - type: textarea
+        id: actions
+        attributes:
+          label: Actions taken
+          description: What actions did you take, step-by-step, in order, before the problem was noticed?
+        validations:
+          required: true
+      - type: textarea
+        id: results
+        attributes:
+          label: Results
+          description: What behavior did you observe that seemed wrong?
+        validations:
+          required: true
+      - type: textarea
+        id: expected
+        attributes:
+          label: Expected results
+          description: What behavior did you expect to observe?
+        validations:
+          required: true
+      - type: textarea
+        id: backtrace
+        attributes:
+          label: Backtrace
+          description: If an error was signaled, please use `M-x toggle-debug-on-error RET` and cause the error to happen again, then paste the contents of the `*Backtrace*` buffer here.
+          render: elisp
+      - type: textarea
+        id: etc
+        attributes:
+          label: Etc.
+          description: Any other information that seems relevant
+
+  #+end_src
+** TWIM announcement template
+
+#+begin_src org
+  TWIM: The following update is pre-formatted as Markdown for your convenience:
+
+  ,#+begin_src markdown
+  [Ement.el](https://github.com/alphapapa/ement.el), a Matrix client for the [GNU Emacs](https://www.gnu.org/software/emacs/) text editor and Lisp environment, has been [released](INSERT-RELEASE-LINK) at version [INSERT-VERSION].  Changes since the last release include:
+
+  [INSERT-CHANGES]
+
+  Feel free to join us in the chat room: [#ement.el:matrix.org](https://matrix.to/#/#ement.el:matrix.org)!
+  ,#+end_src
+#+end_src
