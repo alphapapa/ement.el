@@ -116,11 +116,17 @@
       " ")))
 
 (ement-directory-define-column "Name" (:max-width 25)
-  (pcase-let* (((map name ('room_type type)) item)
+  (pcase-let* (((map name ('room_id id) ('room_type type)) item)
+               ((map session) ement-directory-etc)
+               (room)
                (face (pcase type
                        ("m.space" 'ement-room-list-space)
-                       (_ 'ement-room-list-name))))
-    (propertize (or name "[unnamed]")
+                       (_ (if (and (setf room (cl-find id (ement-session-rooms session)
+                                                       :key #'ement-room-id :test #'equal))
+                                   (ement--room-direct-p room session))
+                              'ement-room-list-direct
+                            'ement-room-list-name)))))
+    (propertize (or name (ement--room-display-name room))
                 'face face)))
 
 (ement-directory-define-column "Alias" (:max-width 25)
