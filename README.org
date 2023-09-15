@@ -294,6 +294,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.13-pre
 
+*Additions*
+
++ Group joined direct rooms in directory buffers.
+
 *Fixes*
 
 + Name for direct rooms in directory buffers.

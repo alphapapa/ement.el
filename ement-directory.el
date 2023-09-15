@@ -85,8 +85,21 @@
     (when (equal "m.space" type)
       "Spaces")))
 
+(ement-directory-define-key people-p ()
+  (pcase-let (((map ('room_id id) ('room_type type)) item)
+              ((map session) ement-directory-etc))
+    (pcase type
+      ("m.space" nil)
+      (_ (when-let ((room (cl-find id (ement-session-rooms session)
+                                   :key #'ement-room-id :test #'equal))
+                    ((ement--room-direct-p room session)))
+           (propertize "People" 'face 'ement-room-list-direct))))))
+
 (defcustom ement-directory-default-keys
-  '((joined-p)
+  '((joined-p
+     (people-p)
+     (and :name "Rooms"
+          :keys ((not people-p))))
     (space-p)
     ((size :> 10000))
     ((size :> 1000))
