@@ -214,13 +214,13 @@ If ROOM has no existing buffer, do nothing."
    (function dbus-get-unique-name "dbusbind.c")
    (function x-change-window-property "xfns.c")
    (function x-window-property "xfns.c"))
-  (cl-labels ((mark-frame-urgent
-               (frame) (let* ((prop "WM_HINTS")
-                              (hints (cl-coerce
-                                      (x-window-property prop frame prop nil nil t)
-                                      'list)))
-                         (setf (car hints) (logior (car hints) 256))
-                         (x-change-window-property prop hints nil prop 32 t))))
+  (cl-labels ((mark-frame-urgent (frame)
+                (let* ((prop "WM_HINTS")
+                       (hints (cl-coerce
+                               (x-window-property prop frame prop nil nil t)
+                               'list)))
+                  (setf (car hints) (logior (car hints) 256))
+                  (x-change-window-property prop hints nil prop 32 t))))
     (when-let* ((buffer (alist-get 'buffer (ement-room-local room)))
                 (frames (cl-loop for frame in (frame-list)
                                  when (eq 'x (framep frame))

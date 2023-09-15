@@ -165,10 +165,10 @@ from recent to non-recent for rooms updated in the past hour.")
 (ement-room-list-define-key membership (&key name status)
   ;; FIXME: Docstring: status should be a symbol of either `invite', `join', `leave'.
   (cl-labels ((format-membership (membership)
-                                 (pcase membership
-                                   ('join "Joined")
-                                   ('invite "Invited")
-                                   ('leave "[Left]"))))
+                (pcase membership
+                  ('join "Joined")
+                  ('invite "Invited")
+                  ('leave "[Left]"))))
     (pcase-let ((`[,(cl-struct ement-room (status membership)) ,_session] item))
       (if status
           (when (equal status membership)
@@ -200,12 +200,12 @@ from recent to non-recent for rooms updated in the past hour.")
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-session rooms) session)
                ((cl-struct ement-room type (local (map parents))) room))
-    (cl-labels ((format-space
-                 (id) (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
-                             (space-name (if parent-room
-                                             (ement-room-display-name parent-room)
-                                           id)))
-                        (concat "Space: " space-name))))
+    (cl-labels ((format-space (id)
+                  (let* ((parent-room (cl-find id rooms :key #'ement-room-id :test #'equal))
+                         (space-name (if parent-room
+                                         (ement-room-display-name parent-room)
+                                       id)))
+                    (concat "Space: " space-name))))
       (when-let ((key (if id
                           ;; ID specified.
                           (cond ((or (member id parents)
@@ -553,64 +553,64 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                 (format-item (item) (gethash item format-table))
                 ;; NOTE: Since these functions take an "item" (which is a [room session]
                 ;; vector), they're prefixed "item-" rather than "room-".
-                (item-latest-ts
-                 (item) (or (ement-room-latest-ts (elt item 0))
-                            ;; Room has no latest timestamp.  FIXME: This shouldn't
-                            ;; happen, but it can, maybe due to oversights elsewhere.
-                            0))
-                (item-unread-p
-                 (item) (pcase-let ((`[,room ,session] item))
-                          (ement--room-unread-p room session)))
-                (item-left-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
-                          (equal 'leave status)))
-                (item-buffer-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
-                          (buffer-live-p buffer)))
-                (taxy-unread-p
-                 (taxy) (or (cl-some #'item-unread-p (taxy-items taxy))
-                            (cl-some #'taxy-unread-p (taxy-taxys taxy))))
-                (item-space-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
-                          (equal "m.space" type)))
-                (item-favourite-p
-                 (item) (pcase-let ((`[,room ,_session] item))
-                          (ement--room-favourite-p room)))
-                (item-low-priority-p
-                 (item) (pcase-let ((`[,room ,_session] item))
-                          (ement--room-low-priority-p room)))
-                (visible-p
-                 ;; This is very confusing and doesn't currently work.
-                 (section) (let ((value (oref section value)))
-                             (if (cl-typecase value
-                                   (taxy-magit-section (item-unread-p value))
-                                   (ement-room nil))
-                                 'show
-                               'hide)))
-                (item-invited-p
-                 (item) (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
-                          (equal 'invite status)))
-                (taxy-latest-ts
-                 (taxy) (apply #'max most-negative-fixnum
-                               (delq nil
-                                     (list
-                                      (when (taxy-items taxy)
-                                        (item-latest-ts (car (taxy-items taxy))))
-                                      (when (taxy-taxys taxy)
-                                        (cl-loop for sub-taxy in (taxy-taxys taxy)
-                                                 maximizing (taxy-latest-ts sub-taxy)))))))
+                (item-latest-ts (item)
+                  (or (ement-room-latest-ts (elt item 0))
+                      ;; Room has no latest timestamp.  FIXME: This shouldn't
+                      ;; happen, but it can, maybe due to oversights elsewhere.
+                      0))
+                (item-unread-p (item)
+                  (pcase-let ((`[,room ,session] item))
+                    (ement--room-unread-p room session)))
+                (item-left-p (item)
+                  (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
+                    (equal 'leave status)))
+                (item-buffer-p (item)
+                  (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
+                    (buffer-live-p buffer)))
+                (taxy-unread-p (taxy)
+                  (or (cl-some #'item-unread-p (taxy-items taxy))
+                      (cl-some #'taxy-unread-p (taxy-taxys taxy))))
+                (item-space-p (item)
+                  (pcase-let ((`[,(cl-struct ement-room type) ,_session] item))
+                    (equal "m.space" type)))
+                (item-favourite-p (item)
+                  (pcase-let ((`[,room ,_session] item))
+                    (ement--room-favourite-p room)))
+                (item-low-priority-p (item)
+                  (pcase-let ((`[,room ,_session] item))
+                    (ement--room-low-priority-p room)))
+                (visible-p (section)
+                  ;; This is very confusing and doesn't currently work.
+                  (let ((value (oref section value)))
+                    (if (cl-typecase value
+                          (taxy-magit-section (item-unread-p value))
+                          (ement-room nil))
+                        'show
+                      'hide)))
+                (item-invited-p (item)
+                  (pcase-let ((`[,(cl-struct ement-room status) ,_session] item))
+                    (equal 'invite status)))
+                (taxy-latest-ts (taxy)
+                  (apply #'max most-negative-fixnum
+                         (delq nil
+                               (list
+                                (when (taxy-items taxy)
+                                  (item-latest-ts (car (taxy-items taxy))))
+                                (when (taxy-taxys taxy)
+                                  (cl-loop for sub-taxy in (taxy-taxys taxy)
+                                           maximizing (taxy-latest-ts sub-taxy)))))))
                 (t<nil (a b) (and a (not b)))
                 (t>nil (a b) (and (not a) b))
                 (make-fn (&rest args)
-                         (apply #'make-taxy-magit-section
-                                :make #'make-fn
-                                :format-fn #'format-item
-                                :level-indent ement-room-list-level-indent
-                                ;; :visibility-fn #'visible-p
-                                ;; :heading-indent 2
-                                :item-indent 2
-                                ;; :heading-face-fn #'heading-face
-                                args)))
+                  (apply #'make-taxy-magit-section
+                         :make #'make-fn
+                         :format-fn #'format-item
+                         :level-indent ement-room-list-level-indent
+                         ;; :visibility-fn #'visible-p
+                         ;; :heading-indent 2
+                         :item-indent 2
+                         ;; :heading-face-fn #'heading-face
+                         args)))
       ;; (when (get-buffer buffer-name)
       ;;   (kill-buffer buffer-name))
       (unless ement-sessions
@@ -626,9 +626,9 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                            append (cl-loop for room in (ement-session-rooms session)
                                            collect (vector room session))))
                  (taxy (cl-macrolet ((first-item
-                                      (pred) `(lambda (taxy)
-                                                (when (taxy-items taxy)
-                                                  (,pred (car (taxy-items taxy))))))
+                                       (pred) `(lambda (taxy)
+                                                 (when (taxy-items taxy)
+                                                   (,pred (car (taxy-items taxy))))))
                                      (name= (name) `(lambda (taxy)
                                                       (equal ,name (taxy-name taxy)))))
                          (thread-last

@@ -172,8 +172,7 @@ include with the request (see Matrix spec)."
 		     :alias (read-string "New room alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
 		     :topic (read-string "New room topic: ")
 		     :visibility (completing-read "New room visibility: " '(private public))))
-  (cl-labels ((given-p
-	       (var) (and var (not (string-empty-p var)))))
+  (cl-labels ((given-p (var) (and var (not (string-empty-p var)))))
     (pcase-let* ((endpoint "createRoom")
 		 (data (ement-aprog1
 			   (ement-alist "visibility" visibility)
@@ -419,14 +418,14 @@ new one automatically if necessary."
    (ement-with-room-and-session
      (let* ((prompt (format "Toggle tag (%s): " (ement--format-room ement-room)))
             (default-tags
-              (ement-alist (propertize "Favourite"
-                                       'face (when (ement--room-tagged-p "m.favourite" ement-room)
-                                               'transient-value))
-                           "m.favourite"
-                           (propertize "Low-priority"
-                                       'face (when (ement--room-tagged-p "m.lowpriority" ement-room)
-                                               'transient-value))
-                           "m.lowpriority"))
+             (ement-alist (propertize "Favourite"
+                                      'face (when (ement--room-tagged-p "m.favourite" ement-room)
+                                              'transient-value))
+                          "m.favourite"
+                          (propertize "Low-priority"
+                                      'face (when (ement--room-tagged-p "m.lowpriority" ement-room)
+                                              'transient-value))
+                          "m.lowpriority"))
             (input (completing-read prompt default-tags))
             (tag (alist-get input default-tags (concat "u." input) nil #'string=)))
        (list tag ement-room ement-session))))
@@ -510,11 +509,11 @@ Interactively, with prefix, prompt for room and session,
 otherwise use current room."
   (interactive (ement-with-room-and-session (list ement-room ement-session)))
   (cl-labels ((heading (string)
-                       (propertize (or string "") 'face 'font-lock-builtin-face))
+                (propertize (or string "") 'face 'font-lock-builtin-face))
               (id (string)
-                  (propertize (or string "") 'face 'font-lock-constant-face))
+                (propertize (or string "") 'face 'font-lock-constant-face))
               (member<
-               (a b) (string-collate-lessp (car a) (car b) nil t)))
+                (a b) (string-collate-lessp (car a) (car b) nil t)))
     (pcase-let* (((cl-struct ement-room (id room-id) avatar display-name canonical-alias members timeline status topic
                              (local (map fetched-members-p)))
                   room)
@@ -601,31 +600,31 @@ Returns one of nil (meaning default rules are used), `all-loud',
   (let ((push-rules (cl-find-if (lambda (alist)
                                   (equal "m.push_rules" (alist-get 'type alist)))
                                 (ement-session-account-data session))))
-    (cl-labels ((override-mute-rule-for-room-p
-                 ;; Following findOverrideMuteRule() in RoomNotifs.ts.
-                 (room) (when-let ((overrides (map-nested-elt push-rules '(content global override))))
-                          (cl-loop for rule in overrides
-                                   when (and (alist-get 'enabled rule)
-                                             (rule-for-room-p rule room))
-                                   return rule)))
-                (rule-for-room-p
-                 ;; Following isRuleForRoom() in RoomNotifs.ts.
-                 (rule room) (and (/= 1 (length (alist-get 'conditions rule)))
-                                  (pcase-let* ((condition (elt (alist-get 'conditions rule) 0))
-                                               ((map kind key pattern) condition))
-                                    (and (equal "event_match" kind)
-                                         (equal "room_id" key)
-                                         (equal (ement-room-id room) pattern)))))
-                (mute-rule-p
-                 (rule) (when-let ((actions (alist-get 'actions rule)))
-                          (seq-contains-p actions "dont_notify")))
-                  ;; NOTE: Although v1.7 of the spec says that "dont_notify" is
-                  ;; obsolete, the latest revision of matrix-react-sdk (released last week
-                  ;; as v3.77.1) still works as modeled here.
-                (tweak-rule-p
-                 (type rule) (when-let ((actions (alist-get 'actions rule)))
-                               (and (seq-contains-p actions "notify")
-                                    (seq-contains-p actions `(set_tweak . ,type) 'seq-contains-p)))))
+    (cl-labels ((override-mute-rule-for-room-p (room)
+                  ;; Following findOverrideMuteRule() in RoomNotifs.ts.
+                  (when-let ((overrides (map-nested-elt push-rules '(content global override))))
+                    (cl-loop for rule in overrides
+                             when (and (alist-get 'enabled rule)
+                                       (rule-for-room-p rule room))
+                             return rule)))
+                (rule-for-room-p (rule room)
+                  ;; Following isRuleForRoom() in RoomNotifs.ts.
+                  (and (/= 1 (length (alist-get 'conditions rule)))
+                       (pcase-let* ((condition (elt (alist-get 'conditions rule) 0))
+                                    ((map kind key pattern) condition))
+                         (and (equal "event_match" kind)
+                              (equal "room_id" key)
+                              (equal (ement-room-id room) pattern)))))
+                (mute-rule-p (rule)
+                  (when-let ((actions (alist-get 'actions rule)))
+                    (seq-contains-p actions "dont_notify")))
+                ;; NOTE: Although v1.7 of the spec says that "dont_notify" is
+                ;; obsolete, the latest revision of matrix-react-sdk (released last week
+                ;; as v3.77.1) still works as modeled here.
+                (tweak-rule-p (type rule)
+                  (when-let ((actions (alist-get 'actions rule)))
+                    (and (seq-contains-p actions "notify")
+                         (seq-contains-p actions `(set_tweak . ,type) 'seq-contains-p)))))
       ;; If none of these match, nil is returned, meaning that the default rule is used
       ;; for the room.
       (if (override-mute-rule-for-room-p room)
@@ -675,34 +674,34 @@ default, `all', `mentions-and-keywords', or `none'."
             (state (alist-get selected-rule available-states nil nil #'equal)))
        (list state ement-room ement-session))))
   (cl-labels ((set-rule (kind rule queue message-fn)
-                        (pcase-let* (((cl-struct ement-room (id room-id)) room)
-                                     (rule-id (url-hexify-string room-id))
-                                     (endpoint (format "pushrules/global/%s/%s" kind rule-id))
-                                     (method (if rule 'put 'delete))
-                                     (then (if rule
-                                               ;; Setting rules requires PUTting the rules, then making a second
-                                               ;; request to enable them.
-                                               (lambda (_data)
-                                                 (ement-api session (concat endpoint "/enabled") :queue queue :version "r0"
-                                                   :method 'put :data (json-encode (ement-alist 'enabled t))
-                                                   :then message-fn))
-                                             message-fn)))
-                          (ement-api session endpoint :queue queue :method method :version "r0"
-                            :data (json-encode rule)
-                            :then then
-                            :else (lambda (plz-error)
-                                    (pcase-let* (((cl-struct plz-error response) plz-error)
-                                                 ((cl-struct plz-response status) response))
-                                      (pcase status
-                                        (404 (pcase rule
-                                               (`nil
-                                                ;; Room already had no rules, so none being found is not an
-                                                ;; error.
-                                                nil)
-                                               (_ ;; Unexpected error: re-signal.
-                                                (ement-api-error plz-error))))
-                                        (_ ;; Unexpected error: re-signal.
-                                         (ement-api-error plz-error)))))))))
+                (pcase-let* (((cl-struct ement-room (id room-id)) room)
+                             (rule-id (url-hexify-string room-id))
+                             (endpoint (format "pushrules/global/%s/%s" kind rule-id))
+                             (method (if rule 'put 'delete))
+                             (then (if rule
+                                       ;; Setting rules requires PUTting the rules, then making a second
+                                       ;; request to enable them.
+                                       (lambda (_data)
+                                         (ement-api session (concat endpoint "/enabled") :queue queue :version "r0"
+                                           :method 'put :data (json-encode (ement-alist 'enabled t))
+                                           :then message-fn))
+                                     message-fn)))
+                  (ement-api session endpoint :queue queue :method method :version "r0"
+                    :data (json-encode rule)
+                    :then then
+                    :else (lambda (plz-error)
+                            (pcase-let* (((cl-struct plz-error response) plz-error)
+                                         ((cl-struct plz-response status) response))
+                              (pcase status
+                                (404 (pcase rule
+                                       (`nil
+                                        ;; Room already had no rules, so none being found is not an
+                                        ;; error.
+                                        nil)
+                                       (_ ;; Unexpected error: re-signal.
+                                        (ement-api-error plz-error))))
+                                (_ ;; Unexpected error: re-signal.
+                                 (ement-api-error plz-error)))))))))
     (pcase-let* ((available-states
                   (ement-alist
                    nil (ement-alist
@@ -789,13 +788,13 @@ Selects from seen users on all sessions.  If point is on an
 event, suggests the event's sender as initial input.  Allows
 unseen user IDs to be input as well."
   (cl-labels ((format-user (user)
-                           ;; FIXME: Per-room displaynames are now stored in room structs
-                           ;; rather than user structs, so to be complete, this needs to
-                           ;; iterate over all known rooms, looking for the user's
-                           ;; displayname in that room.
-                           (format "%s <%s>"
-                                   (ement-user-displayname user)
-				   (ement-user-id user))))
+                ;; FIXME: Per-room displaynames are now stored in room structs
+                ;; rather than user structs, so to be complete, this needs to
+                ;; iterate over all known rooms, looking for the user's
+                ;; displayname in that room.
+                (format "%s <%s>"
+                        (ement-user-displayname user)
+			(ement-user-id user))))
     (let* ((display-to-id
 	    (cl-loop for key being the hash-keys of ement-users
 		     using (hash-values value)
@@ -921,31 +920,30 @@ avatars, etc."
   ;; string as argument.)
   ;; TODO: Try using HSV somehow so we could avoid having so many strings return a
   ;; nearly-black color.
-  (cl-labels ((relative-luminance
-               ;; Copy of `modus-themes-wcag-formula', an elegant
-               ;; implementation by Protesilaos Stavrou.  Also see
-               ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
-               ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
-               (rgb) (cl-loop for k in '(0.2126 0.7152 0.0722)
-                              for x in rgb
-                              sum (* k (if (<= x 0.03928)
-                                           (/ x 12.92)
-                                         (expt (/ (+ x 0.055) 1.055) 2.4)))))
-              (contrast-ratio
-               ;; Copy of `modus-themes-contrast'; see above.
-               (a b) (let ((ct (/ (+ (relative-luminance a) 0.05)
-                                  (+ (relative-luminance b) 0.05))))
-                       (max ct (/ ct))))
-              (increase-contrast
-               (color against target toward)
-               (let ((gradient (cdr (color-gradient color toward 20)))
-                     new-color)
-                 (cl-loop do (setf new-color (pop gradient))
-                          while new-color
-                          until (>= (contrast-ratio new-color against) target)
-                          ;; Avoid infinite loop in case of weirdness
-                          ;; by returning color as a fallback.
-                          finally return (or new-color color)))))
+  (cl-labels ((relative-luminance (rgb)
+                ;; Copy of `modus-themes-wcag-formula', an elegant
+                ;; implementation by Protesilaos Stavrou.  Also see
+                ;; <https://en.wikipedia.org/wiki/Relative_luminance> and
+                ;; <https://www.w3.org/TR/WCAG20/#relativeluminancedef>.
+                (cl-loop for k in '(0.2126 0.7152 0.0722)
+                         for x in rgb
+                         sum (* k (if (<= x 0.03928)
+                                      (/ x 12.92)
+                                    (expt (/ (+ x 0.055) 1.055) 2.4)))))
+              (contrast-ratio (a b)
+                ;; Copy of `modus-themes-contrast'; see above.
+                (let ((ct (/ (+ (relative-luminance a) 0.05)
+                             (+ (relative-luminance b) 0.05))))
+                  (max ct (/ ct))))
+              (increase-contrast (color against target toward)
+                (let ((gradient (cdr (color-gradient color toward 20)))
+                      new-color)
+                  (cl-loop do (setf new-color (pop gradient))
+                           while new-color
+                           until (>= (contrast-ratio new-color against) target)
+                           ;; Avoid infinite loop in case of weirdness
+                           ;; by returning color as a fallback.
+                           finally return (or new-color color)))))
     (let* ((id string)
            (id-hash (float (+ (abs (sxhash id)) ement-room-prism-color-adjustment)))
            ;; TODO: Wrap-around the value to get the color I want.
@@ -1024,12 +1022,12 @@ period, anywhere in the body."
   ;; "@foo and @bar:matrix.org: hi"
   ;; "foo: how about you and @bar ..."
   (declare (indent defun))
-  (cl-labels ((members-having-displayname
-               ;; Iterating over the hash table values isn't as efficient as a hash
-               ;; lookup, but in most rooms it shouldn't be a problem.
-               (name members) (cl-loop for user being the hash-values of members
-                                       when (equal name (ement--user-displayname-in room user))
-                                       collect user)))
+  (cl-labels ((members-having-displayname (name members)
+                ;; Iterating over the hash table values isn't as efficient as a hash
+                ;; lookup, but in most rooms it shouldn't be a problem.
+                (cl-loop for user being the hash-values of members
+                         when (equal name (ement--user-displayname-in room user))
+                         collect user)))
     (pcase-let* (((cl-struct ement-room members) room)
                  (regexp (rx (or bos bow (1+ blank))
                              (or (seq (group
@@ -1216,35 +1214,34 @@ DATA is an unsent message event's data alist."
 (defun ement--direct-room-for-user (user session)
   "Return last-modified direct room with USER on SESSION, if one exists."
   ;; Loosely modeled on the Element function findDMForUser in createRoom.ts.
-  (cl-labels ((membership-event-for-p
-               (event user) (and (equal "m.room.member" (ement-event-type event))
-                                 (equal (ement-user-id user) (ement-event-state-key event))))
-              (latest-membership-for
-               (user room)
-               (when-let ((latest-membership-event
-                           (car
-                            (cl-sort
-                             ;; I guess we need to check both state and timeline events.
-                             (append (cl-remove-if-not (lambda (event)
-                                                         (membership-event-for-p event user))
-                                                       (ement-room-state room))
-                                     (cl-remove-if-not (lambda (event)
-                                                         (membership-event-for-p event user))
-                                                       (ement-room-timeline room)))
-                             (lambda (a b)
-                               ;; Sort latest first so we can use the car.
-                               (> (ement-event-origin-server-ts a)
-                                  (ement-event-origin-server-ts b)))))))
-                 (alist-get 'membership (ement-event-content latest-membership-event))))
-              (latest-event-in
-               (room) (car
-                       (cl-sort
-                        (append (ement-room-state room)
-                                (ement-room-timeline room))
-                        (lambda (a b)
-                          ;; Sort latest first so we can use the car.
-                          (> (ement-event-origin-server-ts a)
-                             (ement-event-origin-server-ts b)))))))
+  (cl-labels ((membership-event-for-p (event user)
+                (and (equal "m.room.member" (ement-event-type event))
+                     (equal (ement-user-id user) (ement-event-state-key event))))
+              (latest-membership-for (user room)
+                (when-let ((latest-membership-event
+                            (car
+                             (cl-sort
+                              ;; I guess we need to check both state and timeline events.
+                              (append (cl-remove-if-not (lambda (event)
+                                                          (membership-event-for-p event user))
+                                                        (ement-room-state room))
+                                      (cl-remove-if-not (lambda (event)
+                                                          (membership-event-for-p event user))
+                                                        (ement-room-timeline room)))
+                              (lambda (a b)
+                                ;; Sort latest first so we can use the car.
+                                (> (ement-event-origin-server-ts a)
+                                   (ement-event-origin-server-ts b)))))))
+                  (alist-get 'membership (ement-event-content latest-membership-event))))
+              (latest-event-in (room)
+                (car
+                 (cl-sort
+                  (append (ement-room-state room)
+                          (ement-room-timeline room))
+                  (lambda (a b)
+                    ;; Sort latest first so we can use the car.
+                    (> (ement-event-origin-server-ts a)
+                       (ement-event-origin-server-ts b)))))))
     (let* ((direct-rooms (cl-remove-if-not
                           (lambda (room)
                             (ement--room-direct-p room session))
@@ -1430,10 +1427,10 @@ Works in major-modes `ement-room-mode',
 
 (defun ement--room-direct-p (room session)
   "Return non-nil if ROOM on SESSION is a direct chat."
-  (cl-labels ((content-contains-room-id
-               (content room-id) (cl-loop for (_user-id . room-ids) in content
-                                          ;; NOTE: room-ids is a vector.
-                                          thereis (seq-contains-p room-ids room-id))))
+  (cl-labels ((content-contains-room-id (content room-id)
+                (cl-loop for (_user-id . room-ids) in content
+                         ;; NOTE: room-ids is a vector.
+                         thereis (seq-contains-p room-ids room-id))))
     (pcase-let* (((cl-struct ement-session account-data) session)
                  ((cl-struct ement-room id) room))
       (or (cl-loop for event in account-data
@@ -1452,63 +1449,62 @@ Works in major-modes `ement-room-mode',
   ;; or when to use "m.room.member" events for rooms without heroes (e.g. invited rooms).
   ;; TODO: Add SESSION argument and use it to remove local user from names.
   (cl-labels ((latest-event (type content-field)
-                            (or (cl-loop for event in (ement-room-timeline room)
-                                         when (and (equal type (ement-event-type event))
-                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
-                                         return (alist-get content-field (ement-event-content event)))
-                                (cl-loop for event in (ement-room-state room)
-                                         when (and (equal type (ement-event-type event))
-                                                   (not (string-empty-p (alist-get content-field (ement-event-content event)))))
-                                         return (alist-get content-field (ement-event-content event)))))
-              (member-events-name
-               () (when-let ((member-events (cl-loop for accessor in '(ement-room-timeline ement-room-state ement-room-invite-state)
-                                                     append (cl-remove-if-not (apply-partially #'equal "m.room.member")
-                                                                              (funcall accessor room)
-                                                                              :key #'ement-event-type))))
-                    (string-join (delete-dups
-                                  (mapcar (lambda (event)
-                                            (ement--user-displayname-in room (ement-event-sender event)))
-                                          member-events))
-                                 ", ")))
-              (heroes-name
-               () (pcase-let* (((cl-struct ement-room summary) room)
-                               ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
-                                     ('m.invited_member_count invited-count))
-                                summary))
-                    ;; TODO: Disambiguate hero display names.
-                    (when hero-ids
-                      (cond ((<= (+ joined-count invited-count) 1)
-                             ;; Empty room.
-                             (empty-room hero-ids joined-count))
-                            ((>= (length hero-ids) (1- (+ joined-count invited-count)))
-                             ;; Members == heroes.
-                             (hero-names hero-ids))
-                            ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
-                                  (> (+ joined-count invited-count) 1))
-                             ;; More members than heroes.
-                             (heroes-and-others hero-ids joined-count))))))
-              (hero-names
-               (heroes) (string-join (mapcar #'hero-name heroes) ", "))
-              (hero-name
-               (id) (if-let ((user (gethash id ement-users)))
-                        (ement--user-displayname-in room user)
-                      id))
-              (heroes-and-others
-               (heroes joined)
-               (format "%s, and %s others" (hero-names heroes)
-                       (- joined (length heroes))))
-              (name-override
-               () (when-let ((event (alist-get "org.matrix.msc3015.m.room.name.override"
-                                               (ement-room-account-data room)
-                                               nil nil #'equal)))
-                    (map-nested-elt event '(content name))))
-              (empty-room
-               (heroes joined) (cl-etypecase (length heroes)
-                                 ((satisfies zerop) "Empty room")
-                                 ((number 1 5) (format "Empty room (was %s)"
-                                                       (hero-names heroes)))
-                                 (t (format "Empty room (was %s)"
-                                            (heroes-and-others heroes joined))))))
+                (or (cl-loop for event in (ement-room-timeline room)
+                             when (and (equal type (ement-event-type event))
+                                       (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                             return (alist-get content-field (ement-event-content event)))
+                    (cl-loop for event in (ement-room-state room)
+                             when (and (equal type (ement-event-type event))
+                                       (not (string-empty-p (alist-get content-field (ement-event-content event)))))
+                             return (alist-get content-field (ement-event-content event)))))
+              (member-events-name ()
+                (when-let ((member-events (cl-loop for accessor in '(ement-room-timeline ement-room-state ement-room-invite-state)
+                                                   append (cl-remove-if-not (apply-partially #'equal "m.room.member")
+                                                                            (funcall accessor room)
+                                                                            :key #'ement-event-type))))
+                  (string-join (delete-dups
+                                (mapcar (lambda (event)
+                                          (ement--user-displayname-in room (ement-event-sender event)))
+                                        member-events))
+                               ", ")))
+              (heroes-name ()
+                (pcase-let* (((cl-struct ement-room summary) room)
+                             ((map ('m.heroes hero-ids) ('m.joined_member_count joined-count)
+                                   ('m.invited_member_count invited-count))
+                              summary))
+                  ;; TODO: Disambiguate hero display names.
+                  (when hero-ids
+                    (cond ((<= (+ joined-count invited-count) 1)
+                           ;; Empty room.
+                           (empty-room hero-ids joined-count))
+                          ((>= (length hero-ids) (1- (+ joined-count invited-count)))
+                           ;; Members == heroes.
+                           (hero-names hero-ids))
+                          ((and (< (length hero-ids) (1- (+ joined-count invited-count)))
+                                (> (+ joined-count invited-count) 1))
+                           ;; More members than heroes.
+                           (heroes-and-others hero-ids joined-count))))))
+              (hero-names (heroes)
+                (string-join (mapcar #'hero-name heroes) ", "))
+              (hero-name (id)
+                (if-let ((user (gethash id ement-users)))
+                    (ement--user-displayname-in room user)
+                  id))
+              (heroes-and-others (heroes joined)
+                (format "%s, and %s others" (hero-names heroes)
+                        (- joined (length heroes))))
+              (name-override ()
+                (when-let ((event (alist-get "org.matrix.msc3015.m.room.name.override"
+                                             (ement-room-account-data room)
+                                             nil nil #'equal)))
+                  (map-nested-elt event '(content name))))
+              (empty-room (heroes joined)
+                (cl-etypecase (length heroes)
+                  ((satisfies zerop) "Empty room")
+                  ((number 1 5) (format "Empty room (was %s)"
+                                        (hero-names heroes)))
+                  (t (format "Empty room (was %s)"
+                             (heroes-and-others heroes joined))))))
     (or (name-override)
         (latest-event "m.room.name" 'name)
         (latest-event "m.room.canonical_alias" 'alias)
@@ -1564,19 +1560,19 @@ is not at the latest known message event."
           ;; A room should rarely, if ever, have a nil timeline, but in case it does
           ;; (which apparently can happen, given user reports), it should not be
           ;; considered unread.
-          (cl-labels ((event-counts-toward-unread-p
-                       ;; NOTE: We only consider message events, so membership, reaction,
-                       ;; etc. events will not mark a room as unread.  Ideally, I think
-                       ;; that join/leave events should, at least optionally, mark a room
-                       ;; as unread (e.g. in a 1:1 room with a friend, if the other user
-                       ;; left, one would probably want to know, and marking the room
-                       ;; unread would help the user notice), but since membership events
-                       ;; have to be processed to understand their meaning, it's not
-                       ;; straightforward to know whether one should mark a room unread.
+          (cl-labels ((event-counts-toward-unread-p (event)
+                        ;; NOTE: We only consider message events, so membership, reaction,
+                        ;; etc. events will not mark a room as unread.  Ideally, I think
+                        ;; that join/leave events should, at least optionally, mark a room
+                        ;; as unread (e.g. in a 1:1 room with a friend, if the other user
+                        ;; left, one would probably want to know, and marking the room
+                        ;; unread would help the user notice), but since membership events
+                        ;; have to be processed to understand their meaning, it's not
+                        ;; straightforward to know whether one should mark a room unread.
 
-                       ;; FIXME: Use code from `ement-room--format-member-event' to
-                       ;; distinguish ones that should count.
-                       (event) (equal "m.room.message" (ement-event-type event))))
+                        ;; FIXME: Use code from `ement-room--format-member-event' to
+                        ;; distinguish ones that should count.
+                        (equal "m.room.message" (ement-event-type event))))
             (let ((our-read-receipt-event-id (car (gethash our-id receipts)))
                   (first-counting-event (cl-find-if #'event-counts-toward-unread-p timeline)))
               (cond ((equal fully-read-event-id (ement-event-id (car timeline)))
@@ -1630,11 +1626,11 @@ problems."
   (if-let ((cached-name (gethash user (ement-room-displaynames room))))
       cached-name
     ;; Put timeline events before state events, because IIUC they should be more recent.
-    (cl-labels ((join-displayname-event-p
-                 (event) (and (eq user (ement-event-sender event))
-                              (equal "m.room.member" (ement-event-type event))
-                              (equal "join" (alist-get 'membership (ement-event-content event)))
-                              (alist-get 'displayname (ement-event-content event)))))
+    (cl-labels ((join-displayname-event-p (event)
+                  (and (eq user (ement-event-sender event))
+                       (equal "m.room.member" (ement-event-type event))
+                       (equal "join" (alist-get 'membership (ement-event-content event)))
+                       (alist-get 'displayname (ement-event-content event)))))
       ;; FIXME: Should probably sort the relevant events to get the latest one.
       (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
                                           when (join-displayname-event-p event)
@@ -1733,19 +1729,19 @@ seconds, etc."
   (if (< seconds 1)
       (if abbreviate "0s" "0 seconds")
     (cl-macrolet ((format> (place)
-                           ;; When PLACE is greater than 0, return formatted string using its symbol name.
-                           `(when (> ,place 0)
-                              (format "%d%s%s" ,place
-                                      (if abbreviate "" " ")
-                                      (if abbreviate
-                                          ,(substring (symbol-name place) 0 1)
-                                        ,(symbol-name place)))))
+                    ;; When PLACE is greater than 0, return formatted string using its symbol name.
+                    `(when (> ,place 0)
+                       (format "%d%s%s" ,place
+                               (if abbreviate "" " ")
+                               (if abbreviate
+                                   ,(substring (symbol-name place) 0 1)
+                                 ,(symbol-name place)))))
                   (join-places (&rest places)
-                               ;; Return string joining the names and values of PLACES.
-                               `(string-join (delq nil
-                                                   (list ,@(cl-loop for place in places
-                                                                    collect `(format> ,place))))
-                                             (if abbreviate "" ", "))))
+                    ;; Return string joining the names and values of PLACES.
+                    `(string-join (delq nil
+                                        (list ,@(cl-loop for place in places
+                                                         collect `(format> ,place))))
+                                  (if abbreviate "" ", "))))
       (pcase-let ((`(,years ,days ,hours ,minutes ,seconds) (ement--human-duration seconds)))
         (join-places years days hours minutes seconds)))))
 
@@ -1756,9 +1752,9 @@ a simple calculation that does not account for leap years, leap
 seconds, etc."
   ;; Copied from `ts-human-format-duration' (same author).
   (cl-macrolet ((dividef (place divisor)
-                         ;; Divide PLACE by DIVISOR, set PLACE to the remainder, and return the quotient.
-                         `(prog1 (/ ,place ,divisor)
-                            (setf ,place (% ,place ,divisor)))))
+                  ;; Divide PLACE by DIVISOR, set PLACE to the remainder, and return the quotient.
+                  `(prog1 (/ ,place ,divisor)
+                     (setf ,place (% ,place ,divisor)))))
     (let* ((seconds (floor seconds))
            (years (dividef seconds 31536000))
            (days (dividef seconds 86400))

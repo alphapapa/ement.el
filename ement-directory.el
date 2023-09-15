@@ -296,31 +296,31 @@ APPEND-P, add ROOMS to buffer rather than replacing existing
 contents.  To be called by `ement-directory-search'."
   (declare (indent defun))
   (let (column-sizes window-start)
-    (cl-labels ((format-item
-                 ;; NOTE: We use the buffer-local variable `ement-directory-etc' rather
-                 ;; than a closure variable because the taxy-magit-section struct's format
-                 ;; table is not stored in it, and we can't reuse closures' variables.
-                 ;; (It would be good to store the format table in the taxy-magit-section
-                 ;; in the future, to make this cleaner.)
-                 (item) (gethash item (alist-get 'format-table ement-directory-etc)))
+    (cl-labels ((format-item (item)
+                  ;; NOTE: We use the buffer-local variable `ement-directory-etc' rather
+                  ;; than a closure variable because the taxy-magit-section struct's format
+                  ;; table is not stored in it, and we can't reuse closures' variables.
+                  ;; (It would be good to store the format table in the taxy-magit-section
+                  ;; in the future, to make this cleaner.)
+                  (gethash item (alist-get 'format-table ement-directory-etc)))
                 ;; NOTE: Since these functions take an "item" (which is a [room session]
                 ;; vector), they're prefixed "item-" rather than "room-".
-                (size
-                 (item) (pcase-let (((map ('num_joined_members size)) item))
-                          size))
+                (size (item)
+                  (pcase-let (((map ('num_joined_members size)) item))
+                    size))
                 (t<nil (a b) (and a (not b)))
                 (t>nil (a b) (and (not a) b))
                 (make-fn (&rest args)
-                         (apply #'make-taxy-magit-section
-                                :make #'make-fn
-                                :format-fn #'format-item
-                                ;; FIXME: Should we reuse `ement-room-list-level-indent' here?
-                                :level-indent ement-room-list-level-indent
-                                ;; :visibility-fn #'visible-p
-                                ;; :heading-indent 2
-                                :item-indent 2
-                                ;; :heading-face-fn #'heading-face
-                                args)))
+                  (apply #'make-taxy-magit-section
+                         :make #'make-fn
+                         :format-fn #'format-item
+                         ;; FIXME: Should we reuse `ement-room-list-level-indent' here?
+                         :level-indent ement-room-list-level-indent
+                         ;; :visibility-fn #'visible-p
+                         ;; :heading-indent 2
+                         :item-indent 2
+                         ;; :heading-face-fn #'heading-face
+                         args)))
       (with-current-buffer (get-buffer-create buffer-name)
         (unless (eq 'ement-directory-mode major-mode)
           ;; Don't obliterate buffer-local variables.
