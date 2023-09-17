@@ -123,6 +123,7 @@ Used to, e.g. call `ement-room-compose-org'.")
 
     ;; Movement
     (define-key map (kbd "n") #'ement-room-goto-next)
+    (define-key map (kbd "N") #'end-of-buffer)
     (define-key map (kbd "p") #'ement-room-goto-prev)
     (define-key map (kbd "SPC") #'ement-room-scroll-up-mark-read)
     (define-key map (kbd "S-SPC") #'ement-room-scroll-down-command)

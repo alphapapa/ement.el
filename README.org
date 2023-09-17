@@ -170,6 +170,7 @@ These bindings are common to all of the following buffer types:
 
 + Next event: ~n~
 + Previous event: ~p~
++ End of buffer: ~N~
 + Scroll up and mark read: ~SPC~
 + Scroll down: ~S-SPC~
 + Jump to fully-read marker: ~M-g M-p~
@@ -297,6 +298,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Additions*
 
 + Group joined direct rooms in directory buffers.
++ Command ~end-of-buffer~ is bound to ~N~ in room buffers.
 
 *Fixes*
 
