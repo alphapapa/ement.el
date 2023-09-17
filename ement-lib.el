@@ -774,12 +774,12 @@ THEN and ELSE are passed to `ement-api', which see."
 
 (cl-defun ement-complete-session (&key (prompt "Session: "))
   "Return an Ement session selected with completion."
-  (cl-etypecase (length ement-sessions)
-    ((integer 1 1) (cdar ement-sessions))
-    ((integer 2 *) (let* ((ids (mapcar #'car ement-sessions))
-                          (selected-id (completing-read prompt ids nil t)))
-                     (alist-get selected-id ement-sessions nil nil #'equal)))
-    (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
+  (pcase (length ement-sessions)
+    (0 (user-error "No active sessions.  Call `ement-connect' to log in"))
+    (1 (cdar ement-sessions))
+    (_ (let* ((ids (mapcar #'car ement-sessions))
+              (selected-id (completing-read prompt ids nil t)))
+         (alist-get selected-id ement-sessions nil nil #'equal)))))
 
 (declare-function ewoc-locate "ewoc")
 (defun ement-complete-user-id ()
@@ -1499,11 +1499,11 @@ Works in major-modes `ement-room-mode',
                                              nil nil #'equal)))
                   (map-nested-elt event '(content name))))
               (empty-room (heroes joined)
-                (cl-etypecase (length heroes)
-                  ((satisfies zerop) "Empty room")
-                  ((number 1 5) (format "Empty room (was %s)"
-                                        (hero-names heroes)))
-                  (t (format "Empty room (was %s)"
+                (pcase (length heroes)
+                  (0 "Empty room")
+                  ((pred (>= 5)) (format "Empty room (was %s)"
+                                         (hero-names heroes)))
+                  (_ (format "Empty room (was %s)"
                              (heroes-and-others heroes joined))))))
     (or (name-override)
         (latest-event "m.room.name" 'name)
