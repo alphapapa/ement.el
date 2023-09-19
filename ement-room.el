@@ -2803,6 +2803,9 @@ updates the markers in ROOM's buffer, not on the server; see
                        (new-event-id (cl-etypecase to-event
                                        (ement-event (ement-event-id to-event))
                                        (string to-event)))
+                       ;; FIXME: Some events, like reactions, are not inserted into the
+                       ;; EWOC directly, and if a read marker refers to such an event, the
+                       ;; place for the read marker will not be found.
                        (event-node (ement-room--ewoc-last-matching ement-ewoc
                                      (lambda (data)
                                        (and (ement-event-p data)
