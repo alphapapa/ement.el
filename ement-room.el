@@ -555,10 +555,10 @@ messages won't display in the same font as others."
 (defcustom ement-room-username-display-property '(raise -0.25)
   "Display property applied to username strings.
 See Info node `(elisp)Other Display Specs'."
-  :type '(choice (list :tag "Raise" (const raise :tag "Raise") (number :tag "Factor"))
+  :type '(choice (list :tag "Raise" (const :tag "Raise" raise) (number :tag "Factor"))
                  (list :tag "Height" (const height)
-                       (choice (list :tag "Larger" (const + :tag "Larger") (number :tag "Steps"))
-                               (list :tag "Smaller" (const - :tag "Smaller") (number :tag "Steps"))
+                       (choice (list :tag "Larger" (const :tag "Larger" +) (number :tag "Steps"))
+                               (list :tag "Smaller" (const :tag "Smaller" -) (number :tag "Steps"))
                                (number :tag "Factor")
                                (function :tag "Function")
                                (sexp :tag "Form"))) ))
