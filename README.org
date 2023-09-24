@@ -303,6 +303,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Fixes*
 
 + Name for direct rooms in directory buffers.
++ Editing a message from the compose buffer would be sent as a reply to the edited message.  (Fixes [[https://github.com/alphapapa/ement.el/issues/189][#189]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
 
 ** 0.12
 
