@@ -3375,14 +3375,18 @@ Format defaults to `ement-room-message-format-spec', which see."
         (left-margin-width ement-room-left-margin-width)
         (right-margin-width ement-room-right-margin-width))
     ;; Copied from `format-spec'.
-    (with-current-buffer (get-buffer-create " *ement-room--format-message*")
+    (with-current-buffer
+        (or (get-buffer " *ement-room--format-message*")
+            (with-current-buffer (get-buffer-create " *ement-room--format-message*")
+              (setq buffer-undo-list t)
+              (current-buffer)))
+      (erase-buffer)
       ;; Pretend this is a room buffer.
       (setf ement-session session
             ement-room room)
       ;; HACK: Setting these buffer-locally in a temp buffer is ugly.
       (setq-local ement-room-left-margin-width left-margin-width)
       (setq-local ement-room-right-margin-width right-margin-width)
-      (erase-buffer)
       (insert format)
       (goto-char (point-min))
       (while (search-forward "%" nil t)
@@ -3513,7 +3517,11 @@ If FORMATTED-P, return the formatted body content, when available."
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
 HTML is rendered to Emacs text using `shr-insert-document'."
-  (with-current-buffer (get-buffer-create " *ement-room--render-html*")
+  (with-current-buffer
+      (or (get-buffer " *ement-room--render-html*")
+          (with-current-buffer (get-buffer-create " *ement-room--render-html*")
+            (setq buffer-undo-list t)
+            (current-buffer)))
     (erase-buffer)
     (insert string)
     (save-excursion
