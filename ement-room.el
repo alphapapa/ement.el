@@ -91,6 +91,8 @@ to sort events and update other slots."
 (defvar-local ement-session nil
   "Ement session for current buffer.")
 
+;; TODO: Convert some of these buffer-local variables into keys in one buffer-local map variable.
+
 (defvar-local ement-room-retro-loading nil
   "Non-nil when earlier messages are being loaded.
 Used to avoid overlapping requests.")
