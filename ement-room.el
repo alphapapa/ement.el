@@ -3377,6 +3377,7 @@ Format defaults to `ement-room-message-format-spec', which see."
     ;; Copied from `format-spec'.
     (with-current-buffer
         (or (get-buffer " *ement-room--format-message*")
+            ;; TODO: Kill this buffer when disconnecting from all sessions.
             (with-current-buffer (get-buffer-create " *ement-room--format-message*")
               (setq buffer-undo-list t)
               (current-buffer)))
@@ -3519,6 +3520,7 @@ If FORMATTED-P, return the formatted body content, when available."
 HTML is rendered to Emacs text using `shr-insert-document'."
   (with-current-buffer
       (or (get-buffer " *ement-room--render-html*")
+          ;; TODO: Kill this buffer when disconnecting from all sessions.
           (with-current-buffer (get-buffer-create " *ement-room--render-html*")
             (setq buffer-undo-list t)
             (current-buffer)))
