@@ -4150,8 +4150,7 @@ height."
   (pcase-let* ((image (copy-sequence (get-text-property pos 'display)))
                (ement-event (ewoc-data (ewoc-locate ement-ewoc pos)))
                ((cl-struct ement-event id) ement-event)
-               (buffer-name (format "*Ement image: %s*" id))
-               (new-buffer (get-buffer-create buffer-name)))
+               (buffer-name (format "*Ement image: %s*" id)))
     (when (fboundp 'imagemagick-types)
       ;; Only do this when ImageMagick is supported.
       ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
@@ -4159,12 +4158,14 @@ height."
     (setf (image-property image :scale) 1.0
           (image-property image :max-width) nil
           (image-property image :max-height) nil)
-    (with-current-buffer new-buffer
-      (erase-buffer)
-      (insert-image image)
-      (image-mode))
-    (pop-to-buffer new-buffer '((display-buffer-pop-up-frame)))
-    (set-frame-parameter nil 'fullscreen 'maximized)))
+    (unless (get-buffer buffer-name)
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert-image image)
+        (image-mode)))
+    (pop-to-buffer buffer-name
+                   '((display-buffer-pop-up-frame
+                      (pop-up-frame-parameters . ((fullscreen . t) (maximized . t))))))))
 
 (defun ement-room--format-m.image (event)
   "Return \"m.image\" EVENT formatted as a string.
