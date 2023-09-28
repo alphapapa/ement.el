@@ -3814,6 +3814,8 @@ a copy of the local keymap, and sets `header-line-format'."
   ;; Using a macro for this seems awkward but necessary.
   (setq-local ement-room room)
   (setq-local ement-session session)
+  (setq-local ement-room-replying-to-event ement-room-replying-to-event)
+  (setq-local ement-room-editing-event ement-room-editing-event)
   (setf ement-room-compose-buffer t)
   (setq-local completion-at-point-functions
               (append '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
@@ -3823,9 +3825,17 @@ a copy of the local keymap, and sets `header-line-format'."
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
   (local-set-key [remap save-buffer] #'ement-room-compose-send)
-  (setq header-line-format (substitute-command-keys
-                            (format " Press \\[save-buffer] to send message to room (%s)"
-                                    (ement-room-display-name room)))))
+  (setq header-line-format
+        (concat (substitute-command-keys
+                 (format " Press \\[save-buffer] to send message to room (%s)"
+                         (ement-room-display-name room)))
+                (cond (ement-room-replying-to-event
+                       (format " (Replying to message from %s)"
+                               (ement--user-displayname-in
+                                ement-room (ement-event-sender
+                                            ement-room-replying-to-event))))
+                      (ement-room-editing-event
+                       " (Editing message)")))))
 
 ;;;;; Widgets
 
