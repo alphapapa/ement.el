@@ -1697,20 +1697,23 @@ mentioning the ROOM and CONTENT."
 
 (defun ement-room-edit-message (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY.
-The message must be one sent by the local user."
+The message must be one sent by the local user.  EVENT may be the
+`ement-event' or the event's ID string."
   (interactive (ement-room-with-highlighted-event-at (point)
                  (cl-assert ement-session) (cl-assert ement-room)
                  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
-                              ((cl-struct ement-session user events) ement-session)
-                              ((cl-struct ement-event sender id
-                                          (content (map body ('m.relates_to relates-to))))
+                              ((cl-struct ement-session user) ement-session)
+                              ((cl-struct ement-event sender
+                                          (content (map body ('m.relates_to
+                                                              (map ('event_id replaced-event-id)
+                                                                   ('rel_type relation-type))))))
                                event)
                               (ement-room-editing-event event))
                    (unless (equal (ement-user-id sender) (ement-user-id user))
                      (user-error "You may only edit your own messages"))
-                   (when relates-to
-                     ;; Editing an already-edited event: get the original event.
-                     (setf event (gethash id events)))
+                   (pcase relation-type
+                     ("m.replace"  ;; Editing an already-edited event: use the original event ID.
+                      (setf event replaced-event-id)))
                    ;; Remove any leading asterisk from the plain-text body.
                    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
                    (ement-room-with-typing
@@ -1731,8 +1734,11 @@ The message must be one sent by the local user."
          (content (ement-alist "msgtype" "m.text"
                                "body" body
                                "m.new_content" new-content
-                               "m.relates_to" (ement-alist "rel_type" "m.replace"
-                                                           "event_id" (ement-event-id event)))))
+                               "m.relates_to" (ement-alist
+                                               "rel_type" "m.replace"
+                                               "event_id" (cl-typecase event
+                                                            (string event)
+                                                            (ement-event (ement-event-id event)))))))
     ;; Prepend the asterisk after the filter may have modified the content.  Note that the
     ;; "m.new_content" body does not get the leading asterisk, only the "content" body,
     ;; which is intended as a fallback.
