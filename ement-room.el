@@ -1118,7 +1118,12 @@ when switching themes or adjusting `ement-prism' options."
   (dolist (buffer (buffer-list))
     (when (eq 'ement-room-mode (buffer-local-value 'major-mode buffer))
       (with-current-buffer buffer
-        (ewoc-refresh ement-ewoc))))
+        (let ((window-start (when (get-buffer-window buffer)
+                              (window-start (get-buffer-window buffer)))))
+          (save-excursion
+            (ewoc-refresh ement-ewoc))
+          (when window-start
+            (setf (window-start (get-buffer-window buffer)) window-start))))))
   ;; Flush notify-background-color colors.
   (cl-loop for (_id . session) in ement-sessions
            do (cl-loop for room in (ement-session-rooms session)
