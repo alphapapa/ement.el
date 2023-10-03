@@ -716,28 +716,12 @@ number (to darken rather than lighten)."
   "Highlight event at POSITION while evaluating BODY."
   ;; MAYBE: Accept a marker for POSITION.
   (declare (indent 1))
-  (let ((node/g (gensym "node")) (event/g (gensym "event")))
-    `(let* ((,node/g (ewoc-locate ement-ewoc ,position))
-            (,event/g (ewoc-data ,node/g))
-            ement-room-replying-to-overlay)
-       (unless (and (ement-event-p ,event/g)
-                    (ement-event-id ,event/g))
-         (error "No event at point"))
-       (unwind-protect
-           (progn
-             (setf ement-room-replying-to-overlay
-                   (make-overlay (ewoc-location ,node/g)
-                                 ;; NOTE: It doesn't seem possible to get the end position of
-                                 ;; a node, so if there is no next node, we use point-max.
-                                 ;; But this might break if we were to use an EWOC footer.
-                                 (if (ewoc-next ement-ewoc ,node/g)
-                                     (ewoc-location (ewoc-next ement-ewoc ,node/g))
-                                   (point-max))))
-             (overlay-put ement-room-replying-to-overlay 'face 'highlight)
-             ,@body)
-         (when (overlayp ement-room-replying-to-overlay)
-           (delete-overlay ement-room-replying-to-overlay))
-         (setf ement-room-replying-to-overlay nil)))))
+  `(let (ement-room-replying-to-overlay)
+     (unwind-protect
+         (progn
+           (ement-room-highlight-event-at ,position)
+           ,@body)
+       (ement-room-unhighlight-event))))
 
 (defmacro ement-room-with-typing (&rest body)
   "Send typing notifications around BODY.
@@ -783,6 +767,46 @@ constant throughout STRING."
                         (concat old-value value)
                       (concat value old-value))))
     (propertize string property new-value)))
+
+;;;;; Event highlighting
+
+(defun ement-room-highlight-event-at (position)
+  "Highlight event at POSITION using `ement-room-replying-to-overlay'.
+See `ement-room-with-highlighted-event-at'."
+  ;; MAYBE: Accept a marker for POSITION.
+  (let* ((node (ewoc-locate ement-ewoc position))
+         (event (ewoc-data node)))
+    (unless (and (ement-event-p event)
+                 (ement-event-id event))
+      (error "No event at point"))
+    (setf ement-room-replying-to-overlay
+          (make-overlay (ewoc-location node)
+                        ;; NOTE: It doesn't seem possible to get the end position of
+                        ;; a node, so if there is no next node, we use point-max.
+                        ;; But this might break if we were to use an EWOC footer.
+                        (if (ewoc-next ement-ewoc node)
+                            (ewoc-location (ewoc-next ement-ewoc node))
+                          (point-max))))
+    (overlay-put ement-room-replying-to-overlay 'face 'highlight)))
+
+(defun ement-room-unhighlight-event ()
+  "Delete overlay in `ement-room-replying-to-overlay'.
+See `ement-room-with-highlighted-event-at'."
+  (when (overlayp ement-room-replying-to-overlay)
+    (delete-overlay ement-room-replying-to-overlay))
+  (setf ement-room-replying-to-overlay nil))
+
+(defun ement-room-compose-highlight (compose-buffer)
+  "Make `ement-room-with-highlighted-event-at' persistent while COMPOSE-BUFFER exists."
+  (when-let ((overlay ement-room-replying-to-overlay))
+    ;; Prevent `ement-room-with-highlighted-event-at' from deleting the overlay:
+    (setq ement-room-replying-to-overlay nil)
+    ;; Instead, make it exist for the lifetime of the compose buffer:
+    (cl-flet ((delete-overlay ()
+                (when (overlayp overlay)
+                  (delete-overlay overlay))))
+      (with-current-buffer compose-buffer
+        (add-hook 'kill-buffer-hook #'delete-overlay nil :local)))))
 
 ;;;;; Event formatting
 
@@ -3700,6 +3724,7 @@ message contents."
      (list ement-room ement-session)))
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement--room-display-name ement-room))))
          (send-message-filter ement-room-send-message-filter))
+    (ement-room-compose-highlight compose-buffer)
     (with-current-buffer compose-buffer
       (ement-room-init-compose-buffer room session)
       (setf ement-room-send-message-filter send-message-filter)
