@@ -1770,8 +1770,9 @@ Interactively, to event at point."
                       (setq-local ement-room-replying-to-event event)))
                    (body (ement-room-with-typing
                            (ement-room-read-string prompt nil 'ement-room-message-history
-                                                   nil 'inherit-input-method))))
-        (ement-room-send-message room session :body body :replying-to-event event)))))
+                                                   nil 'inherit-input-method)))
+                   (replying-to-event (ement--original-event-for event ement-session)))
+        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
 (defun ement-room-send-reaction (key position)
   "Send reaction of KEY to event at POSITION.
