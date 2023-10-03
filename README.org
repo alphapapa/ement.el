@@ -306,6 +306,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Editing a message from the compose buffer would be sent as a reply to the edited message.  (Fixes [[https://github.com/alphapapa/ement.el/issues/189][#189]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
 + Editing an already-edited message.  ([[https://github.com/alphapapa/ement.el/issues/226][#226]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
 + Replying to an already-edited message.  ([[https://github.com/alphapapa/ement.el/issues/227][#227]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Redactions of edited messages.  ([[https://github.com/alphapapa/ement.el/issues/228][#228]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
 + Command ~ement-room-flush-colors~ maintains point position.
 
 ** 0.12
