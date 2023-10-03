@@ -1296,6 +1296,22 @@ m.replace metadata)."
       (ement--event-replaces-p a b)
       (ement--event-replaces-p b a)))
 
+(defun ement--original-event-for (event session)
+  "Return the original of EVENT in SESSION.
+If EVENT has metadata indicating that it replaces another event,
+return the replaced event; otherwise return EVENT.  If a replaced
+event can't be found in SESSION's events table, return an ersatz
+one that has the expected ID and same sender."
+  (pcase-let (((cl-struct ement-event sender
+                          (content (map ('m.relates_to
+                                         (map ('event_id replaced-event-id)
+                                              ('rel_type relation-type))))))
+               event))
+    (pcase relation-type
+      ("m.replace" (or (gethash replaced-event-id (ement-session-events session))
+                       (make-ement-event :id replaced-event-id :sender sender)))
+      (_ event))))
+
 (defun ement--format-room (room &optional topic)
   "Return ROOM formatted with name, alias, ID, and optionally TOPIC.
 Suitable for use in completion, etc."

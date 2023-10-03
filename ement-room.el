@@ -1702,23 +1702,17 @@ mentioning the ROOM and CONTENT."
 
 (defun ement-room-edit-message (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY.
-The message must be one sent by the local user.  EVENT may be the
-`ement-event' or the event's ID string."
+The message must be one sent by the local user.  If EVENT is
+itself an edit of another event, the original event is edited."
   (interactive (ement-room-with-highlighted-event-at (point)
                  (cl-assert ement-session) (cl-assert ement-room)
                  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
                               ((cl-struct ement-session user) ement-session)
-                              ((cl-struct ement-event sender
-                                          (content (map body ('m.relates_to
-                                                              (map ('event_id replaced-event-id)
-                                                                   ('rel_type relation-type))))))
-                               event)
-                              (ement-room-editing-event event))
+                              ((cl-struct ement-event sender (content (map body))) event)
+                              (ement-room-editing-event event)
+                              (edited-event (ement--original-event-for event ement-session)))
                    (unless (equal (ement-user-id sender) (ement-user-id user))
                      (user-error "You may only edit your own messages"))
-                   (pcase relation-type
-                     ("m.replace"  ;; Editing an already-edited event: use the original event ID.
-                      (setf event replaced-event-id)))
                    ;; Remove any leading asterisk from the plain-text body.
                    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
                    (ement-room-with-typing
@@ -1729,7 +1723,7 @@ The message must be one sent by the local user.  EVENT may be the
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
-                         (list event ement-room ement-session body)))))))
+                         (list edited-event ement-room ement-session body)))))))
   (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
                            "m.room.message" (ement--update-transaction-id session)))
          (new-content (ement-alist "body" body
@@ -1741,9 +1735,7 @@ The message must be one sent by the local user.  EVENT may be the
                                "m.new_content" new-content
                                "m.relates_to" (ement-alist
                                                "rel_type" "m.replace"
-                                               "event_id" (cl-typecase event
-                                                            (string event)
-                                                            (ement-event (ement-event-id event)))))))
+                                               "event_id" (ement-event-id event)))))
     ;; Prepend the asterisk after the filter may have modified the content.  Note that the
     ;; "m.new_content" body does not get the leading asterisk, only the "content" body,
     ;; which is intended as a fallback.
@@ -1778,8 +1770,9 @@ Interactively, to event at point."
                       (setq-local ement-room-replying-to-event event)))
                    (body (ement-room-with-typing
                            (ement-room-read-string prompt nil 'ement-room-message-history
-                                                   nil 'inherit-input-method))))
-        (ement-room-send-message room session :body body :replying-to-event event)))))
+                                                   nil 'inherit-input-method)))
+                   (replying-to-event (ement--original-event-for event ement-session)))
+        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
 (defun ement-room-send-reaction (key position)
   "Send reaction of KEY to event at POSITION.
