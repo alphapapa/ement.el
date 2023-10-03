@@ -1752,7 +1752,7 @@ itself an edit of another event, the original event is edited."
                            ement-room ement-session (read-string "Reason (optional): " nil nil nil 'inherit-input-method))
                    ;; HACK: This isn't really an error, but is there a cleaner way to cancel?
                    (user-error "Message not deleted"))))
-  (ement-redact event room session reason))
+  (ement-redact (ement--original-event-for event session) room session reason))
 
 (defun ement-room-write-reply (event)
   "Write and send a reply to EVENT.
@@ -2490,15 +2490,27 @@ function to `ement-room-event-fns', which see."
   (pcase-let* (((cl-struct ement-event (local (map ('redacts redacted-id)))) event)
                ((cl-struct ement-room timeline) ement-room)
                (redacted-event (cl-find redacted-id timeline
-                                        :key #'ement-event-id :test #'equal)))
+                                        :key #'ement-event-id :test #'equal))
+               (redacted-edit-events (cl-remove-if-not (lambda (timeline-event)
+                                                         (pcase-let (((cl-struct ement-event
+                                                                                 (content
+                                                                                  (map ('m.relates_to
+                                                                                        (map ('event_id related-id)
+                                                                                             ('rel_type rel-type))))))
+                                                                      timeline-event))
+                                                           (and (equal redacted-id related-id)
+                                                                (equal "m.replace" rel-type))))
+                                                       timeline)))
+    (ement-debug event redacted-event redacted-edit-events)
+    (cl-loop for edit-event in redacted-edit-events
+             do (cl-pushnew event (alist-get 'redacted-by (ement-event-local edit-event))))
     (when redacted-event
+      (cl-pushnew event (alist-get 'redacted-by (ement-event-local redacted-event)))
       (pcase-let* (((cl-struct ement-event (content
                                             (map ('m.relates_to
                                                   (map ('event_id related-id)
                                                        ('rel_type rel-type))))))
                     redacted-event))
-        ;; Record the redaction in the redacted event's local slot.
-        (cl-pushnew event (alist-get 'redacted-by (ement-event-local redacted-event)))
         (pcase rel-type
           ("m.annotation"
            ;; Redacted annotation/reaction.  NOTE: Since we link annotations in a -room
@@ -2515,13 +2527,22 @@ function to `ement-room-event-fns', which see."
                                (lambda (data)
                                  (and (ement-event-p data)
                                       (equal related-id (ement-event-id data))))))
-               (ewoc-invalidate ement-ewoc node)))))
-        ;; Invalidate the redacted event's node.
-        (when-let (node (ement-room--ewoc-last-matching ement-ewoc
-                          (lambda (data)
-                            (and (ement-event-p data)
-                                 (equal redacted-id (ement-event-id data))))))
-          (ewoc-invalidate ement-ewoc node))))))
+               (ewoc-invalidate ement-ewoc node)))))))
+    ;; Invalidate the redacted event's node.
+    (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                       (lambda (data)
+                         (and (ement-event-p data)
+                              (pcase-let (((cl-struct ement-event id
+                                                      (content
+                                                       (map ('m.relates_to
+                                                             (map ('event_id related-id)
+                                                                  ('rel_type rel-type))))))
+                                           data))
+                                (or (equal redacted-id id)
+                                    (and (equal "m.replace" rel-type)
+                                         (equal redacted-id related-id)))))))))
+      (ement-debug node)
+      (ewoc-invalidate ement-ewoc node))))
 
 (ement-room-defevent "m.typing"
   (pcase-let* (((cl-struct ement-session user) ement-session)
