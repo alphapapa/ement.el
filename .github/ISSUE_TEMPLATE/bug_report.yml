@@ -36,6 +36,13 @@ body:
       description: Did the problem happen on a GUI or tty Emacs frame?
     validations:
       required: true
+  - type: input
+    id: package-provenance
+    attributes:
+      label: Ement package version and provenance
+      description: What version of Ement.el are you using, where did you acquire it, and how did you install it?
+    validations:
+      required: true
   - type: textarea
     id: actions
     attributes:
@@ -46,7 +53,7 @@ body:
   - type: textarea
     id: results
     attributes:
-      label: Results
+      label: Observed results
       description: What behavior did you observe that seemed wrong?
     validations:
       required: true

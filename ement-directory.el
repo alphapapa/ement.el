@@ -85,8 +85,21 @@
     (when (equal "m.space" type)
       "Spaces")))
 
+(ement-directory-define-key people-p ()
+  (pcase-let (((map ('room_id id) ('room_type type)) item)
+              ((map session) ement-directory-etc))
+    (pcase type
+      ("m.space" nil)
+      (_ (when-let ((room (cl-find id (ement-session-rooms session)
+                                   :key #'ement-room-id :test #'equal))
+                    ((ement--room-direct-p room session)))
+           (propertize "People" 'face 'ement-room-list-direct))))))
+
 (defcustom ement-directory-default-keys
-  '((joined-p)
+  '((joined-p
+     (people-p)
+     (and :name "Rooms"
+          :keys ((not people-p))))
     (space-p)
     ((size :> 10000))
     ((size :> 1000))
@@ -116,18 +129,24 @@
       " ")))
 
 (ement-directory-define-column "Name" (:max-width 25)
-  (pcase-let* (((map name ('room_type type)) item)
+  (pcase-let* (((map name ('room_id id) ('room_type type)) item)
+               ((map session) ement-directory-etc)
+               (room)
                (face (pcase type
                        ("m.space" 'ement-room-list-space)
-                       (_ 'ement-room-list-name))))
-    (propertize (or name "[unnamed]")
+                       (_ (if (and (setf room (cl-find id (ement-session-rooms session)
+                                                       :key #'ement-room-id :test #'equal))
+                                   (ement--room-direct-p room session))
+                              'ement-room-list-direct
+                            'ement-room-list-name)))))
+    (propertize (or name (ement--room-display-name room))
                 'face face)))
 
 (ement-directory-define-column "Alias" (:max-width 25)
   (pcase-let (((map ('canonical_alias alias)) item))
     (or alias "")))
 
-(ement-directory-define-column "Size" ()
+(ement-directory-define-column "Size" (:align 'right)
   (pcase-let (((map ('num_joined_members size)) item))
     (number-to-string size)))
 

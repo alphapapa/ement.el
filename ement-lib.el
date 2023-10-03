@@ -774,12 +774,12 @@ THEN and ELSE are passed to `ement-api', which see."
 
 (cl-defun ement-complete-session (&key (prompt "Session: "))
   "Return an Ement session selected with completion."
-  (cl-etypecase (length ement-sessions)
-    ((integer 1 1) (cdar ement-sessions))
-    ((integer 2 *) (let* ((ids (mapcar #'car ement-sessions))
-                          (selected-id (completing-read prompt ids nil t)))
-                     (alist-get selected-id ement-sessions nil nil #'equal)))
-    (otherwise (user-error "No active sessions.  Call `ement-connect' to log in"))))
+  (pcase (length ement-sessions)
+    (0 (user-error "No active sessions.  Call `ement-connect' to log in"))
+    (1 (cdar ement-sessions))
+    (_ (let* ((ids (mapcar #'car ement-sessions))
+              (selected-id (completing-read prompt ids nil t)))
+         (alist-get selected-id ement-sessions nil nil #'equal)))))
 
 (declare-function ewoc-locate "ewoc")
 (defun ement-complete-user-id ()
@@ -1296,6 +1296,22 @@ m.replace metadata)."
       (ement--event-replaces-p a b)
       (ement--event-replaces-p b a)))
 
+(defun ement--original-event-for (event session)
+  "Return the original of EVENT in SESSION.
+If EVENT has metadata indicating that it replaces another event,
+return the replaced event; otherwise return EVENT.  If a replaced
+event can't be found in SESSION's events table, return an ersatz
+one that has the expected ID and same sender."
+  (pcase-let (((cl-struct ement-event sender
+                          (content (map ('m.relates_to
+                                         (map ('event_id replaced-event-id)
+                                              ('rel_type relation-type))))))
+               event))
+    (pcase relation-type
+      ("m.replace" (or (gethash replaced-event-id (ement-session-events session))
+                       (make-ement-event :id replaced-event-id :sender sender)))
+      (_ event))))
+
 (defun ement--format-room (room &optional topic)
   "Return ROOM formatted with name, alias, ID, and optionally TOPIC.
 Suitable for use in completion, etc."
@@ -1499,11 +1515,11 @@ Works in major-modes `ement-room-mode',
                                              nil nil #'equal)))
                   (map-nested-elt event '(content name))))
               (empty-room (heroes joined)
-                (cl-etypecase (length heroes)
-                  ((satisfies zerop) "Empty room")
-                  ((number 1 5) (format "Empty room (was %s)"
-                                        (hero-names heroes)))
-                  (t (format "Empty room (was %s)"
+                (pcase (length heroes)
+                  (0 "Empty room")
+                  ((pred (>= 5)) (format "Empty room (was %s)"
+                                         (hero-names heroes)))
+                  (_ (format "Empty room (was %s)"
                              (heroes-and-others heroes joined))))))
     (or (name-override)
         (latest-event "m.room.name" 'name)
