@@ -1752,7 +1752,7 @@ itself an edit of another event, the original event is edited."
                            ement-room ement-session (read-string "Reason (optional): " nil nil nil 'inherit-input-method))
                    ;; HACK: This isn't really an error, but is there a cleaner way to cancel?
                    (user-error "Message not deleted"))))
-  (ement-redact event room session reason))
+  (ement-redact (ement--original-event-for event session) room session reason))
 
 (defun ement-room-write-reply (event)
   "Write and send a reply to EVENT.
