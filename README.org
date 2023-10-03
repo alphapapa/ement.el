@@ -300,6 +300,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Group joined direct rooms in directory buffers.
 + Command ~end-of-buffer~ is bound to ~N~ in room buffers.
 
+*Changes*
+
++ Command ~ement-room-image-show~ use frame parameters to maximize the frame, making it easier for users to override.  ([[https://github.com/alphapapa/ement.el/issues/223][#223]].  Thanks to [[https://github.com/progfolio][Nicholas Vollmer]].)
+
 *Fixes*
 
 + Name for direct rooms in directory buffers.
