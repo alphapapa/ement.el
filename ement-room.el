@@ -1734,11 +1734,9 @@ The message must be one sent by the local user.  If EVENT is
 itself an edit of another event, the original event is edited."
   (interactive (ement-room-with-highlighted-event-at (point)
                  (cl-assert ement-session) (cl-assert ement-room)
-                 (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
-                              ((cl-struct ement-session user) ement-session)
-                              ((cl-struct ement-event sender (content (map body))) event)
-                              (ement-room-editing-event event)
-                              (edited-event (ement--original-event-for event ement-session)))
+                 (pcase-let* ((ement-room-editing-event (ewoc-data (ewoc-locate ement-ewoc)))
+                              ((cl-struct ement-event sender (content (map body))) ement-room-editing-event)
+                              ((cl-struct ement-session user) ement-session))
                    (unless (equal (ement-user-id sender) (ement-user-id user))
                      (user-error "You may only edit your own messages"))
                    ;; Remove any leading asterisk from the plain-text body.
@@ -1751,19 +1749,20 @@ itself an edit of another event, the original event is edited."
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
-                         (list edited-event ement-room ement-session body)))))))
+                         (list ement-room-editing-event ement-room ement-session body)))))))
   (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
                            "m.room.message" (ement--update-transaction-id session)))
          (new-content (ement-alist "body" body
                                    "msgtype" "m.text"))
          (_ (when ement-room-send-message-filter
               (setf new-content (funcall ement-room-send-message-filter new-content room))))
+         (original-event (ement--original-event-for event session))
          (content (ement-alist "msgtype" "m.text"
                                "body" body
                                "m.new_content" new-content
                                "m.relates_to" (ement-alist
                                                "rel_type" "m.replace"
-                                               "event_id" (ement-event-id event)))))
+                                               "event_id" (ement-event-id original-event)))))
     ;; Prepend the asterisk after the filter may have modified the content.  Note that the
     ;; "m.new_content" body does not get the leading asterisk, only the "content" body,
     ;; which is intended as a fallback.
