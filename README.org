@@ -18,7 +18,7 @@
 # ELPA badge image.
 [[https://elpa.gnu.org/packages/ement.html][https://elpa.gnu.org/packages/ement.svg]]
 
-Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
+Ement.el is a [[http://www.matrix.org/][Matrix]] client for [[https://www.gnu.org/software/emacs/][GNU Emacs]].  It aims to be simple, fast, featureful, and reliable, while integrating naturally with Emacs.
 
 Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.org][https://img.shields.io/matrix/ement.el:matrix.org.svg?label=%23ement.el:matrix.org]]
 
@@ -122,8 +122,8 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
 - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
-1. Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
-2. Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
+1. Call command ~ement-connect~ to connect.  Multiple sessions are supported: call the command again with a ~C-u~ universal prefix to connect to another account.
+2. Wait for initial sync to complete (which can take a few moments--initial sync JSON responses can be large).
 3. Use these commands (room-related commands may be called with universal prefix to prompt for the room):
    - ~ement-list-rooms~ to view the list of joined rooms.
    - ~ement-view-room~ to view a room's buffer, selected with completion.
