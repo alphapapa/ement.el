@@ -298,6 +298,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Additions*
 
 + Customization group ~ement-room-list~.
++ Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
 
 ** 0.13
 

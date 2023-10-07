@@ -111,6 +111,10 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Show room avatars in the room list."
   :type 'boolean)
 
+(defcustom ement-room-list-space-prefix "Space: "
+  "Prefix applied to space names."
+  :type 'string)
+
 ;;;;; Faces
 
 (defface ement-room-list-direct
@@ -209,7 +213,7 @@ from recent to non-recent for rooms updated in the past hour.")
                          (space-name (if parent-room
                                          (ement-room-display-name parent-room)
                                        id)))
-                    (concat "Space: " space-name))))
+                    (concat ement-room-list-space-prefix space-name))))
       (when-let ((key (if id
                           ;; ID specified.
                           (cond ((or (member id parents)
@@ -219,7 +223,7 @@ from recent to non-recent for rooms updated in the past hour.")
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
-                                 (or name (concat "Space: " (ement-room-display-name room)))))
+                                 (or name (concat ement-room-list-space-prefix (ement-room-display-name room)))))
                         ;; ID not specified.
                         (pcase (length parents)
                           (0 nil)
