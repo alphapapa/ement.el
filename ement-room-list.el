@@ -99,6 +99,10 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 ;;;; Customization
 
+(defgroup ement-room-list nil
+  "Options for room list buffers."
+  :group 'ement)
+
 (defcustom ement-room-list-auto-update t
   "Automatically update the taxy-based room list buffer."
   :type 'boolean)

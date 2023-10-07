@@ -295,7 +295,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.14-pre
 
-Nothing new yet.
+*Additions*
+
++ Customization group ~ement-room-list~.
 
 ** 0.13
 
