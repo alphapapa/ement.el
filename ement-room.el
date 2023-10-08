@@ -3796,6 +3796,7 @@ To be called from a minibuffer opened from
         (session ement-session))
     (quit-restore-window nil 'kill)
     (ement-view-room room session)
+    (add-to-history 'ement-room-message-history body)
     (list body input-method send-message-filter replying-to-event editing-event room session)))
 
 (defun ement-room-compose-send ()
@@ -3806,9 +3807,6 @@ See also `ement-room-compose-send-direct'."
   (cl-destructuring-bind (body input-method send-message-filter
                                replying-to-event editing-event room session)
       (ement-room-compose-send-prepare)
-    ;; Putting body in the kill ring seems like the best thing to do, to ensure
-    ;; it doesn't get lost if the user exits the minibuffer before sending.
-    (kill-new body)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
@@ -3839,7 +3837,6 @@ See also `ement-room-compose-send'."
   (cl-destructuring-bind (body _input-method send-message-filter
                                replying-to-event editing-event room session)
       (ement-room-compose-send-prepare)
-    (add-to-history 'ement-room-message-history body)
     (let ((ement-room-send-message-filter send-message-filter))
       (if editing-event
           (ement-room-edit-message (ement--original-event-for editing-event session)
