@@ -3772,21 +3772,31 @@ To be called from a minibuffer opened from
     (deactivate-input-method)
     (abort-recursive-edit)))
 
+(defun ement-room-compose-buffer-string-trimmed ()
+  "Like `buffer-string' trimmed with `string-trim'."
+  (buffer-substring-no-properties (progn (goto-char (point-min))
+                                         (skip-chars-forward " \t\r\n")
+                                         (point))
+                                  (progn (goto-char (point-max))
+                                         (skip-chars-backward " \t\r\n")
+                                         (point))))
+
 (defun ement-room-compose-send ()
   "Prompt to send the current compose buffer's contents.
 To be called from an `ement-room-compose' buffer."
   (interactive)
   (cl-assert ement-room-compose-buffer)
   (cl-assert ement-room) (cl-assert ement-session)
-  ;; Putting it in the kill ring seems like the best thing to do, to ensure
-  ;; it doesn't get lost if the user exits the minibuffer before sending.
-  (kill-new (string-trim (buffer-string)))
-  (let ((room ement-room)
+  (let ((body (ement-room-compose-buffer-string-trimmed))
+        (room ement-room)
         (session ement-session)
         (input-method current-input-method)
         (send-message-filter ement-room-send-message-filter)
         (replying-to-event ement-room-replying-to-event)
         (editing-event ement-room-editing-event))
+    ;; Putting body in the kill ring seems like the best thing to do, to ensure
+    ;; it doesn't get lost if the user exits the minibuffer before sending.
+    (kill-new body)
     (quit-restore-window nil 'kill)
     (ement-view-room room session)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
@@ -3798,9 +3808,9 @@ To be called from an `ement-room-compose' buffer."
                                      (eq data (or editing-event replying-to-event)))))))
            (body (if (or editing-event replying-to-event)
                      (ement-room-with-highlighted-event-at pos
-                       (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
+                       (ement-room-read-string prompt body 'ement-room-message-history
                                                nil 'inherit-input-method))
-                   (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
+                   (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
       (if editing-event
           (ement-room-edit-message editing-event ement-room ement-session body)
