@@ -3813,10 +3813,13 @@ To be called from an `ement-room-compose' buffer."
                    (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
       (if editing-event
-          (ement-room-edit-message editing-event room session body)
+          (ement-room-edit-message (ement--original-event-for editing-event session)
+                                   room session body)
         (ement-room-send-message room session
                                  :body body
-                                 :replying-to-event replying-to-event)))))
+                                 :replying-to-event (and replying-to-event
+                                                         (ement--original-event-for
+                                                          replying-to-event session)))))))
 
 (defun ement-room-init-compose-buffer (room session)
   "Set up the current buffer as a compose buffer.
