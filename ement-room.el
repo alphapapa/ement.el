@@ -1785,9 +1785,9 @@ itself an edit of another event, the original event is edited."
 (defun ement-room-write-reply (event)
   "Write and send a reply to EVENT.
 Interactively, to event at point."
-  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
-  (cl-assert ement-ewoc) (cl-assert ement-room) (cl-assert ement-session)
-  (cl-assert (ement-event-p event))
+  (interactive (progn (cl-assert ement-ewoc)
+                      (list (ewoc-data (ewoc-locate ement-ewoc)))))
+  (cl-assert ement-room) (cl-assert ement-session) (cl-assert (ement-event-p event))
   (let ((ement-room-replying-to-event event))
     (ement-room-with-highlighted-event-at (point)
       (pcase-let* ((room ement-room)
