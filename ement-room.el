@@ -1752,19 +1752,29 @@ mentioning the ROOM and CONTENT."
                         (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p)))
             (call-interactively #'ement-room-mark-read)))))))
 
+(defun ement-room-edit-message-prepare ()
+  "Bindings for `ement-room-edit-message' and `ement-room-compose-edit'."
+  (cl-assert ement-ewoc) (cl-assert ement-session)
+  ;; Bindings for... `event' (from ewoc).
+  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
+               ;; `user' (from ement-session).
+               ((cl-struct ement-session user) ement-session)
+               ;; `sender', `body' (from event).
+               ((cl-struct ement-event sender (content (map body))) event))
+    (unless (equal (ement-user-id sender) (ement-user-id user))
+      (user-error "You may only edit your own messages"))
+    ;; Remove any leading asterisk from the plain-text body.
+    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
+    (list event body)))
+
 (defun ement-room-edit-message (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY.
 The message must be one sent by the local user.  If EVENT is
 itself an edit of another event, the original event is edited."
+  ;; See also `ement-room-compose-edit'.
   (interactive (ement-room-with-highlighted-event-at (point)
-                 (cl-assert ement-session) (cl-assert ement-room)
-                 (pcase-let* ((ement-room-editing-event (ewoc-data (ewoc-locate ement-ewoc)))
-                              ((cl-struct ement-event sender (content (map body))) ement-room-editing-event)
-                              ((cl-struct ement-session user) ement-session))
-                   (unless (equal (ement-user-id sender) (ement-user-id user))
-                     (user-error "You may only edit your own messages"))
-                   ;; Remove any leading asterisk from the plain-text body.
-                   (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
+                 (cl-destructuring-bind (ement-room-editing-event body)
+                     (ement-room-edit-message-prepare)
                    (ement-room-with-typing
                      (let* ((prompt (format "Edit message (%s): "
                                             (ement-room-display-name ement-room)))
@@ -3746,6 +3756,18 @@ message contents."
       ;; hooks do anything that activating `org-mode' nullifies, this should be okay...
       (run-hooks 'ement-room-compose-hook))
     (pop-to-buffer compose-buffer)))
+
+(defun ement-room-compose-edit (event room session body)
+  "Edit EVENT in ROOM on SESSION to have new BODY, using a compose buffer.
+The message must be one sent by the local user."
+  ;; See also `ement-room-edit-message'.
+  (interactive (cl-destructuring-bind (event body)
+                   (ement-room-edit-message-prepare)
+                 (list event ement-room ement-session body)))
+  (cl-assert (ement-event-p event)) (cl-assert room) (cl-assert session)
+  (let ((ement-room-editing-event event))
+    (ement-room-with-highlighted-event-at (point)
+      (ement-room-compose-message room session :body body))))
 
 (defun ement-room-compose-from-minibuffer ()
   "Edit the current message in a compose buffer.
