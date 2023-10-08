@@ -3802,14 +3802,14 @@ To be called from an `ement-room-compose' buffer."
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
-           (pos (when (or editing-event replying-to-event)
-                  (ewoc-location (ement-room--ewoc-last-matching ement-ewoc
-                                   (lambda (data)
-                                     (eq data (or editing-event replying-to-event)))))))
            (body (if (or editing-event replying-to-event)
-                     (ement-room-with-highlighted-event-at pos
-                       (ement-room-read-string prompt body 'ement-room-message-history
-                                               nil 'inherit-input-method))
+                     (let ((pos (ewoc-location (ement-room--ewoc-last-matching ement-ewoc
+                                                 (lambda (data)
+                                                   (eq data (or editing-event
+                                                                replying-to-event)))))))
+                       (ement-room-with-highlighted-event-at pos
+                         (ement-room-read-string prompt body 'ement-room-message-history
+                                                 nil 'inherit-input-method)))
                    (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
       (if editing-event
