@@ -3799,7 +3799,7 @@ To be called from an `ement-room-compose' buffer."
     (kill-new body)
     (quit-restore-window nil 'kill)
     (ement-view-room room session)
-    (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+    (let* ((prompt (format "Send message (%s): " (ement-room-display-name room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
            (body (if (or editing-event replying-to-event)
@@ -3813,8 +3813,10 @@ To be called from an `ement-room-compose' buffer."
                    (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
       (if editing-event
-          (ement-room-edit-message editing-event ement-room ement-session body)
-        (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event)))))
+          (ement-room-edit-message editing-event room session body)
+        (ement-room-send-message room session
+                                 :body body
+                                 :replying-to-event replying-to-event)))))
 
 (defun ement-room-init-compose-buffer (room session)
   "Set up the current buffer as a compose buffer.
