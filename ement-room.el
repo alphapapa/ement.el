@@ -3781,24 +3781,34 @@ To be called from a minibuffer opened from
                                          (skip-chars-backward " \t\r\n")
                                          (point))))
 
-(defun ement-room-compose-send ()
-  "Prompt to send the current compose buffer's contents.
-To be called from an `ement-room-compose' buffer."
-  (interactive)
+(defun ement-room-compose-send-prepare ()
+  "Bindings for `ement-room-compose-send' and `ement-room-compose-send-direct'."
   (cl-assert ement-room-compose-buffer)
   (cl-assert ement-room) (cl-assert ement-session)
+  ;; Capture the necessary values from the compose buffer before killing it and
+  ;; switching back to the room buffer.  Return the values as a list.
   (let ((body (ement-room-compose-buffer-string-trimmed))
-        (room ement-room)
-        (session ement-session)
         (input-method current-input-method)
         (send-message-filter ement-room-send-message-filter)
         (replying-to-event ement-room-replying-to-event)
-        (editing-event ement-room-editing-event))
+        (editing-event ement-room-editing-event)
+        (room ement-room)
+        (session ement-session))
+    (quit-restore-window nil 'kill)
+    (ement-view-room room session)
+    (list body input-method send-message-filter replying-to-event editing-event room session)))
+
+(defun ement-room-compose-send ()
+  "Prompt to send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer.
+See also `ement-room-compose-send-direct'."
+  (interactive)
+  (cl-destructuring-bind (body input-method send-message-filter
+                               replying-to-event editing-event room session)
+      (ement-room-compose-send-prepare)
     ;; Putting body in the kill ring seems like the best thing to do, to ensure
     ;; it doesn't get lost if the user exits the minibuffer before sending.
     (kill-new body)
-    (quit-restore-window nil 'kill)
-    (ement-view-room room session)
     (let* ((prompt (format "Send message (%s): " (ement-room-display-name room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
@@ -3812,6 +3822,25 @@ To be called from an `ement-room-compose' buffer."
                                                  nil 'inherit-input-method)))
                    (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
+      (if editing-event
+          (ement-room-edit-message (ement--original-event-for editing-event session)
+                                   room session body)
+        (ement-room-send-message room session
+                                 :body body
+                                 :replying-to-event (and replying-to-event
+                                                         (ement--original-event-for
+                                                          replying-to-event session)))))))
+
+(defun ement-room-compose-send-direct ()
+  "Directly send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer.
+See also `ement-room-compose-send'."
+  (interactive)
+  (cl-destructuring-bind (body _input-method send-message-filter
+                               replying-to-event editing-event room session)
+      (ement-room-compose-send-prepare)
+    (add-to-history 'ement-room-message-history body)
+    (let ((ement-room-send-message-filter send-message-filter))
       (if editing-event
           (ement-room-edit-message (ement--original-event-for editing-event session)
                                    room session body)
