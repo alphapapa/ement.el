@@ -1818,6 +1818,7 @@ itself an edit of another event, the original event is edited."
 (defun ement-room-write-reply (event)
   "Write and send a reply to EVENT.
 Interactively, to event at point."
+  ;; See also `ement-room-compose-reply'.
   (interactive (progn (cl-assert ement-ewoc)
                       (list (ewoc-data (ewoc-locate ement-ewoc)))))
   (cl-assert ement-room) (cl-assert ement-session) (cl-assert (ement-event-p event))
@@ -3768,6 +3769,17 @@ The message must be one sent by the local user."
   (let ((ement-room-editing-event event))
     (ement-room-with-highlighted-event-at (point)
       (ement-room-compose-message room session :body body))))
+
+(defun ement-room-compose-reply (event)
+  "Write and send a reply to EVENT, using a compose buffer.
+Interactively, to event at point."
+  ;; See also `ement-room-write-reply'.
+  (interactive (progn (cl-assert ement-ewoc)
+                      (list (ewoc-data (ewoc-locate ement-ewoc)))))
+  (cl-assert ement-room) (cl-assert ement-session) (cl-assert (ement-event-p event))
+  (let ((ement-room-replying-to-event event))
+    (ement-room-with-highlighted-event-at (point)
+      (ement-room-compose-message ement-room ement-session))))
 
 (defun ement-room-compose-from-minibuffer ()
   "Edit the current message in a compose buffer.
