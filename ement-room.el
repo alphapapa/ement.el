@@ -3847,6 +3847,25 @@ See also `ement-room-compose-send'."
                                                          (ement--original-event-for
                                                           replying-to-event session)))))))
 
+(defun ement-room-compose-abort ()
+  "Kill the compose buffer and window."
+  (interactive)
+  (let ((body (ement-room-compose-buffer-string-trimmed))
+        (room ement-room))
+    (add-to-history 'ement-room-message-history body)
+    (kill-buffer)
+    (delete-window)
+    ;; Make sure we end up with the associated room buffer selected.
+    (when-let ((win (catch 'room-win
+                      (walk-windows
+                       (lambda (win)
+                         (with-selected-window win
+                           (and (derived-mode-p 'ement-room-mode)
+                                (bound-and-true-p ement-room)
+                                (eq ement-room room)
+                                (throw 'room-win win))))))))
+      (select-window win))))
+
 (defun ement-room-init-compose-buffer (room session)
   "Set up the current buffer as a compose buffer.
 Sets ROOM and SESSION buffer-locally, binds `save-buffer' in
@@ -3865,9 +3884,10 @@ a copy of the local keymap, and sets `header-line-format'."
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
   (local-set-key [remap save-buffer] #'ement-room-compose-send)
+  (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
   (setq header-line-format
         (concat (substitute-command-keys
-                 (format " Press \\[save-buffer] to send message to room (%s)"
+                 (format " Press \\[save-buffer] to send message to room (%s), or \\[ement-room-compose-abort] to cancel."
                          (ement-room-display-name room)))
                 (cond (ement-room-replying-to-event
                        (format " (Replying to message from %s)"
