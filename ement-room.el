@@ -3807,7 +3807,7 @@ To be called from an `ement-room-compose' buffer."
         (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event)))))
 
 (defun ement-room-init-compose-buffer (room session)
-  "Eval BODY, setting up the current buffer as a compose buffer.
+  "Set up the current buffer as a compose buffer.
 Sets ROOM and SESSION buffer-locally, binds `save-buffer' in
 a copy of the local keymap, and sets `header-line-format'."
   ;; Using a macro for this seems awkward but necessary.
