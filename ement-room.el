@@ -415,6 +415,15 @@ unread depends on the room's fully-read marker, read-receipt
 marker, whether the local user sent the latest events, etc."
   :type 'boolean)
 
+(defcustom ement-room-compose-buffer-display-action
+  (cons 'display-buffer-below-selected
+        '((window-height . 3)
+          (inhibit-same-window . t)
+          (reusable-frames . nil)))
+  "`display-buffer' action for displaying compose buffers."
+  :type display-buffer--action-custom-type
+  :risky t)
+
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
 Set by `ement-room-message-format-spec-setter'.")
@@ -3756,7 +3765,7 @@ message contents."
       ;; is the only function that makes the compose buffer, and as long as none of the
       ;; hooks do anything that activating `org-mode' nullifies, this should be okay...
       (run-hooks 'ement-room-compose-hook))
-    (pop-to-buffer compose-buffer)))
+    (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)))
 
 (defun ement-room-compose-edit (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY, using a compose buffer.
@@ -3820,7 +3829,7 @@ To be called from a minibuffer opened from
                               (show-buffer-fn (lambda ()
                                                 (remove-hook 'window-configuration-change-hook show-buffer-fn-symbol)
                                                 ;; FIXME: Probably need to unintern the symbol.
-                                                (pop-to-buffer compose-buffer)
+                                                (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)
                                                 (set-input-method input-method))))
                          (fset show-buffer-fn-symbol show-buffer-fn)
                          (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
