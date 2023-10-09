@@ -424,6 +424,33 @@ marker, whether the local user sent the latest events, etc."
   :type display-buffer--action-custom-type
   :risky t)
 
+(defcustom ement-room-compose-buffer-window-auto-height t
+  "Dynamically match the compose buffer window height to its contents.
+See also `ement-room-compose-buffer-window-auto-height-max' and
+`ement-room-compose-buffer-window-auto-height-min'."
+  :type 'boolean)
+
+(defvar ement-room-compose-buffer-window-auto-height-pixelwise t
+  "Whether to adjust the window height for pixel-precise lines.")
+
+(defvar ement-room-compose-buffer-window-auto-height-cache)
+
+(defcustom ement-room-compose-buffer-window-auto-height-min nil
+  "If non-nil, limits the body height of the compose buffer window.
+
+See also `ement-room-compose-buffer-window-auto-height' and
+`ement-room-compose-buffer-window-auto-height-max'."
+  :type '(choice (const :tag "Default" nil)
+                 (natnum :tag "Lines")))
+
+(defcustom ement-room-compose-buffer-window-auto-height-max nil
+  "If non-nil, limits the body height of the compose buffer window.
+
+See also `ement-room-compose-buffer-window-auto-height' and
+`ement-room-compose-buffer-window-auto-height-min'."
+  :type '(choice (const :tag "Default" nil)
+                 (natnum :tag "Lines")))
+
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
 Set by `ement-room-message-format-spec-setter'.")
@@ -3963,7 +3990,58 @@ a copy of the local keymap, and sets `header-line-format'."
                                 ement-room (ement-event-sender
                                             ement-room-replying-to-event))))
                       (ement-room-editing-event
-                       " (Editing message)")))))
+                       " (Editing message)"))))
+  ;; Adjust the window height automatically.
+  (when ement-room-compose-buffer-window-auto-height
+    (add-hook 'post-command-hook
+              #'ement-room-compose-buffer-window-auto-height nil :local)))
+
+(defun ement-room-compose-buffer-window-auto-height ()
+  "Ensure that the compose buffer displays the whole message.
+
+Called via `post-command-hook' if `ement-room-compose-buffer-window-auto-height'
+is non-nil."
+  ;; Manipulate the window body height.
+  (unless (window-full-height-p)
+    (let* ((pixelwise (and ement-room-compose-buffer-window-auto-height-pixelwise
+                           (display-graphic-p)))
+           (lineheight (and pixelwise (default-line-height)))
+           (buflines (max 1 (count-screen-lines nil nil t)))
+           (cache (if pixelwise
+                      (* buflines lineheight)
+                    buflines)))
+      ;; Do nothing if the desired height has not changed.
+      (unless (and (boundp 'ement-room-compose-buffer-window-auto-height-cache)
+                   (eql cache ement-room-compose-buffer-window-auto-height-cache))
+        ;; Otherwise resize the window...
+        (setq-local ement-room-compose-buffer-window-auto-height-cache cache)
+        (let* ((minheight (if ement-room-compose-buffer-window-auto-height-min
+                              (max 1 ement-room-compose-buffer-window-auto-height-min)
+                            1))
+               (maxheight ement-room-compose-buffer-window-auto-height-max)
+               (maxlines (or (and maxheight (min buflines maxheight))
+                             buflines))
+               (reqlines (max maxlines minheight)))
+          (if pixelwise
+              ;; In GUI frames we should do this in pixels, as the line-based
+              ;; `window-resize' DELTA is based on the default frame character
+              ;; height, rather than the buffer's `default-line-height', which
+              ;; doesn't take face remapping (e.g. `text-scale-adjust') into
+              ;; account and would therefore enlarge the window by the wrong
+              ;; value.  Pixel-based resizing also lets us eliminate vertical
+              ;; padding resulting from the body lines being a different height
+              ;; to the mode- and/or header-line height (which can easily happen
+              ;; in GUI frames and is distractingly obvious in a small window
+              ;; which is supposed to fit its content).
+              (let* ((window-resize-pixelwise t)
+                     (pixheight (* lineheight reqlines))
+                     (pixels (- pixheight (window-body-height nil t))))
+                (when-let ((pixels (window-resizable nil pixels nil t t)))
+                  (window-resize nil pixels nil t t)))
+            ;; In terminal frames we deal in lines rather than pixels.
+            (let ((delta (- reqlines (window-body-height))))
+              (when-let ((delta (window-resizable nil delta nil t)))
+                (window-resize nil delta nil t)))))))))
 
 ;;;;; Widgets
 
