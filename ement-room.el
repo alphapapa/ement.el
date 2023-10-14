@@ -123,6 +123,32 @@ Used to, e.g. call `ement-room-compose-org'.")
 (declare-function ement-room-list "ement-room-list.el")
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
+
+(defvar ement-room-mode-self-insert-keymap (make-sparse-keymap)
+  "The `ement-room-mode' keymap under `ement-room-self-insert-mode'.
+
+Set as the parent keymap of `ement-room-mode-effective-keymap'
+when `ement-room-self-insert-mode' is enabled.
+
+This keymap is derived from the `ement-room-self-insert-chars'
+and `ement-room-self-insert-commands' user options, along with
+`ement-room-mode-map-prefix-key' which provides access to the
+full `ement-room-mode-map'.  (Non-conflicting key bindings from
+`ement-room-mode-map' are also available directly).
+
+This keymap is generated when `ement-room-self-insert-mode' is
+enabled, and after customizing any of the above options when the
+minor mode is enabled.
+
+The hook `ement-room-mode-self-insert-keymap-update-hook' runs
+after generating this keymap.
+
+Note: Emacs bug#66792 may cause `describe-keymap' to include
+unreachable key bindings from the parent `ement-room-mode-map' in
+its help output.  This problem affects only the help, and we work
+around it for the `ement-room-mode' help; but when viewing the
+keymap directly the issue may be visible.")
+
 (defvar ement-room-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "?") #'ement-room-transient)
@@ -186,6 +212,30 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "g") #'ement-room-sync)
     map)
   "Keymap for Ement room buffers.")
+
+(defvar ement-room-mode-effective-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map ement-room-mode-map)
+    map)
+  "The actual keymap used in `ement-room-mode'.
+
+This keymap reflects the state of `ement-room-self-insert-mode',
+with a parent of `ement-room-mode-map' when the mode is disabled,
+or `ement-room-mode-self-insert-keymap' when the mode is enabled.")
+
+(defvar ement-room-mode--advertised-keymap ement-room-mode-map
+  "The keymap advertised by `ement-room-mode'.
+
+This keymap should represent the functional behaviour of
+`ement-room-mode-effective-keymap' without the confusion arising
+from Emacs bug#66792 on account of the effective keymap having
+`ement-room-mode-map' as a parent if `ement-room-self-insert-mode'
+is enabled.
+
+Because it does not always have `ement-room-mode-map' as a
+parent, it is possible for that map to get out of sync with the
+advertised map, but `ement-room-mode-self-insert-keymap-update'
+makes a best effort to keep it accurate.")
 
 (defvar ement-room-minibuffer-map
   (let ((map (make-sparse-keymap)))
@@ -467,6 +517,173 @@ See also `ement-room-compose-buffer-window-auto-height' and
 `ement-room-compose-buffer-window-auto-height-min'."
   :type '(choice (const :tag "Default" nil)
                  (natnum :tag "Lines")))
+
+(defcustom ement-room-mode-self-insert-keymap-update-hook nil
+  "Hook run after rebuilding `ement-room-mode-self-insert-keymap'.
+
+This happens at the time `ement-room-self-insert-mode' is
+enabled, and also if user options `ement-room-self-insert-chars',
+`ement-room-self-insert-commands', or
+`ement-room-mode-map-prefix-key' are customized while the mode is
+enabled.
+
+You can use this hook to define any desired custom bindings which
+are not accounted for by those user options."
+  :type 'hook)
+
+(defvar ement-room-self-insert-mode)
+(defvar ement-room-self-insert-chars)
+(defvar ement-room-self-insert-commands)
+(defun ement-room-mode-self-insert-keymap-update ()
+  "Rebuilds `ement-room-mode-self-insert-keymap'.
+Also rebuilds `ement-room-mode--advertised-keymap'."
+  ;; Must be defined ahead of `ement-room-self-insert-option-setter'.
+  (let ((map (make-sparse-keymap)))
+    ;; Ensure that `ement-room-self-insert-chars' start a message.
+    (dolist (range ement-room-self-insert-chars)
+      (if (consp range)
+          ;; Process a range the same way that `global-map' does.
+          (let ((vec1 (make-vector 1 nil))
+                (from (car range))
+                (to (cdr range)))
+            (while (<= from to)
+              (aset vec1 0 from)
+              (define-key map vec1 #'ement-room-self-insert-new-message)
+              (setq from (1+ from))))
+        ;; Else `range' is a single character.
+        (define-key map (vector range) #'ement-room-self-insert-new-message)))
+    ;; Provide access to `ement-room-mode-map' via a prefix binding.
+    (when (bound-and-true-p ement-room-mode-map-prefix-key)
+      (define-key map ement-room-mode-map-prefix-key ement-room-mode-map))
+    ;; This is now the basis for `ement-room-mode-self-insert-keymap' and also
+    ;; `ement-room-mode--advertised-keymap' (when `ement-room-self-insert-mode'
+    ;; is enabled), but we need to keep the remaining differences between them
+    ;; separate.  (We do still need some identical `remap' bindings for both
+    ;; keymaps, but we can't do that just yet.)
+    (setq ement-room-mode-self-insert-keymap (copy-keymap map))
+    ;; To `ement-room-mode-self-insert-keymap', add `ement-room-mode-map'
+    ;; as the keymap parent.  (This is the keymap which is actually used.)
+    (set-keymap-parent ement-room-mode-self-insert-keymap ement-room-mode-map)
+    (if (not (bound-and-true-p ement-room-self-insert-mode))
+        ;; Advertise the real `ement-room-mode-map'.
+        (setq ement-room-mode--advertised-keymap ement-room-mode-map)
+      ;; Otherwise we base `ement-room-mode--advertised-keymap' on the same base
+      ;; map previously copied to `ement-room-mode-self-insert-keymap'.
+      (setq ement-room-mode--advertised-keymap map)
+      ;; To `ement-room-mode--advertised-keymap' (the keymap displayed when
+      ;; `describe-mode' is called), rather than setting a parent we instead
+      ;; copy the non-conflicting top-level bindings from `ement-room-mode-map'.
+      ;; Not using a keymap parent means the advertised map doesn't see any
+      ;; future changes to `ement-room-mode-map', but having a keymap parent
+      ;; would make the `describe-mode' output very confusing on account of
+      ;; Emacs bug#66792, so we accept potential inaccuracy as a trade-off for
+      ;; showing more comprehensible help.
+      ;;
+      ;; The following will copy the `remap' keymap verbatim, clobbering any
+      ;; pre-existing remappings; so we do this before we define other
+      ;; remappings.
+      (cl-labels ((copy-from (key definition)
+		    (unless (lookup-key ement-room-mode--advertised-keymap
+                                        (vector key))
+		      (define-key ement-room-mode--advertised-keymap
+                                  (vector key) definition))))
+        ;; Copy from a copy of `ement-room-mode-map', otherwise the latter will
+        ;; also acquire (share) the remap keybindings which are added below.
+        (map-keymap #'copy-from (copy-keymap ement-room-mode-map))))
+    ;; Now define our additional `remap' bindings in both keymaps.
+    (let ((keymaps (if (bound-and-true-p ement-room-self-insert-mode)
+                       (list ement-room-mode-self-insert-keymap
+                             ement-room-mode--advertised-keymap)
+                     (list ement-room-mode-self-insert-keymap))))
+      (dolist (keymap keymaps)
+        ;; Make `self-insert-command' (and friends) start a new message.
+        (dolist (cmd ement-room-self-insert-commands)
+          (define-key keymap (vector 'remap cmd)
+                      #'ement-room-self-insert-new-message)))))
+  (run-hooks 'ement-room-mode-self-insert-keymap-update-hook))
+
+(defun ement-room-mode-effective-keymap-update ()
+  "Sets the parent keymap for `ement-room-mode-effective-keymap'.
+
+Either `ement-room-mode-self-insert-keymap' or `ement-room-mode-map',
+depending on `ement-room-self-insert-mode'."
+  ;; Must be defined ahead of `ement-room-self-insert-option-setter'.
+  (set-keymap-parent ement-room-mode-effective-keymap
+                     (if (bound-and-true-p ement-room-self-insert-mode)
+                         ement-room-mode-self-insert-keymap
+                       ement-room-mode-map)))
+
+(defun ement-room-self-insert-option-setter (option value)
+  "Setter for options affecting `ement-room-self-insert-mode'.
+
+This is the setter function for `ement-room-self-insert-chars'
+and `ement-room-self-insert-commands'.
+
+Sets the value with (set-default-toplevel-value OPTION VALUE),
+and then rebuilds `ement-room-mode-self-insert-keymap'."
+  ;; Must be defined ahead of `ement-room-self-insert-chars' and
+  ;; `ement-room-self-insert-commands'.
+  ;;
+  ;; Update the variable.
+  (set-default-toplevel-value option value)
+  ;; Update keymaps when necessary.
+  (when (bound-and-true-p ement-room-self-insert-mode)
+    (ement-room-mode-self-insert-keymap-update)
+    (ement-room-mode-effective-keymap-update)))
+
+(defcustom ement-room-self-insert-chars
+  '((33 . 62) (64 . 126))
+  "Characters handled by `ement-room-self-insert-mode'.
+
+These are in addition to any `self-insert-command' key bindings
+-- this list is to ensure that certain keys will be treated this
+way even when they have `ement-room-mode-map' bindings.
+
+Cons cell elements represent the range from the car to the cdr
+\(inclusive).  The default value covers the common \"printable\"
+ASCII characters excluding SPC (32), ? (63), and DEL (127).
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'.
+
+See also `ement-room-self-insert-commands'."
+  :type '(repeat (choice (character :tag "Character")
+                         (cons :tag "Character range"
+                               (character :tag "From")
+                               (character :tag "To"))))
+  :set #'ement-room-self-insert-option-setter)
+
+(defcustom ement-room-self-insert-commands
+  '(self-insert-command yank)
+  "Commands handled by `ement-room-self-insert-mode'.
+
+When the mode is enabled, the listed commands are remapped to
+`ement-room-self-insert-new-message' such that when one of those
+commands is invoked in a room buffer, a new message will be
+started and the event which triggered the command (typically a
+`self-insert-command' key binding) will be re-issued in the
+message buffer.
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'.
+
+See also `ement-room-self-insert-chars'."
+  :type '(repeat (function :tag "Command"))
+  :set #'ement-room-self-insert-option-setter)
+
+(defcustom ement-room-mode-map-prefix-key (kbd "DEL")
+  "A prefix key sequence to access `ement-room-mode-map'.
+Active when `ement-room-self-insert-mode' is enabled.
+
+The default key is DEL.
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'."
+  :type 'key-sequence
+  :set #'ement-room-self-insert-option-setter)
 
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
@@ -2225,7 +2442,10 @@ the previously oldest event."
   "Major mode for Ement room buffers.
 This mode initializes a buffer to be used for showing events in
 an Ement room.  It kills all local variables, removes overlays,
-and erases the buffer."
+and erases the buffer.
+
+\\{ement-room-mode--advertised-keymap}"
+  (use-local-map ement-room-mode-effective-keymap)
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
@@ -2255,6 +2475,47 @@ and erases the buffer."
                                          dnd-protocol-alist)))
 
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
+
+;;;###autoload
+(define-minor-mode ement-room-self-insert-mode
+  "When enabled, `self-insert-command' keys begin a new message.
+
+The user options `ement-room-self-insert-chars' and
+`ement-room-self-insert-commands' determine the specific keys and
+commands which will have this effect.
+
+When this mode is enabled, `ement-room-mode-self-insert-keymap'
+takes precedence over `ement-room-mode-map', with the shadowed
+key bindings in `ement-room-mode-map' becoming accessible via
+`ement-room-mode-map-prefix-key'.
+
+If you define custom key bindings in `ement-room-mode-map', you
+should call `ement-room-self-insert-mode' after defining those
+keys (rather than before).  Your bindings will be functional in
+either case, but they may not appear in the help for
+`ement-room-mode' if you define them afterwards.
+
+If you bind keys in `ement-room-mode-self-insert-keymap', do so
+via `ement-room-mode-self-insert-keymap-update-hook' (see which)."
+  :init-value nil
+  :global t
+  :keymap nil
+  ;; Ensure the self-insert and advertised keymaps are up to date.
+  (if ement-room-self-insert-mode
+      (ement-room-mode-self-insert-keymap-update)
+    (setq ement-room-mode--advertised-keymap ement-room-mode-map))
+  ;; Make the local keymap used by `ement-room-mode' reflect the state
+  ;; of `ement-room-self-insert-mode'.
+  (ement-room-mode-effective-keymap-update))
+
+(defun ement-room-self-insert-new-message ()
+  "Compose a new message beginning with the just-typed character."
+  (interactive)
+  ;; Re-issue the event which triggered this command.
+  ;; (Typically a `self-insert-command' key binding.)
+  (seq-doseq (key (reverse (this-command-keys-vector)))
+    (push key unread-command-events))
+  (call-interactively #'ement-room-dispatch-new-message))
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
   "Call `read-from-minibuffer', binding variables and keys for Ement.
@@ -4035,6 +4296,13 @@ a copy of the local keymap, and sets `header-line-format'."
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
+  (local-set-key [remap delete-backward-char]
+                 `(menu-item "" ement-room-compose-abort
+                             :filter ,(lambda (cmd)
+                                        (and ement-room-self-insert-mode
+                                             (<= (buffer-size) 1)
+                                             (save-restriction (widen) (eobp))
+                                             cmd))))
   (local-set-key [remap save-buffer] #'ement-room-dispatch-send-message)
   (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
   (setq header-line-format

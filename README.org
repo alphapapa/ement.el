@@ -162,6 +162,8 @@ These bindings are common to all of the following buffer types:
 
 *** Room buffers
 
+Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by default it is disabled), typing any of the common printable ascii characters (such as letters) in a room buffer will start a new message, and most of the following bindings are instead accessed via a prefix key.  See the minor mode docstring for details.  (The ~?~ binding is an exception; by default it opens the command menu regardless of this minor mode.)
+
 + Show command menu: ~?~
 
 [[images/transient.png]]
