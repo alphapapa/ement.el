@@ -150,7 +150,18 @@ around it for the `ement-room-mode' help; but when viewing the
 keymap directly the issue may be visible.")
 
 (defvar ement-room-mode-map
-  (let ((map (make-sparse-keymap)))
+  (let ((map (make-sparse-keymap))
+        (prefixes '(("M-g" . "group:switching")
+                    ("s" . "group:messages")
+                    ("u" . "group:users")
+                    ("r" . "group:room")
+                    ("R" . "group:membership"))))
+    ;; Use symbols for prefix maps so that `which-key' can display their names.
+    (dolist (prefix prefixes)
+      (let ((cmd (define-prefix-command (make-symbol (cdr prefix)))))
+        (define-key map (kbd (car prefix)) cmd)))
+
+    ;; Menu
     (define-key map (kbd "?") #'ement-room-transient)
 
     ;; Movement
