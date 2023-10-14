@@ -148,10 +148,10 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "q") #'quit-window)
 
     ;; Messages
-    (define-key map (kbd "RET") #'ement-room-send-message)
-    (define-key map (kbd "S-<return>") #'ement-room-write-reply)
-    (define-key map (kbd "M-RET") #'ement-room-compose-message)
-    (define-key map (kbd "<insert>") #'ement-room-edit-message)
+    (define-key map (kbd "RET") #'ement-room-dispatch-new-message)
+    (define-key map (kbd "S-<return>") #'ement-room-dispatch-reply-to-message)
+    (define-key map (kbd "M-RET") #'ement-room-dispatch-new-message-alt)
+    (define-key map (kbd "<insert>") #'ement-room-dispatch-edit-message)
     (define-key map (kbd "C-k") #'ement-room-delete-message)
     (define-key map (kbd "s r") #'ement-room-send-reaction)
     (define-key map (kbd "s e") #'ement-room-send-emote)
@@ -414,6 +414,23 @@ notification settings.  Otherwise, whether a room is marked
 unread depends on the room's fully-read marker, read-receipt
 marker, whether the local user sent the latest events, etc."
   :type 'boolean)
+
+(defcustom ement-room-compose-method 'minibuffer
+  "How to compose messages.
+
+The value `minibuffer' means the minibuffer will be used to write
+and edit messages.  You can use \
+\\<ement-room-minibuffer-map>\\[ement-room-compose-from-minibuffer] \
+to switch from the minibuffer
+to a separate compose buffer, and \\[save-buffer] in the compose buffer
+will then return you to the minibuffer to confirm the message
+before sending.
+
+The value `compose-buffer' means that the minibuffer is not used --
+messages are written in a compose buffer by default, and \\[save-buffer]
+sends the composed message directly."
+  :type '(choice (const :tag "Minibuffer" minibuffer)
+                 (const :tag "Compose buffer" compose-buffer)))
 
 (defcustom ement-room-compose-buffer-display-action
   (cons 'display-buffer-below-selected
@@ -1685,6 +1702,46 @@ EVENT should be an `ement-event' or `ement-room-membership-events' struct."
         (pp event (current-buffer))
         (view-mode)
         (pop-to-buffer (current-buffer))))))
+
+(defun ement-room-dispatch-new-message ()
+  "Write a new message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-message)
+     (t 'ement-room-send-message))))
+
+(defun ement-room-dispatch-new-message-alt ()
+  "Inverse of `ement-room-dispatch-new-message'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-send-message)
+     (t 'ement-room-compose-message))))
+
+(defun ement-room-dispatch-edit-message ()
+  "Edit a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-edit)
+     (t 'ement-room-edit-message))))
+
+(defun ement-room-dispatch-reply-to-message ()
+  "Reply to a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-reply)
+     (t 'ement-room-write-reply))))
+
+(defun ement-room-dispatch-send-message ()
+  "Send a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer #'ement-room-compose-send-direct)
+     (t #'ement-room-compose-send))))
 
 (cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
@@ -3978,7 +4035,7 @@ a copy of the local keymap, and sets `header-line-format'."
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
-  (local-set-key [remap save-buffer] #'ement-room-compose-send)
+  (local-set-key [remap save-buffer] #'ement-room-dispatch-send-message)
   (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
   (setq header-line-format
         (concat (substitute-command-keys
