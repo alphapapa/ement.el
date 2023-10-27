@@ -137,6 +137,8 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "m") #'ement-room-mark-read)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
+    (define-key map (kbd "<tab>") #'forward-button)
+    (define-key map (kbd "<backtab>") #'backward-button)
 
     ;; Switching
     (define-key map (kbd "M-g M-l") #'ement-room-list)

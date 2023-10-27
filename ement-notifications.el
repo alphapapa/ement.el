@@ -203,9 +203,7 @@ to `ement-api', which see."
               (goto-char (point-max)))
             (setf end (- (point) 2))
             (add-text-properties start end
-                                 (list 'button '(t)
-                                       'category 'default-button
-                                       'action #'ement-notify-button-action
+                                 (list 'action #'ement-notify-button-action
                                        'session session
                                        'room ement-room
                                        'event event))

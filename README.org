@@ -300,6 +300,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Customization group ~ement-room-list~.
 + Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
 
+*Changes*
+
++ Bind ~TAB~ / ~BACKTAB~ to move between links in room and like buffers.  ([[https://github.com/alphapapa/ement.el/issues/113][#113]].  Thanks to [[https://github.com/ericsfraga][Eric S. Fraga]] for suggesting.)
+
 ** 0.13
 
 *Additions*
