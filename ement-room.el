@@ -4303,6 +4303,8 @@ a copy of the local keymap, and sets `header-line-format'."
   (setq-local completion-at-point-functions
               (append '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
                       completion-at-point-functions))
+  (setq-local dabbrev-select-buffers-function #'ement-compose-dabbrev-select-buffers
+              dabbrev-friend-buffer-function #'ement-room-mode-p)
   ;; FIXME: Compose with local map?
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
@@ -4378,6 +4380,22 @@ is non-nil."
             (let ((delta (- reqlines (window-body-height))))
               (when-let ((delta (window-resizable nil delta nil t)))
                 (window-resize nil delta nil t)))))))))
+
+(declare-function dabbrev--select-buffers "dabbrev")
+
+(defun ement-compose-dabbrev-select-buffers ()
+  "Used as `dabbrev-select-buffers-function' in compose buffers."
+  (let ((buflist (dabbrev--select-buffers))
+        (roombuf (map-elt (ement-room-local ement-room) 'buffer)))
+    (if (and roombuf (buffer-live-p roombuf))
+        (cons roombuf (delq roombuf buflist))
+      buflist)))
+
+(defun ement-room-mode-p (buffer)
+  "Non-nil if BUFFER has `ement-room-mode' as its major mode.
+Used with `dabbrev-friend-buffer-function'."
+  (with-current-buffer buffer
+    (derived-mode-p 'ement-room-mode)))
 
 ;;;;; Widgets
 
