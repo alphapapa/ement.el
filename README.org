@@ -41,7 +41,7 @@ Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.or
 :ID:       d818f690-5f22-4eb0-83e1-4d8ce16c9e5b
 :END:
 
-The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizeable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
+The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
 
 [[images/ement-for-twim.png]]
 
