@@ -4121,7 +4121,13 @@ message contents."
       ;; is the only function that makes the compose buffer, and as long as none of the
       ;; hooks do anything that activating `org-mode' nullifies, this should be okay...
       (run-hooks 'ement-room-compose-hook))
-    (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)))
+    ;; Display the compose buffer.  This might obscure the room buffer's window
+    ;; point, so minimise the amount of scrolling which occurs to restore that
+    ;; to a visible position.
+    (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)
+    (unless ement-room-compose-buffer-window-auto-height
+      (let ((scroll-conservatively 101))
+        (redisplay)))))
 
 (defun ement-room-compose-edit (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY, using a compose buffer.
@@ -4379,7 +4385,14 @@ is non-nil."
             ;; In terminal frames we deal in lines rather than pixels.
             (let ((delta (- reqlines (window-body-height))))
               (when-let ((delta (window-resizable nil delta nil t)))
-                (window-resize nil delta nil t)))))))))
+                (window-resize nil delta nil t))))
+          ;; In most cases we can fit the whole buffer in the resized window.
+          (set-window-start nil (point-min) :noforce)
+          ;; The resizing might have obscured the room buffer's window point, so
+          ;; minimise the amount of scrolling which occurs to restore that to a
+          ;; visible position.
+          (let ((scroll-conservatively 101))
+            (redisplay)))))))
 
 (declare-function dabbrev--select-buffers "dabbrev")
 
