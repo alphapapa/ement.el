@@ -1263,10 +1263,12 @@ otherwise use current room."
       :then (lambda (_data)
               (message "Topic set (%s): %s" display-name topic)))))
 
-(cl-defun ement-room-send-file (file body room session &key (msgtype "m.file"))
+(cl-defun ement-room-send-file (file body room session &key (msgtype "m.file") (then #'ignore))
   "Send FILE to ROOM on SESSION, using message BODY and MSGTYPE.
 Interactively, with prefix, prompt for room and session,
-otherwise use current room."
+otherwise use current room.
+When THEN is non-nil, it should be a function of no arguments and
+will be called once the image is uploaded."
   ;; TODO: Support URLs to remote files.
   (interactive
    (ement-with-room-and-session
@@ -1279,7 +1281,7 @@ otherwise use current room."
          (list file body ement-room ement-session)))))
   ;; NOTE: The typing notification won't be quite right, because it'll be canceled while waiting
   ;; for the file to upload.  It would be awkward to handle that, so this will do for now.
-  (when (yes-or-no-p (format "Upload file %S to room %S? "
+  (when (yes-or-no-p (format "Upload file %s to room %s? "
                              file (ement-room-display-name room)))
     (pcase-let* ((filename (file-name-nondirectory file))
                  (extension (or (file-name-extension file) ""))
@@ -1289,6 +1291,8 @@ otherwise use current room."
       (ement-upload session :data data :filename filename :content-type mime-type
         :then (lambda (data)
                 (message "Uploaded file %S.  Sending message..." file)
+                (when then
+                  (funcall then))
                 (pcase-let* (((map ('content_uri content-uri)) data)
                              ((cl-struct ement-room (id room-id)) room)
                              (endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string room-id)
@@ -1327,6 +1331,50 @@ otherwise use current room."
                           :msgtype (if (string-prefix-p "image/" (mailcap-file-name-to-mime-type file))
                                        "m.image"
                                      "m.file"))))
+
+(defun ement-room-dnd-xds-upload-file (need-name filename)
+  "Upload the file dropped via XDS protocol.
+When NEED-NAME is t, FILENAME is the base name of the file to be
+saved by the source of the file being droped.
+When NEED-NAME is nil, the drop is complete."
+  (if need-name
+      (expand-file-name filename temporary-file-directory)
+    (ement-room-send-file filename (file-name-nondirectory filename)
+                          ement-room ement-session
+                          :msgtype (if (string-prefix-p "image/" (mailcap-file-name-to-mime-type filename))
+                                       "m.image"
+                                     "m.file")
+                          :then (lambda () (delete-file filename)))))
+
+(defun ement-room-send-image-in-clipboard (mimetype data)
+  "Upload image file in clipboard whose contents is DATA.
+The mimetype of the image is given by MIMETYPE."
+  (let* ((ext (symbol-name (mailcap-mime-type-to-extension mimetype)))
+         (coding-system-for-write 'no-conversion)
+         (filename (make-temp-file "emacs" nil (concat "." ext) data)))
+    (ement-room-send-file filename
+                          (concat "clipboard." ext)
+                          ement-room ement-session
+                          :msgtype "m.image"
+                          :then (lambda () (delete-file filename)))))
+
+(defun ement-room-send-copied-files (_mimetype data)
+  "Upload files in clipboard to the current room.
+DATA follows the following format:
+
+    cut OR copy
+    file://...
+    ..."
+  (let* ((files (cdr (split-string data "[\0\n\r]" t "^file://"))))
+    (dolist (f files)
+      ;; NOTE: We are assuming the filename is always UTF-8!
+      (setq f (decode-coding-string (url-unhex-string f) 'utf-8))
+      (when (file-readable-p f)
+        (ement-room-send-file f (file-name-nondirectory f) ement-room ement-session
+                              :msgtype
+                              (if (string-prefix-p "image/" (mailcap-file-name-to-mime-type f))
+                                  "m.image"
+                                "m.file"))))))
 
 (cl-defun ement-room-join (id-or-alias session &key then)
   "Join room by ID-OR-ALIAS on SESSION.
@@ -2093,7 +2141,12 @@ and erases the buffer."
               '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))  
   (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
                                            ("^file:" . ement-room-dnd-upload-file))
-                                         dnd-protocol-alist)))
+                                         dnd-protocol-alist))
+  (when (boundp 'x-dnd-direct-save-function)
+    (setq-local x-dnd-direct-save-function #'ement-room-dnd-xds-upload-file))
+  (when (fboundp 'yank-media-handler)
+    (yank-media-handler "image/.*" #'ement-room-send-image-in-clipboard)
+    (yank-media-handler "x/special-\\(?:gnome\\|KDE\\|mate\\)-files" #'ement-room-send-copied-files)))
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
