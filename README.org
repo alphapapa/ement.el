@@ -188,7 +188,7 @@ These bindings are common to all of the following buffer types:
 *Messages*
 
 + Write message: ~RET~
-+ Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
++ Write reply to event at point (when region is active, only quote marked text): ~S-RET~
 + Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c ')~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
 + Edit message: ~<insert>~
 + Delete message: ~C-k~
@@ -201,8 +201,8 @@ These bindings are common to all of the following buffer types:
 
 *Images*
 
-+  Toggle scale of image (between fit-to-window and thumbnail): ~mouse-1~
-+  Show image in new buffer at full size: ~double-mouse-1~
++ Toggle scale of image (between fit-to-window and thumbnail): ~mouse-1~
++ Show image in new buffer at full size: ~double-mouse-1~
 
 *Users*
 
@@ -250,7 +250,7 @@ These bindings are common to all of the following buffer types:
 
 + Move between events: ~TAB~ / ~<backtab>~
 + Go to event at point in its room buffer: ~RET~
-+ Write reply to event at point (shows the event in its room while writing) : ~S-RET~
++ Write reply to event at point (shows the event in its room while writing): ~S-RET~
 
 ** Tips
 
@@ -505,7 +505,7 @@ Added missing changelog entry (of course).
 
 + Command ~ement-view-space~ when called from a room buffer.  (Thanks to [[https://github.com/MagicRB][Richard Brežák]] for reporting.)
 + Don't call ~display-buffer~ when reverting room list buffer.  (Fixes [[https://github.com/alphapapa/ement.el/issues/121][#121]].  Thanks to [[https://github.com/mekeor][mekeor]] for reporting.)
-+ Retry sync for network timeouts.  (Accidentally broken in v0.6.) 
++ Retry sync for network timeouts.  (Accidentally broken in v0.6.)
 
 *Internal*
 
@@ -704,4 +704,3 @@ GPLv3
 # org-export-with-properties: ()
 # org-export-with-title: t
 # End:
-
