@@ -38,16 +38,6 @@
 
 ;;;; Variables
 
-(declare-function ement-room-list "ement-room-list")
-(defvar ement-notify-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "S-<return>") #'ement-notify-reply)
-    (define-key map (kbd "M-g M-l") #'ement-room-list)
-    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
-    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
-    (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
-  "Map for Ement notification buffers.")
-
 (defvar ement-notify-dbus-p
   (and (featurep 'dbusbind)
        (require 'dbus nil :no-error)
