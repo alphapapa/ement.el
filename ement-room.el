@@ -4311,6 +4311,9 @@ a copy of the local keymap, and sets `header-line-format'."
                       completion-at-point-functions))
   (setq-local dabbrev-select-buffers-function #'ement-compose-dabbrev-select-buffers
               dabbrev-friend-buffer-function #'ement-room-mode-p)
+  (setq-local yank-excluded-properties
+              (append '(line-prefix wrap-prefix)
+                      (default-value 'yank-excluded-properties)))
   ;; FIXME: Compose with local map?
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
