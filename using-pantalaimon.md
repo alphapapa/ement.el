@@ -153,6 +153,8 @@ On Element-Desktop :
 4. Click on "Export E2E room keys"
 5. Choose a passphrase (you will need to remember it), and save the `element-keys.txt` file.
 
+Take into account you will not be able to decrypt more messages than what the session you are exporting the keys from are able to decrypt, so choose a session where you can see all your messages.
+
 ```console
 panctl> import-keys @your-identifiant:matrix.org element-keys.txt your-passphrase
 Successfully imported keys for @your-identifiant:matrix.org from element-keys.txt
