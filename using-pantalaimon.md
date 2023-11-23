@@ -2,10 +2,10 @@
 
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [Pantalaimon](https://github.com/matrix-org/pantalaimon/).
 
-For this you will need to :
-- [Install and Configure Pantalaimon](#Install and Configure Pantalaimon)
-- Verify the Pantalaimon session
-- Connect Ement.el to Pantalaimon
+1. [Install Pantalaimon](#Install Pantalaimon)
+2. [Configure Pantalaimon](#Configure Pantalaimon)
+3. [Verify the Pantalaimon session](#Verify the Pantalaimon session)
+4. [troubleshooting](#Troubleshooting)
 
 # Install Pantalaimon #
 
@@ -61,7 +61,7 @@ Alternatively, you can also use the `--log-level debug` option to see what is go
 $ pantalaimon --log-level debug
 ```
 
-Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](#see Cannot connect to host matrix.org :443 ssl:default [Name or service not known]).
+Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](#Cannot connect to host matrix.org :443 ssl:default).
 
 ## Systemd service
 
@@ -83,14 +83,10 @@ ExecStart=/usr/bin/pantalaimon
 WantedBy=default.target
 ```
 
-Start the service
-: `systemctl --user start pantalaimon.service`
-See if it is running
-: `systemctl --user status pantalaimon.service`
-Stop the service
-: `systemctl --user stop pantalaimon.service`
-Enable the service
-: `systemctl --user enable pantalaimon.service`
+- Start the service : `systemctl --user start pantalaimon.service`
+- See if it is running : `systemctl --user status pantalaimon.service`
+- Stop the service : `systemctl --user stop pantalaimon.service`
+- Enable the service : `systemctl --user enable pantalaimon.service`
 
 # Verify the Pantalaimon session #
 
@@ -162,7 +158,7 @@ Successfully imported keys for @your-identifiant:matrix.org from element-keys.tx
 - Reconnect : `M-x my-ement-panta-connect`
 - Enjoy :-)
 
-# Trouble shootings #
+# Troubleshooting #
 
 
 - https://www.cogitri.dev/posts/10-pantalaimon-setup/
@@ -170,9 +166,14 @@ Successfully imported keys for @your-identifiant:matrix.org from element-keys.tx
 - https://github.com/alphapapa/ement.el/pull/232
 
 
-## Cannot connect to host matrix.org :443 ssl:default [Name or service not known] ##
+## Cannot connect to host matrix.org :443 ssl:default ##
 
-If this error when you open http://localhost:8010/, or this one with ement.el :
+If this error when you open http://localhost:8010/ :
+
+`Cannot connect to host matrix.org :443 ssl:default [Name or service not known]`
+
+
+or this one with ement.el :
 
 ```lisp
 Debugger entered--Lisp error: (ement-api-error "500: nil")
