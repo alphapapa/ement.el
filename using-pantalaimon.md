@@ -103,7 +103,6 @@ Add this code in your Emacs configuration
 Then, do a `M-x my-ement-panta-connect`, choose "password", write your Matrix password, and connect.
 
 You can control your Pantalaimon server by using `panctl` [command](https://github.com/matrix-org/pantalaimon/blob/master/docs/man/panctl.md).
-If you get an error about DBus here, see : [g-dbus-error-quark](#g-dbus-error-quark)
 
 ```console
 $ panctl
@@ -114,7 +113,9 @@ pantalaimon servers:
    - @your-identifiant:matrix.org RCXONVDBKV
 ```
 
-(if the `list-servers` doesn't return anything, it means you aren’t connected with Ement.el, you should connect first)
+If you get an error about DBus here, see : [g-dbus-error-quark](#g-dbus-error-quark)
+
+If the `list-servers` doesn't return anything, it means you aren’t connected with Ement.el, you should connect first.
 
 ## Verify Pantalaimon ##
 
@@ -122,6 +123,8 @@ On Element-Desktop :
 1. Connect to your account
 2. Open the "Settings" page
 3. Look at your current Session ID (it should be something like "DWOCPKJVTK")
+
+(It seems to not work on the Element application on Android, so try with Element-Desktop)
 
 ```console
 $ panctl
