@@ -103,6 +103,7 @@ Add this code in your Emacs configuration
 Then, do a `M-x my-ement-panta-connect`, choose "password", write your Matrix password, and connect.
 
 You can control your Pantalaimon server by using `panctl` [command](https://github.com/matrix-org/pantalaimon/blob/master/docs/man/panctl.md).
+If you get an error about DBus here, see : [g-dbus-error-quark](#g-dbus-error-quark)
 
 ```console
 $ panctl
@@ -189,3 +190,11 @@ It probably mean there is a problem in your `~/.config/pantalaimon/pantalaimon.c
 [local-matrix]
 Homeserver = https://matrix.org # /!\ this end of line comment will make your configuration fail /!\
 ```
+
+## g-dbus-error-quark ##
+
+If you get this error :
+
+`g-dbus-error-quark: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name org.pantalaimon1 was not provided by any .service files`
+
+Your are maybe lacking the `python-notify2` librairy.
