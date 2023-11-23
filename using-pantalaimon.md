@@ -5,7 +5,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 1. [Install Pantalaimon](#Install-Pantalaimon)
 2. [Configure Pantalaimon](#Configure-Pantalaimon)
 3. [Verify the Pantalaimon session](#Verify-the-Pantalaimon-session)
-4. [troubleshooting](#Troubleshooting)
+4. [Troubleshooting](#Troubleshooting)
 
 # Install Pantalaimon #
 
@@ -61,7 +61,7 @@ Alternatively, you can also use the `--log-level debug` option to see what is go
 $ pantalaimon --log-level debug
 ```
 
-Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](##cannot-connect-to-host-matrixorg-443-ssldefault).
+Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](#cannot-connect-to-host-matrixorg-443-ssldefault).
 
 ## Systemd service
 
@@ -168,7 +168,7 @@ Successfully imported keys for @your-identifiant:matrix.org from element-keys.tx
 
 ## Cannot connect to host matrix.org :443 ssl:default ##
 
-If this error when you open http://localhost:8010/ :
+If you see this error when you open http://localhost:8010/ :
 
 `Cannot connect to host matrix.org :443 ssl:default [Name or service not known]`
 
