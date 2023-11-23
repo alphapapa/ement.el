@@ -2,10 +2,10 @@
 
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [Pantalaimon](https://github.com/matrix-org/pantalaimon/).
 
-1. [Install Pantalaimon](#Install Pantalaimon)
-2. [Configure Pantalaimon](#Configure Pantalaimon)
-3. [Verify the Pantalaimon session](#Verify the Pantalaimon session)
-4. [troubleshooting](#Troubleshooting)
+1. [Install Pantalaimon](<#Install Pantalaimon>)
+2. [Configure Pantalaimon](#<Configure Pantalaimon>)
+3. [Verify the Pantalaimon session](#<Verify the Pantalaimon session>)
+4. [troubleshooting](#<Troubleshooting>)
 
 # Install Pantalaimon #
 
@@ -61,7 +61,7 @@ Alternatively, you can also use the `--log-level debug` option to see what is go
 $ pantalaimon --log-level debug
 ```
 
-Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](#Cannot connect to host matrix.org :443 ssl:default).
+Now if you open http://localhost:8010/ you should see the https://matrix.org/ web page. If you get a error about `ssl`, go [here](#<Cannot connect to host matrix.org :443 ssl:default>).
 
 ## Systemd service
 
