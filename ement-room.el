@@ -870,10 +870,10 @@ the original messages visible."
   :type 'boolean)
 
 (defcustom ement-room-shr-use-fonts nil
-  "Enable `shr' variable-pitch fonts for formatted bodies.
-If non-nil, `shr' may use variable-pitch fonts for formatted
-bodies (which include most replies), which means that some
-messages won't display in the same font as others."
+  "Enable `shr' variable-pitch fonts for message bodies.
+If non-nil, `shr' may selectively use variable-pitch fonts for
+formatted message bodies (which includes most replies), and plain
+text messages will also be displayed in a variable-pitch font."
   :type '(choice (const :tag "Disable variable-pitch fonts" nil)
                  (const :tag "Enable variable-pitch fonts" t)))
 
@@ -1309,7 +1309,7 @@ spec) without requiring all events to use the same margin width."
   ;; This used to be a macro in --format-message, which is probably better for
   ;; performance, but using a function is clearer, and avoids premature optimization.
   (pcase-let* (((cl-struct ement-event sender
-                           (content (map msgtype))
+                           (content (map msgtype format ('m.new_content new-content)))
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
                            (local (map ('redacted-by local-redacted-by))))
                 event)
@@ -1336,7 +1336,16 @@ spec) without requiring all events to use the same margin width."
                                               (color-darken-name message-color ement-room-prism-message-lightening))))))))
                (redacted-face (when (or local-redacted-by unsigned-redacted-by)
                                 'ement-room-redacted))
-               (body-face (list :inherit (delq nil (list redacted-face context-face type-face)))))
+               ;; For visual consistency, apply the variable-pitch `shr-text' face to
+               ;; non-HTML messages when `ement-room-shr-use-fonts' is non-nil (HTML
+               ;; messages are fontified by shr itself).
+               (shr-text-face (when (and ement-room-shr-use-fonts
+                                         (not (equal (or format (alist-get 'format new-content))
+                                                     "org.matrix.custom.html")))
+                                ;; The `shr-text' face was added in Emacs 29.1.
+                                (or (and (facep 'shr-text) 'shr-text)
+                                    'variable-pitch)))
+               (body-face (list :inherit (delq nil (list redacted-face context-face type-face shr-text-face)))))
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))
