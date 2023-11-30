@@ -869,11 +869,14 @@ When nil, edited messages are displayed as new messages, leaving
 the original messages visible."
   :type 'boolean)
 
-(defcustom ement-room-shr-use-fonts nil
-  "Enable `shr' variable-pitch fonts for message bodies.
-If non-nil, `shr' may selectively use variable-pitch fonts for
-formatted message bodies (which includes most replies), and plain
-text messages will also be displayed in a variable-pitch font."
+(define-obsolete-variable-alias 'ement-room-shr-use-fonts
+  'ement-room-use-variable-pitch "ement-0.14")
+
+(defcustom ement-room-use-variable-pitch nil
+  "Use proportional fonts for message bodies.
+If non-nil, plain text message bodies are displayed in a
+variable-pitch font, and `shr-use-fonts' is enabled for rendering
+HTML-formatted message bodies (which includes most replies)."
   :type '(choice (const :tag "Disable variable-pitch fonts" nil)
                  (const :tag "Enable variable-pitch fonts" t)))
 
@@ -1337,9 +1340,9 @@ spec) without requiring all events to use the same margin width."
                (redacted-face (when (or local-redacted-by unsigned-redacted-by)
                                 'ement-room-redacted))
                ;; For visual consistency, apply the variable-pitch `shr-text' face to
-               ;; non-HTML messages when `ement-room-shr-use-fonts' is non-nil (HTML
-               ;; messages are fontified by shr itself).
-               (shr-text-face (when (and ement-room-shr-use-fonts
+               ;; non-HTML messages when `ement-room-use-variable-pitch' is non-nil.
+               ;; (HTML messages are fontified by shr itself.)
+               (shr-text-face (when (and ement-room-use-variable-pitch
                                          (not (equal (or format (alist-get 'format new-content))
                                                      "org.matrix.custom.html")))
                                 ;; The `shr-text' face was added in Emacs 29.1.
@@ -4023,7 +4026,7 @@ HTML is rendered to Emacs text using `shr-insert-document'."
       ;; seems to work.  It even seems to work properly when a window is
       ;; resized (i.e. the wrapping is adjusted automatically by redisplay
       ;; rather than requiring the message to be re-rendered to HTML).
-      (let ((shr-use-fonts ement-room-shr-use-fonts)
+      (let ((shr-use-fonts ement-room-use-variable-pitch)
             (old-fn (symbol-function 'shr-tag-blockquote))) ;; Bind to a var to avoid unknown-function linting errors.
         (cl-letf (((symbol-function 'shr-fill-line) #'ignore)
                   ((symbol-function 'shr-tag-blockquote)
