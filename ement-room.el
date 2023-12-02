@@ -1783,17 +1783,22 @@ Interactively, to event at point."
                    (replying-to-event (ement--original-event-for event ement-session)))
         (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
-(defun ement-room-send-reaction (key position)
+(defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
 Interactively, send reaction to event at point.  KEY should be a
 reaction string, e.g. \"👍\"."
   (interactive
-   (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
-         (point)))
+   (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+     (unless (ement-event-p event)
+       (user-error "No event at point"))
+     (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
+           (point)
+           event)))
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
   ;; HACK: We could simplify this by storing the key in a text property...
   (ement-room-with-highlighted-event-at position
-    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+    (pcase-let* ((event (or event
+                            (ewoc-data (ewoc-locate ement-ewoc position))
                             (user-error "No event at point")))
                  ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
                  ;; hl-line-mode is enabled, it only returns the hl-line face.
