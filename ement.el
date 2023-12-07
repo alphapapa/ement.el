@@ -569,6 +569,7 @@ a filter ID).  When unspecified, the value of
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.
 Runs `ement-sync-callback-hook' with SESSION."
+  (ement-debug (ement-user-id (ement-session-user session)))
   ;; Remove the sync first.  We already have the data from it, and the
   ;; process has exited, so it's safe to run another one.
   (setf (map-elt ement-syncs session) nil)
