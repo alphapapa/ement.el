@@ -1306,6 +1306,18 @@ spec) without requiring all events to use the same margin width."
               'help-echo (format-time-string "%Y-%m-%d %H:%M:%S"
                                              (/ (ement-event-origin-server-ts event) 1000))))
 
+(defconst ement-room-variable-pitch-face (or (and (facep 'shr-text) 'shr-text)
+                                             'variable-pitch)
+  "May be used when formatting plain-text messages.
+
+If user option `ement-room-use-variable-pitch' is non-nil, this
+face is applied to plain-text messages for visual consistency
+with HTML messages (which will be rendered by shr.el with
+`shr-use-fonts' enabled).
+
+The `shr-text' face was added in Emacs 29.1.  Prior to that,
+shr.el used the `variable-pitch' face directly.")
+
 (defun ement-room--event-body-face (event room session)
   "Return face definition for EVENT in ROOM on SESSION."
   (ignore room)  ;; Unused for now, but keeping for consistency.
@@ -1345,9 +1357,7 @@ spec) without requiring all events to use the same margin width."
                (shr-text-face (when (and ement-room-use-variable-pitch
                                          (not (equal (or format (alist-get 'format new-content))
                                                      "org.matrix.custom.html")))
-                                ;; The `shr-text' face was added in Emacs 29.1.
-                                (or (and (facep 'shr-text) 'shr-text)
-                                    'variable-pitch)))
+                                ement-room-variable-pitch-face))
                (body-face (list :inherit (delq nil (list redacted-face context-face type-face shr-text-face)))))
     (if prism-color
         (plist-put body-face :foreground prism-color)
