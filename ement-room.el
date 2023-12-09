@@ -4277,12 +4277,14 @@ See also `ement-room-compose-send'."
                                                          (ement--original-event-for
                                                           replying-to-event session)))))))
 
-(defun ement-room-compose-abort ()
-  "Kill the compose buffer and window."
-  (interactive)
+(defun ement-room-compose-abort (&optional no-history)
+  "Kill the compose buffer and window.
+With prefix arg NO-HISTORY, do not add to `ement-room-message-history'."
+  (interactive "P")
   (let ((body (ement-room-compose-buffer-string-trimmed))
         (room ement-room))
-    (add-to-history 'ement-room-message-history body)
+    (unless no-history
+      (add-to-history 'ement-room-message-history body))
     (kill-buffer)
     (delete-window)
     ;; Make sure we end up with the associated room buffer selected.
@@ -4295,6 +4297,11 @@ See also `ement-room-compose-send'."
                                 (eq ement-room room)
                                 (throw 'room-win win))))))))
       (select-window win))))
+
+(defun ement-room-compose-abort-no-history ()
+  "Kill the compose buffer and window without adding to the history."
+  (interactive)
+  (ement-room-compose-abort t))
 
 (defun ement-room-init-compose-buffer (room session)
   "Set up the current buffer as a compose buffer.
@@ -4318,8 +4325,10 @@ a copy of the local keymap, and sets `header-line-format'."
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
+  ;; When `ement-room-self-insert-mode' is enabled, deleting the final character of the
+  ;; message aborts and kills the compose buffer.
   (local-set-key [remap delete-backward-char]
-                 `(menu-item "" ement-room-compose-abort
+                 `(menu-item "" ement-room-compose-abort-no-history
                              :filter ,(lambda (cmd)
                                         (and ement-room-self-insert-mode
                                              (<= (buffer-size) 1)
@@ -4327,6 +4336,8 @@ a copy of the local keymap, and sets `header-line-format'."
                                              cmd))))
   (local-set-key [remap save-buffer] #'ement-room-dispatch-send-message)
   (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
+  (local-set-key (kbd "M-n") #'ement-room-compose-history-next-message)
+  (local-set-key (kbd "M-p") #'ement-room-compose-history-prev-message)
   (setq header-line-format
         (concat (substitute-command-keys
                  (format " Press \\[save-buffer] to send message to room (%s), or \\[ement-room-compose-abort] to cancel."
@@ -4412,6 +4423,47 @@ is non-nil."
 Used with `dabbrev-friend-buffer-function'."
   (with-current-buffer buffer
     (derived-mode-p 'ement-room-mode)))
+
+;;; Message history for compose buffers.
+
+(defvar-local ement-room--compose-message-history-index -1)
+(defvar-local ement-room--compose-message-history-initial "")
+
+(defun ement-room-compose-history-prev-message (arg)
+  "Cycle backward through message history, after saving current message.
+With a numeric prefix ARG, go back ARG messages."
+  (interactive "*p")
+  (let ((len (length ement-room-message-history)))
+    (cond ((<= len 0)
+           (user-error "Empty message history"))
+          ((eql arg 0)) ;; No-op.
+          ((and (> arg 0) (>= ement-room--compose-message-history-index (1- len)))
+           (user-error "Beginning of history; no preceding item"))
+          ((and (< arg 0) (< ement-room--compose-message-history-index 0))
+           (user-error "End of history; no next item"))
+          (t
+           ;; Store the not-from-history buffer message.
+           (when (< ement-room--compose-message-history-index 0)
+             (setq ement-room--compose-message-history-initial
+                   (ement-room-compose-buffer-string-trimmed)))
+           ;; Update the index.
+           (setq ement-room--compose-message-history-index
+                 (let ((newidx (+ arg ement-room--compose-message-history-index)))
+                   (cond ((>= newidx len) (1- len))
+                         ((< newidx -1) -1)
+                         (t newidx))))
+           ;; Update the buffer.
+           (erase-buffer)
+           (insert (if (< ement-room--compose-message-history-index 0)
+                       ement-room--compose-message-history-initial
+                     (nth ement-room--compose-message-history-index
+                          ement-room-message-history)))))))
+
+(defun ement-room-compose-history-next-message (arg)
+  "Cycle forward through message history, after saving current message.
+With a numeric prefix ARG, go forward ARG messages."
+  (interactive "*p")
+  (ement-room-compose-history-prev-message (- arg)))
 
 ;;;;; Widgets
 
