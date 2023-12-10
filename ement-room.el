@@ -4321,6 +4321,7 @@ a copy of the local keymap, and sets `header-line-format'."
   (setq-local yank-excluded-properties
               (append '(line-prefix wrap-prefix)
                       (default-value 'yank-excluded-properties)))
+  (add-hook 'isearch-mode-hook 'ement-room-compose-history-isearch-setup nil t)
   ;; FIXME: Compose with local map?
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
@@ -4336,8 +4337,10 @@ a copy of the local keymap, and sets `header-line-format'."
                                              cmd))))
   (local-set-key [remap save-buffer] #'ement-room-dispatch-send-message)
   (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
-  (local-set-key (kbd "M-n") #'ement-room-compose-history-next-message)
   (local-set-key (kbd "M-p") #'ement-room-compose-history-prev-message)
+  (local-set-key (kbd "M-n") #'ement-room-compose-history-next-message)
+  (local-set-key (kbd "M-r") #'ement-room-compose-history-isearch-backward)
+  (local-set-key (kbd "C-M-r") #'ement-room-compose-history-isearch-backward-regexp)
   (setq header-line-format
         (concat (substitute-command-keys
                  (format " Press \\[save-buffer] to send message to room (%s), or \\[ement-room-compose-abort] to cancel."
@@ -4424,16 +4427,38 @@ Used with `dabbrev-friend-buffer-function'."
   (with-current-buffer buffer
     (derived-mode-p 'ement-room-mode)))
 
-;;; Message history for compose buffers.
+;;; Message history for compose buffers.  Isearch code is derived from comint.el.
 
 (defvar-local ement-room--compose-message-history-index -1)
 (defvar-local ement-room--compose-message-history-initial "")
+(defvar-local ement-room--compose-history-isearch nil)
+
+(defun ement-room-compose-message-history-insert (hist-pos &optional with-message)
+  "Insert text of the absolute history position HIST-POS."
+  ;; Store the not-from-history buffer message.
+  (when (< ement-room--compose-message-history-index 0)
+    (setq ement-room--compose-message-history-initial
+          (ement-room-compose-buffer-string-trimmed)))
+  ;; Update the index.
+  (setq ement-room--compose-message-history-index (or hist-pos -1))
+  (when (and with-message hist-pos (>= hist-pos 0))
+    (let ((message-log-max nil))
+      (message "History item %d" hist-pos)))
+  ;; Update the buffer.
+  (erase-buffer)
+  (insert (if (< ement-room--compose-message-history-index 0)
+              ement-room--compose-message-history-initial
+            (or (nth ement-room--compose-message-history-index
+                     ement-room-message-history)
+                (format "[invalid ement message history element %d]"
+                        ement-room--compose-message-history-index)))))
 
 (defun ement-room-compose-history-prev-message (arg)
   "Cycle backward through message history, after saving current message.
 With a numeric prefix ARG, go back ARG messages."
   (interactive "*p")
   (let ((len (length ement-room-message-history)))
+    ;; Valid index values: -1 <= idx < len.
     (cond ((<= len 0)
            (user-error "Empty message history"))
           ((eql arg 0)) ;; No-op.
@@ -4442,28 +4467,142 @@ With a numeric prefix ARG, go back ARG messages."
           ((and (< arg 0) (< ement-room--compose-message-history-index 0))
            (user-error "End of history; no next item"))
           (t
-           ;; Store the not-from-history buffer message.
-           (when (< ement-room--compose-message-history-index 0)
-             (setq ement-room--compose-message-history-initial
-                   (ement-room-compose-buffer-string-trimmed)))
-           ;; Update the index.
-           (setq ement-room--compose-message-history-index
-                 (let ((newidx (+ arg ement-room--compose-message-history-index)))
-                   (cond ((>= newidx len) (1- len))
-                         ((< newidx -1) -1)
-                         (t newidx))))
-           ;; Update the buffer.
-           (erase-buffer)
-           (insert (if (< ement-room--compose-message-history-index 0)
-                       ement-room--compose-message-history-initial
-                     (nth ement-room--compose-message-history-index
-                          ement-room-message-history)))))))
+           ;; It's still possible to move in the specified direction.
+           (ement-room-compose-message-history-insert
+            (let ((hist-pos (+ arg ement-room--compose-message-history-index)))
+              (cond ((>= hist-pos len) (1- len))
+                    ((< hist-pos -1) -1)
+                    (t hist-pos)))
+            :with-message)))))
 
 (defun ement-room-compose-history-next-message (arg)
   "Cycle forward through message history, after saving current message.
 With a numeric prefix ARG, go forward ARG messages."
   (interactive "*p")
   (ement-room-compose-history-prev-message (- arg)))
+
+(defun ement-room-compose-history-isearch-backward ()
+  "Search for a string in the message history using Isearch.
+Use \\[isearch-backward] and \\[isearch-forward] to continue searching."
+  (interactive)
+  (setq ement-room--compose-history-isearch t)
+  (isearch-backward nil t))
+
+(defun ement-room-compose-history-isearch-backward-regexp ()
+  "Search for a regular expression in the message history using Isearch.
+Use \\[isearch-backward] and \\[isearch-forward] to continue searching."
+  (interactive)
+  (setq ement-room--compose-history-isearch t)
+  (isearch-backward-regexp nil t))
+
+(defun ement-room-compose-history-isearch-setup ()
+  "Set up Isearch to search `ement-room-message-history'.
+Intended to be added to `isearch-mode-hook' in an ement compose buffer."
+  (when (eq ement-room--compose-history-isearch t)
+    (setq isearch-message-prefix-add "history ")
+    (setq-local isearch-search-fun-function
+                #'ement-room-compose-history-isearch-search)
+    (setq-local isearch-message-function
+                #'ement-room-compose-history-isearch-message)
+    (setq-local isearch-wrap-function
+                #'ement-room-compose-history-isearch-wrap)
+    (setq-local isearch-push-state-function
+                #'ement-room-compose-history-isearch-push-state)
+    (setq-local isearch-lazy-count nil)
+    (add-hook 'isearch-mode-end-hook 'ement-room-compose-history-isearch-end nil t)))
+
+(defun ement-room-compose-history-isearch-end ()
+  "Clean up the buffer after terminating Isearch.
+Called via `isearch-mode-end-hook'."
+  (setq isearch-message-prefix-add nil)
+  (setq isearch-search-fun-function 'isearch-search-fun-default)
+  (setq isearch-wrap-function nil)
+  (setq isearch-push-state-function nil)
+  ;; Force isearch to not change mark.
+  (setq isearch-opoint (point))
+  (kill-local-variable 'isearch-lazy-count)
+  (remove-hook 'isearch-mode-end-hook 'ement-room-compose-history-isearch-end t)
+  (unless isearch-suspended
+    (setq ement-room--compose-history-isearch nil)))
+
+(defun ement-room-compose-history-isearch-search ()
+  "Return the search function for Isearch in message history.
+This function is used as the value of `isearch-search-fun-function'."
+  #'ement-room-compose-history-isearch-function)
+
+(defun ement-room-compose-history-isearch-function (string bound noerror)
+  "Isearch in message history."
+  (let ((search-fun
+	 ;; Use standard functions to search within message text
+	 (isearch-search-fun-default))
+	found)
+    (or
+     ;; 1. First try searching in the initial message
+     (funcall search-fun string nil noerror)
+     ;; 2. If the above search fails, start putting next/prev history elements in the
+     ;; buffer successively, and search the string in them.  Do this only when bound is
+     ;; nil (i.e. not while lazy-highlighting search strings in the current message).
+     (unless bound
+       (condition-case nil
+	   (progn
+	     (while (not found)
+	       (if isearch-forward
+		   (ement-room-compose-history-next-message 1)
+		 (ement-room-compose-history-prev-message 1))
+               (goto-char (if isearch-forward (point-min) (point-max)))
+	       (setq isearch-barrier (point)
+                     isearch-opoint (point))
+	       ;; After putting the next/prev history element, search the string in
+               ;; them again, until `ement-room-compose-history-next-message' or
+	       ;; `ement-room-compose-history-prev-message' raises an error at the
+	       ;; beginning/end of history.
+	       (setq found (funcall search-fun string nil noerror)))
+	     ;; Return point of the new search result.
+	     (point))
+	 ;; Return nil on any isearch errors, including the "no next/preceding item"
+         ;; user-errors signalled from `ement-room-compose-history-prev-message'.
+         (error nil))))))
+
+(defun ement-room-compose-history-isearch-message (&optional c-q-hack ellipsis)
+  "Display the isearch message.
+This function is used as the value of `isearch-message-function'."
+  (setq isearch-message-prefix-add
+        (if (and isearch-success
+                 (not isearch-error)
+                 (>= ement-room--compose-message-history-index 0))
+            (format "history item %d: "
+                    ement-room--compose-message-history-index)
+          "history "))
+  (isearch-message c-q-hack ellipsis))
+
+(defun ement-room-compose-history-isearch-wrap ()
+  "Wrap the history search when search fails.
+Move point to the first history element for a forward search,
+or to the last history element for a backward search.
+This function is used as the value of `isearch-wrap-function'."
+  ;; When `ement-room-compose-history-isearch-search' fails on reaching the
+  ;; beginning/end of the history, wrap the search to the first/last
+  ;; input history element.
+  (ement-room-compose-message-history-insert
+   (if isearch-forward
+       (1- (length ement-room-message-history))
+     -1))
+  (goto-char (if isearch-forward (point-min) (point-max))))
+
+(defun ement-room-compose-history-isearch-push-state ()
+  "Save a function restoring the state of input history search.
+Save `ement-room--compose-message-history-index' to the additional state parameter
+in the search status stack.
+This function is used as the value of `isearch-push-state-function'."
+  (let ((index ement-room--compose-message-history-index))
+    (lambda (cmd)
+      (ement-room-compose-history-isearch-pop-state cmd index))))
+
+(defun ement-room-compose-history-isearch-pop-state (_cmd hist-pos)
+  "Restore the input history search state.
+Go to the history element by the absolute history position HIST-POS.
+See `ement-room-compose-history-isearch-push-state'."
+  (ement-room-compose-message-history-insert hist-pos))
 
 ;;;;; Widgets
 
