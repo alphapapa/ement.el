@@ -421,12 +421,26 @@ this one automatically.")
   "Maximum height in pixels of room avatars shown in header lines."
   :type 'integer)
 
-(defcustom ement-room-coalesce-events t
+(defcustom ement-room-coalesce-events 100
   "Coalesce certain events in room buffers.
 For example, membership events can be overwhelming in large
 rooms, especially ones bridged to IRC.  This option groups them
-together so they take less space."
-  :type 'boolean)
+together so they take less space.
+
+The current, naïve implementation re-renders events as they are
+coalesced, which can cause a performance problem in unusual
+circumstances, so the number of events coalesced into a single,
+rendered event may be limited."
+  :type '(choice (integer :tag "Up to this many events")
+                 (const :tag "An unlimited number of events"
+                        ;; NOTE: As this docstring says, in most cases it should be fine,
+                        ;; but since in those rare cases the problem can be unusually bad
+                        ;; (e.g. taking 15 minutes to render a room's events in
+                        ;; <https://github.com/alphapapa/ement.el/issues/247>), we default
+                        ;; to a safer choice.
+                        :doc "Note that this choice may cause performance problems in rooms with very large numbers of consecutive membership events, but in most cases it should be fine."
+                        t)
+                 (const :tag "Don't coalesce" nil)))
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
@@ -3607,6 +3621,10 @@ the first and last nodes in the buffer, respectively."
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
 Return absorbing node if coalesced."
+  ;; NOTE: This does not coalesce two `ement-room-membership-events' nodes; it only
+  ;; coalesces an individual membership event into another one or into an
+  ;; `ement-room-membership-events' node.
+  ;; TODO: Allow two `ement-room-membership-events' nodes to be coalesced.
   (cl-labels ((coalescable-p (node)
                 (or (and (ement-event-p (ewoc-data node))
                          (member (ement-event-type (ewoc-data node)) '("m.room.member")))
@@ -3616,16 +3634,24 @@ Return absorbing node if coalesced."
                                      (not (ement-room-membership-events-p (ewoc-data b))))
                                  a b))
              (absorbed-node (if (eq absorbing-node a) b a)))
-        (cl-etypecase (ewoc-data absorbing-node)
-          (ement-room-membership-events nil)
-          (ement-event (setf (ewoc-data absorbing-node) (ement-room-membership-events--update
-                                                         (make-ement-room-membership-events
-                                                          :events (list (ewoc-data absorbing-node)))))))
-        (push (ewoc-data absorbed-node) (ement-room-membership-events-events (ewoc-data absorbing-node)))
-        (ement-room-membership-events--update (ewoc-data absorbing-node))
-        (ewoc-delete ewoc absorbed-node)
-        (ewoc-invalidate ewoc absorbing-node)
-        absorbing-node))))
+        (when (cl-etypecase (ewoc-data absorbing-node)
+                (ement-room-membership-events
+                 (pcase-exhaustive ement-room-coalesce-events
+                   ((pred integerp)
+                    (< (length (ement-room-membership-events-events (ewoc-data absorbing-node)))
+                       ement-room-coalesce-events))
+                   (`t t)))
+                (ement-event
+                 (setf (ewoc-data absorbing-node)
+                       (ement-room-membership-events--update
+                        (make-ement-room-membership-events
+                         :events (list (ewoc-data absorbing-node)))))))
+          (push (ewoc-data absorbed-node)
+                (ement-room-membership-events-events (ewoc-data absorbing-node)))
+          (ement-room-membership-events--update (ewoc-data absorbing-node))
+          (ewoc-delete ewoc absorbed-node)
+          (ewoc-invalidate ewoc absorbing-node)
+          absorbing-node)))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
