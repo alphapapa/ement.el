@@ -823,6 +823,8 @@ Adds sender to `ement-users' when necessary."
 
 ;;;;; Reading/writing sessions
 
+;; TODO: Use `persist' and/or `multisession'.
+
 (defun ement--read-sessions ()
   "Return saved sessions alist read from disk.
 Returns nil if unable to read `ement-sessions-file'."
