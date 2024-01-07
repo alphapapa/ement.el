@@ -3014,9 +3014,9 @@ the first and last nodes in the buffer, respectively."
   "Insert sender headers into EWOC.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (cl-labels ((message-event-p
-                (data) (and (ement-event-p data)
-                            (equal "m.room.message" (ement-event-type data)))))
+  (cl-labels ((message-event-p (data)
+                (and (ement-event-p data)
+                     (equal "m.room.message" (ement-event-type data)))))
     ;; If we're not starting at a message node, forward to the previous message.
     ;; If we don't find any messages, there's nothing to do anyways.
     (when (and start-node (not (message-event-p (ewoc-data start-node))))
