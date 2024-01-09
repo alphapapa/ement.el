@@ -943,8 +943,8 @@ spec) without requiring all events to use the same margin width."
 
 (ement-room-define-event-formatter ?r
   "Reactions."
-  (ignore room session)
-  (ement-room--format-reactions event))
+  (ignore session)
+  (ement-room--format-reactions event room))
 
 (ement-room-define-event-formatter ?t
   "Timestamp."
@@ -3349,14 +3349,17 @@ Formats according to `ement-room-message-format-spec', which see."
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
-(defun ement-room--format-reactions (event)
-  "Return formatted reactions to EVENT."
+(defun ement-room--format-reactions (event room)
+  "Return formatted reactions to EVENT in ROOM."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
   (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
       (cl-labels ((format-reaction (ks)
                     (pcase-let* ((`(,key . ,senders) ks)
                                  (key (propertize key 'face 'ement-room-reactions-key))
-                                 (count (propertize (format " (%s)" (length senders))
+                                 (count (propertize (format " (%s)"
+                                                            (if (length= senders 1)
+                                                                (ement--user-displayname-in room (car senders))
+                                                              (length senders)))
                                                     'face 'ement-room-reactions))
                                  (string
                                   (propertize (concat key count)
