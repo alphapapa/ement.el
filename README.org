@@ -299,7 +299,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Customization group ~ement-room-list~.
 + Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
-+ Reactions sent by only one user are displayed with the user's name (so it's not necessary to check the tooltip).
++ Option ~ement-room-reaction-names-limit~ sets how many senders of a reaction are shown in the buffer (more than that many are shown in the tooltip).
 
 *Changes*
 

@@ -252,6 +252,12 @@ Does not include filenames, emotes, etc.")
 Called with two arguments, the room and the session."
   :type 'hook)
 
+(defcustom ement-room-reaction-names-limit 3
+  "Up to this many users, show a reaction's senders' names.
+If more than this many users have sent a reaction, show the
+number of senders instead (and the names in a tooltip)."
+  :type 'natnum)
+
 ;;;;; Faces
 
 (defface ement-room-name
@@ -3357,9 +3363,9 @@ Formats according to `ement-room-message-format-spec', which see."
          (pcase-let* ((`(,key . ,senders) ks)
                       (key (propertize key 'face 'ement-room-reactions-key))
                       (count (propertize (format " (%s)"
-                                                 (if (length= senders 1)
-                                                     (ement--user-displayname-in room (car senders))
-                                                   (length senders)))
+                                                 (if (length> senders ement-room-reaction-names-limit)
+                                                     (length senders)
+                                                   (senders-names senders room)))
                                          'face 'ement-room-reactions))
                       (string
                        (propertize (concat key count)
