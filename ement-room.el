@@ -3017,40 +3017,37 @@ the first and last nodes in the buffer, respectively."
   (cl-labels ((message-event-p (data)
                 (and (ement-event-p data)
                      (equal "m.room.message" (ement-event-type data)))))
-    ;; If we're not starting at a message node, forward to the previous message.
-    ;; If we don't find any messages, there's nothing to do anyways.
     (when (and start-node (not (message-event-p (ewoc-data start-node))))
+      ;; Start node not a message event: forward to next message event (and if none are
+      ;; found, there's nothing to do).
       (setf start-node (ement-room--ewoc-next-matching ewoc start-node #'message-event-p)))
-
-    ;; Set the end node to the next message after the end node, if any. This:
-    ;; 1. Makes the loop check simple (we continue going until we run out of nodes or our
-    ;;    we find the end node).
-    ;; 2. Ensures we fix up sender headers after any inserted messages.
     (when end-node
+      ;; Set end node to first message event after it.  (This simplifies the loop by
+      ;; continuing until finding `end-node' or the last node, and ensures we fix headers
+      ;; after any inserted messages.)
       (setf end-node (ement-room--ewoc-next-matching ewoc end-node #'message-event-p)))
-
-    (let* ((event-node start-node) prev-node)
+    (let ((event-node start-node) prev-node)
       (while (and event-node (not (eq event-node end-node)))
-        ;; Scan back for the previous message or user header, if any.
-        (setf prev-node (ement-room--ewoc-next-matching ewoc event-node
-                          (lambda (data)
-                            (or (ement-user-p data) (message-event-p data)))
-                          #'ewoc-prev))
-
+        (setf prev-node
+              ;; Find previous message or user header.
+              (ement-room--ewoc-next-matching ewoc event-node
+                (lambda (data)
+                  (or (ement-user-p data) (message-event-p data)))
+                #'ewoc-prev))
         (let ((sender (ement-event-sender (ewoc-data event-node))))
-          (cond
-           ;; No previous message/sender, insert a sender.
-           ((not prev-node) (ewoc-enter-before ewoc event-node sender))
-           ;; We have a previous sender, but it's wrong. Fix it.
-           ((ement-user-p (ewoc-data prev-node))
-            (unless (equal sender (ewoc-data prev-node))
-              (ewoc-set-data prev-node sender)))
-           ;; Otherwise, it's a message. Insert a sender if it's from a different user.
-           ((not (equal sender (ement-event-sender (ewoc-data prev-node))))
-            (ewoc-enter-before ewoc event-node sender))))
-
-        (setf event-node (ement-room--ewoc-next-matching ewoc event-node
-                           #'message-event-p))))))
+          (cond ((not prev-node)
+                 ;; No previous message/sender: insert sender.
+                 (ewoc-enter-before ewoc event-node sender))
+                ((ement-user-p (ewoc-data prev-node))
+                 ;; Previous node is a sender.
+                 (unless (equal sender (ewoc-data prev-node))
+                   ;; Previous node is the wrong sender: fix it.
+                   (ewoc-set-data prev-node sender)))
+                ((and (message-event-p (ewoc-data prev-node))
+                      (not (equal sender (ement-event-sender (ewoc-data prev-node)))))
+                 ;; Previous node is a message from a different sender: insert header.
+                 (ewoc-enter-before ewoc event-node sender))))
+        (setf event-node (ement-room--ewoc-next-matching ewoc event-node #'message-event-p))))))
 
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
