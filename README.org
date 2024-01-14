@@ -305,6 +305,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Bind ~TAB~ / ~BACKTAB~ to move between links in room and like buffers.  ([[https://github.com/alphapapa/ement.el/issues/113][#113]].  Thanks to [[https://github.com/ericsfraga][Eric S. Fraga]] for suggesting.)
 
+*Fixes*
+
++ Insertion of sender headers (when using "Elemental" message format).  (Refactoring contributed by [[https://github.com/Stebalien][Steven Allen]].)
+
 ** 0.13
 
 *Additions*

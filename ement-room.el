@@ -3014,63 +3014,40 @@ the first and last nodes in the buffer, respectively."
   "Insert sender headers into EWOC.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (cl-labels ((read-marker-p (data)
-                (member data '(ement-room-fully-read-marker
-                               ement-room-read-receipt-marker)))
-              (message-event-p (data)
+  (cl-labels ((message-event-p (data)
                 (and (ement-event-p data)
-                     (equal "m.room.message" (ement-event-type data))))
-              (insert-sender-before (node)
-                (ewoc-enter-before ewoc node (ement-event-sender (ewoc-data node)))))
-    (let* ((event-node (if (ement-event-p (ewoc-data start-node))
-                           start-node
-                         (ement-room--ewoc-next-matching ewoc start-node
-                           #'ement-event-p)))
-           (prev-node (when event-node
-                        ;; Just in case...
-                        (ewoc-prev ewoc event-node))))
-      (while (and event-node
-                  ;; I don't like looking up the location of these nodes on every loop
-                  ;; iteration, but it seems like the only reliable way to determine
-                  ;; whether we've reached the end node.  However, when this function is
-                  ;; called for short batches of events (or even a single event, like when
-                  ;; called from `ement-room--insert-event'), the overhead should be
-                  ;; minimal.
-                  (<= (ewoc-location event-node) (ewoc-location end-node)))
-        (when (message-event-p (ewoc-data event-node))
-          (if (not prev-node)
-              ;; No previous node and event is a message: insert header.
-              (insert-sender-before event-node)
-            ;; Previous node exists.
-            (when (read-marker-p (ewoc-data prev-node))
-              ;; Previous node is a read marker: we want to act as if they don't exist, so
-              ;; we set `prev-node' to the non-marker node before it.
-              (setf prev-node (ement-room--ewoc-next-matching ewoc prev-node
-                                (lambda (data)
-                                  (not (read-marker-p data)))
-                                #'ewoc-prev)))
-            (when prev-node
-              ;; A previous node still exists: maybe we need to add a header.
-              (cl-typecase (ewoc-data prev-node)
-                (ement-event
-                 ;; Previous node is an event.
-                 (when (and (message-event-p (ewoc-data prev-node))
-                            (not (equal (ement-event-sender (ewoc-data prev-node))
-                                        (ement-event-sender (ewoc-data event-node)))))
-                   ;; Previous node is a message event with a different sender: insert
-                   ;; header.
-                   (insert-sender-before event-node)))
-                ((or ement-user ement-room-membership-events)
-                 ;; Previous node is a user or coalesced membership events: do not insert
-                 ;; header.
-                 nil)
-                (t
-                 ;; Previous node is not an event and not a read marker: insert header.
-                 (insert-sender-before event-node))))))
-        (setf event-node (ement-room--ewoc-next-matching ewoc event-node
-                           #'ement-event-p)
-              prev-node (when event-node
-                          (ewoc-prev ewoc event-node)))))))
+                     (equal "m.room.message" (ement-event-type data)))))
+    (when (and start-node (not (message-event-p (ewoc-data start-node))))
+      ;; Start node not a message event: forward to next message event (and if none are
+      ;; found, there's nothing to do).
+      (setf start-node (ement-room--ewoc-next-matching ewoc start-node #'message-event-p)))
+    (when end-node
+      ;; Set end node to first message event after it.  (This simplifies the loop by
+      ;; continuing until finding `end-node' or the last node, and ensures we fix headers
+      ;; after any inserted messages.)
+      (setf end-node (ement-room--ewoc-next-matching ewoc end-node #'message-event-p)))
+    (let ((event-node start-node) prev-node)
+      (while (and event-node (not (eq event-node end-node)))
+        (setf prev-node
+              ;; Find previous message or user header.
+              (ement-room--ewoc-next-matching ewoc event-node
+                (lambda (data)
+                  (or (ement-user-p data) (message-event-p data)))
+                #'ewoc-prev))
+        (let ((sender (ement-event-sender (ewoc-data event-node))))
+          (cond ((not prev-node)
+                 ;; No previous message/sender: insert sender.
+                 (ewoc-enter-before ewoc event-node sender))
+                ((ement-user-p (ewoc-data prev-node))
+                 ;; Previous node is a sender.
+                 (unless (equal sender (ewoc-data prev-node))
+                   ;; Previous node is the wrong sender: fix it.
+                   (ewoc-set-data prev-node sender)))
+                ((and (message-event-p (ewoc-data prev-node))
+                      (not (equal sender (ement-event-sender (ewoc-data prev-node)))))
+                 ;; Previous node is a message from a different sender: insert header.
+                 (ewoc-enter-before ewoc event-node sender))))
+        (setf event-node (ement-room--ewoc-next-matching ewoc event-node #'message-event-p))))))
 
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
@@ -3118,6 +3095,9 @@ Search starts from node START and moves by NEXT."
                   ((pred ement-event-p) t)
                   ((pred ement-room-membership-events-p) t)
                   (`(ts . ,_) t)))
+              (read-marker-p
+                (data) (member data '(ement-room-fully-read-marker
+                                      ement-room-read-receipt-marker)))
               (node-ts (data)
                 (pcase data
                   ((pred ement-event-p) (ement-event-origin-server-ts data))
@@ -3137,7 +3117,7 @@ Search starts from node START and moves by NEXT."
       ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc event-node-before)
                while node-after-node-before
-               while (not (ement-event-p (ewoc-data node-after-node-before)))
+               while (read-marker-p (ewoc-data node-after-node-before))
                do (setf event-node-before node-after-node-before))
       (setf new-node (if (not event-node-before)
                          (progn
