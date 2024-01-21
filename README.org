@@ -324,6 +324,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
   - Option ~ement-room-self-insert-chars~ determines which typed characters will start a new message when ~ement-room-self-insert-mode~ is enabled (regardless of whether they are bound to ~self-insert-command~).
   - Option ~ement-room-mode-map-prefix-key~ defines a prefix key for accessing the full ~ement-room-mode-map~ when ~ement-room-self-insert-mode~ is enabled.  (By default this key is ~DEL~.)
 
++ Option ~ement-room-image-margin~ is the number of pixels of margin around image thumbnails.
++ Option ~ement-room-image-relief~ is the number of pixels of shadow rectangle around image thumbnails.
+
 *Changes*
 + Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Format "was kicked and rejoined" membership event pairs.
@@ -338,6 +341,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Edits to previous edit events are correctly sent to the server as edits to the original message event.  ([[https://github.com/alphapapa/ement.el/issues/230][#230]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Completion at point works more reliably in compose buffers.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+
+*Fixes*
++ Toggling images to fill the window body no longer triggers unintended scrolling.  (Thanks to [[https://github.com/phil-s][Phil Sainty].)
 
 ** 0.14
 
