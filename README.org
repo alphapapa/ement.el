@@ -326,6 +326,8 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Option ~ement-room-image-margin~ is the number of pixels of margin around image thumbnails.
 + Option ~ement-room-image-relief~ is the number of pixels of shadow rectangle around image thumbnails.
++ Option ~ement-room-image-thumbnail-height~ is the window body height multiple to use when toggling full-sized images to thumbnails (by default, 0.2).
++ Option ~ement-room-image-thumbnail-height-min~ is the minimum pixel height for thumbnail images (by default, 30 pixels).
 
 *Changes*
 + Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)

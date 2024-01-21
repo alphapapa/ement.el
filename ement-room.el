@@ -4907,12 +4907,23 @@ STRUCT should be an `ement-room-membership-events' struct."
            (when (and value (display-images-p))
              (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
-(defcustom ement-room-image-initial-height 0.2
+(defcustom ement-room-image-thumbnail-height 0.2
+  "Scale thumbnail images to this multiple of the window body height.
+Should be a number between 0 and 1.
+See also `ement-room-image-thumbnail-height-min'."
+  :type '(number :tag "Multiple of the window body height"))
+
+(defcustom ement-room-image-thumbnail-height-min 30
+  "Minimum height in pixels when scaling thumbnail images.
+See also `ement-room-image-thumbnail-height'."
+  :type 'natnum)
+
+(defcustom ement-room-image-initial-height ement-room-image-thumbnail-height
   "Limit images' initial display height.
 If a number, it should be no larger than 1 (because Emacs can't
 display images larger than the window body height)."
-  :type '(choice (const :tag "Use full window width" nil)
-                 (number :tag "Limit to this multiple of the window body height")))
+  :type '(choice (const :tag "Use full window height (or width)" nil)
+                 (number :tag "Multiple of the window body height")))
 
 (defcustom ement-room-image-margin 5
   "How many pixels to add as an extra margin around the image."
@@ -4937,9 +4948,10 @@ height."
 
 (defun ement-room-image-scale (pos)
   "Toggle scale of image at POS.
-Scale image to fit within the window's body.  If image is already
-fit to the window, reduce its max-height to 10% of the window's
-height."
+Scale image to fit the window body.  If the image already fits
+the window body, reduce its max-height in accordance with user
+options `ement-room-image-thumbnail-height' and
+`ement-room-image-thumbnail-height-min'."
   (interactive "d")
   (pcase-let* ((image (get-text-property pos 'display))
                (max-height (image-property image :max-height))
@@ -4953,7 +4965,10 @@ height."
                ;; See <https://github.com/alphapapa/ement.el/issues/39>.
                (new-height (if use-window-body-size
                                window-height
-                             (/ window-height 10))))
+                             (max ement-room-image-thumbnail-height-min
+                                  ;; Emacs doesn't like floats as the max-height.
+                                  (truncate (* window-height
+                                               ement-room-image-thumbnail-height))))))
     (when (fboundp 'imagemagick-types)
       ;; Only do this when ImageMagick is supported.
       ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
@@ -5034,10 +5049,11 @@ show it in the buffer."
               ;; Calculate max image display size.
               (cond (ement-room-image-initial-height
                      ;; Use configured value.
-                     (setf max-height (truncate
-                                       ;; Emacs doesn't like floats as the max-height.
-                                       (* (window-body-height buffer-window t)
-                                          ement-room-image-initial-height))
+                     (setf max-height (max ement-room-image-thumbnail-height-min
+                                           ;; Emacs doesn't like floats as the max-height.
+                                           (truncate
+                                            (* (window-body-height buffer-window t)
+                                               ement-room-image-initial-height)))
                            max-width (window-body-width buffer-window t)))
                     (buffer-window
                      ;; Buffer displayed: use window size.
