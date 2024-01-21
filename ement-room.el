@@ -4932,13 +4932,16 @@ fit to the window, reduce its max-height to 10% of the window's
 height."
   (interactive "d")
   (pcase-let* ((image (get-text-property pos 'display))
+               (max-height (image-property image :max-height))
                (window-width (window-body-width nil t))
                (window-height (window-body-height nil t))
-               ;; Image scaling commands set :max-height and friends to nil so use the
-               ;; impossible dummy value -1.  See <https://github.com/alphapapa/ement.el/issues/39>.
-               (new-height (if (= window-height (or (image-property image :max-height) -1))
-                               (/ window-height 10)
-                             window-height)))
+               (use-window-height (not (and (numberp max-height)
+                                            (= window-height max-height))))
+               ;; Image scaling commands set :max-height and friends to nil.
+               ;; See <https://github.com/alphapapa/ement.el/issues/39>.
+               (new-height (if use-window-height
+                               window-height
+                             (/ window-height 10))))
     (when (fboundp 'imagemagick-types)
       ;; Only do this when ImageMagick is supported.
       ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
