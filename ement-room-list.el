@@ -675,19 +675,52 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
                   column-sizes (cdr format-cons)
                   header-line-format (taxy-magit-section-format-header
                                       column-sizes ement-room-list-column-formatters))
-            (when-let ((window (get-buffer-window (current-buffer))))
+            (when-let ((window (get-buffer-window (current-buffer) t)))
               (setf window-point (window-point window)
                     window-start (window-start window)))
             (when ement-room-list-visibility-cache
               (setf magit-section-visibility-cache ement-room-list-visibility-cache))
             (add-hook 'kill-buffer-hook #'ement-room-list--cache-visibility nil 'local)
-            ;; Before this point, no changes have been made to the buffer's contents.
-            (delete-all-overlays)
-            (erase-buffer)
-            (save-excursion
-              (taxy-magit-section-insert taxy :items 'first
-                ;; :blank-between-depth bufler-taxy-blank-between-depth
-                :initial-depth 0))
+            ;; Deal with markers which will be reset to to 1 when the buffer
+            ;; content is erased.  See (info "(elisp) Overview of Markers")
+            ;; regarding deleting the text around a marker’s position.
+            (setq-local switch-to-buffer-preserve-window-point nil)
+            ;; Capture the current positions of known internal markers.
+            (let ((roomlist (current-buffer))
+                  roomlist-markers)
+              (cl-flet* ((store-marker (m)
+                                       (when (markerp m)
+                                         (push (cons m (marker-position m))
+                                               roomlist-markers)))
+                         (doit (win)
+                               ;; See (info "(elisp) Quitting Windows") and function
+                               ;; `display-buffer-record-window' about the `quit-restore'
+                               ;; parameter.
+                               (when-let* ((qr (window-parameter win 'quit-restore))
+                                           ((eq (car qr) 'other))
+                                           (obuffer (nth 1 qr))
+                                           ((eq (nth 0 obuffer) roomlist)))
+                                 (store-marker (nth 2 obuffer)))
+                               ;; Deal with `window-prev-buffers' used by
+                               ;; `select-prev-buffer' and `select-next-buffer'.
+                               ;; See Emacs bug#64911.
+                               (let ((prevbufs (window-prev-buffers win)))
+                                 (dolist (bufdata prevbufs)
+                                   (when (eq (car bufdata) roomlist)
+                                     (store-marker (cadr bufdata))
+                                     (store-marker (caddr bufdata)))))))
+                (walk-windows #'doit t t))
+              ;; Before this point, no changes have been made to the buffer's contents.
+              (delete-all-overlays)
+              (erase-buffer)
+              (save-excursion
+                (taxy-magit-section-insert taxy :items 'first
+                  ;; :blank-between-depth bufler-taxy-blank-between-depth
+                  :initial-depth 0))
+              ;; Restore the original positions of the known markers.
+              (dolist (mpos roomlist-markers)
+                (set-marker (car mpos) (cdr mpos))))
+            ;; Restore point.
             (if-let* ((section-ident)
                       (section (magit-get-section section-ident)))
                 (goto-char (oref section start))
@@ -696,16 +729,10 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
           (when-let ((window (display-buffer buffer-name display-buffer-action)))
             (select-window window)))
         (when-let ((window (get-buffer-window buffer-name)))
-          (set-window-start window window-start)
-          (set-window-point window window-point))
-        ;; FIXME: Despite all this code to save and restore point and window point and
-        ;; window start, when I send a message from the minibuffer, or when I abort
-        ;; sending a message from the minibuffer, point is moved to the beginning of the
-        ;; buffer.  While the minibuffer is open (and the typing messages are being sent
-        ;; to the server, causing it to repeatedly sync), the point stays in the correct
-        ;; place.  I can't find any reason why this happens.  It makes no sense.  And
-        ;; while trying to debug the problem, somehow Emacs got put into an unbreakable,
-        ;; infinite loop twice; even C-g and SIGUSR2 didn't stop it.
+          (when (> window-start 0)
+            (set-window-start window window-start))
+          (when (> window-point 0)
+            (set-window-point window window-point)))
 
         ;; NOTE: In order for `bookmark--jump-via' to work properly, the restored buffer
         ;; must be set as the current buffer, so we have to do this explicitly here.
