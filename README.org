@@ -308,6 +308,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Fixes*
 
 + Insertion of sender headers (when using "Elemental" message format).  (Refactoring contributed by [[https://github.com/Stebalien][Steven Allen]].)
++ Some room event data was being unintentionally serialized to disk when caching the room list visibility state. ([[https://github.com/alphapapa/ement.el/issues/256][#256]])
 
 ** 0.13
 
