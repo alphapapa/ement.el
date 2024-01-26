@@ -285,7 +285,7 @@ to `ement-api', which see."
         (cons 'buffer-name (buffer-name))
         (cons 'handler #'ement-notifications-bookmark-handler)))
 
-(defun ement-notifications-bookmark-handler (bookmark)
+(defun ement-notifications-bookmark-handler (_bookmark)
   "Show `ement-notifications' buffer for BOOKMARK."
   ;; FIXME: Handle multiple sessions.
   (ement-notifications (ement-complete-session)))
