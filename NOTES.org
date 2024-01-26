@@ -1,10 +1,16 @@
 #+TITLE: Ement.el Notes
 
 * Views
+:PROPERTIES:
+:VISIBILITY: content
+:END:
 
 + [[org-ql-search:tags%3Abug%20%21done%3A?super-groups=%28%28%3Aauto-priority%29%29&sort=%28todo%29&title=%22Bugs%22][org-ql-search: Bugs]]
 
 * Tasks
+:PROPERTIES:
+:VISIBILITY: children
+:END:
 
 ** TODO Membership events in which nothing seems to change              :bug:
 
@@ -1175,8 +1181,8 @@ My thread on emacs-devel about using ~print-circle~ to prevent this problem.
   + [X] in ement.el
 + [X] Push ~Meta:~ commit to ~master~
 + [X] Make release on GitHub
-+ [X] Announce release to TWIM room.
 + [X] Announce release on Reddit.
++ [X] Announce release to TWIM room.
 
 *** New bugfix version
 
