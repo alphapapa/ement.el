@@ -297,6 +297,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *Additions*
 
++ Audio events are rendered as a link to the audio file.  (Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
 + Customization group ~ement-room-list~.
 + Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
 + Option ~ement-room-reaction-names-limit~ sets how many senders of a reaction are shown in the buffer (more than that many are shown in the tooltip).
