@@ -3508,6 +3508,7 @@ If FORMATTED-P, return the formatted body content, when available."
                            ("m.image" (ement-room--format-m.image event))
                            ("m.file" (ement-room--format-m.file event))
                            ("m.video" (ement-room--format-m.video event))
+                           ("m.audio" (ement-room--format-m.audio event))
                            (_ (if (or local-redacted-by unsigned-redacted-by)
                                   nil
                                 (format "[unsupported msgtype: %s]" msgtype ))))))
@@ -4294,6 +4295,31 @@ Then invalidate EVENT's node to show the image."
                       (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
+    (concat (propertize string
+                        'action #'browse-url
+                        'button t
+                        'button-data url
+                        'category t
+                        'face 'button
+                        'follow-link t
+                        'help-echo url
+                        'keymap button-map
+                        'mouse-face 'highlight)
+            (propertize " "
+                        'display '(space :relative-height 1.5)))))
+
+(defun ement-room--format-m.audio (event)
+  "Return \"m.audio\" EVENT formatted as a string."
+  (pcase-let* (((cl-struct ement-event
+                           (content (map body
+                                         ('info (map mimetype duration size))
+                                         ('url mxc-url))))
+                event)
+               (url (when mxc-url
+                      (ement--mxc-to-url mxc-url ement-session)))
+               (human-size (file-size-human-readable size))
+               (human-duration (format-seconds "%m:%s" (/ duration 1000)))
+               (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
                         'action #'browse-url
                         'button t
