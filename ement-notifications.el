@@ -62,14 +62,34 @@ is passed through `ement--make-event'."
 (declare-function ement-room-list "ement-room-list")
 (defvar ement-notifications-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<return>") #'ement-notifications-jump)
+    (define-key map [mouse-1] #'ement-notifications-jump-mouse)
+    (define-key map [mouse-2] #'ement-notifications-jump-mouse)
     (define-key map (kbd "S-<return>") #'ement-notify-reply)
     (define-key map (kbd "M-g M-l") #'ement-room-list)
     (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
     (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
     (define-key map [remap scroll-down-command] #'ement-notifications-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-notifications-mwheel-scroll)
-    (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
+    (make-composed-keymap (list map) 'view-mode-map))
   "Map for Ement notification buffers.")
+
+(cl-defun ement-notifications-jump (&optional (pos (point)))
+  "Jump to Matrix event at POS."
+  (interactive)
+  (let ((session (get-text-property pos 'session))
+        (room (get-text-property pos 'room))
+        (event (get-text-property pos 'event)))
+    (ement-view-room room session)
+    (ement-room-goto-event event)))
+
+(defun ement-notifications-jump-mouse (event)
+  "Jump to Matrix event at EVENT."
+  (interactive "e")
+  (let ((pos (posn-point (event-start event))))
+    (if (button-at pos)
+        (push-button pos)
+      (ement-notifications-jump pos))))
 
 (defvar ement-notifications-hook '(ement-notifications-log-to-buffer)
   "Functions called for `ement-notifications' notifications.
@@ -197,19 +217,24 @@ to `ement-api', which see."
                        (inhibit-read-only t)
                        (start) (end))
             (ewoc-goto-node ement-ewoc new-node)
-            (setf start (point))
-            (if-let (next-node (ewoc-next ement-ewoc new-node))
-                (ewoc-goto-node ement-ewoc next-node)
-              (goto-char (point-max)))
-            (setf end (- (point) 2))
+            ;; Apply the button properties only to the room and sender names,
+            ;; allowing buttons in the rest of the message to remain separate.
+            (setf start (point)
+                  end (save-excursion
+                        (re-search-forward (rx "> "))))
+            (add-text-properties start end '( button (t)
+                                              category default-button
+                                              action ement-notify-button-action))
+            ;; Apply the session, room, and event properties to the whole event.
+            (setf end (save-excursion
+                        (if-let ((next-node (ewoc-next ement-ewoc new-node)))
+                            (ewoc-location next-node)
+                          (point-max))))
             (add-text-properties start end
-                                 (list 'button '(t)
-                                       'category 'default-button
-                                       'action #'ement-notify-button-action
-                                       'session session
+                                 (list 'session session
                                        'room ement-room
                                        'event event))
-            ;; Remove button face property.
+            ;; Remove button face property from the whole event.
             (alter-text-property start end 'face
                                  (lambda (face)
                                    (pcase face
@@ -260,10 +285,14 @@ to `ement-api', which see."
         (cons 'buffer-name (buffer-name))
         (cons 'handler #'ement-notifications-bookmark-handler)))
 
-(defun ement-notifications-bookmark-handler (bookmark)
+(defun ement-notifications-bookmark-handler (_bookmark)
   "Show `ement-notifications' buffer for BOOKMARK."
-  (pcase-let ((`(,_bookmark-name . ,(map buffer-name)) bookmark))
-    (switch-to-buffer (ement-notifications--log-buffer :name buffer-name))))
+  ;; FIXME: Handle multiple sessions.
+  ;; FIXME: This doesn't work quite correctly when the buffer isn't already open, because
+  ;; the command is asynchronous in that case, so the buffer can be displayed in the wrong
+  ;; window.  Fixing this would be hacky and awkward, but a partial solution is probably
+  ;; possible.
+  (ement-notifications (ement-complete-session)))
 
 ;;; Footer
 

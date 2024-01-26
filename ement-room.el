@@ -137,6 +137,8 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "m") #'ement-room-mark-read)
     (define-key map [remap scroll-down-command] #'ement-room-scroll-down-command)
     (define-key map [remap mwheel-scroll] #'ement-room-mwheel-scroll)
+    (define-key map (kbd "<tab>") #'forward-button)
+    (define-key map (kbd "<backtab>") #'backward-button)
 
     ;; Switching
     (define-key map (kbd "M-g M-l") #'ement-room-list)
@@ -249,6 +251,12 @@ Does not include filenames, emotes, etc.")
   "Functions called when `ement-room-view' is called.
 Called with two arguments, the room and the session."
   :type 'hook)
+
+(defcustom ement-room-reaction-names-limit 3
+  "Up to this many users, show a reaction's senders' names.
+If more than this many users have sent a reaction, show the
+number of senders instead (and the names in a tooltip)."
+  :type 'natnum)
 
 ;;;;; Faces
 
@@ -708,27 +716,28 @@ number (to darken rather than lighten)."
   "Highlight event at POSITION while evaluating BODY."
   ;; MAYBE: Accept a marker for POSITION.
   (declare (indent 1))
-  `(let* ((node (ewoc-locate ement-ewoc ,position))
-          (event (ewoc-data node))
-          ement-room-replying-to-overlay)
-     (unless (and (ement-event-p event)
-                  (ement-event-id event))
-       (error "No event at point"))
-     (unwind-protect
-         (progn
-           (setf ement-room-replying-to-overlay
-                 (make-overlay (ewoc-location node)
-                               ;; NOTE: It doesn't seem possible to get the end position of
-                               ;; a node, so if there is no next node, we use point-max.
-                               ;; But this might break if we were to use an EWOC footer.
-                               (if (ewoc-next ement-ewoc node)
-                                   (ewoc-location (ewoc-next ement-ewoc node))
-                                 (point-max))))
-           (overlay-put ement-room-replying-to-overlay 'face 'highlight)
-           ,@body)
-       (when (overlayp ement-room-replying-to-overlay)
-         (delete-overlay ement-room-replying-to-overlay))
-       (setf ement-room-replying-to-overlay nil))))
+  (let ((node/g (gensym "node")) (event/g (gensym "event")))
+    `(let* ((,node/g (ewoc-locate ement-ewoc ,position))
+            (,event/g (ewoc-data ,node/g))
+            ement-room-replying-to-overlay)
+       (unless (and (ement-event-p ,event/g)
+                    (ement-event-id ,event/g))
+         (error "No event at point"))
+       (unwind-protect
+           (progn
+             (setf ement-room-replying-to-overlay
+                   (make-overlay (ewoc-location ,node/g)
+                                 ;; NOTE: It doesn't seem possible to get the end position of
+                                 ;; a node, so if there is no next node, we use point-max.
+                                 ;; But this might break if we were to use an EWOC footer.
+                                 (if (ewoc-next ement-ewoc ,node/g)
+                                     (ewoc-location (ewoc-next ement-ewoc ,node/g))
+                                   (point-max))))
+             (overlay-put ement-room-replying-to-overlay 'face 'highlight)
+             ,@body)
+         (when (overlayp ement-room-replying-to-overlay)
+           (delete-overlay ement-room-replying-to-overlay))
+         (setf ement-room-replying-to-overlay nil)))))
 
 (defmacro ement-room-with-typing (&rest body)
   "Send typing notifications around BODY.
@@ -941,8 +950,8 @@ spec) without requiring all events to use the same margin width."
 
 (ement-room-define-event-formatter ?r
   "Reactions."
-  (ignore room session)
-  (ement-room--format-reactions event))
+  (ignore session)
+  (ement-room--format-reactions event room))
 
 (ement-room-define-event-formatter ?t
   "Timestamp."
@@ -1774,17 +1783,22 @@ Interactively, to event at point."
                    (replying-to-event (ement--original-event-for event ement-session)))
         (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
-(defun ement-room-send-reaction (key position)
+(defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
 Interactively, send reaction to event at point.  KEY should be a
 reaction string, e.g. \"👍\"."
   (interactive
-   (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
-         (point)))
+   (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+     (unless (ement-event-p event)
+       (user-error "No event at point"))
+     (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
+           (point)
+           event)))
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
   ;; HACK: We could simplify this by storing the key in a text property...
   (ement-room-with-highlighted-event-at position
-    (pcase-let* ((event (or (ewoc-data (ewoc-locate ement-ewoc position))
+    (pcase-let* ((event (or event
+                            (ewoc-data (ewoc-locate ement-ewoc position))
                             (user-error "No event at point")))
                  ;; NOTE: Sadly, `face-at-point' doesn't work here because, e.g. if
                  ;; hl-line-mode is enabled, it only returns the hl-line face.
@@ -3006,63 +3020,40 @@ the first and last nodes in the buffer, respectively."
   "Insert sender headers into EWOC.
 Inserts headers between START-NODE and END-NODE, which default to
 the first and last nodes in the buffer, respectively."
-  (cl-labels ((read-marker-p (data)
-                (member data '(ement-room-fully-read-marker
-                               ement-room-read-receipt-marker)))
-              (message-event-p (data)
+  (cl-labels ((message-event-p (data)
                 (and (ement-event-p data)
-                     (equal "m.room.message" (ement-event-type data))))
-              (insert-sender-before (node)
-                (ewoc-enter-before ewoc node (ement-event-sender (ewoc-data node)))))
-    (let* ((event-node (if (ement-event-p (ewoc-data start-node))
-                           start-node
-                         (ement-room--ewoc-next-matching ewoc start-node
-                           #'ement-event-p)))
-           (prev-node (when event-node
-                        ;; Just in case...
-                        (ewoc-prev ewoc event-node))))
-      (while (and event-node
-                  ;; I don't like looking up the location of these nodes on every loop
-                  ;; iteration, but it seems like the only reliable way to determine
-                  ;; whether we've reached the end node.  However, when this function is
-                  ;; called for short batches of events (or even a single event, like when
-                  ;; called from `ement-room--insert-event'), the overhead should be
-                  ;; minimal.
-                  (<= (ewoc-location event-node) (ewoc-location end-node)))
-        (when (message-event-p (ewoc-data event-node))
-          (if (not prev-node)
-              ;; No previous node and event is a message: insert header.
-              (insert-sender-before event-node)
-            ;; Previous node exists.
-            (when (read-marker-p (ewoc-data prev-node))
-              ;; Previous node is a read marker: we want to act as if they don't exist, so
-              ;; we set `prev-node' to the non-marker node before it.
-              (setf prev-node (ement-room--ewoc-next-matching ewoc prev-node
-                                (lambda (data)
-                                  (not (read-marker-p data)))
-                                #'ewoc-prev)))
-            (when prev-node
-              ;; A previous node still exists: maybe we need to add a header.
-              (cl-typecase (ewoc-data prev-node)
-                (ement-event
-                 ;; Previous node is an event.
-                 (when (and (message-event-p (ewoc-data prev-node))
-                            (not (equal (ement-event-sender (ewoc-data prev-node))
-                                        (ement-event-sender (ewoc-data event-node)))))
-                   ;; Previous node is a message event with a different sender: insert
-                   ;; header.
-                   (insert-sender-before event-node)))
-                ((or ement-user ement-room-membership-events)
-                 ;; Previous node is a user or coalesced membership events: do not insert
-                 ;; header.
-                 nil)
-                (t
-                 ;; Previous node is not an event and not a read marker: insert header.
-                 (insert-sender-before event-node))))))
-        (setf event-node (ement-room--ewoc-next-matching ewoc event-node
-                           #'ement-event-p)
-              prev-node (when event-node
-                          (ewoc-prev ewoc event-node)))))))
+                     (equal "m.room.message" (ement-event-type data)))))
+    (when (and start-node (not (message-event-p (ewoc-data start-node))))
+      ;; Start node not a message event: forward to next message event (and if none are
+      ;; found, there's nothing to do).
+      (setf start-node (ement-room--ewoc-next-matching ewoc start-node #'message-event-p)))
+    (when end-node
+      ;; Set end node to first message event after it.  (This simplifies the loop by
+      ;; continuing until finding `end-node' or the last node, and ensures we fix headers
+      ;; after any inserted messages.)
+      (setf end-node (ement-room--ewoc-next-matching ewoc end-node #'message-event-p)))
+    (let ((event-node start-node) prev-node)
+      (while (and event-node (not (eq event-node end-node)))
+        (setf prev-node
+              ;; Find previous message or user header.
+              (ement-room--ewoc-next-matching ewoc event-node
+                (lambda (data)
+                  (or (ement-user-p data) (message-event-p data)))
+                #'ewoc-prev))
+        (let ((sender (ement-event-sender (ewoc-data event-node))))
+          (cond ((not prev-node)
+                 ;; No previous message/sender: insert sender.
+                 (ewoc-enter-before ewoc event-node sender))
+                ((ement-user-p (ewoc-data prev-node))
+                 ;; Previous node is a sender.
+                 (unless (equal sender (ewoc-data prev-node))
+                   ;; Previous node is the wrong sender: fix it.
+                   (ewoc-set-data prev-node sender)))
+                ((and (message-event-p (ewoc-data prev-node))
+                      (not (equal sender (ement-event-sender (ewoc-data prev-node)))))
+                 ;; Previous node is a message from a different sender: insert header.
+                 (ewoc-enter-before ewoc event-node sender))))
+        (setf event-node (ement-room--ewoc-next-matching ewoc event-node #'message-event-p))))))
 
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
@@ -3110,6 +3101,9 @@ Search starts from node START and moves by NEXT."
                   ((pred ement-event-p) t)
                   ((pred ement-room-membership-events-p) t)
                   (`(ts . ,_) t)))
+              (read-marker-p
+                (data) (member data '(ement-room-fully-read-marker
+                                      ement-room-read-receipt-marker)))
               (node-ts (data)
                 (pcase data
                   ((pred ement-event-p) (ement-event-origin-server-ts data))
@@ -3129,7 +3123,7 @@ Search starts from node START and moves by NEXT."
       ;; HACK: Insert after any read markers.
       (cl-loop for node-after-node-before = (ewoc-next ewoc event-node-before)
                while node-after-node-before
-               while (not (ement-event-p (ewoc-data node-after-node-before)))
+               while (read-marker-p (ewoc-data node-after-node-before))
                do (setf event-node-before node-after-node-before))
       (setf new-node (if (not event-node-before)
                          (progn
@@ -3347,50 +3341,54 @@ Formats according to `ement-room-message-format-spec', which see."
           (propertize " "
                       'display ement-room-event-separator-display-property)))
 
-(defun ement-room--format-reactions (event)
-  "Return formatted reactions to EVENT."
+(defun ement-room--format-reactions (event room)
+  "Return formatted reactions to EVENT in ROOM."
   ;; TODO: Like other events, pop to a buffer showing the raw reaction events when a key is pressed.
-  (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
-      (cl-labels ((format-reaction (ks)
-                    (pcase-let* ((`(,key . ,senders) ks)
-                                 (key (propertize key 'face 'ement-room-reactions-key))
-                                 (count (propertize (format " (%s)" (length senders))
-                                                    'face 'ement-room-reactions))
-                                 (string
-                                  (propertize (concat key count)
-                                              'button '(t)
-                                              'category 'default-button
-                                              'action #'ement-room-reaction-button-action
-                                              'follow-link t
-                                              'help-echo (lambda (_window buffer _pos)
-                                                           ;; NOTE: If the reaction key string is a Unicode character composed
-                                                           ;; with, e.g. "VARIATION SELECTOR-16", `string-to-char' ignores the
-                                                           ;; composed modifier/variation-selector and just returns the first
-                                                           ;; character of the string.  This should be fine, since it's just
-                                                           ;; for the tooltip.
-                                                           (concat
-                                                            (get-char-code-property (string-to-char key) 'name) ": "
-                                                            (senders-names senders (buffer-local-value 'ement-room buffer))))))
-                                 (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
-                                                          :key #'ement-user-id :test #'equal)))
-                      (when local-user-p
-                        (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
-                                                nil string))
-                      (ement--remove-face-property string 'button)
-                      string))
-                  (senders-names (senders room)
-                    (cl-loop for sender in senders
-                             collect (ement--user-displayname-in room sender)
-                             into names
-                             finally return (string-join names ", "))))
+  (cl-labels
+      ((format-reaction (ks)
+         (pcase-let* ((`(,key . ,senders) ks)
+                      (key (propertize key 'face 'ement-room-reactions-key))
+                      (count (propertize (format " (%s)"
+                                                 (if (length> senders ement-room-reaction-names-limit)
+                                                     (length senders)
+                                                   (senders-names senders room)))
+                                         'face 'ement-room-reactions))
+                      (string
+                       (propertize (concat key count)
+                                   'button '(t)
+                                   'category 'default-button
+                                   'action #'ement-room-reaction-button-action
+                                   'follow-link t
+                                   'help-echo (lambda (_window buffer _pos)
+                                                ;; NOTE: If the reaction key string is a Unicode character composed
+                                                ;; with, e.g. "VARIATION SELECTOR-16", `string-to-char' ignores the
+                                                ;; composed modifier/variation-selector and just returns the first
+                                                ;; character of the string.  This should be fine, since it's just
+                                                ;; for the tooltip.
+                                                (concat
+                                                 (get-char-code-property (string-to-char key) 'name) ": "
+                                                 (senders-names senders (buffer-local-value 'ement-room buffer))))))
+                      (local-user-p (cl-member (ement-user-id (ement-session-user ement-session)) senders
+                                               :key #'ement-user-id :test #'equal)))
+           (when local-user-p
+             (add-face-text-property 0 (length string) '(:box (:style pressed-button) :inverse-video t)
+                                     nil string))
+           (ement--remove-face-property string 'button)
+           string))
+       (senders-names (senders room)
+         (cl-loop for sender in senders
+                  collect (ement--user-displayname-in room sender)
+                  into names
+                  finally return (string-join names ", "))))
+    (if-let ((reactions (map-elt (ement-event-local event) 'reactions)))
         (cl-loop with keys-senders
                  for reaction in reactions
                  for key = (map-nested-elt (ement-event-content reaction) '(m.relates_to key))
                  for sender = (ement-event-sender reaction)
                  do (push sender (alist-get key keys-senders nil nil #'string=))
                  finally do (setf keys-senders (cl-sort keys-senders #'> :key (lambda (pair) (length (cdr pair)))))
-                 finally return (concat "\n  " (mapconcat #'format-reaction keys-senders "  "))))
-    ""))
+                 finally return (concat "\n  " (mapconcat #'format-reaction keys-senders "  ")))
+      "")))
 
 (cl-defun ement-room--format-message (event room session &optional (format ement-room-message-format-spec))
   "Return EVENT in ROOM on SESSION formatted according to FORMAT.
@@ -3516,6 +3514,7 @@ If FORMATTED-P, return the formatted body content, when available."
                            ("m.image" (ement-room--format-m.image event))
                            ("m.file" (ement-room--format-m.file event))
                            ("m.video" (ement-room--format-m.video event))
+                           ("m.audio" (ement-room--format-m.audio event))
                            (_ (if (or local-redacted-by unsigned-redacted-by)
                                   nil
                                 (format "[unsupported msgtype: %s]" msgtype ))))))
@@ -4302,6 +4301,31 @@ Then invalidate EVENT's node to show the image."
                       (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
+    (concat (propertize string
+                        'action #'browse-url
+                        'button t
+                        'button-data url
+                        'category t
+                        'face 'button
+                        'follow-link t
+                        'help-echo url
+                        'keymap button-map
+                        'mouse-face 'highlight)
+            (propertize " "
+                        'display '(space :relative-height 1.5)))))
+
+(defun ement-room--format-m.audio (event)
+  "Return \"m.audio\" EVENT formatted as a string."
+  (pcase-let* (((cl-struct ement-event
+                           (content (map body
+                                         ('info (map mimetype duration size))
+                                         ('url mxc-url))))
+                event)
+               (url (when mxc-url
+                      (ement--mxc-to-url mxc-url ement-session)))
+               (human-size (file-size-human-readable size))
+               (human-duration (format-seconds "%m:%s" (/ duration 1000)))
+               (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
                         'action #'browse-url
                         'button t

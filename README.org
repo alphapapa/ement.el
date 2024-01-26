@@ -18,7 +18,7 @@
 # ELPA badge image.
 [[https://elpa.gnu.org/packages/ement.html][https://elpa.gnu.org/packages/ement.svg]]
 
-Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
+Ement.el is a [[http://www.matrix.org/][Matrix]] client for [[https://www.gnu.org/software/emacs/][GNU Emacs]].  It aims to be simple, fast, featureful, and reliable, while integrating naturally with Emacs.
 
 Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.org][https://img.shields.io/matrix/ement.el:matrix.org.svg?label=%23ement.el:matrix.org]]
 
@@ -41,7 +41,7 @@ Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.or
 :ID:       d818f690-5f22-4eb0-83e1-4d8ce16c9e5b
 :END:
 
-The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizeable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
+The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
 
 [[images/ement-for-twim.png]]
 
@@ -122,8 +122,8 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
 - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
-1. Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
-2. Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
+1. Call command ~ement-connect~ to connect.  Multiple sessions are supported: call the command again with a ~C-u~ universal prefix to connect to another account.
+2. Wait for initial sync to complete (which can take a few moments--initial sync JSON responses can be large).
 3. Use these commands (room-related commands may be called with universal prefix to prompt for the room):
    - ~ement-list-rooms~ to view the list of joined rooms.
    - ~ement-view-room~ to view a room's buffer, selected with completion.
@@ -292,6 +292,26 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 :PROPERTIES:
 :TOC:      :depth 0
 :END:
+
+** 0.14
+
+*Additions*
+
++ Audio events are rendered as a link to the audio file.  (Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
++ Customization group ~ement-room-list~.
++ Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
++ Option ~ement-room-reaction-names-limit~ sets how many senders of a reaction are shown in the buffer (more than that many are shown in the tooltip).
+
+*Changes*
+
++ Bind ~TAB~ / ~BACKTAB~ to move between links in room and like buffers.  ([[https://github.com/alphapapa/ement.el/issues/113][#113]].  Thanks to [[https://github.com/ericsfraga][Eric S. Fraga]] for suggesting.)
+
+*Fixes*
+
++ Insertion of sender headers (when using "Elemental" message format).  (Refactoring contributed by [[https://github.com/Stebalien][Steven Allen]].)
++ Some room event data was being unintentionally serialized to disk when caching the room list visibility state. ([[https://github.com/alphapapa/ement.el/issues/256][#256]])
++ Notifications buffer restores properly when bookmarked.
++ Command ~ement-room-send-reaction~ checks for an event at point.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.13
 

@@ -38,16 +38,6 @@
 
 ;;;; Variables
 
-(declare-function ement-room-list "ement-room-list")
-(defvar ement-notify-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "S-<return>") #'ement-notify-reply)
-    (define-key map (kbd "M-g M-l") #'ement-room-list)
-    (define-key map (kbd "M-g M-m") #'ement-notify-switch-to-mentions-buffer)
-    (define-key map (kbd "M-g M-n") #'ement-notify-switch-to-notifications-buffer)
-    (make-composed-keymap (list map button-buffer-map) 'view-mode-map))
-  "Map for Ement notification buffers.")
-
 (defvar ement-notify-dbus-p
   (and (featurep 'dbusbind)
        (require 'dbus nil :no-error)
@@ -141,7 +131,7 @@ can help distinguish messages by room."
 (defcustom ement-notify-room-avatars t
   "Show room avatars in the notifications buffers.
 This shows room avatars at the left of the window margin in
-notification buffers.  It's not customizeable beyond that due to
+notification buffers.  It's not customizable beyond that due to
 limitations and complexities of displaying strings and images in
 margins in Emacs.  But it's useful, anyway."
   :type 'boolean)

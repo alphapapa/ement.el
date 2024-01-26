@@ -5,8 +5,8 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.13
-;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.12.1") (svg-lib "0.2.5") (transient "0.3.7"))
+;; Version: 0.14
+;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.13") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -569,6 +569,7 @@ a filter ID).  When unspecified, the value of
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.
 Runs `ement-sync-callback-hook' with SESSION."
+  (ement-debug (ement-user-id (ement-session-user session)))
   ;; Remove the sync first.  We already have the data from it, and the
   ;; process has exited, so it's safe to run another one.
   (setf (map-elt ement-syncs session) nil)
@@ -685,7 +686,7 @@ Also used for left rooms, in which case STATUS should be set to
                (latest-timestamp))
     (setf (ement-room-status room) status
           (ement-room-unread-notifications room) unread-notifications)
-    ;; NOTE: The idea is that, assuming that events in the sync reponse are in
+    ;; NOTE: The idea is that, assuming that events in the sync response are in
     ;; chronological order, we push them to the lists in the room slots in that order,
     ;; leaving the head of each list as the most recent event of that type.  That means
     ;; that, e.g. the room state events may be searched in order to find, e.g. the most
@@ -821,6 +822,8 @@ Adds sender to `ement-users' when necessary."
 ;; TODO: These two functions should be folded into event handlers.
 
 ;;;;; Reading/writing sessions
+
+;; TODO: Use `persist' and/or `multisession'.
 
 (defun ement--read-sessions ()
   "Return saved sessions alist read from disk.

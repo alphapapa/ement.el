@@ -56,6 +56,29 @@ a symbol, it should be unquoted.."
        (mouse-set-point event)
        (call-interactively #',command))))
 
+;;;; Types
+
+(defclass ement-room-list-section (magit-section)
+  ;; We define this class so we can use it as the type of section we insert, so we can
+  ;; define a method to return identifiers for our section type, so section visibility can
+  ;; be cached concisely (i.e. without storing room event data in the values, which can
+  ;; serialize to hundreds of megabytes after receiving many events).
+  nil)
+
+(cl-defmethod magit-section-ident-value ((section ement-room-list-section))
+  ;; FIXME: The name of each taxy could be ambiguous.  Best would be to use the
+  ;; hierarchical path, but since the taxys aren't doubly linked, that isn't easily done.
+  ;; Could probably be worked around by binding a special variable around the creation of
+  ;; the taxy hierarchy that would allow the path to be saved into each taxy.
+  (pcase-exhaustive (oref section value)
+    ((and (cl-type taxy-magit-section) it)
+     (taxy-name it))
+    (`[,(and (cl-type ement-room) room)
+       ,(and (cl-type ement-session) session)]
+     (vector (ement-user-id (ement-session-user session))
+             (ement-room-id room)))
+    ((pred null) nil)))
+
 ;;;; Variables
 
 (declare-function ement-room-toggle-space "ement-room")
@@ -99,6 +122,10 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 ;;;; Customization
 
+(defgroup ement-room-list nil
+  "Options for room list buffers."
+  :group 'ement)
+
 (defcustom ement-room-list-auto-update t
   "Automatically update the taxy-based room list buffer."
   :type 'boolean)
@@ -106,6 +133,10 @@ Set automatically when `ement-room-list-mode' is activated.")
 (defcustom ement-room-list-avatars (display-images-p)
   "Show room avatars in the room list."
   :type 'boolean)
+
+(defcustom ement-room-list-space-prefix "Space: "
+  "Prefix applied to space names."
+  :type 'string)
 
 ;;;;; Faces
 
@@ -205,7 +236,7 @@ from recent to non-recent for rooms updated in the past hour.")
                          (space-name (if parent-room
                                          (ement-room-display-name parent-room)
                                        id)))
-                    (concat "Space: " space-name))))
+                    (concat ement-room-list-space-prefix space-name))))
       (when-let ((key (if id
                           ;; ID specified.
                           (cond ((or (member id parents)
@@ -215,7 +246,7 @@ from recent to non-recent for rooms updated in the past hour.")
                                 ((and (equal type "m.space")
                                       (equal id (ement-room-id room)))
                                  ;; Room is a specified space.
-                                 (or name (concat "Space: " (ement-room-display-name room)))))
+                                 (or name (concat ement-room-list-space-prefix (ement-room-display-name room)))))
                         ;; ID not specified.
                         (pcase (length parents)
                           (0 nil)
@@ -679,7 +710,7 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
             (save-excursion
               (taxy-magit-section-insert taxy :items 'first
                 ;; :blank-between-depth bufler-taxy-blank-between-depth
-                :initial-depth 0))
+                :initial-depth 0 :section-class 'ement-room-list-section))
             (if-let* ((section-ident)
                       (section (magit-get-section section-ident)))
                 (goto-char (oref section start))
