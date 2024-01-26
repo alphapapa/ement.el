@@ -288,6 +288,10 @@ to `ement-api', which see."
 (defun ement-notifications-bookmark-handler (_bookmark)
   "Show `ement-notifications' buffer for BOOKMARK."
   ;; FIXME: Handle multiple sessions.
+  ;; FIXME: This doesn't work quite correctly when the buffer isn't already open, because
+  ;; the command is asynchronous in that case, so the buffer can be displayed in the wrong
+  ;; window.  Fixing this would be hacky and awkward, but a partial solution is probably
+  ;; possible.
   (ement-notifications (ement-complete-session)))
 
 ;;; Footer
