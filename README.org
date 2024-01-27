@@ -295,7 +295,8 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.15-pre
 
-Nothing new yet.
+*Changes*
++ Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.14
 
