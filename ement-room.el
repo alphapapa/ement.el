@@ -1184,7 +1184,20 @@ are passed to `browse-url'."
                                                 (lambda (room session)
                                                   (ement-view-room room session)
                                                   (ement-room-find-event event-id)))))
-          ("Load link with browser" (apply #'browse-url url args)))))))
+          ("Load link with browser"
+           (let ((handler (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)))
+             ;; Note that `browse-url-handlers' was added in 28.1;
+             ;; prior to that `browse-url-browser-function' served double-duty.
+             ;; TODO: Remove compat code when requiring Emacs >=28.
+             ;; (See also `ement-room-mode'.)
+             (cond ((boundp 'browse-url-handlers)
+                    (let ((browse-url-handlers (remove handler browse-url-handlers)))
+                      (apply #'browse-url url args)))
+                   ((consp browse-url-browser-function)
+                    (let ((browse-url-browser-function (remove handler browse-url-browser-function)))
+                      (apply #'browse-url url args)))
+                   (t
+                    (apply #'browse-url url args))))))))))
 
 (defun ement-room-find-event (event-id)
   "Go to EVENT-ID in current buffer."
@@ -2092,6 +2105,7 @@ and erases the buffer."
   ;; Set the URL handler.  Note that `browse-url-handlers' was added in 28.1;
   ;; prior to that `browse-url-browser-function' served double-duty.
   ;; TODO: Remove compat code when requiring Emacs >=28.
+  ;; (See also `ement-room-browse-url'.)
   (let ((handler (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)))
     (if (boundp 'browse-url-handlers)
         (setq-local browse-url-handlers (cons handler browse-url-handlers))
