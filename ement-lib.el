@@ -1778,6 +1778,19 @@ seconds, etc."
            (minutes (dividef seconds 60)))
       (list years days hours minutes seconds))))
 
+(defun ement--read-multiple-choice (prompt choices &optional help)
+  "Wrapper for `read-multiple-choice'."
+  ;; Bypasses the hard-coded multi-column formatting in the help buffer
+  ;; (which often doesn't wrap nicely) in favour of one option per line.
+  (let ((help-format (if help
+                         (concat (replace-regexp-in-string "%" "%%" help)
+                                 "\n\n%s")
+                       "%s"))
+        (help-choices (mapconcat (lambda (c)
+                                   (format "%c: %s\n" (car c) (caddr c)))
+                                 choices)))
+    (read-multiple-choice prompt choices (format help-format help-choices))))
+
 ;;; Footer
 
 (provide 'ement-lib)

@@ -1175,16 +1175,22 @@ are passed to `browse-url'."
             (when event-id
               (ement-room-find-event event-id)))
         ;; Room not joined: offer to join it or load link in browser.
-        (pcase-exhaustive (completing-read
-                           (format "Room <%s> not joined on current session.  Join it, or load link with browser?"
-                                   (or room-alias room-id))
-                           '("Join room" "Load link with browser") nil t)
-          ("Join room" (ement-join-room (or room-alias room-id) ement-session
-                                        :then (when event-id
-                                                (lambda (room session)
-                                                  (ement-view-room room session)
-                                                  (ement-room-find-event event-id)))))
-          ("Load link with browser"
+        (pcase-exhaustive
+            (cadr (ement--read-multiple-choice
+                   (format "Room <%s> not joined on current session.  Join it, or load link with browser?"
+                           (or room-alias room-id))
+                   '((?j "join" "Join room in ement.el")
+                     (?w "web browser" "Open URL in web browser"))
+                   "\
+You are not currently joined to that room.  You can either join the room
+in ement.el, or visit the link URL in your web browser."))
+          ("join"
+           (ement-join-room (or room-alias room-id) ement-session
+                            :then (when event-id
+                                    (lambda (room session)
+                                      (ement-view-room room session)
+                                      (ement-room-find-event event-id)))))
+          ("web browser"
            (let ((handler (cons ement-room-matrix.to-url-regexp #'ement-room-browse-url)))
              ;; Note that `browse-url-handlers' was added in 28.1;
              ;; prior to that `browse-url-browser-function' served double-duty.
