@@ -18,7 +18,7 @@
 # ELPA badge image.
 [[https://elpa.gnu.org/packages/ement.html][https://elpa.gnu.org/packages/ement.svg]]
 
-Ement.el is a Matrix client for Emacs.  It aims to be simple, fast, featureful, and reliable.
+Ement.el is a [[http://www.matrix.org/][Matrix]] client for [[https://www.gnu.org/software/emacs/][GNU Emacs]].  It aims to be simple, fast, featureful, and reliable, while integrating naturally with Emacs.
 
 Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.org][https://img.shields.io/matrix/ement.el:matrix.org.svg?label=%23ement.el:matrix.org]]
 
@@ -41,7 +41,7 @@ Feel free to join us in the chat room: [[https://matrix.to/#/#ement.el:matrix.or
 :ID:       d818f690-5f22-4eb0-83e1-4d8ce16c9e5b
 :END:
 
-The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizeable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
+The default formatting style resembles IRC clients, with each message being prefixed by the username (which enables powerful Emacs features, like using Occur to show all messages from or mentioning a user).  Alternative, built-in styles include an Element-like one with usernames above groups of messages, as well as a classic, no-margins IRC style.  Messages may be optionally displayed with unique colors for each user (with customizable contrast), making it easier to follow conversations.  Timestamp headers are optionally displayed where a certain amount of time passes between events, as well as where the date changes.
 
 [[images/ement-for-twim.png]]
 
@@ -122,8 +122,8 @@ Ement.el is intended to be installed with Emacs's package system, which will ens
 - [[#encrypted-room-support-through-pantalaimon][Encrypted room support through Pantalaimon]]
 :END:
 
-1. Call command ~ement-connect~ to connect.  Multiple sessions are supported, so you may call the command again to connect to another account.
-2. Wait for initial sync to complete (which can take a few moments--initial sync JSON requests can be large).
+1. Call command ~ement-connect~ to connect.  Multiple sessions are supported: call the command again with a ~C-u~ universal prefix to connect to another account.
+2. Wait for initial sync to complete (which can take a few moments--initial sync JSON responses can be large).
 3. Use these commands (room-related commands may be called with universal prefix to prompt for the room):
    - ~ement-list-rooms~ to view the list of joined rooms.
    - ~ement-view-room~ to view a room's buffer, selected with completion.
@@ -168,11 +168,12 @@ These bindings are common to all of the following buffer types:
 
 *Movement*
 
-+ Next event: ~TAB~
-+ Previous event: ~<backtab>~
++ Next event: ~n~
++ Previous event: ~p~
++ End of buffer: ~N~
 + Scroll up and mark read: ~SPC~
 + Scroll down: ~S-SPC~
-+ Jump to fully-read marker: ~M-SPC~
++ Jump to fully-read marker: ~M-g M-p~
 + Move read markers to point: ~m~
 + Load older messages: at top of buffer, scroll contents up (i.e. ~S-SPC~, ~M-v~ or ~mwheel-scroll~)
 
@@ -292,17 +293,74 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 :TOC:      :depth 0
 :END:
 
-** 0.12-pre
+** 0.15-pre
+
+*Changes*
++ Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+
+** 0.14
 
 *Additions*
 
++ Audio events are rendered as a link to the audio file.  (Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
++ Customization group ~ement-room-list~.
++ Option ~ement-room-list-space-prefix~ is applied to space names in the room list (e.g. set to empty string for cleaner appearance).
++ Option ~ement-room-reaction-names-limit~ sets how many senders of a reaction are shown in the buffer (more than that many are shown in the tooltip).
+
+*Changes*
+
++ Bind ~TAB~ / ~BACKTAB~ to move between links in room and like buffers.  ([[https://github.com/alphapapa/ement.el/issues/113][#113]].  Thanks to [[https://github.com/ericsfraga][Eric S. Fraga]] for suggesting.)
+
+*Fixes*
+
++ Insertion of sender headers (when using "Elemental" message format).  (Refactoring contributed by [[https://github.com/Stebalien][Steven Allen]].)
++ Some room event data was being unintentionally serialized to disk when caching the room list visibility state. ([[https://github.com/alphapapa/ement.el/issues/256][#256]])
++ Notifications buffer restores properly when bookmarked.
++ Command ~ement-room-send-reaction~ checks for an event at point.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+
+** 0.13
+
+*Additions*
+
++ Group joined direct rooms in directory buffers.
++ Command ~end-of-buffer~ is bound to ~N~ in room buffers.
+
+*Changes*
+
++ Command ~ement-room-image-show~ use frame parameters to maximize the frame, making it easier for users to override.  ([[https://github.com/alphapapa/ement.el/issues/223][#223]].  Thanks to [[https://github.com/progfolio][Nicholas Vollmer]].)
+
+*Fixes*
+
++ Name for direct rooms in directory buffers.
++ Editing a message from the compose buffer would be sent as a reply to the edited message.  (Fixes [[https://github.com/alphapapa/ement.el/issues/189][#189]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Editing an already-edited message.  ([[https://github.com/alphapapa/ement.el/issues/226][#226]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Replying to an already-edited message.  ([[https://github.com/alphapapa/ement.el/issues/227][#227]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Rendering redactions of edited messages.  ([[https://github.com/alphapapa/ement.el/issues/228][#228]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Redacting an edited message.  ([[https://github.com/alphapapa/ement.el/issues/228][#228]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for reporting.)
++ Command ~ement-room-flush-colors~ maintains point position.
+
+** 0.12
+
+*Additions*
+
++ Command ~ement-notifications~ shows recent notifications, similar to the pane in the Element client.  (This new command fetches recent notifications from the server and allows scrolling up to retrieve older ones.  Newly received notifications, as configured in the ~ement-notify~ options, are displayed in the same buffer.  This functionality will be consolidated in the future.)
 + Face ~ement-room-quote~, applied to quoted parts of replies.
+
+*Changes*
++ Commands ~ement-room-goto-next~ and ~ement-room-goto-prev~ work more usefully at the end of a room buffer.  (Now pressing ~n~ on the last event moves point to the end of the buffer so it will scroll automatically for new messages, and then pressing ~p~ skips over any read marker to the last event.)
++ Room buffer bindings:
+  + ~ement-room-goto-next~ and ~ement-room-goto-prev~ are bound to ~n~ and ~p~, respectively.
+  + ~ement-room-goto-fully-read-marker~ is bound to ~M-g M-p~ (the mnemonic being "go to previously read").
++ The quoted part of a reply now omits the face applied to the rest of the message, helping to distinguish them.
 + Commands that read a string from the minibuffer in ~ement-room~ buffers and ~ement-connect~ user ID prompts use separate history list variables.
++ Use Emacs's Jansson-based JSON-parsing functions when available.  (This results in a 3-5x speed improvement for parsing JSON responses, which can be significant for large initial sync responses.  Thanks to [[https://github.com/rrix/][Ryan Rix]] for discovering this!)
 
 *Fixes*
 
 + File event formatter assumed that file size metadata would be present (a malformed, e.g. spam, event might not have it).
 + Send correct file size when sending files/images.
++ Underscores are no longer interpreted as denoting subscripts when sending messages in Org format.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Add workaround for ~savehist-mode~'s serializing of the ~command-history~ variable's arguments.  (For ~ement-~ commands, that may include large data structures, like ~ement-session~ structs, which should never be serialized or reused, and ~savehist~'s doing so could cause noticeable delays for users who enabled it).  (See [[https://github.com/alphapapa/ement.el/issues/216][#216]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] and other users who helped to discover this problem.)
 
 ** 0.11
 
