@@ -343,16 +343,17 @@ from recent to non-recent for rooms updated in the past hour.")
     ((membership :status 'leave))
     ;; Group all favorite rooms, which are already sorted first.
     (favourite)
-    ;; Group all low-priority rooms, which are already sorted last, and within that group,
-    ;; group them by their space, if any.
-    (low-priority space)
     ;; Group other rooms which are opened in a buffer.
     (buffer)
     ;; Group other rooms which are unread.
     (unread)
-    ;; Group other rooms which are in a space by freshness, then by space.
+    ;; Group all low-priority rooms, which are already sorted last, and within that group,
+    ;; group them by their space, if any.
+    (low-priority space)
+    ;; Group other non-direct rooms which are in a space by freshness, then by space.
     ((and :name "Spaced"
           :keys ((not space-p)
+                 (not people)
                  space))
      freshness space)
     ;; Group spaces themselves by their parent space (since space headers can't also be
@@ -364,8 +365,8 @@ from recent to non-recent for rooms updated in the past hour.")
           :keys ((not space)
                  (not people)))
      freshness)
-    ;; Group direct rooms by freshness.
-    (people freshness))
+    ;; Group direct rooms by freshness and space.
+    (people freshness space))
   "Default keys."
   :type 'sexp)
 
