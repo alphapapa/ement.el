@@ -297,6 +297,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *Changes*
 + Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Format "was kicked and rejoined" membership event pairs.
 
 ** 0.14
 
