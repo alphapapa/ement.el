@@ -3924,14 +3924,14 @@ a copy of the local keymap, and sets `header-line-format'."
                (format "%s left%s"
                        (prev-displayname-id-string)
                        (if reason
-                           (format " (%s)" reason)
+                           (format " (%S)" reason)
                          "")))
               (_ (format "%s kicked %s%s"
                          (sender-name-id-string)
                          (propertize (or prev-displayname state-key)
                                      'help-echo state-key)
                          (if reason
-                             (format " (%s)" reason)
+                             (format " (%S)" reason)
                            "")))))
            ("ban"
             (format "%s unbanned %s"
@@ -3940,7 +3940,7 @@ a copy of the local keymap, and sets `header-line-format'."
            (_ (format "%s left%s"
                       (prev-displayname-id-string)
                       (if reason
-                          (format " (%s)" reason)
+                          (format " (%S)" reason)
                         "")))))
         ("ban"
          (pcase prev-membership
@@ -3950,7 +3950,7 @@ a copy of the local keymap, and sets `header-line-format'."
                     (propertize (or prev-displayname state-key)
                                 'help-echo state-key)
                     (if reason
-                        (format " (%s)" reason)
+                        (format " (%S)" reason)
                       "")))
            ("join"
             (format "%s kicked and banned %s%s"
@@ -3958,7 +3958,7 @@ a copy of the local keymap, and sets `header-line-format'."
                     (propertize (or prev-displayname state-key)
                                 'help-echo state-key)
                     (if reason
-                        (format " (%s)" reason)
+                        (format " (%S)" reason)
                       "")))
            (_ (format "%s sent unrecognized ban event for %s"
                       (sender-name-id-string)
