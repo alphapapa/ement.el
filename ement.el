@@ -203,7 +203,7 @@ again; otherwise, use a saved session if `ement-save-sessions' is
 enabled and a saved session is available, or prompt to log in if
 not enabled or available.
 
-If USERID or PASSWORD are not specified, the user will be
+If USER-ID or PASSWORD are not specified, the user will be
 prompted for them.
 
 If URI-PREFIX is specified, it should be the prefix of the
