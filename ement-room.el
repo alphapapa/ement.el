@@ -3772,12 +3772,8 @@ To be called from a minibuffer opened from
     (deactivate-input-method)
     (abort-recursive-edit)))
 
-(defun ement-room-compose-send ()
-  "Prompt to send the current compose buffer's contents.
-To be called from an `ement-room-compose' buffer."
-  (interactive)
-  (cl-assert ement-room-compose-buffer)
-  (cl-assert ement-room) (cl-assert ement-session)
+(defun ement-room--compose-send-default ()
+  "Send `ement-room-compose' contents to minibuffer."
   ;; Putting it in the kill ring seems like the best thing to do, to ensure
   ;; it doesn't get lost if the user exits the minibuffer before sending.
   (kill-new (string-trim (buffer-string)))
@@ -3805,6 +3801,21 @@ To be called from an `ement-room-compose' buffer."
       (if editing-event
           (ement-room-edit-message editing-event ement-room ement-session body)
         (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event)))))
+
+(defcustom ement-room-compose-send-functions '(ement-room--compose-send-default)
+  "Hook run in `ement-room-compose' buffer when `ement-room-compose-send' invoked."
+  :type 'hook)
+
+(defun ement-room-compose-send ()
+  "Prompt to send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer."
+  (interactive)
+  (cl-assert ement-room-compose-buffer)
+  (cl-assert ement-room) (cl-assert ement-session)
+  (let ((ement-room-compose-send-functions
+         ;; Should we prevent nil hook binding here?
+         (or ement-room-compose-send-functions '(ement-room--compose-send-default))))
+      (run-hooks 'ement-room-compose-send-functions)))
 
 (defun ement-room-init-compose-buffer (room session)
   "Eval BODY, setting up the current buffer as a compose buffer.
