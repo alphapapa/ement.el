@@ -5268,9 +5268,8 @@ Uses members in the current buffer's room.  For use in
 `completion-at-point-functions'."
   (let ((beg (save-excursion
                (when (re-search-backward (rx (or bol bos blank)) nil t)
-                 (if (minibufferp)
-                     (1+ (point))
-                   (point)))))
+                 (skip-syntax-forward "-")
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any
@@ -5286,9 +5285,8 @@ Uses members in the current buffer's room.  For use in
 For use in `completion-at-point-functions'."
   (let ((beg (save-excursion
                (when (re-search-backward (rx (or bol bos blank) (or "!" "#")) nil t)
-                 (if (minibufferp)
-                     (1+ (point))
-                   (point)))))
+                 (skip-syntax-forward "-")
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any

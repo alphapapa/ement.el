@@ -337,6 +337,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Fixes*
 
 + Edits to previous edit events are correctly sent to the server as edits to the original message event.  ([[https://github.com/alphapapa/ement.el/issues/230][#230]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Completion at point works more reliably in compose buffers (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.14
 
