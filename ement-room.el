@@ -123,8 +123,45 @@ Used to, e.g. call `ement-room-compose-org'.")
 (declare-function ement-room-list "ement-room-list.el")
 (declare-function ement-notify-switch-to-mentions-buffer "ement-notify")
 (declare-function ement-notify-switch-to-notifications-buffer "ement-notify")
+
+(defvar ement-room-mode-self-insert-keymap (make-sparse-keymap)
+  "The `ement-room-mode' keymap under `ement-room-self-insert-mode'.
+
+Set as the parent keymap of `ement-room-mode-effective-keymap'
+when `ement-room-self-insert-mode' is enabled.
+
+This keymap is derived from the `ement-room-self-insert-chars'
+and `ement-room-self-insert-commands' user options, along with
+`ement-room-mode-map-prefix-key' which provides access to the
+full `ement-room-mode-map'.  (Non-conflicting key bindings from
+`ement-room-mode-map' are also available directly).
+
+This keymap is generated when `ement-room-self-insert-mode' is
+enabled, and after customizing any of the above options when the
+minor mode is enabled.
+
+The hook `ement-room-mode-self-insert-keymap-update-hook' runs
+after generating this keymap.
+
+Note: Emacs bug#66792 may cause `describe-keymap' to include
+unreachable key bindings from the parent `ement-room-mode-map' in
+its help output.  This problem affects only the help, and we work
+around it for the `ement-room-mode' help; but when viewing the
+keymap directly the issue may be visible.")
+
 (defvar ement-room-mode-map
-  (let ((map (make-sparse-keymap)))
+  (let ((map (make-sparse-keymap))
+        (prefixes '(("M-g" . "group:switching")
+                    ("s" . "group:messages")
+                    ("u" . "group:users")
+                    ("r" . "group:room")
+                    ("R" . "group:membership"))))
+    ;; Use symbols for prefix maps so that `which-key' can display their names.
+    (dolist (prefix prefixes)
+      (let ((cmd (define-prefix-command (make-symbol (cdr prefix)))))
+        (define-key map (kbd (car prefix)) cmd)))
+
+    ;; Menu
     (define-key map (kbd "?") #'ement-room-transient)
 
     ;; Movement
@@ -148,10 +185,10 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "q") #'quit-window)
 
     ;; Messages
-    (define-key map (kbd "RET") #'ement-room-send-message)
-    (define-key map (kbd "S-<return>") #'ement-room-write-reply)
-    (define-key map (kbd "M-RET") #'ement-room-compose-message)
-    (define-key map (kbd "<insert>") #'ement-room-edit-message)
+    (define-key map (kbd "RET") #'ement-room-dispatch-new-message)
+    (define-key map (kbd "S-<return>") #'ement-room-dispatch-reply-to-message)
+    (define-key map (kbd "M-RET") #'ement-room-dispatch-new-message-alt)
+    (define-key map (kbd "<insert>") #'ement-room-dispatch-edit-message)
     (define-key map (kbd "C-k") #'ement-room-delete-message)
     (define-key map (kbd "s r") #'ement-room-send-reaction)
     (define-key map (kbd "s e") #'ement-room-send-emote)
@@ -186,6 +223,30 @@ Used to, e.g. call `ement-room-compose-org'.")
     (define-key map (kbd "g") #'ement-room-sync)
     map)
   "Keymap for Ement room buffers.")
+
+(defvar ement-room-mode-effective-keymap
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map ement-room-mode-map)
+    map)
+  "The actual keymap used in `ement-room-mode'.
+
+This keymap reflects the state of `ement-room-self-insert-mode',
+with a parent of `ement-room-mode-map' when the mode is disabled,
+or `ement-room-mode-self-insert-keymap' when the mode is enabled.")
+
+(defvar ement-room-mode--advertised-keymap ement-room-mode-map
+  "The keymap advertised by `ement-room-mode'.
+
+This keymap should represent the functional behaviour of
+`ement-room-mode-effective-keymap' without the confusion arising
+from Emacs bug#66792 on account of the effective keymap having
+`ement-room-mode-map' as a parent if `ement-room-self-insert-mode'
+is enabled.
+
+Because it does not always have `ement-room-mode-map' as a
+parent, it is possible for that map to get out of sync with the
+advertised map, but `ement-room-mode-self-insert-keymap-update'
+makes a best effort to keep it accurate.")
 
 (defvar ement-room-minibuffer-map
   (let ((map (make-sparse-keymap)))
@@ -414,6 +475,226 @@ notification settings.  Otherwise, whether a room is marked
 unread depends on the room's fully-read marker, read-receipt
 marker, whether the local user sent the latest events, etc."
   :type 'boolean)
+
+(defcustom ement-room-compose-method 'minibuffer
+  "How to compose messages.
+
+The value `minibuffer' means the minibuffer will be used to write
+and edit messages.  You can use \
+\\<ement-room-minibuffer-map>\\[ement-room-compose-from-minibuffer] \
+to switch from the minibuffer
+to a separate compose buffer, and \\[save-buffer] in the compose buffer
+will then return you to the minibuffer to confirm the message
+before sending.
+
+The value `compose-buffer' means that the minibuffer is not used --
+messages are written in a compose buffer by default, and \\[save-buffer]
+sends the composed message directly."
+  :type '(choice (const :tag "Minibuffer" minibuffer)
+                 (const :tag "Compose buffer" compose-buffer)))
+
+(defcustom ement-room-compose-buffer-display-action
+  (cons 'display-buffer-below-selected
+        '((window-height . 3)
+          (inhibit-same-window . t)
+          (reusable-frames . nil)))
+  "`display-buffer' action for displaying compose buffers."
+  :type display-buffer--action-custom-type
+  :risky t)
+
+(defcustom ement-room-compose-buffer-window-auto-height t
+  "Dynamically match the compose buffer window height to its contents.
+See also `ement-room-compose-buffer-window-auto-height-max' and
+`ement-room-compose-buffer-window-auto-height-min'."
+  :type 'boolean)
+
+(defvar ement-room-compose-buffer-window-auto-height-pixelwise t
+  "Whether to adjust the window height for pixel-precise lines.")
+
+(defvar ement-room-compose-buffer-window-auto-height-cache)
+
+(defcustom ement-room-compose-buffer-window-auto-height-min nil
+  "If non-nil, limits the body height of the compose buffer window.
+
+See also `ement-room-compose-buffer-window-auto-height' and
+`ement-room-compose-buffer-window-auto-height-max'."
+  :type '(choice (const :tag "Default" nil)
+                 (natnum :tag "Lines")))
+
+(defcustom ement-room-compose-buffer-window-auto-height-max nil
+  "If non-nil, limits the body height of the compose buffer window.
+
+See also `ement-room-compose-buffer-window-auto-height' and
+`ement-room-compose-buffer-window-auto-height-min'."
+  :type '(choice (const :tag "Default" nil)
+                 (natnum :tag "Lines")))
+
+(defcustom ement-room-mode-self-insert-keymap-update-hook nil
+  "Hook run after rebuilding `ement-room-mode-self-insert-keymap'.
+
+This happens at the time `ement-room-self-insert-mode' is
+enabled, and also if user options `ement-room-self-insert-chars',
+`ement-room-self-insert-commands', or
+`ement-room-mode-map-prefix-key' are customized while the mode is
+enabled.
+
+You can use this hook to define any desired custom bindings which
+are not accounted for by those user options."
+  :type 'hook)
+
+(defvar ement-room-self-insert-mode)
+(defvar ement-room-self-insert-chars)
+(defvar ement-room-self-insert-commands)
+(defun ement-room-mode-self-insert-keymap-update ()
+  "Rebuilds `ement-room-mode-self-insert-keymap'.
+Also rebuilds `ement-room-mode--advertised-keymap'."
+  ;; Must be defined ahead of `ement-room-self-insert-option-setter'.
+  (let ((map (make-sparse-keymap)))
+    ;; Ensure that `ement-room-self-insert-chars' start a message.
+    (dolist (range ement-room-self-insert-chars)
+      (if (consp range)
+          ;; Process a range the same way that `global-map' does.
+          (let ((vec1 (make-vector 1 nil))
+                (from (car range))
+                (to (cdr range)))
+            (while (<= from to)
+              (aset vec1 0 from)
+              (define-key map vec1 #'ement-room-self-insert-new-message)
+              (setq from (1+ from))))
+        ;; Else `range' is a single character.
+        (define-key map (vector range) #'ement-room-self-insert-new-message)))
+    ;; Provide access to `ement-room-mode-map' via a prefix binding.
+    (when (bound-and-true-p ement-room-mode-map-prefix-key)
+      (define-key map ement-room-mode-map-prefix-key ement-room-mode-map))
+    ;; This is now the basis for `ement-room-mode-self-insert-keymap' and also
+    ;; `ement-room-mode--advertised-keymap' (when `ement-room-self-insert-mode'
+    ;; is enabled), but we need to keep the remaining differences between them
+    ;; separate.  (We do still need some identical `remap' bindings for both
+    ;; keymaps, but we can't do that just yet.)
+    (setq ement-room-mode-self-insert-keymap (copy-keymap map))
+    ;; To `ement-room-mode-self-insert-keymap', add `ement-room-mode-map'
+    ;; as the keymap parent.  (This is the keymap which is actually used.)
+    (set-keymap-parent ement-room-mode-self-insert-keymap ement-room-mode-map)
+    (if (not (bound-and-true-p ement-room-self-insert-mode))
+        ;; Advertise the real `ement-room-mode-map'.
+        (setq ement-room-mode--advertised-keymap ement-room-mode-map)
+      ;; Otherwise we base `ement-room-mode--advertised-keymap' on the same base
+      ;; map previously copied to `ement-room-mode-self-insert-keymap'.
+      (setq ement-room-mode--advertised-keymap map)
+      ;; To `ement-room-mode--advertised-keymap' (the keymap displayed when
+      ;; `describe-mode' is called), rather than setting a parent we instead
+      ;; copy the non-conflicting top-level bindings from `ement-room-mode-map'.
+      ;; Not using a keymap parent means the advertised map doesn't see any
+      ;; future changes to `ement-room-mode-map', but having a keymap parent
+      ;; would make the `describe-mode' output very confusing on account of
+      ;; Emacs bug#66792, so we accept potential inaccuracy as a trade-off for
+      ;; showing more comprehensible help.
+      ;;
+      ;; The following will copy the `remap' keymap verbatim, clobbering any
+      ;; pre-existing remappings; so we do this before we define other
+      ;; remappings.
+      (cl-labels ((copy-from (key definition)
+		    (unless (lookup-key ement-room-mode--advertised-keymap
+                                        (vector key))
+		      (define-key ement-room-mode--advertised-keymap
+                                  (vector key) definition))))
+        ;; Copy from a copy of `ement-room-mode-map', otherwise the latter will
+        ;; also acquire (share) the remap keybindings which are added below.
+        (map-keymap #'copy-from (copy-keymap ement-room-mode-map))))
+    ;; Now define our additional `remap' bindings in both keymaps.
+    (let ((keymaps (if (bound-and-true-p ement-room-self-insert-mode)
+                       (list ement-room-mode-self-insert-keymap
+                             ement-room-mode--advertised-keymap)
+                     (list ement-room-mode-self-insert-keymap))))
+      (dolist (keymap keymaps)
+        ;; Make `self-insert-command' (and friends) start a new message.
+        (dolist (cmd ement-room-self-insert-commands)
+          (define-key keymap (vector 'remap cmd)
+                      #'ement-room-self-insert-new-message)))))
+  (run-hooks 'ement-room-mode-self-insert-keymap-update-hook))
+
+(defun ement-room-mode-effective-keymap-update ()
+  "Sets the parent keymap for `ement-room-mode-effective-keymap'.
+
+Either `ement-room-mode-self-insert-keymap' or `ement-room-mode-map',
+depending on `ement-room-self-insert-mode'."
+  ;; Must be defined ahead of `ement-room-self-insert-option-setter'.
+  (set-keymap-parent ement-room-mode-effective-keymap
+                     (if (bound-and-true-p ement-room-self-insert-mode)
+                         ement-room-mode-self-insert-keymap
+                       ement-room-mode-map)))
+
+(defun ement-room-self-insert-option-setter (option value)
+  "Setter for options affecting `ement-room-self-insert-mode'.
+
+This is the setter function for `ement-room-self-insert-chars'
+and `ement-room-self-insert-commands'.
+
+Sets the value with (set-default-toplevel-value OPTION VALUE),
+and then rebuilds `ement-room-mode-self-insert-keymap'."
+  ;; Must be defined ahead of `ement-room-self-insert-chars' and
+  ;; `ement-room-self-insert-commands'.
+  ;;
+  ;; Update the variable.
+  (set-default-toplevel-value option value)
+  ;; Update keymaps when necessary.
+  (when (bound-and-true-p ement-room-self-insert-mode)
+    (ement-room-mode-self-insert-keymap-update)
+    (ement-room-mode-effective-keymap-update)))
+
+(defcustom ement-room-self-insert-chars
+  '((33 . 62) (64 . 126))
+  "Characters handled by `ement-room-self-insert-mode'.
+
+These are in addition to any `self-insert-command' key bindings
+-- this list is to ensure that certain keys will be treated this
+way even when they have `ement-room-mode-map' bindings.
+
+Cons cell elements represent the range from the car to the cdr
+\(inclusive).  The default value covers the common \"printable\"
+ASCII characters excluding SPC (32), ? (63), and DEL (127).
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'.
+
+See also `ement-room-self-insert-commands'."
+  :type '(repeat (choice (character :tag "Character")
+                         (cons :tag "Character range"
+                               (character :tag "From")
+                               (character :tag "To"))))
+  :set #'ement-room-self-insert-option-setter)
+
+(defcustom ement-room-self-insert-commands
+  '(self-insert-command yank)
+  "Commands handled by `ement-room-self-insert-mode'.
+
+When the mode is enabled, the listed commands are remapped to
+`ement-room-self-insert-new-message' such that when one of those
+commands is invoked in a room buffer, a new message will be
+started and the event which triggered the command (typically a
+`self-insert-command' key binding) will be re-issued in the
+message buffer.
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'.
+
+See also `ement-room-self-insert-chars'."
+  :type '(repeat (function :tag "Command"))
+  :set #'ement-room-self-insert-option-setter)
+
+(defcustom ement-room-mode-map-prefix-key (kbd "DEL")
+  "A prefix key sequence to access `ement-room-mode-map'.
+Active when `ement-room-self-insert-mode' is enabled.
+
+The default key is DEL.
+
+Customizing this option updates `ement-room-mode-self-insert-keymap'
+via the setter function `ement-room-self-insert-option-setter'.
+To do the same in lisp code, set the option with `setopt'."
+  :type 'key-sequence
+  :set #'ement-room-self-insert-option-setter)
 
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
@@ -716,28 +997,12 @@ number (to darken rather than lighten)."
   "Highlight event at POSITION while evaluating BODY."
   ;; MAYBE: Accept a marker for POSITION.
   (declare (indent 1))
-  (let ((node/g (gensym "node")) (event/g (gensym "event")))
-    `(let* ((,node/g (ewoc-locate ement-ewoc ,position))
-            (,event/g (ewoc-data ,node/g))
-            ement-room-replying-to-overlay)
-       (unless (and (ement-event-p ,event/g)
-                    (ement-event-id ,event/g))
-         (error "No event at point"))
-       (unwind-protect
-           (progn
-             (setf ement-room-replying-to-overlay
-                   (make-overlay (ewoc-location ,node/g)
-                                 ;; NOTE: It doesn't seem possible to get the end position of
-                                 ;; a node, so if there is no next node, we use point-max.
-                                 ;; But this might break if we were to use an EWOC footer.
-                                 (if (ewoc-next ement-ewoc ,node/g)
-                                     (ewoc-location (ewoc-next ement-ewoc ,node/g))
-                                   (point-max))))
-             (overlay-put ement-room-replying-to-overlay 'face 'highlight)
-             ,@body)
-         (when (overlayp ement-room-replying-to-overlay)
-           (delete-overlay ement-room-replying-to-overlay))
-         (setf ement-room-replying-to-overlay nil)))))
+  `(let (ement-room-replying-to-overlay)
+     (unwind-protect
+         (progn
+           (ement-room-highlight-event-at ,position)
+           ,@body)
+       (ement-room-unhighlight-event))))
 
 (defmacro ement-room-with-typing (&rest body)
   "Send typing notifications around BODY.
@@ -783,6 +1048,46 @@ constant throughout STRING."
                         (concat old-value value)
                       (concat value old-value))))
     (propertize string property new-value)))
+
+;;;;; Event highlighting
+
+(defun ement-room-highlight-event-at (position)
+  "Highlight event at POSITION using `ement-room-replying-to-overlay'.
+See `ement-room-with-highlighted-event-at'."
+  ;; MAYBE: Accept a marker for POSITION.
+  (let* ((node (ewoc-locate ement-ewoc position))
+         (event (ewoc-data node)))
+    (unless (and (ement-event-p event)
+                 (ement-event-id event))
+      (error "No event at point"))
+    (setf ement-room-replying-to-overlay
+          (make-overlay (ewoc-location node)
+                        ;; NOTE: It doesn't seem possible to get the end position of
+                        ;; a node, so if there is no next node, we use point-max.
+                        ;; But this might break if we were to use an EWOC footer.
+                        (if (ewoc-next ement-ewoc node)
+                            (ewoc-location (ewoc-next ement-ewoc node))
+                          (point-max))))
+    (overlay-put ement-room-replying-to-overlay 'face 'highlight)))
+
+(defun ement-room-unhighlight-event ()
+  "Delete overlay in `ement-room-replying-to-overlay'.
+See `ement-room-with-highlighted-event-at'."
+  (when (overlayp ement-room-replying-to-overlay)
+    (delete-overlay ement-room-replying-to-overlay))
+  (setf ement-room-replying-to-overlay nil))
+
+(defun ement-room-compose-highlight (compose-buffer)
+  "Make `ement-room-with-highlighted-event-at' persistent while COMPOSE-BUFFER exists."
+  (when-let ((overlay ement-room-replying-to-overlay))
+    ;; Prevent `ement-room-with-highlighted-event-at' from deleting the overlay:
+    (setq ement-room-replying-to-overlay nil)
+    ;; Instead, make it exist for the lifetime of the compose buffer:
+    (cl-flet ((delete-overlay ()
+                (when (overlayp overlay)
+                  (delete-overlay overlay))))
+      (with-current-buffer compose-buffer
+        (add-hook 'kill-buffer-hook #'delete-overlay nil :local)))))
 
 ;;;;; Event formatting
 
@@ -1626,6 +1931,46 @@ EVENT should be an `ement-event' or `ement-room-membership-events' struct."
         (view-mode)
         (pop-to-buffer (current-buffer))))))
 
+(defun ement-room-dispatch-new-message ()
+  "Write a new message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-message)
+     (t 'ement-room-send-message))))
+
+(defun ement-room-dispatch-new-message-alt ()
+  "Inverse of `ement-room-dispatch-new-message'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-send-message)
+     (t 'ement-room-compose-message))))
+
+(defun ement-room-dispatch-edit-message ()
+  "Edit a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-edit)
+     (t 'ement-room-edit-message))))
+
+(defun ement-room-dispatch-reply-to-message ()
+  "Reply to a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer 'ement-room-compose-reply)
+     (t 'ement-room-write-reply))))
+
+(defun ement-room-dispatch-send-message ()
+  "Send a message in accordance with `ement-room-compose-method'."
+  (interactive)
+  (call-interactively
+   (cl-case ement-room-compose-method
+     (compose-buffer #'ement-room-compose-send-direct)
+     (t #'ement-room-compose-send))))
+
 (cl-defun ement-room-send-message (room session &key body formatted-body replying-to-event)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
 Interactively, with prefix, prompt for room and session,
@@ -1728,21 +2073,29 @@ mentioning the ROOM and CONTENT."
                         (ement-room--ewoc-last-matching ement-ewoc #'ement-event-p)))
             (call-interactively #'ement-room-mark-read)))))))
 
+(defun ement-room-edit-message-prepare ()
+  "Bindings for `ement-room-edit-message' and `ement-room-compose-edit'."
+  (cl-assert ement-ewoc) (cl-assert ement-session)
+  ;; Bindings for... `event' (from ewoc).
+  (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
+               ;; `user' (from ement-session).
+               ((cl-struct ement-session user) ement-session)
+               ;; `sender', `body' (from event).
+               ((cl-struct ement-event sender (content (map body))) event))
+    (unless (equal (ement-user-id sender) (ement-user-id user))
+      (user-error "You may only edit your own messages"))
+    ;; Remove any leading asterisk from the plain-text body.
+    (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
+    (list event body)))
+
 (defun ement-room-edit-message (event room session body)
   "Edit EVENT in ROOM on SESSION to have new BODY.
 The message must be one sent by the local user.  If EVENT is
 itself an edit of another event, the original event is edited."
+  ;; See also `ement-room-compose-edit'.
   (interactive (ement-room-with-highlighted-event-at (point)
-                 (cl-assert ement-session) (cl-assert ement-room)
-                 (pcase-let* ((event (ewoc-data (ewoc-locate ement-ewoc)))
-                              ((cl-struct ement-session user) ement-session)
-                              ((cl-struct ement-event sender (content (map body))) event)
-                              (ement-room-editing-event event)
-                              (edited-event (ement--original-event-for event ement-session)))
-                   (unless (equal (ement-user-id sender) (ement-user-id user))
-                     (user-error "You may only edit your own messages"))
-                   ;; Remove any leading asterisk from the plain-text body.
-                   (setf body (replace-regexp-in-string (rx bos "*" (1+ space)) "" body t t))
+                 (cl-destructuring-bind (ement-room-editing-event body)
+                     (ement-room-edit-message-prepare)
                    (ement-room-with-typing
                      (let* ((prompt (format "Edit message (%s): "
                                             (ement-room-display-name ement-room)))
@@ -1751,19 +2104,20 @@ itself an edit of another event, the original event is edited."
                        (when (string-empty-p body)
                          (user-error "To delete a message, use command `ement-room-delete-message'"))
                        (when (yes-or-no-p (format "Edit message to: %S? " body))
-                         (list edited-event ement-room ement-session body)))))))
+                         (list ement-room-editing-event ement-room ement-session body)))))))
   (let* ((endpoint (format "rooms/%s/send/%s/%s" (url-hexify-string (ement-room-id room))
                            "m.room.message" (ement--update-transaction-id session)))
          (new-content (ement-alist "body" body
                                    "msgtype" "m.text"))
          (_ (when ement-room-send-message-filter
               (setf new-content (funcall ement-room-send-message-filter new-content room))))
+         (original-event (ement--original-event-for event session))
          (content (ement-alist "msgtype" "m.text"
                                "body" body
                                "m.new_content" new-content
                                "m.relates_to" (ement-alist
                                                "rel_type" "m.replace"
-                                               "event_id" (ement-event-id event)))))
+                                               "event_id" (ement-event-id original-event)))))
     ;; Prepend the asterisk after the filter may have modified the content.  Note that the
     ;; "m.new_content" body does not get the leading asterisk, only the "content" body,
     ;; which is intended as a fallback.
@@ -1785,9 +2139,10 @@ itself an edit of another event, the original event is edited."
 (defun ement-room-write-reply (event)
   "Write and send a reply to EVENT.
 Interactively, to event at point."
-  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
-  (cl-assert ement-ewoc) (cl-assert ement-room) (cl-assert ement-session)
-  (cl-assert (ement-event-p event))
+  ;; See also `ement-room-compose-reply'.
+  (interactive (progn (cl-assert ement-ewoc)
+                      (list (ewoc-data (ewoc-locate ement-ewoc)))))
+  (cl-assert ement-room) (cl-assert ement-session) (cl-assert (ement-event-p event))
   (let ((ement-room-replying-to-event event))
     (ement-room-with-highlighted-event-at (point)
       (pcase-let* ((room ement-room)
@@ -2098,7 +2453,10 @@ the previously oldest event."
   "Major mode for Ement room buffers.
 This mode initializes a buffer to be used for showing events in
 an Ement room.  It kills all local variables, removes overlays,
-and erases the buffer."
+and erases the buffer.
+
+\\{ement-room-mode--advertised-keymap}"
+  (use-local-map ement-room-mode-effective-keymap)
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
@@ -2122,11 +2480,53 @@ and erases the buffer."
                           (and browse-url-browser-function
                                (list (cons "." browse-url-browser-function))))))))
   (setq-local completion-at-point-functions
-              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))  
+              '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point))
   (setq-local dnd-protocol-alist (append '(("^file:///" . ement-room-dnd-upload-file)
                                            ("^file:" . ement-room-dnd-upload-file))
                                          dnd-protocol-alist)))
+
 (add-hook 'ement-room-mode-hook 'visual-line-mode)
+
+;;;###autoload
+(define-minor-mode ement-room-self-insert-mode
+  "When enabled, `self-insert-command' keys begin a new message.
+
+The user options `ement-room-self-insert-chars' and
+`ement-room-self-insert-commands' determine the specific keys and
+commands which will have this effect.
+
+When this mode is enabled, `ement-room-mode-self-insert-keymap'
+takes precedence over `ement-room-mode-map', with the shadowed
+key bindings in `ement-room-mode-map' becoming accessible via
+`ement-room-mode-map-prefix-key'.
+
+If you define custom key bindings in `ement-room-mode-map', you
+should call `ement-room-self-insert-mode' after defining those
+keys (rather than before).  Your bindings will be functional in
+either case, but they may not appear in the help for
+`ement-room-mode' if you define them afterwards.
+
+If you bind keys in `ement-room-mode-self-insert-keymap', do so
+via `ement-room-mode-self-insert-keymap-update-hook' (see which)."
+  :init-value nil
+  :global t
+  :keymap nil
+  ;; Ensure the self-insert and advertised keymaps are up to date.
+  (if ement-room-self-insert-mode
+      (ement-room-mode-self-insert-keymap-update)
+    (setq ement-room-mode--advertised-keymap ement-room-mode-map))
+  ;; Make the local keymap used by `ement-room-mode' reflect the state
+  ;; of `ement-room-self-insert-mode'.
+  (ement-room-mode-effective-keymap-update))
+
+(defun ement-room-self-insert-new-message ()
+  "Compose a new message beginning with the just-typed character."
+  (interactive)
+  ;; Re-issue the event which triggered this command.
+  ;; (Typically a `self-insert-command' key binding.)
+  (seq-doseq (key (reverse (this-command-keys-vector)))
+    (push key unread-command-events))
+  (call-interactively #'ement-room-dispatch-new-message))
 
 (defun ement-room-read-string (prompt &optional initial-input history default-value inherit-input-method)
   "Call `read-from-minibuffer', binding variables and keys for Ement.
@@ -3700,6 +4100,7 @@ message contents."
      (list ement-room ement-session)))
   (let* ((compose-buffer (generate-new-buffer (format "*Ement compose: %s*" (ement--room-display-name ement-room))))
          (send-message-filter ement-room-send-message-filter))
+    (ement-room-compose-highlight compose-buffer)
     (with-current-buffer compose-buffer
       (ement-room-init-compose-buffer room session)
       (setf ement-room-send-message-filter send-message-filter)
@@ -3720,7 +4121,36 @@ message contents."
       ;; is the only function that makes the compose buffer, and as long as none of the
       ;; hooks do anything that activating `org-mode' nullifies, this should be okay...
       (run-hooks 'ement-room-compose-hook))
-    (pop-to-buffer compose-buffer)))
+    ;; Display the compose buffer.  This might obscure the room buffer's window
+    ;; point, so minimise the amount of scrolling which occurs to restore that
+    ;; to a visible position.
+    (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)
+    (unless ement-room-compose-buffer-window-auto-height
+      (let ((scroll-conservatively 101))
+        (redisplay)))))
+
+(defun ement-room-compose-edit (event room session body)
+  "Edit EVENT in ROOM on SESSION to have new BODY, using a compose buffer.
+The message must be one sent by the local user."
+  ;; See also `ement-room-edit-message'.
+  (interactive (cl-destructuring-bind (event body)
+                   (ement-room-edit-message-prepare)
+                 (list event ement-room ement-session body)))
+  (cl-assert (ement-event-p event)) (cl-assert room) (cl-assert session)
+  (let ((ement-room-editing-event event))
+    (ement-room-with-highlighted-event-at (point)
+      (ement-room-compose-message room session :body body))))
+
+(defun ement-room-compose-reply (event)
+  "Write and send a reply to EVENT, using a compose buffer.
+Interactively, to event at point."
+  ;; See also `ement-room-write-reply'.
+  (interactive (progn (cl-assert ement-ewoc)
+                      (list (ewoc-data (ewoc-locate ement-ewoc)))))
+  (cl-assert ement-room) (cl-assert ement-session) (cl-assert (ement-event-p event))
+  (let ((ement-room-replying-to-event event))
+    (ement-room-with-highlighted-event-at (point)
+      (ement-room-compose-message ement-room ement-session))))
 
 (defun ement-room-compose-from-minibuffer ()
   "Edit the current message in a compose buffer.
@@ -3761,7 +4191,7 @@ To be called from a minibuffer opened from
                               (show-buffer-fn (lambda ()
                                                 (remove-hook 'window-configuration-change-hook show-buffer-fn-symbol)
                                                 ;; FIXME: Probably need to unintern the symbol.
-                                                (pop-to-buffer compose-buffer)
+                                                (pop-to-buffer compose-buffer ement-room-compose-buffer-display-action)
                                                 (set-input-method input-method))))
                          (fset show-buffer-fn-symbol show-buffer-fn)
                          (add-hook 'window-configuration-change-hook show-buffer-fn-symbol)))))
@@ -3772,59 +4202,407 @@ To be called from a minibuffer opened from
     (deactivate-input-method)
     (abort-recursive-edit)))
 
-(defun ement-room-compose-send ()
-  "Prompt to send the current compose buffer's contents.
-To be called from an `ement-room-compose' buffer."
-  (interactive)
+(defun ement-room-compose-buffer-string-trimmed ()
+  "Like `buffer-string' trimmed with `string-trim'."
+  (buffer-substring-no-properties (progn (goto-char (point-min))
+                                         (skip-chars-forward " \t\r\n")
+                                         (point))
+                                  (progn (goto-char (point-max))
+                                         (skip-chars-backward " \t\r\n")
+                                         (point))))
+
+(defun ement-room-compose-send-prepare ()
+  "Bindings for `ement-room-compose-send' and `ement-room-compose-send-direct'."
   (cl-assert ement-room-compose-buffer)
   (cl-assert ement-room) (cl-assert ement-session)
-  ;; Putting it in the kill ring seems like the best thing to do, to ensure
-  ;; it doesn't get lost if the user exits the minibuffer before sending.
-  (kill-new (string-trim (buffer-string)))
-  (let ((room ement-room)
-        (session ement-session)
+  ;; Capture the necessary values from the compose buffer before killing it and
+  ;; switching back to the room buffer.  Return the values as a list.
+  (let ((body (ement-room-compose-buffer-string-trimmed))
         (input-method current-input-method)
         (send-message-filter ement-room-send-message-filter)
         (replying-to-event ement-room-replying-to-event)
-        (editing-event ement-room-editing-event))
+        (editing-event ement-room-editing-event)
+        (room ement-room)
+        (session ement-session))
     (quit-restore-window nil 'kill)
     (ement-view-room room session)
-    (let* ((prompt (format "Send message (%s): " (ement-room-display-name ement-room)))
+    (add-to-history 'ement-room-message-history body)
+    (list body input-method send-message-filter replying-to-event editing-event room session)))
+
+(defun ement-room-compose-send ()
+  "Prompt to send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer.
+See also `ement-room-compose-send-direct'."
+  (interactive)
+  (cl-destructuring-bind (body input-method send-message-filter
+                               replying-to-event editing-event room session)
+      (ement-room-compose-send-prepare)
+    (let* ((prompt (format "Send message (%s): " (ement-room-display-name room)))
            (current-input-method input-method) ; Bind around read-string call.
            (ement-room-send-message-filter send-message-filter)
-           (pos (when (or editing-event replying-to-event)
-                  (ewoc-location (ement-room--ewoc-last-matching ement-ewoc
-                                   (lambda (data)
-                                     (eq data (or editing-event replying-to-event)))))))
            (body (if (or editing-event replying-to-event)
-                     (ement-room-with-highlighted-event-at pos
-                       (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
-                                               nil 'inherit-input-method))
-                   (ement-room-read-string prompt (car kill-ring) 'ement-room-message-history
+                     (let ((pos (ewoc-location (ement-room--ewoc-last-matching ement-ewoc
+                                                 (lambda (data)
+                                                   (eq data (or editing-event
+                                                                replying-to-event)))))))
+                       (ement-room-with-highlighted-event-at pos
+                         (ement-room-read-string prompt body 'ement-room-message-history
+                                                 nil 'inherit-input-method)))
+                   (ement-room-read-string prompt body 'ement-room-message-history
                                            nil 'inherit-input-method))))
       (if editing-event
-          (ement-room-edit-message editing-event ement-room ement-session body)
-        (ement-room-send-message ement-room ement-session :body body :replying-to-event replying-to-event)))))
+          (ement-room-edit-message (ement--original-event-for editing-event session)
+                                   room session body)
+        (ement-room-send-message room session
+                                 :body body
+                                 :replying-to-event (and replying-to-event
+                                                         (ement--original-event-for
+                                                          replying-to-event session)))))))
+
+(defun ement-room-compose-send-direct ()
+  "Directly send the current compose buffer's contents.
+To be called from an `ement-room-compose' buffer.
+See also `ement-room-compose-send'."
+  (interactive)
+  (cl-destructuring-bind (body _input-method send-message-filter
+                               replying-to-event editing-event room session)
+      (ement-room-compose-send-prepare)
+    (let ((ement-room-send-message-filter send-message-filter))
+      (if editing-event
+          (ement-room-edit-message (ement--original-event-for editing-event session)
+                                   room session body)
+        (ement-room-send-message room session
+                                 :body body
+                                 :replying-to-event (and replying-to-event
+                                                         (ement--original-event-for
+                                                          replying-to-event session)))))))
+
+(defun ement-room-compose-abort (&optional no-history)
+  "Kill the compose buffer and window.
+With prefix arg NO-HISTORY, do not add to `ement-room-message-history'."
+  (interactive "P")
+  (let ((body (ement-room-compose-buffer-string-trimmed))
+        (room ement-room))
+    (unless no-history
+      (add-to-history 'ement-room-message-history body))
+    (kill-buffer)
+    (delete-window)
+    ;; Make sure we end up with the associated room buffer selected.
+    (when-let ((win (catch 'room-win
+                      (walk-windows
+                       (lambda (win)
+                         (with-selected-window win
+                           (and (derived-mode-p 'ement-room-mode)
+                                (bound-and-true-p ement-room)
+                                (eq ement-room room)
+                                (throw 'room-win win))))))))
+      (select-window win))))
+
+(defun ement-room-compose-abort-no-history ()
+  "Kill the compose buffer and window without adding to the history."
+  (interactive)
+  (ement-room-compose-abort t))
 
 (defun ement-room-init-compose-buffer (room session)
-  "Eval BODY, setting up the current buffer as a compose buffer.
+  "Set up the current buffer as a compose buffer.
 Sets ROOM and SESSION buffer-locally, binds `save-buffer' in
 a copy of the local keymap, and sets `header-line-format'."
   ;; Using a macro for this seems awkward but necessary.
   (setq-local ement-room room)
   (setq-local ement-session session)
+  (setq-local ement-room-replying-to-event ement-room-replying-to-event)
+  (setq-local ement-room-editing-event ement-room-editing-event)
   (setf ement-room-compose-buffer t)
   (setq-local completion-at-point-functions
               (append '(ement-room--complete-members-at-point ement-room--complete-rooms-at-point)
                       completion-at-point-functions))
+  (setq-local dabbrev-select-buffers-function #'ement-compose-dabbrev-select-buffers
+              dabbrev-friend-buffer-function #'ement-room-mode-p)
+  (setq-local yank-excluded-properties
+              (append '(line-prefix wrap-prefix)
+                      (default-value 'yank-excluded-properties)))
+  (add-hook 'isearch-mode-hook 'ement-room-compose-history-isearch-setup nil t)
   ;; FIXME: Compose with local map?
   (use-local-map (if (current-local-map)
                      (copy-keymap (current-local-map))
                    (make-sparse-keymap)))
-  (local-set-key [remap save-buffer] #'ement-room-compose-send)
-  (setq header-line-format (substitute-command-keys
-                            (format " Press \\[save-buffer] to send message to room (%s)"
-                                    (ement-room-display-name room)))))
+  ;; When `ement-room-self-insert-mode' is enabled, deleting the final character of the
+  ;; message aborts and kills the compose buffer.
+  (local-set-key [remap delete-backward-char]
+                 `(menu-item "" ement-room-compose-abort-no-history
+                             :filter ,(lambda (cmd)
+                                        (and ement-room-self-insert-mode
+                                             (<= (buffer-size) 1)
+                                             (save-restriction (widen) (eobp))
+                                             cmd))))
+  (local-set-key [remap save-buffer] #'ement-room-dispatch-send-message)
+  (local-set-key (kbd "C-c C-k") #'ement-room-compose-abort)
+  (local-set-key (kbd "M-p") #'ement-room-compose-history-prev-message)
+  (local-set-key (kbd "M-n") #'ement-room-compose-history-next-message)
+  (local-set-key (kbd "M-r") #'ement-room-compose-history-isearch-backward)
+  (local-set-key (kbd "C-M-r") #'ement-room-compose-history-isearch-backward-regexp)
+  (setq header-line-format
+        (concat (substitute-command-keys
+                 (format " Press \\[save-buffer] to send message to room (%s), or \\[ement-room-compose-abort] to cancel."
+                         (ement-room-display-name room)))
+                (cond (ement-room-replying-to-event
+                       (format " (Replying to message from %s)"
+                               (ement--user-displayname-in
+                                ement-room (ement-event-sender
+                                            ement-room-replying-to-event))))
+                      (ement-room-editing-event
+                       " (Editing message)"))))
+  ;; Adjust the window height automatically.
+  (when ement-room-compose-buffer-window-auto-height
+    (add-hook 'post-command-hook
+              #'ement-room-compose-buffer-window-auto-height nil :local)))
+
+(defun ement-room-compose-buffer-window-auto-height ()
+  "Ensure that the compose buffer displays the whole message.
+
+Called via `post-command-hook' if `ement-room-compose-buffer-window-auto-height'
+is non-nil."
+  ;; Manipulate the window body height.
+  (unless (window-full-height-p)
+    (let* ((pixelwise (and ement-room-compose-buffer-window-auto-height-pixelwise
+                           (display-graphic-p)))
+           (lineheight (and pixelwise (default-line-height)))
+           (buflines (max 1 (count-screen-lines nil nil t)))
+           (cache (if pixelwise
+                      (* buflines lineheight)
+                    buflines)))
+      ;; Do nothing if the desired height has not changed.
+      (unless (and (boundp 'ement-room-compose-buffer-window-auto-height-cache)
+                   (eql cache ement-room-compose-buffer-window-auto-height-cache))
+        ;; Otherwise resize the window...
+        (setq-local ement-room-compose-buffer-window-auto-height-cache cache)
+        (let* ((minheight (if ement-room-compose-buffer-window-auto-height-min
+                              (max 1 ement-room-compose-buffer-window-auto-height-min)
+                            1))
+               (maxheight ement-room-compose-buffer-window-auto-height-max)
+               (maxlines (or (and maxheight (min buflines maxheight))
+                             buflines))
+               (reqlines (max maxlines minheight)))
+          (if pixelwise
+              ;; In GUI frames we should do this in pixels, as the line-based
+              ;; `window-resize' DELTA is based on the default frame character
+              ;; height, rather than the buffer's `default-line-height', which
+              ;; doesn't take face remapping (e.g. `text-scale-adjust') into
+              ;; account and would therefore enlarge the window by the wrong
+              ;; value.  Pixel-based resizing also lets us eliminate vertical
+              ;; padding resulting from the body lines being a different height
+              ;; to the mode- and/or header-line height (which can easily happen
+              ;; in GUI frames and is distractingly obvious in a small window
+              ;; which is supposed to fit its content).
+              (let* ((window-resize-pixelwise t)
+                     (pixheight (* lineheight reqlines))
+                     (pixels (- pixheight (window-body-height nil t))))
+                (when-let ((pixels (window-resizable nil pixels nil t t)))
+                  (window-resize nil pixels nil t t)))
+            ;; In terminal frames we deal in lines rather than pixels.
+            (let ((delta (- reqlines (window-body-height))))
+              (when-let ((delta (window-resizable nil delta nil t)))
+                (window-resize nil delta nil t))))
+          ;; In most cases we can fit the whole buffer in the resized window.
+          (set-window-start nil (point-min) :noforce)
+          ;; The resizing might have obscured the room buffer's window point, so
+          ;; minimise the amount of scrolling which occurs to restore that to a
+          ;; visible position.
+          (let ((scroll-conservatively 101))
+            (redisplay)))))))
+
+(declare-function dabbrev--select-buffers "dabbrev")
+
+(defun ement-compose-dabbrev-select-buffers ()
+  "Used as `dabbrev-select-buffers-function' in compose buffers."
+  (let ((buflist (dabbrev--select-buffers))
+        (roombuf (map-elt (ement-room-local ement-room) 'buffer)))
+    (if (and roombuf (buffer-live-p roombuf))
+        (cons roombuf (delq roombuf buflist))
+      buflist)))
+
+(defun ement-room-mode-p (buffer)
+  "Non-nil if BUFFER has `ement-room-mode' as its major mode.
+Used with `dabbrev-friend-buffer-function'."
+  (with-current-buffer buffer
+    (derived-mode-p 'ement-room-mode)))
+
+;;; Message history for compose buffers.  Isearch code is derived from comint.el.
+
+(defvar-local ement-room--compose-message-history-index -1)
+(defvar-local ement-room--compose-message-history-initial "")
+(defvar-local ement-room--compose-history-isearch nil)
+
+(defun ement-room-compose-message-history-insert (hist-pos &optional with-message)
+  "Insert text of the absolute history position HIST-POS."
+  ;; Store the not-from-history buffer message.
+  (when (< ement-room--compose-message-history-index 0)
+    (setq ement-room--compose-message-history-initial
+          (ement-room-compose-buffer-string-trimmed)))
+  ;; Update the index.
+  (setq ement-room--compose-message-history-index (or hist-pos -1))
+  (when (and with-message hist-pos (>= hist-pos 0))
+    (let ((message-log-max nil))
+      (message "History item %d" hist-pos)))
+  ;; Update the buffer.
+  (erase-buffer)
+  (insert (if (< ement-room--compose-message-history-index 0)
+              ement-room--compose-message-history-initial
+            (or (nth ement-room--compose-message-history-index
+                     ement-room-message-history)
+                (format "[invalid ement message history element %d]"
+                        ement-room--compose-message-history-index)))))
+
+(defun ement-room-compose-history-prev-message (arg)
+  "Cycle backward through message history, after saving current message.
+With a numeric prefix ARG, go back ARG messages."
+  (interactive "*p")
+  (let ((len (length ement-room-message-history)))
+    ;; Valid index values: -1 <= idx < len.
+    (cond ((<= len 0)
+           (user-error "Empty message history"))
+          ((eql arg 0)) ;; No-op.
+          ((and (> arg 0) (>= ement-room--compose-message-history-index (1- len)))
+           (user-error "Beginning of history; no preceding item"))
+          ((and (< arg 0) (< ement-room--compose-message-history-index 0))
+           (user-error "End of history; no next item"))
+          (t
+           ;; It's still possible to move in the specified direction.
+           (ement-room-compose-message-history-insert
+            (let ((hist-pos (+ arg ement-room--compose-message-history-index)))
+              (cond ((>= hist-pos len) (1- len))
+                    ((< hist-pos -1) -1)
+                    (t hist-pos)))
+            :with-message)))))
+
+(defun ement-room-compose-history-next-message (arg)
+  "Cycle forward through message history, after saving current message.
+With a numeric prefix ARG, go forward ARG messages."
+  (interactive "*p")
+  (ement-room-compose-history-prev-message (- arg)))
+
+(defun ement-room-compose-history-isearch-backward ()
+  "Search for a string in the message history using Isearch.
+Use \\[isearch-backward] and \\[isearch-forward] to continue searching."
+  (interactive)
+  (setq ement-room--compose-history-isearch t)
+  (isearch-backward nil t))
+
+(defun ement-room-compose-history-isearch-backward-regexp ()
+  "Search for a regular expression in the message history using Isearch.
+Use \\[isearch-backward] and \\[isearch-forward] to continue searching."
+  (interactive)
+  (setq ement-room--compose-history-isearch t)
+  (isearch-backward-regexp nil t))
+
+(defun ement-room-compose-history-isearch-setup ()
+  "Set up Isearch to search `ement-room-message-history'.
+Intended to be added to `isearch-mode-hook' in an ement compose buffer."
+  (when (eq ement-room--compose-history-isearch t)
+    (setq isearch-message-prefix-add "history ")
+    (setq-local isearch-search-fun-function
+                #'ement-room-compose-history-isearch-search)
+    (setq-local isearch-message-function
+                #'ement-room-compose-history-isearch-message)
+    (setq-local isearch-wrap-function
+                #'ement-room-compose-history-isearch-wrap)
+    (setq-local isearch-push-state-function
+                #'ement-room-compose-history-isearch-push-state)
+    (setq-local isearch-lazy-count nil)
+    (add-hook 'isearch-mode-end-hook 'ement-room-compose-history-isearch-end nil t)))
+
+(defun ement-room-compose-history-isearch-end ()
+  "Clean up the buffer after terminating Isearch.
+Called via `isearch-mode-end-hook'."
+  (setq isearch-message-prefix-add nil)
+  (setq isearch-search-fun-function 'isearch-search-fun-default)
+  (setq isearch-wrap-function nil)
+  (setq isearch-push-state-function nil)
+  ;; Force isearch to not change mark.
+  (setq isearch-opoint (point))
+  (kill-local-variable 'isearch-lazy-count)
+  (remove-hook 'isearch-mode-end-hook 'ement-room-compose-history-isearch-end t)
+  (unless isearch-suspended
+    (setq ement-room--compose-history-isearch nil)))
+
+(defun ement-room-compose-history-isearch-search ()
+  "Return the search function for Isearch in message history.
+This function is used as the value of `isearch-search-fun-function'."
+  #'ement-room-compose-history-isearch-function)
+
+(defun ement-room-compose-history-isearch-function (string bound noerror)
+  "Isearch in message history."
+  (let ((search-fun
+	 ;; Use standard functions to search within message text
+	 (isearch-search-fun-default))
+	found)
+    (or
+     ;; 1. First try searching in the initial message
+     (funcall search-fun string nil noerror)
+     ;; 2. If the above search fails, start putting next/prev history elements in the
+     ;; buffer successively, and search the string in them.  Do this only when bound is
+     ;; nil (i.e. not while lazy-highlighting search strings in the current message).
+     (unless bound
+       (condition-case nil
+	   (progn
+	     (while (not found)
+	       (if isearch-forward
+		   (ement-room-compose-history-next-message 1)
+		 (ement-room-compose-history-prev-message 1))
+               (goto-char (if isearch-forward (point-min) (point-max)))
+	       (setq isearch-barrier (point)
+                     isearch-opoint (point))
+	       ;; After putting the next/prev history element, search the string in
+               ;; them again, until `ement-room-compose-history-next-message' or
+	       ;; `ement-room-compose-history-prev-message' raises an error at the
+	       ;; beginning/end of history.
+	       (setq found (funcall search-fun string nil noerror)))
+	     ;; Return point of the new search result.
+	     (point))
+	 ;; Return nil on any isearch errors, including the "no next/preceding item"
+         ;; user-errors signalled from `ement-room-compose-history-prev-message'.
+         (error nil))))))
+
+(defun ement-room-compose-history-isearch-message (&optional c-q-hack ellipsis)
+  "Display the isearch message.
+This function is used as the value of `isearch-message-function'."
+  (setq isearch-message-prefix-add
+        (if (and isearch-success
+                 (not isearch-error)
+                 (>= ement-room--compose-message-history-index 0))
+            (format "history item %d: "
+                    ement-room--compose-message-history-index)
+          "history "))
+  (isearch-message c-q-hack ellipsis))
+
+(defun ement-room-compose-history-isearch-wrap ()
+  "Wrap the history search when search fails.
+Move point to the first history element for a forward search,
+or to the last history element for a backward search.
+This function is used as the value of `isearch-wrap-function'."
+  ;; When `ement-room-compose-history-isearch-search' fails on reaching the
+  ;; beginning/end of the history, wrap the search to the first/last
+  ;; input history element.
+  (ement-room-compose-message-history-insert
+   (if isearch-forward
+       (1- (length ement-room-message-history))
+     -1))
+  (goto-char (if isearch-forward (point-min) (point-max))))
+
+(defun ement-room-compose-history-isearch-push-state ()
+  "Save a function restoring the state of input history search.
+Save `ement-room--compose-message-history-index' to the additional state parameter
+in the search status stack.
+This function is used as the value of `isearch-push-state-function'."
+  (let ((index ement-room--compose-message-history-index))
+    (lambda (cmd)
+      (ement-room-compose-history-isearch-pop-state cmd index))))
+
+(defun ement-room-compose-history-isearch-pop-state (_cmd hist-pos)
+  "Restore the input history search state.
+Go to the history element by the absolute history position HIST-POS.
+See `ement-room-compose-history-isearch-push-state'."
+  (ement-room-compose-message-history-insert hist-pos))
 
 ;;;;; Widgets
 
@@ -4430,7 +5208,10 @@ compatibility), and the result is added to the CONTENT as
                             (org-export-with-broken-links t)
                             (org-export-with-section-numbers nil)
                             (org-export-with-sub-superscripts nil)
-                            (org-html-inline-images nil))
+                            (org-html-inline-images nil)
+                            (display-buffer-alist (cons '("^\\*Org HTML Export\\*$"
+                                                          . (display-buffer-no-window nil))
+                                                        display-buffer-alist)))
                         (org-html-export-as-html nil nil nil 'body-only)))
                     (with-current-buffer "*Org HTML Export*"
                       (prog1 (string-trim (buffer-string))
@@ -4487,9 +5268,8 @@ Uses members in the current buffer's room.  For use in
 `completion-at-point-functions'."
   (let ((beg (save-excursion
                (when (re-search-backward (rx (or bol bos blank)) nil t)
-                 (if (minibufferp)
-                     (1+ (point))
-                   (point)))))
+                 (skip-syntax-forward "-")
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any
@@ -4505,9 +5285,8 @@ Uses members in the current buffer's room.  For use in
 For use in `completion-at-point-functions'."
   (let ((beg (save-excursion
                (when (re-search-backward (rx (or bol bos blank) (or "!" "#")) nil t)
-                 (if (minibufferp)
-                     (1+ (point))
-                   (point)))))
+                 (skip-syntax-forward "-")
+                 (point))))
         (end (point))
         (collection-fn (completion-table-dynamic
                         ;; The manual seems to show the FUN ignoring any

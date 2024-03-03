@@ -162,6 +162,8 @@ These bindings are common to all of the following buffer types:
 
 *** Room buffers
 
+Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by default it is disabled), typing any of the common printable ascii characters (such as letters) in a room buffer will start a new message, and most of the following bindings are instead accessed via a prefix key.  See the minor mode docstring for details.  (The ~?~ binding is an exception; by default it opens the command menu regardless of this minor mode.)
+
 + Show command menu: ~?~
 
 [[images/transient.png]]
@@ -188,7 +190,7 @@ These bindings are common to all of the following buffer types:
 *Messages*
 
 + Write message: ~RET~
-+ Write reply to event at point (when region is active, only quote marked text) : ~S-RET~
++ Write reply to event at point (when region is active, only quote marked text): ~S-RET~
 + Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c ')~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
 + Edit message: ~<insert>~
 + Delete message: ~C-k~
@@ -201,8 +203,8 @@ These bindings are common to all of the following buffer types:
 
 *Images*
 
-+  Toggle scale of image (between fit-to-window and thumbnail): ~mouse-1~
-+  Show image in new buffer at full size: ~double-mouse-1~
++ Toggle scale of image (between fit-to-window and thumbnail): ~mouse-1~
++ Show image in new buffer at full size: ~double-mouse-1~
 
 *Users*
 
@@ -250,7 +252,7 @@ These bindings are common to all of the following buffer types:
 
 + Move between events: ~TAB~ / ~<backtab>~
 + Go to event at point in its room buffer: ~RET~
-+ Write reply to event at point (shows the event in its room while writing) : ~S-RET~
++ Write reply to event at point (shows the event in its room while writing): ~S-RET~
 
 ** Tips
 
@@ -295,11 +297,47 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.15-pre
 
+*Additions*
+
++ A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+  + Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
+  + Option ~ement-room-compose-buffer-window-auto-height~ causes dynamic scaling of the compose buffer window height so that the full message is visible at all times.
+  + Option ~ement-room-compose-buffer-window-auto-height-min~ specifies the minimum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
+  + Option ~ement-room-compose-buffer-window-auto-height-max~ specifies the maximum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
+  + Option ~ement-room-compose-method~ chooses between minibuffer-centric or compose-buffer-centric behaviour.
+  + Command ~ement-room-dispatch-new-message~ starts writing a new message using your chosen ~ement-room-compose-method~.  (Bound to ~RET~ in room buffers.)
+  + Command ~ement-room-dispatch-new-message-alt~ starts writing a new message using the alternative method.  (Bound to ~M-RET~ in room buffers.)
+  + Command ~ement-room-dispatch-edit-message~ edits a message using your chosen ~ement-room-compose-method~.  (Bound to ~<insert>~ in room buffers.)
+  + Command ~ement-room-dispatch-reply-to-message~ replies to a message using your chosen ~ement-room-compose-method~.  (Bound to ~S-RET~ in room buffers.)
+  + Command ~ement-room-compose-edit~ edits a message using a compose buffer.
+  + Command ~ement-room-compose-reply~ replies to a message using a compose buffer.
+  + Command ~ement-room-compose-send-direct~ sends a message directly from a compose buffer (without the minibuffer).  (Bound to ~C-x C-s~ in compose buffers.)
+  + Command ~ement-room-compose-abort~ kills the compose buffer and delete its window.  (Bound to ~C-c C-k~ in compose buffers.)
+  + Command ~ement-room-compose-abort-no-history~ does the same without adding to ~ement-room-message-history~.  (Equivalent to ~C-u C-c C-k~.)
+  + Command ~ement-room-compose-history-prev-message~ cycles backwards through ~ement-room-message-history~.  (Bound to ~M-p~ in compose buffers.)
+  + Command ~ement-room-compose-history-next-message~ cycles forwards through ~ement-room-message-history~.  (Bound to ~M-n~ in compose buffers.)
+  + Command ~ement-room-compose-history-isearch-backward~ initiates an isearch through ~ement-room-message-history~.  (Bound to ~M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
+  + Command ~ement-room-compose-history-isearch-backward-regexp~ initiates a regexp isearch through ~ement-room-message-history~.  (Bound to ~C-M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
+
++ Global minor mode ~ement-room-self-insert-mode~ enables "just typing" to start a message.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+  + Option ~ement-room-self-insert-commands~ determines which commands will start a new message when ~ement-room-self-insert-mode~ is enabled (defaulting to ~self-insert-command~ and ~yank~).
+  + Option ~ement-room-self-insert-chars~ determines which typed characters will start a new message when ~ement-room-self-insert-mode~ is enabled (regardless of whether they are bound to ~self-insert-command~).
+  + Option ~ement-room-mode-map-prefix-key~ defines a prefix key for accessing the full ~ement-room-mode-map~ when ~ement-room-self-insert-mode~ is enabled.  (By default this key is ~DEL~.)
+
 *Changes*
 + Improve prompt used when viewing a room that is not joined.  ([[https://github.com/alphapapa/ement.el/issues/241][#241]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Format "was kicked and rejoined" membership event pairs.
 + Enclose reasons for membership events in quotes for clarity.
 + Improve default room list grouping.
++ When editing or replying to a message in a compose buffer, the related room event is highlighted persistently until the compose buffer is killed.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ In compose buffers ~dabbrev~ will prioritise firstly the associated room, and secondly all other rooms, before looking to other buffers for completions.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Aborted messages are now added to ~ement-room-message-history~ rather than the kill-ring.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Prefix bindings in ~ement-room-mode-map~ now have named labels in ~which-key~ and similar.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+
+*Fixes*
+
++ Edits to previous edit events are correctly sent to the server as edits to the original message event.  ([[https://github.com/alphapapa/ement.el/issues/230][#230]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Completion at point works more reliably in compose buffers (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.14
 
@@ -505,7 +543,7 @@ Added missing changelog entry (of course).
 
 + Command ~ement-view-space~ when called from a room buffer.  (Thanks to [[https://github.com/MagicRB][Richard Brežák]] for reporting.)
 + Don't call ~display-buffer~ when reverting room list buffer.  (Fixes [[https://github.com/alphapapa/ement.el/issues/121][#121]].  Thanks to [[https://github.com/mekeor][mekeor]] for reporting.)
-+ Retry sync for network timeouts.  (Accidentally broken in v0.6.) 
++ Retry sync for network timeouts.  (Accidentally broken in v0.6.)
 
 *Internal*
 
@@ -704,4 +742,3 @@ GPLv3
 # org-export-with-properties: ()
 # org-export-with-title: t
 # End:
-
