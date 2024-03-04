@@ -345,7 +345,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Completion at point works more reliably in compose buffers.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 *Fixes*
-+ Toggling images to fill the window body no longer triggers unintended scrolling.  (Thanks to [[https://github.com/phil-s][Phil Sainty].)
++ Toggling images to fill the window body no longer triggers unintended scrolling.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.14
 
