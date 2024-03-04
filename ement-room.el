@@ -4907,12 +4907,33 @@ STRUCT should be an `ement-room-membership-events' struct."
            (when (and value (display-images-p))
              (display-warning 'ement "This Emacs was not built with ImageMagick support, nor does it support Cairo/XRender scaling, so images can't be displayed in Ement")))))
 
-(defcustom ement-room-image-initial-height 0.2
+(defcustom ement-room-image-thumbnail-height 0.2
+  "Scale thumbnail images to this multiple of the window body height.
+Should be a number between 0 and 1.
+See also `ement-room-image-thumbnail-height-min'."
+  :type '(number :tag "Multiple of the window body height"))
+
+(defcustom ement-room-image-thumbnail-height-min 30
+  "Minimum height in pixels when scaling thumbnail images.
+See also `ement-room-image-thumbnail-height'."
+  :type 'natnum)
+
+(defcustom ement-room-image-initial-height ement-room-image-thumbnail-height
   "Limit images' initial display height.
 If a number, it should be no larger than 1 (because Emacs can't
 display images larger than the window body height)."
-  :type '(choice (const :tag "Use full window width" nil)
-                 (number :tag "Limit to this multiple of the window body height")))
+  :type '(choice (const :tag "Use full window height (or width)" nil)
+                 (number :tag "Multiple of the window body height")))
+
+(defcustom ement-room-image-margin 5
+  "How many pixels to add as an extra margin around the image."
+  :type 'natnum)
+
+(defcustom ement-room-image-relief 2
+  "Width in pixels of shadow rectangle around the image.
+If negative, shadows are drawn so that the image appears as a
+pressed button; otherwise, it appears as an unpressed button."
+  :type 'integer)
 
 (defun ement-room-image-scale-mouse (event)
   "Toggle scale of image at mouse EVENT.
@@ -4927,26 +4948,44 @@ height."
 
 (defun ement-room-image-scale (pos)
   "Toggle scale of image at POS.
-Scale image to fit within the window's body.  If image is already
-fit to the window, reduce its max-height to 10% of the window's
-height."
+Scale image to fit the window body.  If the image already fits
+the window body, reduce its max-height in accordance with user
+options `ement-room-image-thumbnail-height' and
+`ement-room-image-thumbnail-height-min'."
   (interactive "d")
   (pcase-let* ((image (get-text-property pos 'display))
+               (max-height (image-property image :max-height))
+               (xy (posn-x-y (posn-at-point pos)))
                (window-width (window-body-width nil t))
+               (max-width (- window-width (car xy)))
                (window-height (window-body-height nil t))
-               ;; Image scaling commands set :max-height and friends to nil so use the
-               ;; impossible dummy value -1.  See <https://github.com/alphapapa/ement.el/issues/39>.
-               (new-height (if (= window-height (or (image-property image :max-height) -1))
-                               (/ window-height 10)
-                             window-height)))
+               (use-window-body-size (not (and (numberp max-height)
+                                               (= window-height max-height))))
+               ;; Image scaling commands set :max-height and friends to nil.
+               ;; See <https://github.com/alphapapa/ement.el/issues/39>.
+               (new-height (if use-window-body-size
+                               window-height
+                             (max ement-room-image-thumbnail-height-min
+                                  ;; Emacs doesn't like floats as the max-height.
+                                  (truncate (* window-height
+                                               ement-room-image-thumbnail-height))))))
     (when (fboundp 'imagemagick-types)
       ;; Only do this when ImageMagick is supported.
       ;; FIXME: When requiring Emacs 27+, remove this (I guess?).
       (setf (image-property image :type) 'imagemagick))
     ;; Set :scale to nil since image scaling commands might have changed it.
     (setf (image-property image :scale) nil
-          (image-property image :max-width) window-width
-          (image-property image :max-height) new-height)))
+          (image-property image :max-width) max-width
+          (image-property image :max-height) new-height)
+    ;; When maximising, eliminate all padding around the image, so that the line
+    ;; height will not exceed the window height.  This prevents window scrolling
+    ;; issues.  Set the window start to ensure the image is displayed in full.
+    (if use-window-body-size
+        (setf (image-property image :relief) nil
+              (image-property image :margin) nil
+              (window-start) pos)
+      (setf (image-property image :relief) ement-room-image-relief
+            (image-property image :margin) ement-room-image-margin))))
 
 (defun ement-room-image-show-mouse (event)
   "Show image at mouse EVENT in a new buffer."
@@ -5010,10 +5049,11 @@ show it in the buffer."
               ;; Calculate max image display size.
               (cond (ement-room-image-initial-height
                      ;; Use configured value.
-                     (setf max-height (truncate
-                                       ;; Emacs doesn't like floats as the max-height.
-                                       (* (window-body-height buffer-window t)
-                                          ement-room-image-initial-height))
+                     (setf max-height (max ement-room-image-thumbnail-height-min
+                                           ;; Emacs doesn't like floats as the max-height.
+                                           (truncate
+                                            (* (window-body-height buffer-window t)
+                                               ement-room-image-initial-height)))
                            max-width (window-body-width buffer-window t)))
                     (buffer-window
                      ;; Buffer displayed: use window size.
@@ -5029,8 +5069,8 @@ show it in the buffer."
                 (setf (image-property image :type) 'imagemagick))
               (setf (image-property image :max-width) max-width
                     (image-property image :max-height) max-height
-                    (image-property image :relief) 2
-                    (image-property image :margin) 5
+                    (image-property image :relief) ement-room-image-relief
+                    (image-property image :margin) ement-room-image-margin
                     (image-property image :pointer) 'hand)
               (concat "\n"
                       (ement-room-wrap-prefix " "
