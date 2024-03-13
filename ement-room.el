@@ -498,9 +498,36 @@ sends the composed message directly."
         '((window-height . 3)
           (inhibit-same-window . t)
           (reusable-frames . nil)))
-  "`display-buffer' action for displaying compose buffers."
+  "`display-buffer' action for displaying compose buffers.
+
+See also `ement-room-compose-buffer-window-auto-height' and
+`ement-room-compose-buffer-window-dedicated'."
   :type display-buffer--action-custom-type
   :risky t)
+
+(defcustom ement-room-compose-buffer-window-dedicated 'created
+  "Whether windows for compose buffers should be dedicated.
+
+A dedicated compose buffer window will not be used to display any
+other buffer, and will be deleted once the message has been sent
+or aborted (see `ement-room-compose-buffer-quit-restore-window').
+
+The values t and nil mean \"always\" and \"never\" respectively.
+
+The value `created' means newly-created windows are dedicated.
+\(The default `ement-room-compose-buffer-display-action' always
+creates a new window.)
+
+The value `auto-height' means that windows will be dedicated if
+the option `ement-room-compose-buffer-window-auto-height' is
+enabled (this option generally keeps the windows too small to
+usefully display other buffers).
+
+See also `set-window-dedicated-p'."
+  :type '(radio (const :tag "Always" t)
+                (const :tag "Never" nil)
+                (const :tag "Newly-created windows" created)
+                (const :tag "When auto-height enabled" auto-height)))
 
 (defcustom ement-room-compose-buffer-window-auto-height t
   "Dynamically match the compose buffer window height to its contents.
@@ -4233,7 +4260,7 @@ To be called from a minibuffer opened from
         (editing-event ement-room-editing-event)
         (room ement-room)
         (session ement-session))
-    (quit-restore-window nil 'kill)
+    (ement-room-compose-buffer-quit-restore-window)
     (ement-view-room room session)
     (add-to-history 'ement-room-message-history body)
     (list body input-method send-message-filter replying-to-event editing-event room session)))
@@ -4294,8 +4321,7 @@ With prefix arg NO-HISTORY, do not add to `ement-room-message-history'."
         (room ement-room))
     (unless no-history
       (add-to-history 'ement-room-message-history body))
-    (kill-buffer)
-    (delete-window)
+    (ement-room-compose-buffer-quit-restore-window)
     ;; Make sure we end up with the associated room buffer selected.
     (when-let ((win (catch 'room-win
                       (walk-windows
@@ -4504,9 +4530,9 @@ handler ignores as a side-effect of its conditional logic).
 This function also determines whether the composer buffer's
 window has been newly created, which affects the behaviour of
 `ement-room-compose-buffer-quit-restore-window'."
-  (when ement-room-compose-buffer-window-auto-height
-    (with-selected-window win
-      ;; Clear the height cache for this compose buffer.
+  (with-selected-window win
+    ;; Clear the height cache for this compose buffer.
+    (when ement-room-compose-buffer-window-auto-height
       (when (bound-and-true-p ement-room-compose-buffer-window-auto-height-cache)
         (setq-local ement-room-compose-buffer-window-auto-height-cache nil)
         ;; `window-buffer-change-functions' runs /after/ `post-command-hook',
@@ -4518,7 +4544,32 @@ window has been newly created, which affects the behaviour of
           (run-with-timer 0 nil (lambda (win)
                                   (with-selected-window win
                                     (ement-room-compose-buffer-window-auto-height)))
-                          win))))))
+                          win))))
+    ;; Process `ement-room-compose-buffer-window-dedicated' when the compose
+    ;; buffer is first displayed, to decide whether the window should be
+    ;; dedicated to the buffer.
+    (unless (assq 'ement-room-compose-buffer-window-created-p (window-parameters win))
+      (let ((createdp (not (window-prev-buffers))))
+        (set-window-parameter win 'ement-room-compose-buffer-window-created-p
+                              createdp)
+        (when (cl-case ement-room-compose-buffer-window-dedicated
+                (created createdp)
+                (auto-height ement-room-compose-buffer-window-auto-height)
+                (t ement-room-compose-buffer-window-dedicated))
+          (set-window-dedicated-p nil t))))))
+
+(defun ement-room-compose-buffer-quit-restore-window ()
+  "Kill the current compose buffer and deal appropriately with its window.
+
+The default `ement-room-compose-buffer-window-dedicated' value
+ensures that the window is dedicated and therefore that it will
+be deleted.
+
+A non-dedicated window which has displayed another buffer at any
+point will not be deleted."
+  ;; N.b. This function exists primarily for documentation purposes,
+  ;; to clarify the side-effect of using a dedicated window.
+  (quit-restore-window nil 'kill))
 
 (declare-function dabbrev--select-buffers "dabbrev")
 

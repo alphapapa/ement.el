@@ -301,6 +301,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
   - Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
+  - Option ~ement-room-compose-buffer-window-dedicated~ determines whether compose buffers will have dedicated windows.
   - Option ~ement-room-compose-buffer-window-auto-height~ causes dynamic scaling of the compose buffer window height so that the full message is visible at all times.
   - Option ~ement-room-compose-buffer-window-auto-height-min~ specifies the minimum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
   - Option ~ement-room-compose-buffer-window-auto-height-max~ specifies the maximum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
