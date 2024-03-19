@@ -3898,11 +3898,11 @@ Format defaults to `ement-room-message-format-spec', which see."
       ;; Propertize margin text.
       (when ement-room--format-message-wrap-prefix
         (when-let ((wrap-prefix-end (next-single-property-change (point-min) 'wrap-prefix-end)))
-          (let* ((prefix-width (string-width
-                                (buffer-substring-no-properties (point-min) wrap-prefix-end)))
+          (goto-char wrap-prefix-end)
+          (delete-char 1)
+          (let* ((prefix-width (string-width (buffer-substring-no-properties
+                                              (line-beginning-position) (point))))
                  (prefix (propertize " " 'display `((space :width ,prefix-width)))))
-            (goto-char wrap-prefix-end)
-            (delete-char 1)
             ;; We apply the prefix to the entire event as `wrap-prefix', and to just the
             ;; body as `line-prefix'.
             (put-text-property (point-min) (point-max) 'wrap-prefix prefix)
