@@ -1029,7 +1029,7 @@ period, anywhere in the body."
                          when (equal name (ement--user-displayname-in room user))
                          collect user)))
     (pcase-let* (((cl-struct ement-room members) room)
-                 (regexp (rx (or bos bow (1+ blank))
+                 (regexp (rx (or bos bow blank "\n")
                              (or (seq (group
                                        ;; Group 1: full @-prefixed MXID.
                                        "@" (group
