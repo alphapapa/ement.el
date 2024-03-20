@@ -340,6 +340,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + In compose buffers ~dabbrev~ will prioritise firstly the associated room, and secondly all other rooms, before looking to other buffers for completions.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Aborted messages are now added to ~ement-room-message-history~ rather than the kill-ring.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Prefix bindings in ~ement-room-mode-map~ now have named labels in ~which-key~ and similar.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Option: ~ement-room-use-variable-pitch~ (previously named ~ement-room-shr-use-fonts~) enables variable-pitch fonts for all message types.  (This option previously supported formatted messages, but now works for plain text messages as well.)  Note: users who have customized the ~ement-room-message-text~ face to be variable-pitch should revert that change, as it causes problems for formatted messages, and is no longer necessary.  ([[https://github.com/alphapapa/ement.el/issues/174][#174]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 *Fixes*
 

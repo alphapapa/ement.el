@@ -869,11 +869,14 @@ When nil, edited messages are displayed as new messages, leaving
 the original messages visible."
   :type 'boolean)
 
-(defcustom ement-room-shr-use-fonts nil
-  "Enable `shr' variable-pitch fonts for formatted bodies.
-If non-nil, `shr' may use variable-pitch fonts for formatted
-bodies (which include most replies), which means that some
-messages won't display in the same font as others."
+(define-obsolete-variable-alias 'ement-room-shr-use-fonts
+  'ement-room-use-variable-pitch "ement-0.14")
+
+(defcustom ement-room-use-variable-pitch nil
+  "Use proportional fonts for message bodies.
+If non-nil, plain text message bodies are displayed in a
+variable-pitch font, and `shr-use-fonts' is enabled for rendering
+HTML-formatted message bodies (which includes most replies)."
   :type '(choice (const :tag "Disable variable-pitch fonts" nil)
                  (const :tag "Enable variable-pitch fonts" t)))
 
@@ -1303,13 +1306,25 @@ spec) without requiring all events to use the same margin width."
               'help-echo (format-time-string "%Y-%m-%d %H:%M:%S"
                                              (/ (ement-event-origin-server-ts event) 1000))))
 
+(defconst ement-room-variable-pitch-face (or (and (facep 'shr-text) 'shr-text)
+                                             'variable-pitch)
+  "May be used when formatting plain-text messages.
+
+If user option `ement-room-use-variable-pitch' is non-nil, this
+face is applied to plain-text messages for visual consistency
+with HTML messages (which will be rendered by shr.el with
+`shr-use-fonts' enabled).
+
+The `shr-text' face was added in Emacs 29.1.  Prior to that,
+shr.el used the `variable-pitch' face directly.")
+
 (defun ement-room--event-body-face (event room session)
   "Return face definition for EVENT in ROOM on SESSION."
   (ignore room)  ;; Unused for now, but keeping for consistency.
   ;; This used to be a macro in --format-message, which is probably better for
   ;; performance, but using a function is clearer, and avoids premature optimization.
   (pcase-let* (((cl-struct ement-event sender
-                           (content (map msgtype))
+                           (content (map msgtype format ('m.new_content new-content)))
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
                            (local (map ('redacted-by local-redacted-by))))
                 event)
@@ -1336,7 +1351,14 @@ spec) without requiring all events to use the same margin width."
                                               (color-darken-name message-color ement-room-prism-message-lightening))))))))
                (redacted-face (when (or local-redacted-by unsigned-redacted-by)
                                 'ement-room-redacted))
-               (body-face (list :inherit (delq nil (list redacted-face context-face type-face)))))
+               ;; For visual consistency, apply the variable-pitch `shr-text' face to
+               ;; non-HTML messages when `ement-room-use-variable-pitch' is non-nil.
+               ;; (HTML messages are fontified by shr itself.)
+               (shr-text-face (when (and ement-room-use-variable-pitch
+                                         (not (equal (or format (alist-get 'format new-content))
+                                                     "org.matrix.custom.html")))
+                                ement-room-variable-pitch-face))
+               (body-face (list :inherit (delq nil (list redacted-face context-face type-face shr-text-face)))))
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))
@@ -4014,7 +4036,7 @@ HTML is rendered to Emacs text using `shr-insert-document'."
       ;; seems to work.  It even seems to work properly when a window is
       ;; resized (i.e. the wrapping is adjusted automatically by redisplay
       ;; rather than requiring the message to be re-rendered to HTML).
-      (let ((shr-use-fonts ement-room-shr-use-fonts)
+      (let ((shr-use-fonts ement-room-use-variable-pitch)
             (old-fn (symbol-function 'shr-tag-blockquote))) ;; Bind to a var to avoid unknown-function linting errors.
         (cl-letf (((symbol-function 'shr-fill-line) #'ignore)
                   ((symbol-function 'shr-tag-blockquote)
