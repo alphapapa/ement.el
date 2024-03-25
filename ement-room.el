@@ -523,9 +523,15 @@ the option `ement-room-compose-buffer-window-auto-height' is
 enabled (this option generally keeps the windows too small to
 usefully display other buffers).
 
-See also `set-window-dedicated-p'."
+The value `delete' means that windows will not be dedicated, but
+they will still be deleted once the message is sent or aborted
+\(even when they have also been used to display other buffers).
+
+See also `set-window-dedicated-p' and
+`switch-to-buffer-in-dedicated-window'."
   :type '(radio (const :tag "Always" t)
                 (const :tag "Never" nil)
+                (const :tag "Never (but always delete window)" delete)
                 (const :tag "Newly-created windows" created)
                 (const :tag "When auto-height enabled" auto-height)))
 
@@ -4587,6 +4593,7 @@ See also `ement-room-compose-buffer-window-state-change-handler'."
         (when (cl-case ement-room-compose-buffer-window-dedicated
                 (created createdp)
                 (auto-height ement-room-compose-buffer-window-auto-height)
+                (delete nil)
                 (t ement-room-compose-buffer-window-dedicated))
           (set-window-dedicated-p win t))))))
 
@@ -4601,6 +4608,9 @@ A non-dedicated window which has displayed another buffer at any
 point will not be deleted."
   ;; N.b. This function exists primarily for documentation purposes,
   ;; to clarify the side-effect of using a dedicated window.
+  (when (eq ement-room-compose-buffer-window-dedicated 'delete)
+    ;; `quit-restore-window' always deletes a dedicated window.
+    (set-window-dedicated-p nil t))
   (quit-restore-window nil 'kill))
 
 (declare-function dabbrev--select-buffers "dabbrev")
