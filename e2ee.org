@@ -1,0 +1,189 @@
+#+TITLE: Ement.el, End-to-End Encryption
+
+#+PROPERTY: LOGGING nil
+
+# Export options.
+#+OPTIONS: broken-links:t *:t num:1 toc:1
+
+# Info export options.
+#+EXPORT_FILE_NAME: ement-e2ee.texi
+
+# Note: This readme works with the org-make-toc <https://github.com/alphapapa/org-make-toc> package, which automatically updates the table of contents.
+
+* Contents
+:PROPERTIES:
+:TOC:      :include siblings
+:END:
+:CONTENTS:
+- [[#contents][Contents]]
+- [[#introduction][Introduction]]
+  - [[#security-considerations][Security Considerations]]
+- [[#installation][Installation]]
+  - [[#d-bus-requirements][D-bus requirements]]
+  - [[#systems-without-d-bus-macos-and-windows][Systems without D-bus (macOS and Windows)]]
+- [[#configuration][Configuration]]
+- [[#usage][Usage]]
+  - [[#connecting][Connecting]]
+  - [[#session-verification][Session verification]]
+    - [[#direct-verification]["Direct" verification]]
+    - [[#two-way-verification]["Two way" verification]]
+- [[#troubleshooting][Troubleshooting]]
+  - [[#nothing-happens][Nothing happens]]
+- [[#other-references][Other references]]
+:END:
+
+* Introduction
+Ement.el doesn't support encrypted rooms natively, but it can be used transparently with an E2EE-aware reverse proxy daemon like [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]]. This software sits between your Emacs instance (running Ement.el) and your Matrix server, handling E2EE for clients that do not support it natively, like Ement.el.
+
+Ement.el's only requirement is that you properly set up Pantalaimon. Thus:
+
+1. Start Pantalaimon.
+2. Call ~ement-connect~ with the appropriate "proxy" hostname and port, like:
+
+#+BEGIN_SRC elisp
+  (ement-connect :uri-prefix "http://localhost:8009")
+#+END_SRC
+
+3. Verify the Pantalaimon session from another device.
+
+The rest of this document is all about how to set up and configure Pantalaimon and E2EE.
+** Security Considerations
+Pantalaimon works as a trusted [[https://en.wikipedia.org/wiki/Man-in-the-middle_attack][man-in-the-middle]] by handling Matrix encryption for your client (Ement.el) and delivering it nice clear-text messages.
+
+This means that *traffic between Pantalaimon and Ement.el is unencrypted!*
+
+It is very important to understand this: the "end to end encryption" stops at your Pantalaimon daemon.
+
+How to properly secure your Pantalaimon is out of the scope of this document.
+
+It is recommened to run it on the same host as your Ement.el/Emacs instance, bind to localhost (127.0.0.1) and be it a single user machine.
+
+Please do not ever write "/ListenAddress = 0.0.0.0/" in your =pantalaimon.conf=.
+
+* Installation
+Pantalaimon is a Python package, and can be installed through pip.
+
+Note that the package setup will attempt to compile the Olm C library, so you need a minimal C toolchain available, at least a compiler like =gcc=.
+
+The pantalaimon package is also [available on several Linux distributions package managers](https://repology.org/project/pantalaimon/versions) which would make setup easier.
+
+Once installed, you should have the =pantalaimon= command available on your system.
+
+** D-bus requirements
+It may not be clear from the documentation, but *pantalaimon requires d-bus in order to manage it*. In particular, the =panctl= tool only works through d-bus. This means that in order to achieve two-way verficiation you need to run it on Linux, unless you know a way (we do not) to issue commands to pantalaimon without =panctl=.
+** Systems without D-bus (macOS and Windows)
+As noted above, you need =d-bus=.
+
+Under macOS and/or Windows, you have several options, all of which go beyond the scope of this document:
+
+- Use Windows subsystem for Linux,
+- Use homebrew, which can run d-bus and is documented in Pantalaimon's README.
+- Use a virtual machine,
+- Run pantalaimon on a remote host *under an encrypted channel* like an SSH tunnel, or a properly secured reverse proxy handling TLS termination.
+
+* Configuration
+Pantalaimon has a =pantalaimon.conf= file, and includes an example one. At the bare minimum, you need a section for each homeserver you want to proxy to:
+
+#+begin_src
+[local-matrix]
+Homeserver = https://matrix.org
+ListenAddress = localhost
+ListenPort = 8009
+#+end_src
+
+Please refer to the official documentation (see below in "Tips" for links) for more deails on this.
+* Usage
+There are two parts to using pantalaimon (once installed and configured):
+
+1. Have Ement.el use pantalaimon as a proxy,
+2. Verify your session with another device, in order for it to receive encryption keys.
+
+** Connecting
+Just ask Ement.el for a connection specifying the =:uri-prefix= parameter with your pantalaimon address, like:
+
+#+BEGIN_SRC elisp
+  (ement-connect :uri-prefix "http://localhost:8009")
+#+END_SRC
+
+** Session verification
+In order for your pantalaimon-ement tandem to be able to decipher messages, it needs key material to be delivered to it. In normal circumstances, you will simply verify the session from another client and be done with it.
+
+There are two main ways to verify a session. Which one to use depends mostly on your environment (your Matrix environment).
+
+*** "Direct" verification
+In any other of your devices, you may be notified about a new unverified session and be given the opportunity to verify the session.
+
+You may also find the unverified session under your profile settings, depending on your client software.
+
+In any case: the verification is done on the other device. Nothing to do on Pantalaimon side.
+
+So, once Ement.el has successfuly connected:
+
+1. Go to any other of your devices and validate the Pantalaimon session.
+
+*** "Two way" verification
+You may need to verify both clients at once. That is, your current device shows you some phrase, and you have to verify on Pantalaimon the same phrase.
+
+You need the =panctl= tool for this to work. Which requires d-bus.
+
+So, once Ement.el has successfully connected:
+
+1. Open =panctl= tool in a terminal
+2. Find your device/session:
+#+begin_src
+$ panctl
+panctl> list-servers
+pantalaimon servers:
+ - Name: local-matrix
+ - Pan users:
+   - @maxice8:matrix.org BFXSMBOBLH
+
+panctl> list-devices @maxice8:matrix.org @maxice8:matrix.org
+Devices for user @maxice8:matrix.org:
+ - Display name:  FluffyChat android
+   - Device id:   UXOXMSYWMH
+   - Device key:  [STRENG GEHEIM]
+   - Trust state: Verified
+ - Display name:  Element Desktop (Linux)
+   - Device id:   QPOOTXJLUS
+   - Device key:  [STRENG GEHEIM]
+   - Trust state: Verified
+   #+end_src   
+3. Start verification from =panctl=
+#+begin_src
+panctl> start-verification @maxice8:matrix.org @maxice8:matrix.org QPOOTXJLUS
+Successfully started the key verification request
+#+end_src
+4. Verify the request on the other client
+5. Confirm the request on Pantalaimon
+#+begin_src
+panctl> confirm-verification @maxice8:matrix.org @maxice8:matrix.org QPOOTXJLUS
+Device QPOOTXJLUS of user @maxice8:matrix.org succesfully verified for pan user @maxice8:matrix.org.
+#+end_src
+* Troubleshooting
+This section is the /raison d'être/ of this document. What to do when things do not work. Meaning, you can't see encrypted messages.
+
+*If you have successfully setup pantalaimon and have reached this maybe you have had some experience that could be added to this document*, if so: please submit a PR.
+
+You may also see [issues filed in GitHub in the past about e2ee](https://github.com/search?q=repo%3Aalphapapa%2Fement.el+pantalaimon+OR+e2ee+OR+encryption&type=issues) which often contain useful tips.
+
+** Nothing happens
+Rhere have been reported cases where messages suddenly decrypt. Like if pantalaimon needed its time to bootstrap itself and start getting keys. For "it's time" we are talking a couple of hours, probably proportional to the number of encrypted rooms/chats you have.
+
+So, *Troubleshooting Tip: if you are online and verified, give it time.*
+
+If that does not work, read on. The first thing will be to run pantalaimon with DEBUG logging, like:
+
+=pantalaimon --log-level debug -c pantalaimon.conf= 
+
+* Other references
+Pantalaimon has two manpages which comprise most of its current documentation:
+
+- [[https://github.com/matrix-org/pantalaimon/blob/master/docs/man/pantalaimon.8.md][pantalaimon (8)]] for the =pantalaimon= command,
+- [[https://github.com/matrix-org/pantalaimon/blob/master/docs/man/pantalaimon.5.md][pantalaimon (5)]] for the =pantalaimon.conf= configuration file.
+
+There is also pantalaimon's [[https://github.com/matrix-org/pantalaimon/blob/master/README.md][README.md]].  
+
+There are also some online resources which might be helpful (some of those have been used to feed this document):
+
+- [[https://www.cogitri.dev/post/10-pantalaimon-setup/][Setting up Pantalaimon for usage with Matrix clients and using panctl]], by Rasmus Thomsen.
