@@ -500,8 +500,8 @@ sends the composed message directly."
           (reusable-frames . nil)))
   "`display-buffer' action for displaying compose buffers.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-dedicated'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-dedicated'."
   :type display-buffer--action-custom-type
   :risky t)
 
@@ -556,16 +556,16 @@ See also `ement-room-compose-buffer-window-auto-height-max' and
 (defcustom ement-room-compose-buffer-window-auto-height-min nil
   "If non-nil, limits the body height of the compose buffer window.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-auto-height-max'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-auto-height-max'."
   :type '(choice (const :tag "Default" nil)
                  (natnum :tag "Lines")))
 
 (defcustom ement-room-compose-buffer-window-auto-height-max nil
   "If non-nil, limits the body height of the compose buffer window.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-auto-height-min'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-auto-height-min'."
   :type '(choice (const :tag "Default" nil)
                  (natnum :tag "Lines")))
 
@@ -4440,8 +4440,8 @@ a copy of the local keymap, and sets `header-line-format'."
 (defun ement-room-compose-buffer-window-auto-height ()
   "Ensure that the compose buffer displays the whole message.
 
-Called via `post-command-hook' if `ement-room-compose-buffer-window-auto-height'
-is non-nil."
+Called via `post-command-hook' if option
+`ement-room-compose-buffer-window-auto-height' is non-nil."
   ;; We use `post-command-hook' (rather than, say, `after-change-functions'),
   ;; because the required window height might change for reasons other than text
   ;; editing (e.g. changes to the window's width or the font size).
