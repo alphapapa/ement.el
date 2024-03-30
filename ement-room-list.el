@@ -141,9 +141,16 @@ Set automatically when `ement-room-list-mode' is activated.")
 ;;;;; Faces
 
 (defface ement-room-list-direct
-  ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
-  ;; made bold for unread rooms only.
-  '((t (:weight normal :inherit (font-lock-constant-face ement-room-list-name))))
+  ;; We want to use `font-lock-constant-face' as the base face (because it seems to look
+  ;; nice with most themes), but that face sometimes is defined as bold, which interferes
+  ;; with our ability to use boldness to indicate unread rooms.  But if we override the
+  ;; weight to be normal, even the "People" heading in the room list will not be bold,
+  ;; which group headings should be.  So we make a copy of the face, unset its weight, and
+  ;; inherit from that.
+  (progn
+    (copy-face 'font-lock-constant-face 'ement--font-lock-constant-face)
+    (set-face-attribute 'ement--font-lock-constant-face nil :weight 'unspecified)
+    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name)))))
   "Direct rooms.")
 
 (defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
