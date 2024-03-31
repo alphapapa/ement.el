@@ -296,42 +296,20 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 :END:
 
 ** 0.15-pre
+:PROPERTIES:
+:ID:       81b48364-56a7-4903-b354-b79905edb039
+:END:
 
 *Additions*
 
-+ Configurable emoji picker for sending reactions.  ([[https://github.com/alphapapa/ement.el/issues/199][#199]], [[https://github.com/alphapapa/ement.el/pull/201][#201]].  Thanks to [[https://github.com/oantolin][Omar Antolín Camarena]].)
++ Configurable emoji picker for sending reactions.  ([[https://github.com/alphapapa/ement.el/issues/199][#199]], [[https://github.com/alphapapa/ement.el/pull/201][#201]].  Thanks to [[https://github.com/oantolin][Omar Antolín Camarena]].) ::
   - Option ~ement-room-reaction-picker~ sets the default picker.  Within that, the user may press ~C-g~ to choose a different one with a key bound in ~ement-room-reaction-map~.
 
-+ A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
-  - Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
-  - Option ~ement-room-compose-buffer-window-dedicated~ determines whether compose buffers will have dedicated windows.
-  - Option ~ement-room-compose-buffer-window-auto-height~ causes dynamic scaling of the compose buffer window height so that the full message is visible at all times.
-  - Option ~ement-room-compose-buffer-window-auto-height-min~ specifies the minimum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
-  - Option ~ement-room-compose-buffer-window-auto-height-max~ specifies the maximum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
-  - Option ~ement-room-compose-method~ chooses between minibuffer-centric or compose-buffer-centric behaviour.
-  - Command ~ement-room-dispatch-new-message~ starts writing a new message using your chosen ~ement-room-compose-method~.  (Bound to ~RET~ in room buffers.)
-  - Command ~ement-room-dispatch-new-message-alt~ starts writing a new message using the alternative method.  (Bound to ~M-RET~ in room buffers.)
-  - Command ~ement-room-dispatch-edit-message~ edits a message using your chosen ~ement-room-compose-method~.  (Bound to ~<insert>~ in room buffers.)
-  - Command ~ement-room-dispatch-reply-to-message~ replies to a message using your chosen ~ement-room-compose-method~.  (Bound to ~S-RET~ in room buffers.)
-  - Command ~ement-room-compose-edit~ edits a message using a compose buffer.
-  - Command ~ement-room-compose-reply~ replies to a message using a compose buffer.
-  - Command ~ement-room-compose-send-direct~ sends a message directly from a compose buffer (without the minibuffer).  (Bound to ~C-x C-s~ in compose buffers.)
-  - Command ~ement-room-compose-abort~ kills the compose buffer and delete its window.  (Bound to ~C-c C-k~ in compose buffers.)
-  - Command ~ement-room-compose-abort-no-history~ does the same without adding to ~ement-room-message-history~.  (Equivalent to ~C-u C-c C-k~.)
-  - Command ~ement-room-compose-history-prev-message~ cycles backwards through ~ement-room-message-history~.  (Bound to ~M-p~ in compose buffers.)
-  - Command ~ement-room-compose-history-next-message~ cycles forwards through ~ement-room-message-history~.  (Bound to ~M-n~ in compose buffers.)
-  - Command ~ement-room-compose-history-isearch-backward~ initiates an isearch through ~ement-room-message-history~.  (Bound to ~M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
-  - Command ~ement-room-compose-history-isearch-backward-regexp~ initiates a regexp isearch through ~ement-room-message-history~.  (Bound to ~C-M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
++ A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: Chiefly, messages can now be composed in small windows below room windows, rather than in the minibuffer or a full-sized window.  A variety of options and commands are available related to these features.  See [[id:da99835e-0cd4-4079-956f-101b0724b6a4][details]].
 
-+ Global minor mode ~ement-room-self-insert-mode~ enables "just typing" to start a message.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
-  - Option ~ement-room-self-insert-commands~ determines which commands will start a new message when ~ement-room-self-insert-mode~ is enabled (defaulting to ~self-insert-command~ and ~yank~).
-  - Option ~ement-room-self-insert-chars~ determines which typed characters will start a new message when ~ement-room-self-insert-mode~ is enabled (regardless of whether they are bound to ~self-insert-command~).
-  - Option ~ement-room-mode-map-prefix-key~ defines a prefix key for accessing the full ~ement-room-mode-map~ when ~ement-room-self-insert-mode~ is enabled.  (By default this key is ~DEL~.)
++ Global minor mode ~ement-room-self-insert-mode~ enables "just typing" to start a message.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: See [[id:130bd18f-120c-413a-af17-a85b6936e290][details]].
 
-+ Option ~ement-room-image-margin~ is the number of pixels of margin around image thumbnails.
-+ Option ~ement-room-image-relief~ is the number of pixels of shadow rectangle around image thumbnails.
-+ Option ~ement-room-image-thumbnail-height~ is the window body height multiple to use when toggling full-sized images to thumbnails (by default, 0.2).
-+ Option ~ement-room-image-thumbnail-height-min~ is the minimum pixel height for thumbnail images (by default, 30 pixels).
++ Options affecting how images are displayed in room buffers. :: See [[id:ce2c3998-f370-4282-9256-19050865b31c][details]].
 
 *Changes*
 
@@ -353,6 +331,52 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Recognition of mentions after a newline.  ([[https://github.com/alphapapa/ement.el/issues/267][#267]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Newlines in ~ement-room-message-format-spec~ are considered when calculating the wrap-prefix.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Weight of face ~ement-room-list-direct~ (now correctly bold in room list heading).
+
+*** Compose buffer enhancements
+:PROPERTIES:
+:ID:       da99835e-0cd4-4079-956f-101b0724b6a4
+:END:
+
+- Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
+- Option ~ement-room-compose-buffer-window-dedicated~ determines whether compose buffers will have dedicated windows.
+- Option ~ement-room-compose-buffer-window-auto-height~ causes dynamic scaling of the compose buffer window height so that the full message is visible at all times.
+- Option ~ement-room-compose-buffer-window-auto-height-min~ specifies the minimum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
+- Option ~ement-room-compose-buffer-window-auto-height-max~ specifies the maximum window height when ~ement-room-compose-buffer-window-auto-height~ is enabled.
+- Option ~ement-room-compose-method~ chooses between minibuffer-centric or compose-buffer-centric behaviour.
+- Command ~ement-room-dispatch-new-message~ starts writing a new message using your chosen ~ement-room-compose-method~.  (Bound to ~RET~ in room buffers.)
+- Command ~ement-room-dispatch-new-message-alt~ starts writing a new message using the alternative method.  (Bound to ~M-RET~ in room buffers.)
+- Command ~ement-room-dispatch-edit-message~ edits a message using your chosen ~ement-room-compose-method~.  (Bound to ~<insert>~ in room buffers.)
+- Command ~ement-room-dispatch-reply-to-message~ replies to a message using your chosen ~ement-room-compose-method~.  (Bound to ~S-RET~ in room buffers.)
+- Command ~ement-room-compose-edit~ edits a message using a compose buffer.
+- Command ~ement-room-compose-reply~ replies to a message using a compose buffer.
+- Command ~ement-room-compose-send-direct~ sends a message directly from a compose buffer (without the minibuffer).  (Bound to ~C-x C-s~ in compose buffers.)
+- Command ~ement-room-compose-abort~ kills the compose buffer and delete its window.  (Bound to ~C-c C-k~ in compose buffers.)
+- Command ~ement-room-compose-abort-no-history~ does the same without adding to ~ement-room-message-history~.  (Equivalent to ~C-u C-c C-k~.)
+- Command ~ement-room-compose-history-prev-message~ cycles backwards through ~ement-room-message-history~.  (Bound to ~M-p~ in compose buffers.)
+- Command ~ement-room-compose-history-next-message~ cycles forwards through ~ement-room-message-history~.  (Bound to ~M-n~ in compose buffers.)
+- Command ~ement-room-compose-history-isearch-backward~ initiates an isearch through ~ement-room-message-history~.  (Bound to ~M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
+- Command ~ement-room-compose-history-isearch-backward-regexp~ initiates a regexp isearch through ~ement-room-message-history~.  (Bound to ~C-M-r~ in compose buffers; continue searching with ~C-r~ or ~C-s~.)
+
+*** ~ement-room-self-insert-mode~
+:PROPERTIES:
+:ID:       130bd18f-120c-413a-af17-a85b6936e290
+:END:
+
+- Option ~ement-room-self-insert-commands~ determines which commands will start a new message when ~ement-room-self-insert-mode~ is enabled (defaulting to ~self-insert-command~ and ~yank~).
+- Option ~ement-room-self-insert-chars~ determines which typed characters will start a new message when ~ement-room-self-insert-mode~ is enabled (regardless of whether they are bound to ~self-insert-command~).
+- Option ~ement-room-mode-map-prefix-key~ defines a prefix key for accessing the full ~ement-room-mode-map~ when ~ement-room-self-insert-mode~ is enabled.  (By default this key is ~DEL~.)
+ 
+*** Image display
+:PROPERTIES:
+:ID:       ce2c3998-f370-4282-9256-19050865b31c
+:END:
+
+- Option ~ement-room-image-margin~ is the number of pixels of margin around image thumbnails.
+- Option ~ement-room-image-relief~ is the number of pixels of shadow rectangle around image thumbnails.
+- Option ~ement-room-image-thumbnail-height~ is the window body height multiple to use when toggling full-sized images to thumbnails (by default, 0.2).
+- Option ~ement-room-image-thumbnail-height-min~ is the minimum pixel height for thumbnail images (by default, 30 pixels).
+
+
 
 ** 0.14
 
