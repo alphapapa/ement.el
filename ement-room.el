@@ -255,6 +255,18 @@ makes a best effort to keep it accurate.")
     map)
   "Keymap used in `ement-room-read-string'.")
 
+(defvar ement-room-reaction-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "c" #'insert-char)
+    (when (commandp 'emoji-insert)
+      (define-key map "i" 'emoji-insert))
+    (when (commandp 'emoji-search)
+      (define-key map "s" 'emoji-search))
+    (when (assoc "emoji" input-method-alist)
+      (define-key map "m" 'ement-room-use-emoji-input-method))
+    map)
+  "Keymap used in `ement-room-send-reaction'.")
+
 (defvar ement-room-sender-in-headers nil
   "Non-nil when sender is displayed in headers.
 In that case, sender names are aligned to the margin edge.")
@@ -735,6 +747,27 @@ via the setter function `ement-room-self-insert-option-setter'.
 To do the same in lisp code, set the option with `setopt'."
   :type 'key-sequence
   :set #'ement-room-self-insert-option-setter)
+
+(defcustom ement-room-reaction-picker (if (commandp 'emoji-insert)
+                                          'emoji-insert
+                                        #'insert-char)
+  "Command used to select a reaction by `ement-room-send-reaction'.
+Should be set to a command that somehow prompts the user for an
+emoji and inserts it into the current buffer.  In Emacs 29
+reasonable choices include `emoji-insert' which uses a transient
+interface, and `emoji-search' which uses `completing-read'.  If
+those are not available, one can use `insert-char'."
+  :type `(choice
+          (const :tag "Complete unicode character name" insert-char)
+          ,@(when (commandp 'emoji-insert)
+              '((const :tag "Transient emoji menu" emoji-insert)))
+          ,@(when (commandp 'emoji-search)
+              '((const :tag "Complete emoji name" emoji-search)))
+          ,@(when (assoc "emoji" input-method-alist)
+              '((const :tag "Emoji input method"
+                       ement-room-use-emoji-input-method)))
+          (const :tag "Type an emoji without assistance" ignore)
+          (function :tag "Use other command")))
 
 (defvar ement-room-sender-in-left-margin nil
   "Whether sender is shown in left margin.
@@ -2219,17 +2252,39 @@ Interactively, to event at point."
                    (replying-to-event (ement--original-event-for event ement-session)))
         (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
 
+(when (assoc "emoji" input-method-alist)
+  (defun ement-room-use-emoji-input-method ()
+    "Activate the emoji input method in the current buffer."
+    (interactive)
+    (set-input-method "emoji")))
+
 (defun ement-room-send-reaction (key position &optional event)
   "Send reaction of KEY to event at POSITION.
-Interactively, send reaction to event at point.  KEY should be a
-reaction string, e.g. \"👍\"."
+KEY should be a reaction string, e.g. \"👍\".
+
+Interactively, send reaction to event at point.  The user option
+`ement-room-reaction-picker' controls how the reaction string
+is selected, or rather controls the initial mechanism, since the
+user can always cancel that command with \\[keyboard-quit] and
+choose a different one using the key bindings in
+`ement-room-reaction-map' (note that other than `insert-char',
+these all require at least version 29 of Emacs):
+
+\\{ement-room-reaction-map}"
   (interactive
    (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
      (unless (ement-event-p event)
        (user-error "No event at point"))
-     (list (char-to-string (read-char-by-name "Reaction (prepend \"*\" for substring search): "))
-           (point)
-           event)))
+     (list (minibuffer-with-setup-hook
+               (lambda ()
+                 (setq-local after-change-functions
+                             (list (lambda (&rest _) (exit-minibuffer))))
+                 (use-local-map
+                  (make-composed-keymap ement-room-reaction-map (current-local-map)))
+                 (let ((enable-recursive-minibuffers t))
+                   (funcall ement-room-reaction-picker)))
+             (read-string "Reaction: "))
+           (point))))
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
   ;; HACK: We could simplify this by storing the key in a text property...
   (ement-room-with-highlighted-event-at position
