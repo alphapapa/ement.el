@@ -263,7 +263,7 @@ makes a best effort to keep it accurate.")
     (when (commandp 'emoji-search)
       (define-key map "s" 'emoji-search))
     (when (assoc "emoji" input-method-alist)
-      (define-key map "m" #'ement-room-use-emoji-input-method))
+      (define-key map "m" 'ement-room-use-emoji-input-method))
     map)
   "Keymap used in `ement-room-send-reaction'.")
 
@@ -748,9 +748,9 @@ To do the same in lisp code, set the option with `setopt'."
   :type 'key-sequence
   :set #'ement-room-self-insert-option-setter)
 
-(defcustom ement-room-reaction-picker (if (commandp #'emoji-insert)
-                                            #'emoji-insert
-                                          #'insert-char)
+(defcustom ement-room-reaction-picker (if (commandp 'emoji-insert)
+                                          'emoji-insert
+                                        #'insert-char)
   "Command used to select a reaction by `ement-room-send-reaction'.
 Should be set to a command that somehow prompts the user for an
 emoji and inserts it into the current buffer.  In Emacs 29
