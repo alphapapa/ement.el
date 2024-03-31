@@ -299,6 +299,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *Additions*
 
++ Configurable emoji picker for sending reactions.  ([[https://github.com/alphapapa/ement.el/issues/199][#199]], [[https://github.com/alphapapa/ement.el/pull/201][#201]].  Thanks to [[https://github.com/oantolin][Omar Antolín Camarena]].)
+  - Option ~ement-room-reaction-picker~ sets the default picker.  Within that, the user may press ~C-g~ to choose a different one with a key bound in ~ement-room-reaction-map~.
+
 + A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
   - Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
   - Option ~ement-room-compose-buffer-window-dedicated~ determines whether compose buffers will have dedicated windows.
