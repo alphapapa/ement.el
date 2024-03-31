@@ -4587,11 +4587,16 @@ See also `ement-room-compose-buffer-window-state-change-handler'."
     ;; created to display a compose buffer.  We set a window property the first
     ;; time that we see the window, so if it's set at all, we've seen it before.
     (unless (assq 'ement-room-compose-buffer-window-created-p (window-parameters win))
-      (let ((createdp (not (window-prev-buffers win))))
-        (set-window-parameter win 'ement-room-compose-buffer-window-created-p
-                              createdp)
+      ;; If the window has never shown any other buffer, then it was created
+      ;; specifically to display a compose buffer.
+      (let ((created-for-compose-p (set-window-parameter
+                                    win 'ement-room-compose-buffer-window-created-p
+                                    (not (window-prev-buffers win)))))
+        ;; Process `ement-room-compose-buffer-window-dedicated' when the compose
+        ;; buffer is first displayed in this window, to decide whether the
+        ;; window should be dedicated to the buffer.
         (when (cl-case ement-room-compose-buffer-window-dedicated
-                (created createdp)
+                (created created-for-compose-p)
                 (auto-height ement-room-compose-buffer-window-auto-height)
                 (delete nil)
                 (t ement-room-compose-buffer-window-dedicated))
