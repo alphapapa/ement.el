@@ -4473,8 +4473,15 @@ Called via `post-command-hook' if option
   ;; so a more comprehensive solution, while possible, is not worth the added
   ;; complexity -- our relatively simplistic approach is good enough for the
   ;; vast majority of situations.
+
+  ;; Skip resizing if we are being called recursively...
   (unless (or (bound-and-true-p ement-room-compose-buffer-window-auto-height-resizing-p)
-              (window-full-height-p))
+              ;; ...or there are no other windows to resize...
+              (window-full-height-p)
+              ;; ...or we have just switched to this buffer from another buffer
+              ;; (we may be cycling window buffers, and about to switch again).
+              (and (window-old-buffer)
+                   (not (eq (window-old-buffer) (current-buffer)))))
     ;; Manipulate the window body height.
     (let* ((pixelwise (and ement-room-compose-buffer-window-auto-height-pixelwise
                            (display-graphic-p)))
