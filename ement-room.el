@@ -500,8 +500,8 @@ sends the composed message directly."
           (reusable-frames . nil)))
   "`display-buffer' action for displaying compose buffers.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-dedicated'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-dedicated'."
   :type display-buffer--action-custom-type
   :risky t)
 
@@ -523,9 +523,15 @@ the option `ement-room-compose-buffer-window-auto-height' is
 enabled (this option generally keeps the windows too small to
 usefully display other buffers).
 
-See also `set-window-dedicated-p'."
+The value `delete' means that windows will not be dedicated, but
+they will still be deleted once the message is sent or aborted
+\(even when they have also been used to display other buffers).
+
+See also `set-window-dedicated-p' and
+`switch-to-buffer-in-dedicated-window'."
   :type '(radio (const :tag "Always" t)
                 (const :tag "Never" nil)
+                (const :tag "Never (but always delete window)" delete)
                 (const :tag "Newly-created windows" created)
                 (const :tag "When auto-height enabled" auto-height)))
 
@@ -547,21 +553,19 @@ See also `ement-room-compose-buffer-window-auto-height-max' and
 ;; get the correct result in the majority of situations, and it is simple.
 (defvar ement-room-compose-buffer-window-auto-height-resizing-p)
 
-(defvar ement-room-compose-buffer-window-auto-height-cache)
-
 (defcustom ement-room-compose-buffer-window-auto-height-min nil
   "If non-nil, limits the body height of the compose buffer window.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-auto-height-max'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-auto-height-max'."
   :type '(choice (const :tag "Default" nil)
                  (natnum :tag "Lines")))
 
 (defcustom ement-room-compose-buffer-window-auto-height-max nil
   "If non-nil, limits the body height of the compose buffer window.
 
-See also `ement-room-compose-buffer-window-auto-height' and
-`ement-room-compose-buffer-window-auto-height-min'."
+See also option `ement-room-compose-buffer-window-auto-height'
+and `ement-room-compose-buffer-window-auto-height-min'."
   :type '(choice (const :tag "Default" nil)
                  (natnum :tag "Lines")))
 
@@ -4436,8 +4440,8 @@ a copy of the local keymap, and sets `header-line-format'."
 (defun ement-room-compose-buffer-window-auto-height ()
   "Ensure that the compose buffer displays the whole message.
 
-Called via `post-command-hook' if `ement-room-compose-buffer-window-auto-height'
-is non-nil."
+Called via `post-command-hook' if option
+`ement-room-compose-buffer-window-auto-height' is non-nil."
   ;; We use `post-command-hook' (rather than, say, `after-change-functions'),
   ;; because the required window height might change for reasons other than text
   ;; editing (e.g. changes to the window's width or the font size).
@@ -4449,8 +4453,35 @@ is non-nil."
   ;; The following may also clear the cache in order to force a recalculation:
   ;; - `ement-room-compose-buffer-window-state-change-handler'
   ;; - `ement-room-compose-buffer-window-buffer-change-handler'
+  ;;
+  ;; Global mutex `ement-room-compose-buffer-window-auto-height-resizing-p'
+  ;; ensures that we cannot run recursively.  We also resize only the selected
+  ;; window, even if there are compose buffers displayed in other windows which
+  ;; might also be affected.  This conservative approach can prevent desirable
+  ;; resizing in some cases, but restricting our behaviour this way keeps things
+  ;; simple so that we needn't consider potential issues such as endless cycles
+  ;; of conflicting resizes.
+  ;;
+  ;; Perfection would in any case be non-trivial -- consider two compose windows
+  ;; side-by-side in a horizontal split, each showing a different compose buffer
+  ;; with a different desired height.  We cannot have the "correct" size for
+  ;; both simultaneously.  The best thing to do would be to maintain the tallest
+  ;; height amongst all conflicting windows at all times -- but that is, again,
+  ;; considerably more complex.
+  ;;
+  ;; Most of the time the window arrangements are expected to be very simple and
+  ;; so a more comprehensive solution, while possible, is not worth the added
+  ;; complexity -- our relatively simplistic approach is good enough for the
+  ;; vast majority of situations.
+
+  ;; Skip resizing if we are being called recursively...
   (unless (or (bound-and-true-p ement-room-compose-buffer-window-auto-height-resizing-p)
-              (window-full-height-p))
+              ;; ...or there are no other windows to resize...
+              (window-full-height-p)
+              ;; ...or we have just switched to this buffer from another buffer
+              ;; (we may be cycling window buffers, and about to switch again).
+              (and (window-old-buffer)
+                   (not (eq (window-old-buffer) (current-buffer)))))
     ;; Manipulate the window body height.
     (let* ((pixelwise (and ement-room-compose-buffer-window-auto-height-pixelwise
                            (display-graphic-p)))
@@ -4458,12 +4489,14 @@ is non-nil."
            (buflines (max 1 (count-screen-lines nil nil t)))
            (cache (if pixelwise
                       (* buflines lineheight)
-                    buflines)))
+                    buflines))
+           (wcache (window-parameter
+                    nil 'ement-room-compose-buffer-window-auto-height-cache)))
       ;; Do nothing if the desired height has not changed.
-      (unless (and (boundp 'ement-room-compose-buffer-window-auto-height-cache)
-                   (eql cache ement-room-compose-buffer-window-auto-height-cache))
+      (unless (and wcache (eql cache wcache))
         ;; Otherwise resize the window...
-        (setq-local ement-room-compose-buffer-window-auto-height-cache cache)
+        (set-window-parameter
+         nil 'ement-room-compose-buffer-window-auto-height-cache cache)
         (let* ((ement-room-compose-buffer-window-auto-height-resizing-p t)
                (minheight (if ement-room-compose-buffer-window-auto-height-min
                               (max 1 ement-room-compose-buffer-window-auto-height-min)
@@ -4517,26 +4550,25 @@ selected or deselected.
 This prevents a compose buffer window being stuck at the wrong
 height (until the number of lines changes again) if something
 other than the auto-height feature resizes the window.  We simply
-flush the height cache for these state changes, thus ensuring the
-required height is recalculated on the next cycle).
+flush the auto-height cache, thus ensuring the required height is
+recalculated on the next cycle).
 
 See also `ement-room-compose-buffer-window-buffer-change-handler'."
+  ;; Ignore the window state changes triggered by our auto-height resizing.
+  ;;
+  ;; Also do nothing if the state change is for the selected window, as
+  ;; the buffer-local `post-command-hook' is already dealing with that
+  ;; case.  We only care about window state changes which are triggered
+  ;; from elsewhere.  This means we skip the case whereby the selected
+  ;; window has just switched to the compose buffer, and so we use
+  ;; `window-buffer-change-functions' as well to capture that case.
+  ;; (See `ement-room-compose-buffer-window-buffer-change-handler'.)
   (when ement-room-compose-buffer-window-auto-height
-    ;; Ignore the window state changes triggered by our auto-height resizing.
-    (unless (bound-and-true-p ement-room-compose-buffer-window-auto-height-resizing-p)
-      (let ((buf (current-buffer)))
-        ;; Do nothing if the state change happened while the compose buffer was
-        ;; current, as the buffer-local `post-command-hook' is already dealing
-        ;; with that case.  We only care about window state changes which are
-        ;; triggered from elsewhere.  This means that we skip the case whereby
-        ;; the selected window has just switched to the compose buffer, and so
-        ;; we use `window-buffer-change-functions' as well to capture that case.
-        ;; (See `ement-room-compose-buffer-window-buffer-change-handler'.)
-        (with-selected-window win
-          (unless (eq (current-buffer) buf)
-            ;; Clear the height cache for this compose buffer.
-            (when (bound-and-true-p ement-room-compose-buffer-window-auto-height-cache)
-              (setq-local ement-room-compose-buffer-window-auto-height-cache nil))))))))
+    (unless (or (bound-and-true-p ement-room-compose-buffer-window-auto-height-resizing-p)
+                (eq win (selected-window)))
+      ;; Clear the auto-height cache for this window.
+      (set-window-parameter
+       win 'ement-room-compose-buffer-window-auto-height-cache nil))))
 
 (defun ement-room-compose-buffer-window-buffer-change-handler (win)
   "Called via buffer-local `window-buffer-change-functions' in compose buffers.
@@ -4544,41 +4576,38 @@ See also `ement-room-compose-buffer-window-buffer-change-handler'."
 Called for any window WIN showing a compose buffer if that window
 has just been created or assigned that buffer.
 
-Like `ement-room-compose-buffer-window-state-change-handler' (see
-which) in purpose, but handling the case where WIN has just
-switched to displaying the compose buffer (which the other
-handler ignores as a side-effect of its conditional logic).
+Flush the auto-height cache for any window which switches to
+displaying a compose buffer, to ensure the required height is
+recalculated on the next cycle.
 
-This function also determines whether the composer buffer's
-window has been newly created, which affects the behaviour of
-`ement-room-compose-buffer-quit-restore-window'."
+Also detect whether a composer buffer's window was created for
+that purpose, as this information affects the behaviour of
+`ement-room-compose-buffer-quit-restore-window'.
+
+See also `ement-room-compose-buffer-window-state-change-handler'."
   (with-selected-window win
-    ;; Clear the height cache for this compose buffer.
     (when ement-room-compose-buffer-window-auto-height
-      (when (bound-and-true-p ement-room-compose-buffer-window-auto-height-cache)
-        (setq-local ement-room-compose-buffer-window-auto-height-cache nil)
-        ;; `window-buffer-change-functions' runs /after/ `post-command-hook',
-        ;; so after flushing the cache we need to invoke the resize handler, as
-        ;; otherwise it wouldn't update until after the /subsequent/ command.
-        ;; We don't want to do this while this hook is still running though
-        ;; (the result is inaccurate), so defer it with a timer.
-        (unless (bound-and-true-p ement-room-compose-buffer-window-auto-height-resizing-p)
-          (run-with-timer 0 nil (lambda (win)
-                                  (with-selected-window win
-                                    (ement-room-compose-buffer-window-auto-height)))
-                          win))))
-    ;; Process `ement-room-compose-buffer-window-dedicated' when the compose
-    ;; buffer is first displayed, to decide whether the window should be
-    ;; dedicated to the buffer.
+      ;; Clear the auto-height cache for this window.
+      (set-window-parameter
+       win 'ement-room-compose-buffer-window-auto-height-cache nil))
+    ;; Establish whether we've processed this window before, and whether it was
+    ;; created to display a compose buffer.  We set a window property the first
+    ;; time that we see the window, so if it's set at all, we've seen it before.
     (unless (assq 'ement-room-compose-buffer-window-created-p (window-parameters win))
-      (let ((createdp (not (window-prev-buffers))))
-        (set-window-parameter win 'ement-room-compose-buffer-window-created-p
-                              createdp)
+      ;; If the window has never shown any other buffer, then it was created
+      ;; specifically to display a compose buffer.
+      (let ((created-for-compose-p (set-window-parameter
+                                    win 'ement-room-compose-buffer-window-created-p
+                                    (not (window-prev-buffers win)))))
+        ;; Process `ement-room-compose-buffer-window-dedicated' when the compose
+        ;; buffer is first displayed in this window, to decide whether the
+        ;; window should be dedicated to the buffer.
         (when (cl-case ement-room-compose-buffer-window-dedicated
-                (created createdp)
+                (created created-for-compose-p)
                 (auto-height ement-room-compose-buffer-window-auto-height)
+                (delete nil)
                 (t ement-room-compose-buffer-window-dedicated))
-          (set-window-dedicated-p nil t))))))
+          (set-window-dedicated-p win t))))))
 
 (defun ement-room-compose-buffer-quit-restore-window ()
   "Kill the current compose buffer and deal appropriately with its window.
@@ -4591,6 +4620,9 @@ A non-dedicated window which has displayed another buffer at any
 point will not be deleted."
   ;; N.b. This function exists primarily for documentation purposes,
   ;; to clarify the side-effect of using a dedicated window.
+  (when (eq ement-room-compose-buffer-window-dedicated 'delete)
+    ;; `quit-restore-window' always deletes a dedicated window.
+    (set-window-dedicated-p nil t))
   (quit-restore-window nil 'kill))
 
 (declare-function dabbrev--select-buffers "dabbrev")
