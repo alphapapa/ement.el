@@ -760,7 +760,7 @@ those are not available, one can use `insert-char'."
   :type `(choice
           (const :tag "Complete unicode character name" insert-char)
           ,@(when (commandp 'emoji-insert)
-              '((const :tag "Transient emoji menu" emoji-insert)))
+              '((const :tag "Categorized emoji menu" emoji-insert)))
           ,@(when (commandp 'emoji-search)
               '((const :tag "Complete emoji name" emoji-search)))
           ,@(when (assoc "emoji" input-method-alist)
