@@ -748,8 +748,8 @@ To do the same in lisp code, set the option with `setopt'."
   :type 'key-sequence
   :set #'ement-room-self-insert-option-setter)
 
-(defcustom ement-room-reaction-picker (if (commandp 'emoji-insert)
-                                          'emoji-insert
+(defcustom ement-room-reaction-picker (if (commandp 'emoji-search)
+                                          'emoji-search
                                         #'insert-char)
   "Command used to select a reaction by `ement-room-send-reaction'.
 Should be set to a command that somehow prompts the user for an
