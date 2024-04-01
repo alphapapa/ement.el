@@ -2278,12 +2278,16 @@ these all require at least version 29 of Emacs):
      (list (minibuffer-with-setup-hook
                (lambda ()
                  (setq-local after-change-functions
-                             (list (lambda (&rest _) (exit-minibuffer))))
+                             (list (lambda (&rest _)
+                                     (catch 'exit
+                                       (exit-minibuffer))
+                                     (throw 'selected (minibuffer-contents)))))
                  (use-local-map
                   (make-composed-keymap ement-room-reaction-map (current-local-map)))
                  (let ((enable-recursive-minibuffers t))
                    (funcall ement-room-reaction-picker)))
-             (read-string "Reaction: "))
+             (catch 'selected
+               (read-string "Reaction: ")))
            (point))))
   ;; SPEC: MSC2677 <https://github.com/matrix-org/matrix-doc/pull/2677>
   ;; HACK: We could simplify this by storing the key in a text property...
