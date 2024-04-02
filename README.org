@@ -305,11 +305,11 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Configurable emoji picker for sending reactions.  ([[https://github.com/alphapapa/ement.el/issues/199][#199]], [[https://github.com/alphapapa/ement.el/pull/201][#201]].  Thanks to [[https://github.com/oantolin][Omar Antolín Camarena]].) ::
   - Option ~ement-room-reaction-picker~ sets the default picker.  Within that, the user may press ~C-g~ to choose a different one with a key bound in ~ement-room-reaction-map~.
 
-+ A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: Chiefly, messages can now be composed in small windows below room windows, rather than in the minibuffer or a full-sized window.  A variety of options and commands are available related to these features.  See [[id:da99835e-0cd4-4079-956f-101b0724b6a4][details]].
++ A variety of enhancements for using compose buffers.  ([[https://github.com/alphapapa/ement.el/issues/140][#140]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: Chiefly, messages can now be composed in small windows below room windows, rather than in the minibuffer or a full-sized window.  A variety of options and commands are available related to these features.  See [[#compose-buffer-enhancements][compose buffer enhancements]].
 
-+ Global minor mode ~ement-room-self-insert-mode~ enables "just typing" to start a message.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: See [[id:130bd18f-120c-413a-af17-a85b6936e290][details]].
++ Global minor mode ~ement-room-self-insert-mode~ enables "just typing" to start a message.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].) :: See [[#ement-room-self-insert-mode][ement-room-self-insert-mode]].
 
-+ Options affecting how images are displayed in room buffers. :: See [[id:ce2c3998-f370-4282-9256-19050865b31c][details]].
++ Options affecting how images are displayed in room buffers. :: See [[#image-display][image display]].
 
 *Changes*
 
@@ -334,7 +334,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *** Compose buffer enhancements
 :PROPERTIES:
-:ID:       da99835e-0cd4-4079-956f-101b0724b6a4
+:CUSTOM_ID: compose-buffer-enhancements
 :END:
 
 - Option ~ement-room-compose-buffer-display-action~ declares how and where a new compose buffer window should be displayed.  (By default, in a new window below the associated room buffer.)
@@ -359,7 +359,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 *** ~ement-room-self-insert-mode~
 :PROPERTIES:
-:ID:       130bd18f-120c-413a-af17-a85b6936e290
+:CUSTOM_ID: ement-room-self-insert-mode
 :END:
 
 - Option ~ement-room-self-insert-commands~ determines which commands will start a new message when ~ement-room-self-insert-mode~ is enabled (defaulting to ~self-insert-command~ and ~yank~).
@@ -368,7 +368,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
  
 *** Image display
 :PROPERTIES:
-:ID:       ce2c3998-f370-4282-9256-19050865b31c
+:CUSTOM_ID: image-display
 :END:
 
 - Option ~ement-room-image-margin~ is the number of pixels of margin around image thumbnails.
