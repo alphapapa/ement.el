@@ -190,8 +190,8 @@ Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by defa
 *Messages*
 
 + Write message: ~RET~
-+ Write reply to event at point (when region is active, only quote marked text): ~S-RET~
-+ Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c ')~ (Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.)
++ Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c '‍~).  Customize the option ~ement-room-compose-method~ to make ~RET~ and the other message bindings use a compose buffer by default.  Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.
++ Write reply to event at point (when region is active, only quote marked text): ~S-<return>~
 + Edit message: ~<insert>~
 + Delete message: ~C-k~
 + Send reaction to event at point, or send same reaction at point: ~s r~
@@ -252,7 +252,7 @@ Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by defa
 
 + Move between events: ~TAB~ / ~<backtab>~
 + Go to event at point in its room buffer: ~RET~
-+ Write reply to event at point (shows the event in its room while writing): ~S-RET~
++ Write reply to event at point (shows the event in its room while writing): ~S-<return>~
 
 ** Tips
 
@@ -266,10 +266,12 @@ Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by defa
   - Source blocks (including results with ~:exports both~)
   - Footnotes (okay, that might be pushing it, but you can!)
   - And, generally, anything that Org can export to HTML
+  - Note that the default ~org-export-preserve-breaks~ value causes singular line breaks to be exported as spaces.  To preserve the line breaks, indentation and blank lines in a region, but otherwise use normal formatting, you can use the ~verse~ block type.  Refer to =(info "(org)Paragraphs")= and =(info "(org)Structure Templates")= for details.
 + Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
 + Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
 + Images and other files can be uploaded to rooms using drag-and-drop.
 + Mention members by typing a ~@~ followed by their displayname or Matrix ID.  (Members' names and rooms' aliases/IDs may be completed with ~completion-at-point~ commands.)
++ Customize ~ement-room-use-variable-pitch~ to render messages using proportional fonts.
 + You can customize settings in the ~ement~ group.
   - *Note:* ~setq~ should not be used for certain options, because it will not call the associated setter function.  Users who have an aversion to the customization system may experience problems.
 
@@ -346,7 +348,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 - Command ~ement-room-dispatch-new-message~ starts writing a new message using your chosen ~ement-room-compose-method~.  (Bound to ~RET~ in room buffers.)
 - Command ~ement-room-dispatch-new-message-alt~ starts writing a new message using the alternative method.  (Bound to ~M-RET~ in room buffers.)
 - Command ~ement-room-dispatch-edit-message~ edits a message using your chosen ~ement-room-compose-method~.  (Bound to ~<insert>~ in room buffers.)
-- Command ~ement-room-dispatch-reply-to-message~ replies to a message using your chosen ~ement-room-compose-method~.  (Bound to ~S-RET~ in room buffers.)
+- Command ~ement-room-dispatch-reply-to-message~ replies to a message using your chosen ~ement-room-compose-method~.  (Bound to ~S-<return>~ in room buffers.)
 - Command ~ement-room-compose-edit~ edits a message using a compose buffer.
 - Command ~ement-room-compose-reply~ replies to a message using a compose buffer.
 - Command ~ement-room-compose-send-direct~ sends a message directly from a compose buffer (without the minibuffer).  (Bound to ~C-x C-s~ in compose buffers.)
