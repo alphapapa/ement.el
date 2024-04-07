@@ -2285,7 +2285,7 @@ these all require at least version 29 of Emacs):
                  (use-local-map
                   (make-composed-keymap ement-room-reaction-map (current-local-map)))
                  (let ((enable-recursive-minibuffers t))
-                   (funcall ement-room-reaction-picker)))
+                   (call-interactively ement-room-reaction-picker)))
              (catch 'selected
                (read-string "Reaction: ")))
            (point))))
