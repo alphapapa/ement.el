@@ -191,7 +191,7 @@ Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by defa
 
 + Write message: ~RET~
 + Compose message in buffer: ~M-RET~ (while writing in minibuffer: ~C-c '‍~).  Customize the option ~ement-room-compose-method~ to make ~RET~ and the other message bindings use a compose buffer by default.  Use command ~ement-room-compose-org~ to activate Org mode in the compose buffer.
-+ Write reply to event at point (when region is active, only quote marked text): ~S-<return>~
++ Write reply to event at point: ~S-<return>~
 + Edit message: ~<insert>~
 + Delete message: ~C-k~
 + Send reaction to event at point, or send same reaction at point: ~s r~
