@@ -66,12 +66,16 @@ a symbol, it should be unquoted.."
   nil)
 
 (cl-defmethod magit-section-ident-value ((section ement-room-list-section))
+  "Return ident value for `ement-room-list-section' SECTION.
+Used for caching section visibility."
   ;; FIXME: The name of each taxy could be ambiguous.  Best would be to use the
   ;; hierarchical path, but since the taxys aren't doubly linked, that isn't easily done.
   ;; Could probably be worked around by binding a special variable around the creation of
   ;; the taxy hierarchy that would allow the path to be saved into each taxy.
   (pcase-exhaustive (oref section value)
-    ((and (cl-type taxy-magit-section) it)
+    ;; FIXME(emacs-28): Use `(cl-type taxy-magit-section)' when requiring Emacs 28.  See
+    ;; <https://github.com/alphapapa/ement.el/issues/272>.
+    ((and (pred taxy-magit-section-p) it)
      (taxy-name it))
     (`[,(and (cl-type ement-room) room)
        ,(and (cl-type ement-session) session)]
