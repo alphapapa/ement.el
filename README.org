@@ -266,7 +266,7 @@ Note that if global minor mode ~ement-room-self-insert-mode~ is enabled (by defa
   - Source blocks (including results with ~:exports both~)
   - Footnotes (okay, that might be pushing it, but you can!)
   - And, generally, anything that Org can export to HTML
-  - Note that the default ~org-export-preserve-breaks~ value causes singular line breaks to be exported as spaces.  To preserve the line breaks, indentation and blank lines in a region, but otherwise use normal formatting, you can use the ~verse~ block type.  Refer to =(info "(org)Paragraphs")= and =(info "(org)Structure Templates")= for details.
+  - Note that the default ~org-export-preserve-breaks~ value causes singular line breaks to be exported as spaces.  To preserve the line breaks, indentation, and blank lines in a region, but otherwise use normal formatting, you can use the ~verse~ block type.  Refer to ~(info "(org) Paragraphs")~ and ~(info "(org) Structure Templates")~ for details.
 + Starting in the room list buffer, by pressing ~SPC~ repeatedly, you can cycle through and read all rooms with unread buffers.  (If a room doesn't have a buffer, it will not be included.)
 + Room buffers and the room-list buffer can be bookmarked in Emacs, i.e. using =C-x r m=.  This is especially useful with [[https://github.com/alphapapa/burly.el][Burly]]: you can arrange an Emacs frame with several room buffers displayed at once, use =burly-bookmark-windows= to bookmark the layout, and then you can restore that layout and all of the room buffers by opening the bookmark, rather than having to manually arrange them every time you start Emacs or change the window configuration.
 + Images and other files can be uploaded to rooms using drag-and-drop.
