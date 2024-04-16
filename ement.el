@@ -5,7 +5,7 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.14
+;; Version: 0.15
 ;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.13") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
@@ -203,7 +203,7 @@ again; otherwise, use a saved session if `ement-save-sessions' is
 enabled and a saved session is available, or prompt to log in if
 not enabled or available.
 
-If USERID or PASSWORD are not specified, the user will be
+If USER-ID or PASSWORD are not specified, the user will be
 prompted for them.
 
 If URI-PREFIX is specified, it should be the prefix of the

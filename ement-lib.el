@@ -1029,7 +1029,7 @@ period, anywhere in the body."
                          when (equal name (ement--user-displayname-in room user))
                          collect user)))
     (pcase-let* (((cl-struct ement-room members) room)
-                 (regexp (rx (or bos bow (1+ blank))
+                 (regexp (rx (or bos bow blank "\n")
                              (or (seq (group
                                        ;; Group 1: full @-prefixed MXID.
                                        "@" (group
@@ -1777,6 +1777,19 @@ seconds, etc."
            (hours (dividef seconds 3600))
            (minutes (dividef seconds 60)))
       (list years days hours minutes seconds))))
+
+(defun ement--read-multiple-choice (prompt choices &optional help)
+  "Wrapper for `read-multiple-choice'."
+  ;; Bypasses the hard-coded multi-column formatting in the help buffer
+  ;; (which often doesn't wrap nicely) in favour of one option per line.
+  (let ((help-format (if help
+                         (concat (replace-regexp-in-string "%" "%%" help)
+                                 "\n\n%s")
+                       "%s"))
+        (help-choices (mapconcat (lambda (c)
+                                   (format "%c: %s\n" (car c) (caddr c)))
+                                 choices)))
+    (read-multiple-choice prompt choices (format help-format help-choices))))
 
 ;;; Footer
 

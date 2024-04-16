@@ -66,12 +66,16 @@ a symbol, it should be unquoted.."
   nil)
 
 (cl-defmethod magit-section-ident-value ((section ement-room-list-section))
+  "Return ident value for `ement-room-list-section' SECTION.
+Used for caching section visibility."
   ;; FIXME: The name of each taxy could be ambiguous.  Best would be to use the
   ;; hierarchical path, but since the taxys aren't doubly linked, that isn't easily done.
   ;; Could probably be worked around by binding a special variable around the creation of
   ;; the taxy hierarchy that would allow the path to be saved into each taxy.
   (pcase-exhaustive (oref section value)
-    ((and (cl-type taxy-magit-section) it)
+    ;; FIXME(emacs-28): Use `(cl-type taxy-magit-section)' when requiring Emacs 28.  See
+    ;; <https://github.com/alphapapa/ement.el/issues/272>.
+    ((and (pred taxy-magit-section-p) it)
      (taxy-name it))
     (`[,(and (cl-type ement-room) room)
        ,(and (cl-type ement-session) session)]
@@ -141,9 +145,16 @@ Set automatically when `ement-room-list-mode' is activated.")
 ;;;;; Faces
 
 (defface ement-room-list-direct
-  ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
-  ;; made bold for unread rooms only.
-  '((t (:weight normal :inherit (font-lock-constant-face ement-room-list-name))))
+  ;; We want to use `font-lock-constant-face' as the base face (because it seems to look
+  ;; nice with most themes), but that face sometimes is defined as bold, which interferes
+  ;; with our ability to use boldness to indicate unread rooms.  But if we override the
+  ;; weight to be normal, even the "People" heading in the room list will not be bold,
+  ;; which group headings should be.  So we make a copy of the face, unset its weight, and
+  ;; inherit from that.
+  (progn
+    (copy-face 'font-lock-constant-face 'ement--font-lock-constant-face)
+    (set-face-attribute 'ement--font-lock-constant-face nil :weight 'unspecified)
+    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name)))))
   "Direct rooms.")
 
 (defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
@@ -343,16 +354,17 @@ from recent to non-recent for rooms updated in the past hour.")
     ((membership :status 'leave))
     ;; Group all favorite rooms, which are already sorted first.
     (favourite)
-    ;; Group all low-priority rooms, which are already sorted last, and within that group,
-    ;; group them by their space, if any.
-    (low-priority space)
     ;; Group other rooms which are opened in a buffer.
     (buffer)
     ;; Group other rooms which are unread.
     (unread)
-    ;; Group other rooms which are in a space by freshness, then by space.
+    ;; Group all low-priority rooms, which are already sorted last, and within that group,
+    ;; group them by their space, if any.
+    (low-priority space)
+    ;; Group other non-direct rooms which are in a space by freshness, then by space.
     ((and :name "Spaced"
           :keys ((not space-p)
+                 (not people)
                  space))
      freshness space)
     ;; Group spaces themselves by their parent space (since space headers can't also be
@@ -364,8 +376,8 @@ from recent to non-recent for rooms updated in the past hour.")
           :keys ((not space)
                  (not people)))
      freshness)
-    ;; Group direct rooms by freshness.
-    (people freshness))
+    ;; Group direct rooms by freshness and space.
+    (people freshness space))
   "Default keys."
   :type 'sexp)
 
