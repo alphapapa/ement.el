@@ -2089,10 +2089,10 @@ the previously oldest event."
       ;; We don't really care about the response, I think.
       :then #'ignore)))
 
-;; Due to Emacs bug#68600, define the mode hook separately to avoid the mode
-;; line constructs in the `ement-room-mode' mode name being copied verbatim
-;; into the auto-generated docstring.
 (defcustom ement-room-mode-hook nil
+  ;; Due to Emacs bug#68600, define the mode hook separately to avoid the mode
+  ;; line constructs in the `ement-room-mode' mode name being copied verbatim
+  ;; into the auto-generated docstring.
   "Hook run after entering `ement-room-mode'."
   :options '(visual-line-mode)
   :type 'hook)
