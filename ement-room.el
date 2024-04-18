@@ -4116,8 +4116,6 @@ If FORMATTED-P, return the formatted body content, when available."
                (body (or new-body main-body))
                (formatted-body (or new-formatted-body formatted-body))
                (quote-in-body-p (and formatted-body
-                                     ;; FIXME: What if the message has no formatted body
-                                     ;; but has a plain-text quoted reply?
                                      (string-match-p "<mx-reply>" formatted-body)))
                (appendix (pcase msgtype
                            ;; TODO: Face for m.notices.
@@ -4130,10 +4128,8 @@ If FORMATTED-P, return the formatted body content, when available."
                                   nil
                                 (format "[unsupported msgtype: %s]" msgtype)))))
                (event-replied-to))
-    (when (and replied-to-event-id (not quote-in-body-p))
-      ;; Message is a reply, but event being replied to is not quoted in the body and a
-      ;; reference to it has not already been stored in this event: find or fetch the
-      ;; event being replied to.
+    (when replied-to-event-id
+      ;; Message is a reply, find or fetch the event being replied to.
       (if-let ((replied-to-event (gethash replied-to-event-id (ement-session-events ement-session))))
           ;; Found event in session's events table: use it.
           (setf event-replied-to replied-to-event)
@@ -4153,6 +4149,8 @@ If FORMATTED-P, return the formatted body content, when available."
                                              (lambda (data) (eq data event)))))
                             (ewoc-invalidate ement-ewoc node))))))))))
     (setf body (if (or (not formatted-p) (not formatted-body))
+                   ;; FIXME: This should check if the quote is the plain text body but
+                   ;; that is not easy...
                    (if (and event-replied-to (not quote-in-body-p))
                        (concat (ement-room--format-quotation-text event-replied-to)
                                "\n" body)
@@ -4162,9 +4160,8 @@ If FORMATTED-P, return the formatted body content, when available."
                    ("org.matrix.custom.html"
                     (save-match-data
                       (ement-room--render-html
-                       (if (and event-replied-to (not quote-in-body-p))
-                           (concat (ement-room--format-quotation-html event-replied-to ement-room)
-                                   "\n" formatted-body)
+                       (if event-replied-to
+                           (ement-room--format-quotation-html event-replied-to formatted-body ement-room)
                          formatted-body))))
                    (_ (format "[unknown body format: %s] %s"
                               (or new-content-format content-format) body)))))
@@ -4203,23 +4200,39 @@ If FORMATTED-P, return the formatted body content, when available."
       (insert "\n")
       (buffer-string))))
 
-(defun ement-room--format-quotation-html (quoted-event room)
-  "Return HTML for QUOTED-EVENT in ROOM."
+(defun ement-room--format-quotation-html (quoted-event reply-body room)
+  "Include QUOTED-EVENT in formatted REPLY-BODY in ROOM."
   (pcase-let* (((cl-struct ement-room (id room-id)) room)
                ((cl-struct ement-event content (id event-id) sender) quoted-event)
                ((cl-struct ement-user (id sender-id)) sender)
-               ((map format body ('formatted_body formatted-body)) content))
-    (format "<mx-reply><blockquote>
-    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
+               ((map format ('body quoted-body) ('formatted_body formatted-quoted-body)) content)
+               (new-quote (format "<mx-reply><blockquote>
+    <a href=\"https://matrix.to/#/%s/%s\">In reply to TESTY TEST</a>
     <a href=\"https://matrix.to/#/%s\">%s</a>
     <br />
 %s
   </blockquote></mx-reply>"
-            room-id event-id sender-id
-            (ement--user-displayname-in room sender)
-            (pcase format
-              ("org.matrix.custom.html" formatted-body)
-              (_ body)))))
+                                  room-id event-id sender-id
+                                  (ement--user-displayname-in room sender)
+                                  (pcase format
+                                    ("org.matrix.custom.html" formatted-quoted-body)
+                                    (_ quoted-body)))))
+    (if (string-match-p "<mx-reply>" reply-body)
+        (let (new-quote-dom reply-body-dom)
+          (with-current-buffer (get-buffer-create " *ement-room--rich-reply*")
+            (erase-buffer)
+            (insert new-quote)
+            (setq new-quote-dom
+                  (dom-by-tag (libxml-parse-html-region (point-min) (point-max)) 'blockquote))
+            (erase-buffer)
+            (insert reply-body)
+            (setq reply-body-dom (libxml-parse-html-region (point-min) (point-max)))
+            (setcar (cddar (dom-by-tag reply-body-dom 'mx-reply))
+                    (car new-quote-dom))
+            (erase-buffer)
+            (dom-print (dom-by-tag reply-body-dom 'body))
+            (buffer-string)))
+      (concat new-quote "\n" reply-body))))
 
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
