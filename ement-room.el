@@ -4120,6 +4120,18 @@ If FORMATTED-P, return the formatted body content, when available."
                                   nil
                                 (format "[unsupported msgtype: %s]" msgtype)))))
                (event-replied-to))
+    ;; This is an edit event and this doesn't have the quoted event ID in m.relates_to,
+    ;; only the message being edited (even if it is an edit of an edit)
+    (when (and (equal rel-type "m.replace") (null replied-to-event-id))
+      ;; The original event is already fetched, use it.
+      (if-let ((orig-event-id (map-nested-elt content '(m.relates_to event_id)))
+               (orig-event (gethash orig-event-id (ement-session-events ement-session))))
+          (setq replied-to-event-id
+                (map-nested-elt (ement-event-content orig-event)
+                                '(m.relates_to m.in_reply_to event_id)))
+        ;; The original event is not found: fetch it and redisplay this event.
+        (ement-api ement-session (format "rooms/%s/event/%s" (ement-room-id ement-room) orig-event-id)
+          :then (ement-room--rich-reply-callback ement-room ement-session event))))
     (when replied-to-event-id
       ;; Message is a reply, find or fetch the event being replied to.
       (if-let ((replied-to-event (gethash replied-to-event-id (ement-session-events ement-session))))
@@ -4127,19 +4139,7 @@ If FORMATTED-P, return the formatted body content, when available."
           (setf event-replied-to replied-to-event)
         ;; Replied-to event not found: fetch it and redisplay this event.
         (ement-api ement-session (format "rooms/%s/event/%s" (ement-room-id ement-room) replied-to-event-id)
-          :then (let ((room ement-room)
-                      (session ement-session))
-                  (lambda (fetched-event)
-                    (pcase-let* ((new-event (ement--make-event fetched-event))
-                                 ((cl-struct ement-room (local (map buffer))) room))
-                      (ement--put-event new-event room session)
-                      (when (buffer-live-p buffer)
-                        (with-current-buffer buffer
-                          (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
-                                             ;; This is probably ok, but it might be safer
-                                             ;; to test the event ID.
-                                             (lambda (data) (eq data event)))))
-                            (ewoc-invalidate ement-ewoc node))))))))))
+          :then (ement-room--rich-reply-callback ement-room ement-session event))))
     (setf body (if (or (not formatted-p) (not formatted-body))
                    ;; FIXME: This should check if the quote is the plain text body but
                    ;; that is not easy...
@@ -4177,6 +4177,20 @@ If FORMATTED-P, return the formatted body content, when available."
       ;; Message is an edit.
       (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
     body))
+
+(defun ement-room--rich-reply-callback (room session event)
+  "Return callback function for rich reply in EVENT in ROOM of SESSION."
+  (lambda (fetched-event)
+    (pcase-let* ((new-event (ement--make-event fetched-event))
+                 ((cl-struct ement-room (local (map buffer))) room))
+      (ement--put-event new-event room session)
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                             ;; This is probably ok, but it might be safer
+                             ;; to test the event ID.
+                             (lambda (data) (eq data event)))))
+            (ewoc-invalidate ement-ewoc node)))))))
 
 (defun ement-room--format-quotation-text (quoted-event)
   "Return text for QUOTED-EVENT."
