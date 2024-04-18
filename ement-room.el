@@ -4199,7 +4199,7 @@ If FORMATTED-P, return the formatted body content, when available."
                ((cl-struct ement-user (id sender-id)) sender)
                ((map format ('body quoted-body) ('formatted_body formatted-quoted-body)) content)
                (new-quote (format "<mx-reply><blockquote>
-    <a href=\"https://matrix.to/#/%s/%s\">In reply to TESTY TEST</a>
+    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
     <a href=\"https://matrix.to/#/%s\">%s</a>
     <br />
 %s
