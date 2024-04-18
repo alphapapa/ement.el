@@ -1144,11 +1144,11 @@ e.g. `ement-room-send-org-filter')."
       (setf content (funcall filter content room)))
     (when replying-to-event
       (setf replying-to-event (ement--original-event-for replying-to-event session))
-      (if ement-room-send-rich-replies
-          ;; TODO: Submit a patch to Emacs to enable `map-nested-elt' to work as a generalized variable.
-          (setf (map-elt (map-elt (map-elt content 'm.relates_to) 'm.in_reply_to) 'event_id)
-                (ement-event-id replying-to-event))
-        (setf content (ement--add-reply content replying-to-event room))))
+      (when ement-room-send-rich-replies
+        ;; TODO: Submit a patch to Emacs to enable `map-nested-elt' to work as a generalized variable.
+        (setf (map-elt (map-elt (map-elt content 'm.relates_to) 'm.in_reply_to) 'event_id)
+              (ement-event-id replying-to-event)))
+      (setf content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
                              ;; Data is added when calling back.
