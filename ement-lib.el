@@ -59,7 +59,6 @@
 (defvar ement-room-buffer-name-prefix)
 (defvar ement-room-buffer-name-suffix)
 (defvar ement-room-leave-kill-buffer)
-(defvar ement-room-send-rich-replies)
 (defvar ement-room-prism)
 (defvar ement-room-prism-color-adjustment)
 (defvar ement-room-prism-minimum-contrast)
@@ -1113,7 +1112,7 @@ suggested room."
     (alist-get selected-name name-to-room-session nil nil #'string=)))
 
 (cl-defun ement-send-message (room session
-                                   &key body formatted-body replying-to-event rich-reply filter then)
+                                   &key body formatted-body replying-to-event filter then)
   "Send message to ROOM on SESSION with BODY and FORMATTED-BODY.
 THEN may be a function to call after the event is sent
 successfully.  It is called with keyword arguments for ROOM,
@@ -1121,7 +1120,6 @@ SESSION, CONTENT, and DATA.
 
 REPLYING-TO-EVENT may be an event the message is
 in reply to; the message will reference it appropriately.
-If RICH-REPLY is non-nil, then a rich-reply is sent instead.
 
 FILTER may be a function through which to pass the message's
 content object before sending (see,
@@ -1144,10 +1142,9 @@ e.g. `ement-room-send-org-filter')."
     (when filter
       (setf content (funcall filter content room)))
     (when replying-to-event
-      (when ement-room-send-rich-replies
-          ;; TODO: Submit a patch to Emacs to enable `map-nested-elt' to work as a generalized variable.
-          (setf (map-elt (map-elt (map-elt content 'm.relates_to) 'm.in_reply_to) 'event_id)
-                (ement-event-id replying-to-event)))
+      ;; TODO: Submit a patch to Emacs to enable `map-nested-elt' to work as a generalized variable.
+      (setf (map-elt (map-elt (map-elt content 'm.relates_to) 'm.in_reply_to) 'event_id)
+            (ement-event-id replying-to-event))
       (setf content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
