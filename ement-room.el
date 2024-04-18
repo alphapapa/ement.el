@@ -1081,14 +1081,6 @@ When using a light theme, it may be necessary to use a negative
 number (to darken rather than lighten)."
   :type 'integer)
 
-(defcustom ement-room-send-rich-replies nil
-  ;; TODO: Switch this default to non-nil in the future, and eventually remove the option.
-  "Whether to send rich replies when replying to messages.
-When non-nil, \"rich replies\" are sent, which encode the
-relationship between messages in their metadata."
-  :type 'boolean
-  :link '(url-link "https://spec.matrix.org/v1.3/client-server-api/#rich-replies"))
-
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
