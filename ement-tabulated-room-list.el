@@ -69,8 +69,13 @@ Set automatically when `ement-tabulated-room-list-mode' is activated.")
 
 ;;;; Customization
 
+(defgroup ement-tabulated-room-list-faces nil
+  "Faces for tabulated room list buffers."
+  :group 'ement-tabulated-room-list
+  :group 'ement-faces)
+
 (defgroup ement-tabulated-room-list nil
-  "Options for the room list buffer."
+  "Options for tabulated room list buffers."
   :group 'ement)
 
 (defcustom ement-tabulated-room-list-auto-update t
@@ -90,44 +95,53 @@ For example, \"1h54m3s\" becomes \"1h\"."
 
 (defface ement-tabulated-room-list-name
   '((t (:inherit (font-lock-function-name-face button))))
-  "Non-direct rooms.")
+  "Non-direct rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-direct
   ;; In case `font-lock-constant-face' is bold, we set the weight to normal, so it can be
   ;; made bold for unread rooms only.
   '((t (:weight normal :inherit (font-lock-constant-face ement-tabulated-room-list-name))))
-  "Direct rooms.")
+  "Direct rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-invited
   '((t (:inherit (italic ement-tabulated-room-list-name))))
-  "Invited rooms.")
+  "Invited rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-left
   '((t (:strike-through t :inherit ement-tabulated-room-list-name)))
-  "Left rooms.")
+  "Left rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-unread
   '((t (:inherit (bold ement-tabulated-room-list-name))))
-  "Unread rooms.")
+  "Unread rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-favourite '((t (:inherit (font-lock-doc-face ement-tabulated-room-list-name))))
-  "Favourite rooms.")
+  "Favourite rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-tabulated-room-list-name))))
-  "Low-priority rooms.")
+  "Low-priority rooms."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-recent
   '((t (:inherit font-lock-warning-face)))
   "Latest timestamp of recently updated rooms.
 The foreground color is used to generate a gradient of colors
 from recent to non-recent for rooms updated in the past 24
-hours but at least one hour ago.")
+hours but at least one hour ago."
+  :group 'ement-tabulated-room-list-faces)
 
 (defface ement-tabulated-room-list-very-recent
   '((t (:inherit error)))
   "Latest timestamp of very recently updated rooms.
 The foreground color is used to generate a gradient of colors
-from recent to non-recent for rooms updated in the past hour.")
+from recent to non-recent for rooms updated in the past hour."
+  :group 'ement-tabulated-room-list-faces)
 
 ;;;; Bookmark support
 
