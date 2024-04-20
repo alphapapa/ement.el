@@ -2610,6 +2610,8 @@ and erases the buffer.
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
+  ;; Prevent line/wrap-prefix formatting properties being included in copied text.
+  (setq-local filter-buffer-substring-function #'ement-room--buffer-substring-filter)
   ;; Set the URL handler.  Note that `browse-url-handlers' was added in 28.1;
   ;; prior to that `browse-url-browser-function' served double-duty.
   ;; TODO: Remove compat code when requiring Emacs >=28.
@@ -2800,6 +2802,18 @@ data slot."
   "Return STRING with \"%\" escaped.
 Needed to display things in the header line."
   (replace-regexp-in-string (rx "%") "%%" string t t))
+
+(defun ement-room--buffer-substring-filter (beg end &optional delete)
+  "Value for `filter-buffer-substring-function' in Ement rooms.
+
+Strips the `line-prefix' and `wrap-prefix' text properties which
+are used when formatting certain Matrix events, but which should
+not be copied into other buffers."
+  (let ((string (funcall (default-value 'filter-buffer-substring-function)
+                         beg end delete)))
+    (remove-list-of-text-properties
+     0 (length string) '(line-prefix wrap-prefix) string)
+    string))
 
 ;;;;; Imenu
 
