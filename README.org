@@ -299,7 +299,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.16-pre
 
-Nothing new yet.
+*Changes*
+
++ Option ~ement-room-coalesce-events~ may now be set to (and defaults to) a maximum number of events to coalesce together.  (This avoids potential performance problems in rare cases.  See [[https://github.com/alphapapa/ement.el/issues/247][#247]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]] for reporting and [[https://github.com/sergiodj][Sergio Durigan Junior]] for testing.)
 
 ** 0.15.1
 
