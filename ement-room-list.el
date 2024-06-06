@@ -123,7 +123,7 @@ Set automatically when `ement-room-list-mode' is activated.")
 ;;;;; Persistent variables
 
 (persist-defvar ement-room-list-visibility-cache nil
-                "Applied to `magit-section-visibility-cache', which see.")
+  "Applied to `magit-section-visibility-cache', which see.")
 
 ;;;; Customization
 
