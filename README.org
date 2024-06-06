@@ -301,6 +301,12 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 Nothing new yet.
 
+** 0.15.1
+
+*Fixes*
++ Handle unnamed rooms in ~ement-directory~ list.  (See [[https://github.com/alphapapa/ement.el/issues/248][#248]].  Thanks to [[https://github.com/hjozwiak][Hunter Jozwiak]] and [[https://github.com/bmp][Bharath Palavalli]] for reporting.)
++ Don't use ~cl-type~ ~pcase~ form in Emacs versions before 28.  ([[https://github.com/alphapapa/ement.el/issues/279][#279]].  Thanks to [[https://github.com/AdamBark][Adam Bark]] for reporting.)
+
 ** 0.15
 :PROPERTIES:
 :ID:       81b48364-56a7-4903-b354-b79905edb039

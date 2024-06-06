@@ -129,7 +129,9 @@
       " ")))
 
 (ement-directory-define-column "Name" (:max-width 25)
-  (pcase-let* (((map name ('room_id id) ('room_type type)) item)
+  (pcase-let* (((map name ('room_id id) ('room_type type)
+                     ('canonical_alias canonical-alias))
+                item)
                ((map session) ement-directory-etc)
                (room)
                (face (pcase type
@@ -139,7 +141,9 @@
                                    (ement--room-direct-p room session))
                               'ement-room-list-direct
                             'ement-room-list-name)))))
-    (propertize (or name (ement--room-display-name room))
+    ;; NOTE: We can't use `ement--room-display-name' because these aren't room structs,
+    ;; and we don't have membership data.
+    (propertize (or name canonical-alias "[unnamed]")
                 'face face)))
 
 (ement-directory-define-column "Alias" (:max-width 25)

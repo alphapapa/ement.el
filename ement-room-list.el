@@ -73,12 +73,13 @@ Used for caching section visibility."
   ;; Could probably be worked around by binding a special variable around the creation of
   ;; the taxy hierarchy that would allow the path to be saved into each taxy.
   (pcase-exhaustive (oref section value)
-    ;; FIXME(emacs-28): Use `(cl-type taxy-magit-section)' when requiring Emacs 28.  See
+    ;; FIXME(emacs-28): Use `(cl-type taxy-magit-section)' and `(cl-type ement-room)', et
+    ;; al. when requiring Emacs 28.  See
     ;; <https://github.com/alphapapa/ement.el/issues/272>.
     ((and (pred taxy-magit-section-p) it)
      (taxy-name it))
-    (`[,(and (cl-type ement-room) room)
-       ,(and (cl-type ement-session) session)]
+    (`[,(and (pred ement-room-p) room)
+       ,(and (pred ement-session-p) session)]
      (vector (ement-user-id (ement-session-user session))
              (ement-room-id room)))
     ((pred null) nil)))
