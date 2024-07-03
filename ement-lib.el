@@ -32,7 +32,7 @@
   (require 'ewoc)
   (require 'pcase)
   (require 'subr-x)
-  
+
   (require 'taxy-magit-section)
 
   (require 'ement-macros))
@@ -1142,6 +1142,9 @@ e.g. `ement-room-send-org-filter')."
     (when filter
       (setf content (funcall filter content room)))
     (when replying-to-event
+      ;; TODO: Submit a patch to Emacs to enable `map-nested-elt' to work as a generalized variable.
+      (setf (map-elt (map-elt (map-elt content 'm.relates_to) 'm.in_reply_to) 'event_id)
+            (ement-event-id replying-to-event))
       (setf content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
