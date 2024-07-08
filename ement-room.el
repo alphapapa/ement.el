@@ -2262,9 +2262,10 @@ Interactively, to event at point."
                       (setq-local ement-room-replying-to-event event)))
                    (body (ement-room-with-typing
                            (ement-room-read-string prompt nil 'ement-room-message-history
-                                                   nil 'inherit-input-method)))
-                   (replying-to-event (ement--original-event-for event ement-session)))
-        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
+                                                   nil 'inherit-input-method))))
+        ;; NOTE: `ement-room-send-message' looks up the original event, so we pass `event'
+        ;; as :replying-to-event.
+        (ement-room-send-message room session :body body :replying-to-event event)))))
 
 (when (assoc "emoji" input-method-alist)
   (defun ement-room-use-emoji-input-method ()

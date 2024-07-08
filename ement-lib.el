@@ -1142,7 +1142,8 @@ e.g. `ement-room-send-org-filter')."
     (when filter
       (setf content (funcall filter content room)))
     (when replying-to-event
-      (setf content (ement--add-reply content replying-to-event room)))
+      (setf replying-to-event (ement--original-event-for replying-to-event session)
+            content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
                              ;; Data is added when calling back.

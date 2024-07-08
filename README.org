@@ -303,6 +303,9 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Option ~ement-room-coalesce-events~ may now be set to (and defaults to) a maximum number of events to coalesce together.  (This avoids potential performance problems in rare cases.  See [[https://github.com/alphapapa/ement.el/issues/247][#247]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]] for reporting and [[https://github.com/sergiodj][Sergio Durigan Junior]] for testing.)
 
+*Fixes*
++ Replies to edited messages are correctly sent to the original event (whereas previously they were sent to the edit, which caused reactions to not be shown).  ([[https://github.com/alphapapa/ement.el/issues/230][#230]], [[https://github.com/alphapapa/ement.el/issues/277][#277]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for suggesting, and to [[https://github.com/dionisos2][dionisos]] for reporting.) 
+
 ** 0.15.1
 
 *Fixes*
