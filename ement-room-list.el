@@ -833,18 +833,26 @@ Sets `ement-room-list-visibility-cache' to the value of
     (when magit-section-visibility-cache
       (setf ement-room-list-visibility-cache magit-section-visibility-cache))))
 
+(defvar ement-room-list-update-timer nil)
+(defvar ement-room-list-update-idle-delay 1)
+
 ;;;###autoload
 (defun ement-room-list-auto-update (_session)
   "Automatically update the Taxy room list buffer.
 +Does so when variable `ement-room-list-auto-update' is non-nil.
 +To be called in `ement-sync-callback-hook'."
-  (when (and ement-room-list-auto-update
-             (buffer-live-p (get-buffer "*Ement Room List*")))
-    (with-current-buffer (get-buffer "*Ement Room List*")
-      (unless (region-active-p)
-        ;; Don't refresh the list if the region is active (e.g. if the user is trying to
-        ;; operate on multiple rooms).
-        (revert-buffer)))))
+  (when (timerp ement-room-list-update-timer)
+    (cancel-timer ement-room-list-update-timer))
+  (when ement-room-list-auto-update
+    (setf ement-room-list-update-timer
+          (run-with-idle-timer ement-room-list-update-idle-delay nil
+                               (lambda ()
+                                 (when-let ((buffer (get-buffer "*Ement Room List*")))
+                                   (with-current-buffer buffer
+                                     (unless (region-active-p)
+                                       ;; Don't refresh the list if the region is active (e.g. if the user is trying to
+                                       ;; operate on multiple rooms).
+                                       (revert-buffer)))))))))
 
 (defun ement-room-list--timestamp-colors ()
   "Return a vector of generated latest-timestamp colors for rooms.
