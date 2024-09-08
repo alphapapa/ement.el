@@ -2458,6 +2458,94 @@ these all require at least version 29 of Emacs):
                                ('remove "removed from"))
                              (ement--format-room space))))))
 
+;;;; Admin/power commands
+
+(defun ement-room--kick-ban-interactive (prompt)
+  "Interactive arguments for kicking or un/banning a user.
+See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
+Returns (user-id room-id session reason)."
+  (cl-flet ((query-confirm (user-id user room session)
+              (if (yes-or-no-p
+                   (format "%s user %s from room %s? "
+                           prompt
+                           (ement--format-user-id
+                            (or user user-id) :with-id-p t :room room)
+                           (ement--format-room room)))
+                  (list user-id (ement-room-id room) session
+                        (read-string "Reason (optional): "
+                                     nil nil nil 'inherit-input-method))
+                ;; Aborted.
+                (let ((debug-on-quit nil))
+                  (signal 'quit nil)))))
+    ;; Try to use the event at point, unless a prefix arg was supplied.
+    (if-let* (((not current-prefix-arg))
+              (room ement-room)
+              (event (and room (ewoc-data (ewoc-locate ement-ewoc))))
+              (user (and (ement-event-p event)
+                         (ement-event-sender event))))
+        (ement-room-with-highlighted-event-at (point)
+          (query-confirm (ement-user-id user) user room ement-session))
+      ;; No appropriate event at point, so query the arguments interactively.
+      (let ((user-id (ement-complete-user-id :prompt (format "%s user: " prompt))))
+        (cl-destructuring-bind (room session)
+            (ement-complete-room :prompt (format "%s from room: " prompt))
+          ;; Pass `user-id' in case `ement-users' does not contain a match.
+          (query-confirm user-id (gethash user-id ement-users) room session))))))
+
+(cl-defun ement-room--kick-ban-user (type user-id room-id session reason
+                                          &optional successfmt &key then else)
+  "Issue the API request for kicking or un/banning a user.
+
+See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
+
+TYPE is `kick', `ban', or `unban'.  USER-ID, ROOM-ID, SESSION are the
+relevant Ement IDs and objects for the request.  REASON is an optional
+string giving a reason for the change.  SUCCESSFMT is a format string,
+with placeholders for a user-id and a room description, used to display
+a success message.
+
+Optional arguments THEN and ELSE are success/failure callbacks passed to
+`ement-api'.  If THEN is not supplied then SUCCESSFMT is a required
+argument, as it is used by the default success callback."
+  ;; Default success callback.
+  (unless then
+    (setq then (lambda (_data)
+                 (let* ((room (cl-find room-id (ement-session-rooms session)
+                                       :key 'ement-room-id :test 'equal))
+                        (room-desc (if room
+                                       (ement--format-room room)
+                                     (format "<%s>" room-id))))
+                   (message successfmt user-id room-desc)))))
+  ;; Make the API call.
+  (let ((endpoint (format "rooms/%s/%s" room-id type))
+        (content (if (and reason (not (string-empty-p reason)))
+                     (ement-alist "user_id" user-id "reason" reason)
+                   (ement-alist "user_id" user-id)))
+        (callbacks (list :then then)))
+    (when else
+      (setf callbacks (append (list :else else) callbacks)))
+    (apply #'ement-api session endpoint
+           :method 'post :data (json-encode content)
+           callbacks)))
+
+(defun ement-room-kick-user (user-id room-id session &optional reason)
+  "Kick USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Kick"))
+  (ement-room--kick-ban-user 'kick user-id room-id session reason
+                             "User <%s> was kicked out of room %s."))
+
+(defun ement-room-ban-user (user-id room-id session &optional reason)
+  "Ban USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Ban"))
+  (ement-room--kick-ban-user 'ban user-id room-id session reason
+                             "User <%s> is banned from room %s."))
+
+(defun ement-room-unban-user (user-id room-id session &optional reason)
+  "Unban USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Unban"))
+  (ement-room--kick-ban-user 'unban user-id room-id session reason
+                             "User <%s> is no longer banned from room %s."))
+
 ;;;; Functions
 
 (defun ement-room-view (room session)
