@@ -1236,7 +1236,7 @@ spec) without requiring all events to use the same margin width."
   "Plain-text body content."
   ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
   (let* ((body (save-match-data
-                 (ement-room--format-message-body event :formatted-p nil)))
+                 (ement-room--format-message-body event session :formatted-p nil)))
          (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
@@ -1260,7 +1260,7 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?B
   "Formatted body content (i.e. rendered HTML)."
   (let* ((body (save-match-data
-                 (ement-room--format-message-body event)))
+                 (ement-room--format-message-body event session)))
          (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
@@ -4061,8 +4061,8 @@ Format defaults to `ement-room-message-format-spec', which see."
                          'display `((margin right-margin) ,string))))))
       (buffer-string))))
 
-(cl-defun ement-room--format-message-body (event &key (formatted-p t))
-  "Return formatted body of \"m.room.message\" EVENT.
+(cl-defun ement-room--format-message-body (event session &key (formatted-p t))
+  "Return formatted body of \"m.room.message\" EVENT on SESSION.
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
@@ -4087,7 +4087,7 @@ If FORMATTED-P, return the formatted body content, when available."
                (appendix (pcase msgtype
                            ;; TODO: Face for m.notices.
                            ((or "m.text" "m.emote" "m.notice") nil)
-                           ("m.image" (ement-room--format-m.image event))
+                           ("m.image" (ement-room--format-m.image event session))
                            ("m.file" (ement-room--format-m.file event))
                            ("m.video" (ement-room--format-m.video event))
                            ("m.audio" (ement-room--format-m.audio event))
@@ -5326,26 +5326,65 @@ options `ement-room-image-thumbnail-height' and
                    '((display-buffer-pop-up-frame
                       (pop-up-frame-parameters . ((fullscreen . t) (maximized . t))))))))
 
-(defun ement-room--format-m.image (event)
-  "Return \"m.image\" EVENT formatted as a string.
+(cl-defun ement-room--image-download (event session &key then else (authenticatedp t))
+  "Download image EVENT on SESSION and call THEN, else ELSE.
+If AUTHENTICATEDP, send authenticated request to new
+endpoint (Matrix 1.11, MSC3911); otherwise send old-style,
+unauthenticated request to old endpoint."
+  (declare (indent defun))
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map ('url mxc)) content))
+    (if authenticatedp
+        (ement-api session (ement--mxc-to-endpoint mxc) :version "v1"
+          :json-read-fn 'binary :then then :else else
+          :queue ement-images-queue)
+      ;; Send unauthenticated request.
+      (plz-run
+       (plz-queue ement-images-queue
+         'get (ement--mxc-to-url mxc ement-session) :as 'binary
+         :then then :noquery t)))))
+
+(defun ement-room--format-m.image (event session)
+  "Return \"m.image\" EVENT on SESSION formatted as a string.
 When `ement-room-images' is non-nil, also download it and then
 show it in the buffer."
-  (pcase-let* (((cl-struct ement-event content (local event-local)) event)
+  (pcase-let* (((cl-struct ement-event (local event-local)) event)
                ;; HACK: Get the room's buffer from the variable (the current buffer
                ;; will be a temp formatting buffer when this is called, but it still
                ;; inherits the `ement-room' variable from the room buffer, thankfully).
                ((cl-struct ement-room local) ement-room)
                ((map buffer) local)
                ;; TODO: Thumbnail support.
-               ((map ('url mxc) info ;; ('thumbnail_url thumbnail-url)
-                     ) content)
-               ((map thumbnail_info) info)
-               ((map ('h _thumbnail-height) ('w _thumbnail-width)) thumbnail_info)
                ((map image) event-local)
-               (url (when mxc
-                      (ement--mxc-to-url mxc ement-session)))
-               ;; (thumbnail-url (ement--mxc-to-url thumbnail-url ement-session))
-               )
+               (then (apply-partially #'ement-room--m.image-callback event ement-room))
+               (else (lambda (plz-error)
+                       "Handle PLZ-ERROR for a failed request to download an image."
+                       (pcase-let* (((cl-struct plz-error response
+                                                (message plz-message)
+                                                (curl-error `(,curl-exit-code . ,curl-message)))
+                                     plz-error)
+                                    (status (when (plz-response-p response)
+                                              (plz-response-status response)))
+                                    (body (when (plz-response-p response)
+                                            (plz-response-body response)))
+                                    (json-object (when body
+                                                   (ignore-errors
+                                                     (json-read-from-string body))))
+                                    (errcode (alist-get 'errcode json-object))
+                                    (error-message (format "%S: %s"
+                                                           (or curl-exit-code status)
+                                                           (or (when json-object
+                                                                 (alist-get 'error json-object))
+                                                               curl-message
+                                                               plz-message))))
+                         (pcase errcode
+                           ("M_UNRECOGNIZED"
+                            ;; Resend unauthenticated media request for older servers.
+                            ;; FIXME: Test the "/versions" endpoint to see what's supported.  See
+                            ;; <https://matrix.org/blog/2024/06/20/matrix-v1.11-release/>.
+                            (ement-room--image-download event session :authenticatedp nil
+                              :then then))
+                           (_ (signal 'ement-api-error (list error-message))))))))
     (if (and ement-room-images image)
         ;; Images enabled and image downloaded: create image and
         ;; return it in a string.
@@ -5388,22 +5427,24 @@ show it in the buffer."
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
           (ement-room-wrap-prefix "[image]"
-            'action #'browse-url
+            'action (apply-partially #'apply #'ement-room--image-download)
             'button t
-            'button-data url
+            'button-data (list event session
+                               :then (lambda (&rest args)
+                                       ;; Bind non-nil to force the image to be displayed.
+                                       (let ((ement-room-images t))
+                                         (apply then args)))
+                               :else else)
             'category t
             'face 'button
             'follow-link t
-            'help-echo url
+            'help-echo "Show image"
             'keymap button-map
             'mouse-face 'highlight)
-        (when (and ement-room-images url)
-          ;; Images enabled and URL present: download it.
-          (plz-run
-           (plz-queue ement-images-queue
-             'get url :as 'binary
-             :then (apply-partially #'ement-room--m.image-callback event ement-room)
-             :noquery t)))))))
+        (when ement-room-images
+          ;; Images enabled: download it.
+          (ement-room--image-download event session
+            :then then :else else))))))
 
 (defun ement-room--m.image-callback (event room data)
   "Add downloaded image from DATA to EVENT in ROOM.

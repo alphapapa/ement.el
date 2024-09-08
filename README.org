@@ -299,6 +299,14 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 ** 0.16-pre
 
+*Compatibility*
+
++ Use authenticated media requests (part of Matrix 1.11; see [[https://github.com/matrix-org/matrix-spec-proposals/pull/3916][MSC3916]] and [[https://matrix.org/blog/2024/06/26/sunsetting-unauthenticated-media/][matrix.org's sunsetting unauthenticated media]]).
+
+*Additions*
+
++ When option ~ement-room-images~ is disabled (preventing automatic download and display of images), individual images may be shown by clicking the button in their events.
+
 *Changes*
 
 + Option ~ement-room-coalesce-events~ may now be set to (and defaults to) a maximum number of events to coalesce together.  (This avoids potential performance problems in rare cases.  See [[https://github.com/alphapapa/ement.el/issues/247][#247]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]] for reporting and [[https://github.com/sergiodj][Sergio Durigan Junior]] for testing.)

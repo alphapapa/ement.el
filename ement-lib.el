@@ -1364,6 +1364,15 @@ Suitable for use in completion, etc."
     (format "%s/_matrix/media/r0/download/%s/%s"
             uri-prefix server-name media-id)))
 
+(defun ement--mxc-to-endpoint (uri)
+  "Return API endpoint for MXC URI.
+Returns string suitable for the ENDPOINT argument to `ement-api'."
+  (string-match (rx "mxc://" (group (1+ (not (any "/"))))
+                    "/" (group (1+ anything))) uri)
+  (let ((server-name (match-string 1 uri))
+        (media-id (match-string 2 uri)))
+    (format "media/download/%s/%s" server-name media-id)))
+
 (defun ement--remove-face-property (string value)
   "Remove VALUE from STRING's `face' properties.
 Used to remove the `button' face from buttons, because that face
