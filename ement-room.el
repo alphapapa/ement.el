@@ -2419,6 +2419,59 @@ these all require at least version 29 of Emacs):
                                ('remove "removed from"))
                              (ement--format-room space))))))
 
+;;;;; Admin/power commands
+
+(defun ement-room--kick-ban-interactive (prompt)
+  "Interactive arguments for kicking or un/banning a user.
+See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
+Returns (user room session reason)."
+  (ement-room-with-highlighted-event-at (point)
+    (let* ((room ement-room)
+           (event (ewoc-data (ewoc-locate ement-ewoc)))
+           (user (ement-event-sender event)))
+      (if (yes-or-no-p (format "%s user %s <%s> from room %s? "
+                               prompt
+                               (ement-user-displayname user)
+                               (ement-user-id user)
+                               (ement--format-room room)))
+          (list user ement-room ement-session
+                (read-string "Reason (optional): "
+                             nil nil nil 'inherit-input-method))
+        ;; HACK: This isn't really an error, but is there a cleaner way to cancel?
+        (user-error "Aborted")))))
+
+(defun ement-room--kick-ban-user (type user room session reason successfmt)
+  "Issue the API request for kicking or un/banning a user.
+See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
+TYPE is `kick', `ban', or `unban'."
+  (pcase-let* (((cl-struct ement-user (id user-id)) user)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/%s" room-id type))
+               (content (if (and reason (not (string= "" reason)))
+                            (ement-alist "user_id" user-id "reason" reason)
+                          (ement-alist "user_id" user-id ))))
+    (ement-api session endpoint :method 'post :data (json-encode content)
+      :then (lambda (_data)
+              (message successfmt user-id (ement--format-room room))))))
+
+(defun ement-room-kick-user (user room session &optional reason)
+  "Kick USER from ROOM on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Kick"))
+  (ement-room--kick-ban-user 'kick user room session reason
+                             "User <%s> was kicked out of room %s."))
+
+(defun ement-room-ban-user (user room session &optional reason)
+  "Ban USER from ROOM on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Ban"))
+  (ement-room--kick-ban-user 'ban user room session reason
+                             "User <%s> is banned from room %s."))
+
+(defun ement-room-unban-user (user room session &optional reason)
+  "Unban USER from ROOM on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Un-ban"))
+  (ement-room--kick-ban-user 'unban user room session reason
+                             "User <%s> is no longer banned from room %s."))
+
 ;;;; Functions
 
 (defun ement-room-view (room session)
