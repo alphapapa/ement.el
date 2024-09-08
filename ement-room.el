@@ -2442,14 +2442,19 @@ Returns (user room session reason)."
 
 (defun ement-room--kick-ban-user (type user room session reason successfmt)
   "Issue the API request for kicking or un/banning a user.
+
 See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
-TYPE is `kick', `ban', or `unban'."
+
+TYPE is `kick', `ban', or `unban'.  USER, ROOM, SESSION are the relevant
+Ement objects for the request.  REASON is an optional string giving a
+reason for the change.  SUCCESSFMT is a format string, with placeholders
+for a user-id and a room description, used to display a success message."
   (pcase-let* (((cl-struct ement-user (id user-id)) user)
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/%s" room-id type))
-               (content (if (and reason (not (string= "" reason)))
+               (content (if (and reason (not (string-empty-p reason)))
                             (ement-alist "user_id" user-id "reason" reason)
-                          (ement-alist "user_id" user-id ))))
+                          (ement-alist "user_id" user-id))))
     (ement-api session endpoint :method 'post :data (json-encode content)
       :then (lambda (_data)
               (message successfmt user-id (ement--format-room room))))))
@@ -2468,7 +2473,7 @@ TYPE is `kick', `ban', or `unban'."
 
 (defun ement-room-unban-user (user room session &optional reason)
   "Unban USER from ROOM on SESSION, optionally with REASON."
-  (interactive (ement-room--kick-ban-interactive "Un-ban"))
+  (interactive (ement-room--kick-ban-interactive "Unban"))
   (ement-room--kick-ban-user 'unban user room session reason
                              "User <%s> is no longer banned from room %s."))
 
