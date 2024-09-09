@@ -356,8 +356,10 @@ in them won't work."
   (dolist (session sessions)
     (let ((user-id (ement-user-id (ement-session-user session))))
       (when-let ((process (map-elt ement-syncs session)))
-        (ignore-errors
-          (delete-process process)))
+        ;; Disable the sync process's ELSE handler, preventing error messages, but still
+        ;; allowing `plz--respond' to clean up the buffer, etc.
+        (setf (process-get process :plz-else) #'ignore)
+        (delete-process process))
       ;; NOTE: I'd like to use `map-elt' here, but not until
       ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=47368> is fixed, I guess.
       (setf (alist-get session ement-syncs nil nil #'equal) nil
