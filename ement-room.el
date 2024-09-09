@@ -2519,8 +2519,8 @@ before the earliest-seen message)."
                     (ement--put-event event nil session))
                (ement-progress-update)
                finally do
-               (setf (ement-room-timeline room) (append (ement-room-timeline room)
-                                                        (seq-remove #'null chunk))))
+               (setf chunk (seq-remove #'null chunk)
+                     (ement-room-timeline room) (append (ement-room-timeline room) chunk)))
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
