@@ -2504,13 +2504,23 @@ before the earliest-seen message)."
                               (append (ement-room-state room) (append state nil))))
     (ement-with-progress-reporter (:reporter ("Ement: Processing earlier events..." 0 progress-max-value))
       ;; Append timeline events (in the "chunk").
+      ;; NOTE: It's regrettable that we have to turn the chunk vector into a list before
+      ;; appending it to the timeline, but we have to discard events that we've already
+      ;; seen.
+      ;; TODO: Consider looping over the vector and pushing one-by-one instead of using
+      ;; `seq-remove' and `append' (might be faster).
       (cl-loop for event across-ref chunk
-               do (setf event (ement--make-event event))
-               ;; HACK: Put events on events table.  See FIXME above about using the event hook.
-               (ement--put-event event nil session)
+               do (if (gethash (alist-get 'event_id event) (ement-session-events session))
+                      ;; Duplicate event: set to nil to be ignored.
+                      (setf event nil)
+                    ;; New event.
+                    (setf event (ement--make-event event))
+                    ;; HACK: Put events on events table.  See FIXME above about using the event hook.
+                    (ement--put-event event nil session))
                (ement-progress-update)
-               finally do (setf (ement-room-timeline room)
-                                (append (ement-room-timeline room) (append chunk nil))))
+               finally do
+               (setf chunk (seq-remove #'null chunk)
+                     (ement-room-timeline room) (append (ement-room-timeline room) chunk)))
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
