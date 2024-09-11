@@ -2520,7 +2520,10 @@ before the earliest-seen message)."
               (select-window buffer-window))
             ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
             (ement-room--process-events chunk)
-            (when set-prev-batch
+            ;; Don't set the slot if the response doesn't include an "end" token (that
+            ;; would cause subsequent retro requests to fetch events from the end of the
+            ;; timeline, as if we had just joined).
+            (when (and set-prev-batch end)
               ;; This feels a little hacky, but maybe not too bad.
               (setf (ement-room-prev-batch room) end))
             (setf ement-room-retro-loading nil)))))
