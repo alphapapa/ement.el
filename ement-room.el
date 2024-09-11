@@ -1884,10 +1884,12 @@ see."
       ;; We use a timeout of 30, because sometimes the server can take a while to
       ;; respond, especially if loading, e.g. hundreds or thousands of events.
       (ement-api session endpoint :timeout 30
-        :params (list (list "from" prev-batch)
-                      (list "dir" "b")
-                      (list "limit" (number-to-string number))
-                      (list "filter" (json-encode ement-room-messages-filter)))
+        :params (remq nil
+                      (list (when prev-batch
+                              (list "from" prev-batch))
+                            (list "dir" "b")
+                            (list "limit" (number-to-string number))
+                            (list "filter" (json-encode ement-room-messages-filter))))
         :then then
         :else (lambda (plz-error)
                 (when buffer
@@ -2502,13 +2504,23 @@ before the earliest-seen message)."
                               (append (ement-room-state room) (append state nil))))
     (ement-with-progress-reporter (:reporter ("Ement: Processing earlier events..." 0 progress-max-value))
       ;; Append timeline events (in the "chunk").
+      ;; NOTE: It's regrettable that we have to turn the chunk vector into a list before
+      ;; appending it to the timeline, but we have to discard events that we've already
+      ;; seen.
+      ;; TODO: Consider looping over the vector and pushing one-by-one instead of using
+      ;; `seq-remove' and `append' (might be faster).
       (cl-loop for event across-ref chunk
-               do (setf event (ement--make-event event))
-               ;; HACK: Put events on events table.  See FIXME above about using the event hook.
-               (ement--put-event event nil session)
+               do (if (gethash (alist-get 'event_id event) (ement-session-events session))
+                      ;; Duplicate event: set to nil to be ignored.
+                      (setf event nil)
+                    ;; New event.
+                    (setf event (ement--make-event event))
+                    ;; HACK: Put events on events table.  See FIXME above about using the event hook.
+                    (ement--put-event event nil session))
                (ement-progress-update)
-               finally do (setf (ement-room-timeline room)
-                                (append (ement-room-timeline room) (append chunk nil))))
+               finally do
+               (setf chunk (seq-remove #'null chunk)
+                     (ement-room-timeline room) (append (ement-room-timeline room) chunk)))
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
@@ -2518,7 +2530,10 @@ before the earliest-seen message)."
               (select-window buffer-window))
             ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
             (ement-room--process-events chunk)
-            (when set-prev-batch
+            ;; Don't set the slot if the response doesn't include an "end" token (that
+            ;; would cause subsequent retro requests to fetch events from the end of the
+            ;; timeline, as if we had just joined).
+            (when (and set-prev-batch end)
               ;; This feels a little hacky, but maybe not too bad.
               (setf (ement-room-prev-batch room) end))
             (setf ement-room-retro-loading nil)))))
