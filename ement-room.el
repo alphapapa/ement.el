@@ -1884,10 +1884,12 @@ see."
       ;; We use a timeout of 30, because sometimes the server can take a while to
       ;; respond, especially if loading, e.g. hundreds or thousands of events.
       (ement-api session endpoint :timeout 30
-        :params (list (list "from" prev-batch)
-                      (list "dir" "b")
-                      (list "limit" (number-to-string number))
-                      (list "filter" (json-encode ement-room-messages-filter)))
+        :params (remq nil
+                      (list (when prev-batch
+                              (list "from" prev-batch))
+                            (list "dir" "b")
+                            (list "limit" (number-to-string number))
+                            (list "filter" (json-encode ement-room-messages-filter))))
         :then then
         :else (lambda (plz-error)
                 (when buffer
