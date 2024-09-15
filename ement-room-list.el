@@ -385,9 +385,19 @@ from recent to non-recent for rooms updated in the past hour.")
 ;;;; Columns
 
 (eval-and-compile
-  (taxy-magit-section-define-column-definer "ement-room-list"))
+  (taxy-magit-section-define-column-definer "ement-room-list" :hash-test 'ement-room-list-vector))
 
-(ement-room-list-define-column #("🐱" 0 1 (help-echo "Avatar")) (:align 'right)
+(define-hash-table-test 'ement-room-list-vector
+                        (lambda (a b)
+                          (pcase-let* ((`[,a-room ,a-session] a)
+                                       (`[,b-room ,b-session] b))
+                            (and (eq a-room b-room)
+                                 (eq a-session b-session))))
+                        (lambda (v)
+                          (sxhash v)))
+
+(ement-room-list-define-column #("🐱" 0 1 (help-echo "Avatar"))
+  (:align 'right )
   (pcase-let* ((`[,room ,_session] item)
                ((cl-struct ement-room avatar display-name
                            (local (map room-list-avatar)))
@@ -416,7 +426,7 @@ from recent to non-recent for rooms updated in the past hour.")
       ;; Avatars disabled: use a two-space string.
       " ")))
 
-(ement-room-list-define-column "Name" (:max-width 25)
+(ement-room-list-define-column "Name" (:max-width 25 )
   (pcase-let* ((`[,room ,session] item)
                ((cl-struct ement-room type) room)
                (display-name (ement--room-display-name room))
@@ -448,7 +458,7 @@ from recent to non-recent for rooms updated in the past hour.")
                       'keymap ement-room-list-button-map))
         "")))
 
-(ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
+(ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right )
   (pcase-let* ((`[,(cl-struct ement-room unread-notifications) ,_session] item)
                ((map notification_count highlight_count) unread-notifications))
     (if (or (not unread-notifications)
@@ -482,7 +492,7 @@ from recent to non-recent for rooms updated in the past hour.")
                       'help-echo formatted-ts))
       "")))
 
-(ement-room-list-define-column "Topic" (:max-width 35)
+(ement-room-list-define-column "Topic" (:max-width 35 )
   (pcase-let ((`[,(cl-struct ement-room topic status) ,_session] item))
     ;; FIXME: Can the status and type unified, or is this inherent to the spec?
     (when topic
@@ -496,7 +506,7 @@ from recent to non-recent for rooms updated in the past hour.")
                       " " topic))
       (_ (or topic "")))))
 
-(ement-room-list-define-column "Members" (:align 'right)
+(ement-room-list-define-column "Members" (:align 'right )
   (pcase-let ((`[,(cl-struct ement-room
                              (summary (map ('m.joined_member_count member-count))))
                  ,_session]
@@ -505,7 +515,8 @@ from recent to non-recent for rooms updated in the past hour.")
         (number-to-string member-count)
       "")))
 
-(ement-room-list-define-column #("Notifications" 0 5 (help-echo "Notification state")) ()
+(ement-room-list-define-column #("Notifications" 0 5 (help-echo "Notification state"))
+  ()
   (pcase-let* ((`[,room ,session] item))
     (pcase (ement-room-notification-state room session)
       ('nil "default")
@@ -514,7 +525,8 @@ from recent to non-recent for rooms updated in the past hour.")
       ('mentions-and-keywords "mentions")
       ('none "none"))))
 
-(ement-room-list-define-column #("B" 0 1 (help-echo "Buffer exists for room")) ()
+(ement-room-list-define-column #("B" 0 1 (help-echo "Buffer exists for room"))
+  ()
   (pcase-let ((`[,(cl-struct ement-room (local (map buffer))) ,_session] item))
     (if buffer
         #("B" 0 1 (help-echo "Buffer exists for room"))
