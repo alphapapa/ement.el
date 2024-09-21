@@ -983,17 +983,26 @@ and `session' to the session.  Adds function to
                 event)
                (user (or (gethash state-key ement-users)
                          (puthash state-key
-                                  (make-ement-user :id state-key :avatar-url avatar-url
-                                                   ;; NOTE: The spec doesn't seem to say whether the
-                                                   ;; displayname in the member event applies only to the
-                                                   ;; room or is for the user generally, so we'll save it
-                                                   ;; in the struct anyway.
-                                                   :displayname displayname)
+                                  (make-ement-user
+                                   :id state-key :avatar-url avatar-url
+                                   ;; NOTE: The spec doesn't seem to say whether the
+                                   ;; displayname in the member event applies only to
+                                   ;; the room or is for the user generally, so we'll
+                                   ;; save it in the struct anyway.
+                                   ;; FIXME: This is probably wrong: it probably means
+                                   ;; overwriting the global displayname with any
+                                   ;; room-specific one that was most recently processed.
+                                   :displayname displayname)
                                   ement-users))))
     (pcase membership
       ("join"
        (puthash state-key user members)
-       (puthash user displayname (ement-room-displaynames room)))
+       (if displayname
+           ;; NOTE: This handler is only called for new events, not when retrieving old events.
+           ;; Therefore it's safe to update the cached displayname from such an event.
+           (puthash user displayname (ement-room-displaynames room))
+         ;; No displayname set for this room: recalculate.
+         (ement--user-displayname-in room user 'recalculate)))
       (_ (remhash state-key members)
          (remhash user (ement-room-displaynames room))))))
 
