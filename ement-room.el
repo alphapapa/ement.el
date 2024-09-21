@@ -5370,7 +5370,7 @@ unauthenticated request to old endpoint."
       ;; Send unauthenticated request.
       (plz-run
        (plz-queue ement-images-queue
-         'get (ement--mxc-to-url mxc ement-session) :as 'binary
+         'get (ement--mxc-to-url mxc session) :as 'binary
          :then then :noquery t)))))
 
 (defun ement-room--format-m.image (event session)
