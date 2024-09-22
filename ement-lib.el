@@ -1802,6 +1802,27 @@ seconds, etc."
                                  choices)))
     (read-multiple-choice prompt choices (format help-format help-choices))))
 
+(cl-defun ement--media-request
+    (mxc session &key queue (then #'ignore) (else #'ement-api-error)
+         (as 'binary) (authenticatedp t))
+  "Request media from MXC URL on SESSION.
+If AUTHENTICATEDP, send authenticated request.  Arguments THEN,
+ELSE, and AS are passed to `ement-api' for authenticated media
+requests, or to `plz' for unauthenticated ones, each which see.
+If QUEUE, send request on it."
+  (declare (indent defun))
+  (if authenticatedp
+      (ement-api session (ement--mxc-to-endpoint mxc) :version "v1"
+        :json-read-fn as :then then :else else :queue queue)
+    ;; Send unauthenticated request.
+    (if queue
+        (plz-run
+         (plz-queue queue
+           'get (ement--mxc-to-url mxc session) :as as
+           :then then :else else :noquery t))
+      (plz 'get (ement--mxc-to-url mxc session) :as as
+        :then then :else else :noquery t))))
+
 ;;; Footer
 
 (provide 'ement-lib)

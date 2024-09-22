@@ -5365,15 +5365,8 @@ unauthenticated request to old endpoint."
   (declare (indent defun))
   (pcase-let* (((cl-struct ement-event content) event)
                ((map ('url mxc)) content))
-    (if authenticatedp
-        (ement-api session (ement--mxc-to-endpoint mxc) :version "v1"
-          :json-read-fn 'binary :then then :else else
-          :queue ement-images-queue)
-      ;; Send unauthenticated request.
-      (plz-run
-       (plz-queue ement-images-queue
-         'get (ement--mxc-to-url mxc session) :as 'binary
-         :then then :noquery t)))))
+    (ement--media-request mxc session :then then :else else
+      :queue ement-images-queue :authenticatedp authenticatedp)))
 
 (defun ement-room--format-m.image (event session)
   "Return \"m.image\" EVENT on SESSION formatted as a string.
@@ -5504,19 +5497,17 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype size))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (when size
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5530,18 +5521,16 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype size w h))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5554,19 +5543,17 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype duration size))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5884,6 +5871,24 @@ For use in `completion-at-point-functions'."
           (interactive)
           (or (not ement-auto-sync)
               (not (map-elt ement-syncs ement-session)))))])
+
+;;;; Browsing URLs, EWW
+
+(defun ement-room-browse-mxc (mxc)
+  ;; TODO: If prefix arg, prompt for destination and download to file.
+  "Browse MXC URL on current `ement-session'."
+  ;; For authenticated media, we have to provide our own version of `eww-retrieve'.
+  (let ((session ement-session))
+    (cl-letf (((symbol-function 'eww-retrieve)
+               (lambda (mxc callback cbargs)
+                 (ement--media-request mxc session
+                   :as (lambda ()
+                         ;; EWW wants to parse the headers itself, so widen and decode them.
+                         (widen)
+                         (decode-coding-region (point-min) (point) 'utf-8)
+                         ;; HACK: This STATUS argument to `eww-render' is bogus.
+                         (apply callback 'status cbargs))))))
+      (browse-url mxc))))
 
 ;;;; Footer
 
