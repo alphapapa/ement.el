@@ -369,7 +369,7 @@ in them won't work."
     ;; to store a per-session users table, but this is probably good enough.
     (clrhash ement-users))
   (run-hooks 'ement-disconnect-hook)
-  (message "Ement: Disconnected (%s)"
+  (message "Ement: Disconnected <%s>."
            (string-join (cl-loop for session in sessions
                                  collect (ement-user-id (ement-session-user session)))
                         ", ")))
