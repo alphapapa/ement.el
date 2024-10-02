@@ -162,7 +162,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Favourite rooms.")
 
 (defface ement-room-list-invited
-  '((t (:inherit italic ement-room-list-name)))
+  '((t (:inherit (italic ement-room-list-name))))
   "Invited rooms.")
 
 (defface ement-room-list-left
@@ -173,7 +173,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Low-priority rooms.")
 
 (defface ement-room-list-name
-  '((t (:inherit font-lock-function-name-face button)))
+  '((t (:inherit (font-lock-function-name-face button))))
   "Non-direct rooms.")
 
 (defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
@@ -181,7 +181,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   :group 'ement-room-list)
 
 (defface ement-room-list-unread
-  '((t (:inherit bold ement-room-list-name)))
+  '((t (:inherit (bold ement-room-list-name))))
   "Unread rooms.")
 
 (defface ement-room-list-recent '((t (:inherit font-lock-warning-face)))
