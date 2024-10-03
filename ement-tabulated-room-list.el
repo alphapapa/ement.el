@@ -89,7 +89,7 @@ For example, \"1h54m3s\" becomes \"1h\"."
 ;;;;; Faces
 
 (defface ement-tabulated-room-list-name
-  '((t (:inherit font-lock-function-name-face button)))
+  '((t (:inherit (font-lock-function-name-face button))))
   "Non-direct rooms.")
 
 (defface ement-tabulated-room-list-direct
@@ -99,7 +99,7 @@ For example, \"1h54m3s\" becomes \"1h\"."
   "Direct rooms.")
 
 (defface ement-tabulated-room-list-invited
-  '((t (:inherit italic ement-tabulated-room-list-name)))
+  '((t (:inherit (italic ement-tabulated-room-list-name))))
   "Invited rooms.")
 
 (defface ement-tabulated-room-list-left
@@ -107,7 +107,7 @@ For example, \"1h54m3s\" becomes \"1h\"."
   "Left rooms.")
 
 (defface ement-tabulated-room-list-unread
-  '((t (:inherit bold ement-tabulated-room-list-name)))
+  '((t (:inherit (bold ement-tabulated-room-list-name))))
   "Unread rooms.")
 
 (defface ement-tabulated-room-list-favourite '((t (:inherit (font-lock-doc-face ement-tabulated-room-list-name))))
