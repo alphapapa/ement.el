@@ -2435,7 +2435,9 @@ Returns (user room session reason)."
                   (list user-id (ement-room-id room) session
                         (read-string "Reason (optional): "
                                      nil nil nil 'inherit-input-method))
-                (user-error "Aborted"))))
+                ;; Aborted.
+                (let ((debug-on-quit nil))
+                  (signal 'quit nil)))))
     ;; Try to use the event at point, unless a prefix arg was supplied.
     (if-let* (((not current-prefix-arg))
               (room ement-room)
