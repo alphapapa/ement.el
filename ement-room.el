@@ -2447,13 +2447,11 @@ Returns (user room session reason)."
         (ement-room-with-highlighted-event-at (point)
           (query-confirm (ement-user-id user) user room ement-session))
       ;; No appropriate event at point, so query the arguments interactively.
-      (let* ((user-id (ement-complete-user-id :prompt (format "%s user: " prompt)))
-             (roomsession (ement-complete-room :prompt (format "%s from room: " prompt))))
-        ;; Pass `user-id' in case `ement-users' does not contain a match.
-        (query-confirm user-id
-                       (gethash user-id ement-users)
-                       (cl-first roomsession)
-                       (cl-second roomsession))))))
+      (let ((user-id (ement-complete-user-id :prompt (format "%s user: " prompt))))
+        (cl-destructuring-bind (room session)
+            (ement-complete-room :prompt (format "%s from room: " prompt))
+          ;; Pass `user-id' in case `ement-users' does not contain a match.
+          (query-confirm user-id (gethash user-id ement-users) room session))))))
 
 (cl-defun ement-room--kick-ban-user (type user-id room-id session reason
                                           &optional successfmt &key then else)
