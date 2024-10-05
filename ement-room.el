@@ -2454,7 +2454,8 @@ Returns (user room session reason)."
                        (cl-first roomsession)
                        (cl-second roomsession))))))
 
-(defun ement-room--kick-ban-user (type user-id room-id session reason successfmt)
+(cl-defun ement-room--kick-ban-user (type user-id room-id session reason
+                                          &optional successfmt &key then else)
   "Issue the API request for kicking or un/banning a user.
 
 See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
@@ -2463,19 +2464,31 @@ TYPE is `kick', `ban', or `unban'.  USER-ID, ROOM-ID, SESSION are the
 relevant Ement IDs and objects for the request.  REASON is an optional
 string giving a reason for the change.  SUCCESSFMT is a format string,
 with placeholders for a user-id and a room description, used to display
-a success message."
-  (pcase-let* ((endpoint (format "rooms/%s/%s" room-id type))
-               (content (if (and reason (not (string-empty-p reason)))
-                            (ement-alist "user_id" user-id "reason" reason)
-                          (ement-alist "user_id" user-id))))
-    (ement-api session endpoint :method 'post :data (json-encode content)
-      :then (lambda (_data)
-              (let* ((room (cl-find room-id (ement-session-rooms session)
-                                    :key 'ement-room-id :test 'equal))
-                     (room-desc (if room
-                                    (ement--format-room room)
-                                  (format "<%s>" room-id))))
-                (message successfmt user-id room-desc))))))
+a success message.
+
+Optional arguments THEN and ELSE are success/failure callbacks passed to
+`ement-api'.  If THEN is not supplied then SUCCESSFMT is a required
+argument, as it is used by the default success callback."
+  ;; Default success callback.
+  (unless then
+    (setq then (lambda (_data)
+                 (let* ((room (cl-find room-id (ement-session-rooms session)
+                                       :key 'ement-room-id :test 'equal))
+                        (room-desc (if room
+                                       (ement--format-room room)
+                                     (format "<%s>" room-id))))
+                   (message successfmt user-id room-desc)))))
+  ;; Make the API call.
+  (let ((endpoint (format "rooms/%s/%s" room-id type))
+        (content (if (and reason (not (string-empty-p reason)))
+                     (ement-alist "user_id" user-id "reason" reason)
+                   (ement-alist "user_id" user-id)))
+        (callbacks (list :then then)))
+    (when else
+      (setf callbacks (append (list :else else) callbacks)))
+    (apply #'ement-api session endpoint
+           :method 'post :data (json-encode content)
+           callbacks)))
 
 (defun ement-room-kick-user (user-id room-id session &optional reason)
   "Kick USER-ID from ROOM-ID on SESSION, optionally with REASON."
