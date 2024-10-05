@@ -782,7 +782,7 @@ THEN and ELSE are passed to `ement-api', which see."
          (alist-get selected-id ement-sessions nil nil #'equal)))))
 
 (declare-function ewoc-locate "ewoc")
-(defun ement-complete-user-id ()
+(cl-defun ement-complete-user-id (&key (prompt "User: "))
   "Return a user-id selected with completion.
 Selects from seen users on all sessions.  If point is on an
 event, suggests the event's sender as initial input.  Allows
@@ -803,7 +803,7 @@ unseen user IDs to be input as well."
                             (when-let ((node (ewoc-locate ement-ewoc)))
                               (when (ement-event-p (ewoc-data node))
                                 (format-user (ement-event-sender (ewoc-data node)))))))
-	   (selected-user (completing-read "User: " (mapcar #'car display-to-id)
+	   (selected-user (completing-read prompt (mapcar #'car display-to-id)
                                            nil nil user-at-point)))
       (or (alist-get selected-user display-to-id nil nil #'equal)
 	  selected-user))))
