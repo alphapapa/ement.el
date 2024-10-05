@@ -2426,12 +2426,12 @@ these all require at least version 29 of Emacs):
 See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
 Returns (user room session reason)."
   (cl-flet ((query-confirm (user-id user room session)
-              (setq user-id (or user-id (ement-user-id user)))
-              (if (yes-or-no-p (format "%s user %s <%s> from room %s? "
-                                       prompt
-                                       (ement-user-displayname user)
-                                       user-id
-                                       (ement--format-room room)))
+              (if (yes-or-no-p
+                   (format "%s user %s from room %s? "
+                           prompt
+                           (ement--format-user-id
+                            (or user user-id) :with-id-p t :room room)
+                           (ement--format-room room)))
                   (list user-id (ement-room-id room) session
                         (read-string "Reason (optional): "
                                      nil nil nil 'inherit-input-method))
@@ -2445,10 +2445,11 @@ Returns (user room session reason)."
               (user (and (ement-event-p event)
                          (ement-event-sender event))))
         (ement-room-with-highlighted-event-at (point)
-          (query-confirm nil user room ement-session))
+          (query-confirm (ement-user-id user) user room ement-session))
       ;; No appropriate event at point, so query the arguments interactively.
       (let* ((user-id (ement-complete-user-id :prompt (format "%s user: " prompt)))
              (roomsession (ement-complete-room :prompt (format "%s from room: " prompt))))
+        ;; Pass `user-id' in case `ement-users' does not contain a match.
         (query-confirm user-id
                        (gethash user-id ement-users)
                        (cl-first roomsession)
