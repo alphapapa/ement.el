@@ -2523,7 +2523,7 @@ displayed upon success."
 (defun ement-room--kick-ban-interactive (prompt)
   "Interactive arguments for kicking or un/banning a user.
 See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
-Returns (user room session reason)."
+Returns (user-id room-id session reason)."
   (cl-flet ((query-confirm (user-id user room session)
               (if (yes-or-no-p
                    (format "%s user %s from room %s? "
