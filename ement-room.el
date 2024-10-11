@@ -869,6 +869,7 @@ It may contain these specifiers:
   %b  Message body (plain-text)
   %B  Message body (formatted if available)
   %i  Event ID
+  %o  Room avatar (used for mentions buffer)
   %O  Room display name (used for mentions buffer)
   %r  Reactions
   %s  Sender ID
