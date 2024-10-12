@@ -116,6 +116,10 @@ by users; ones who do so should know what they're doing.")
 
 ;;;; Customization
 
+(defgroup ement-faces nil
+  "Faces for Ement."
+  :group 'ement)
+
 (defgroup ement nil
   "Options for Ement, the Matrix client."
   :group 'comm)

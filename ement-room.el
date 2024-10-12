@@ -309,6 +309,11 @@ Does not include filenames, emotes, etc.")
 
 ;;;; Customization
 
+(defgroup ement-room-faces nil
+  "Faces for room buffers."
+  :group 'ement-room
+  :group 'ement-faces)
+
 (defgroup ement-room nil
   "Options for room buffers."
   :group 'ement)
@@ -335,73 +340,88 @@ number of senders instead (and the names in a tooltip)."
 
 (defface ement-room-name
   '((t (:inherit font-lock-function-name-face)))
-  "Room name shown in header line.")
+  "Room name shown in header line."
+  :group 'ement-room-faces)
 
 (defface ement-room-membership
   '((t (:height 0.8 :inherit font-lock-comment-face)))
-  "Membership events (join/part).")
+  "Membership events (join/part)."
+  :group 'ement-room-faces)
 
 (defface ement-room-reactions
   '((t (:inherit font-lock-comment-face :height 0.9)))
-  "Reactions to messages (including the user count).")
+  "Reactions to messages (including the user count)."
+  :group 'ement-room-faces)
 
 (defface ement-room-reactions-key
   '((t (:inherit ement-room-reactions :height 1.5)))
   "Reactions to messages (the key, i.e. the emoji part).
 Uses a separate face to allow the key to be shown at a different
 size, because in some fonts, emojis are too small relative to
-normal text.")
+normal text."
+  :group 'ement-room-faces)
 
 (defface ement-room-timestamp
   '((t (:inherit font-lock-comment-face)))
-  "Event timestamps.")
+  "Event timestamps."
+  :group 'ement-room-faces)
 
 (defface ement-room-user
   '((t (:inherit font-lock-function-name-face :weight bold :overline t)))
-  "Usernames.")
+  "Usernames."
+  :group 'ement-room-faces)
 
 (defface ement-room-self
   '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
-  "Own username.")
+  "Own username."
+  :group 'ement-room-faces)
 
 (defface ement-room-message-text
   '((t (:inherit default)))
-  "Text message bodies.")
+  "Text message bodies."
+  :group 'ement-room-faces)
 
 (defface ement-room-message-emote
   '((t (:inherit italic)))
-  "Emote message bodies.")
+  "Emote message bodies."
+  :group 'ement-room-faces)
 
 (defface ement-room-quote
   '((t (:height 0.9 :inherit font-lock-comment-face)))
   "Quoted parts of messages.
-Anything wrapped by HTML BLOCKQUOTE tag.")
+Anything wrapped by HTML BLOCKQUOTE tag."
+  :group 'ement-room-faces)
 
 (defface ement-room-redacted
   '((t (:strike-through t)))
-  "Redacted messages.")
+  "Redacted messages."
+  :group 'ement-room-faces)
 
 (defface ement-room-self-message
   '((t (:inherit (font-lock-variable-name-face))))
   "Oneself's message bodies.
 Note that this does not need to inherit
 `ement-room-message-text', because that face is combined with
-this one automatically.")
+this one automatically."
+  :group 'ement-room-faces)
 
 (defface ement-room-timestamp-header
   '((t (:inherit header-line :weight bold :height 1.1)))
-  "Timestamp headers.")
+  "Timestamp headers."
+  :group 'ement-room-faces)
 
 (defface ement-room-mention
   ;; TODO(30.1): Remove when not supporting Emacs 27 anymore.
   (if (version< emacs-version "27.1")
       '((t (:inherit hl-line)))
     '((t (:inherit hl-line :extend t))))
-  "Messages that mention the local user.")
+  "Messages that mention the local user."
+  :group 'ement-room-faces)
 
 (defface ement-room-wrap-prefix
   `((t :inherit highlight))
-  "Face applied to `ement-room-wrap-prefix', which see.")
+  "Face applied to `ement-room-wrap-prefix', which see."
+  :group 'ement-room-faces)
 
 ;;;;; Options
 
@@ -3237,12 +3257,12 @@ function to `ement-room-event-fns', which see."
 (defface ement-room-read-receipt-marker
   '((t (:inherit show-paren-match)))
   "Read marker line in rooms."
-  :group 'ement-room)
+  :group 'ement-room-faces)
 
 (defface ement-room-fully-read-marker
   '((t (:inherit isearch)))
   "Fully read marker line in rooms."
-  :group 'ement-room)
+  :group 'ement-room-faces)
 
 (defcustom ement-room-send-read-receipts t
   "Whether to send read receipts.
