@@ -295,6 +295,28 @@ Does not include filenames, emotes, etc.")
 (defvar ement-room-emote-history nil
   "History list of emotes entered with `ement-room' commands.")
 
+(defvar ement-room-report-content-score-default -100
+  "The default score value used by `ement-room-report-content'.
+This value is used automatically, without prompting, unless a prefix
+argument is used.
+
+The value must be an integer from -100 (offensive) to 0 (inoffensive),
+or nil to not include a score with the report.
+
+The standard value of -100 aligns with the behaviour of Element.")
+
+(defvar ement-room-report-content-score-options
+  ;; Set a smaller list of values to make completing-read present fewer options.
+  (eval-when-compile (mapcar #'number-to-string (number-sequence -100 0)))
+  "The list of selectable score values for `ement-room-report-content'.
+Passed as a collection to `completing-read'.")
+
+(defvar ement-room-report-content-score-history nil
+  "History of reported score for `ement-room-report-content'.")
+
+(defvar ement-room-report-content-reason-history nil
+  "History of reported reasons for `ement-room-report-content'.")
+
 ;; Variables from other files.
 (defvar ement-sessions)
 (defvar ement-syncs)
@@ -2457,6 +2479,74 @@ these all require at least version 29 of Emacs):
                                ('add "added to")
                                ('remove "removed from"))
                              (ement--format-room space))))))
+
+;;;;; Reporting content.
+
+(defun ement-room--report-content-interactive ()
+  "Interactive arguments for `ement-room-report-content'.
+Returns (event room session reason score)."
+  (ement-room-with-highlighted-event-at (point)
+    (let* ((event (ewoc-data (ewoc-locate ement-ewoc))))
+      (if (yes-or-no-p "Report this to the server admins or moderators? ")
+          (list event ement-room ement-session
+                (read-string "Reason (optional): "
+                             nil ement-room-report-content-reason-history nil
+                             'inherit-input-method)
+                (if current-prefix-arg
+                    (let ((score (completing-read
+                                  "Score (-100 (offensive) to 0 (inoffensive), or blank \
+to submit no score): "
+                                  ement-room-report-content-score-options nil t
+                                  (if ement-room-report-content-score-default
+                                      (number-to-string
+                                       ement-room-report-content-score-default)
+                                    "")
+                                  ement-room-report-content-score-history)))
+                      (if (string-empty-p score)
+                          nil
+                        (string-to-number score)))
+                  -100))
+        ;; Aborted.
+        (let ((debug-on-quit nil))
+          (signal 'quit nil))))))
+
+(cl-defun ement-room-report-content (event room session &optional reason score
+                                           &key then else)
+  "Report the message at point to the moderators or administrators.
+
+Reports EVENT in ROOM on SESSION, with optional REASON and SCORE.
+Prompts for a SCORE with a prefix argument, otherwise the value of
+`ement-room-report-content-score-default' is used automatically.
+
+EVENT, ROOM, SESSION are the relevant Ement objects.  REASON is an
+optional string explaining the reason for the report.  SCORE is an
+optional integer from -100 (offensive) to 0 (inoffensive).
+
+Optional arguments THEN and ELSE are success/failure callbacks passed to
+`ement-api'.  If THEN is not supplied then a confirmation message is
+displayed upon success."
+  (interactive (ement-room--report-content-interactive))
+  (pcase-let* (((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/report/%s" room-id event-id))
+               (content)
+               (callbacks))
+    ;; Set the request content.
+    (when (and reason (not (string-empty-p reason)))
+      (push (cons "reason" reason) content))
+    (when score
+      (push (cons "score" score) content))
+    ;; API success/failure callbacks.
+    (unless then
+      (setq then (lambda (_data)
+                   (message "Content reported."))))
+    (setq callbacks (list :then then))
+    (when else
+      (setq callbacks (append (list :else else) callbacks)))
+    ;; Make the API call.
+    (apply #'ement-api session endpoint
+           :method 'post :data (json-encode content)
+           callbacks)))
 
 ;;;; Admin/power commands
 
