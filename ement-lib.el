@@ -1011,26 +1011,27 @@ ROOM defaults to the value of `ement-room'."
 If ROOM, return the user's displayname in that room, when set;
 otherwise, the user's global displayname.  If WITH-ID-P, quote
 the displayname and include the user's MXID, like an email
-address.
-USER may also be a User ID string, in which case it is simply
-formatted as <USER>."
-  (if (ement-user-p user)
-      (let ((displayname (if room
-                             ;; FIXME: If a membership state event has not yet been
-                             ;; received, this sets the display name in the room to
-                             ;; the user ID, and that prevents the display name from
-                             ;; being used if the state event arrives later.
-                             (ement--user-displayname-in room user)
-                           (or (ement-user-displayname user)
-                               (ement-user-username user)))))
-        (if with-id-p
-            (if (equal displayname (ement-user-id user))
-                ;; User has no displayname: just return the ID.
-                (format "<%s>" displayname)
-              (format "%S <%s>" displayname (ement-user-id user)))
-          displayname))
-    ;; USER was not `ement-user-p'.  Assume a user ID instead.
-    (format "<%s>" user)))
+address.  USER may also be a user-ID string, in which case it is
+simply formatted as \"<USER>\"."
+  (cl-typecase user
+    (ement-user
+     (let ((displayname (if room
+                            ;; FIXME: If a membership state event has not yet been
+                            ;; received, this sets the display name in the room to
+                            ;; the user ID, and that prevents the display name from
+                            ;; being used if the state event arrives later.
+                            (ement--user-displayname-in room user)
+                          (or (ement-user-displayname user)
+                              (ement-user-username user)))))
+       (if with-id-p
+           (if (equal displayname (ement-user-id user))
+               ;; User has no displayname: just return the ID.
+               (format "<%s>" displayname)
+             (format "%S <%s>" displayname (ement-user-id user)))
+         displayname)))
+    ;; TODO: Can we eliminate this case and always call with a user object?
+    (string (format "<%s>" user))
+    (otherwise (error "Invalid type of USER: %s" (type-of user)))))
 
 (cl-defun ement--format-body-mentions
     (body room &key (template "<a href=\"https://matrix.to/#/%s\">%s</a>"))

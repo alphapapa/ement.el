@@ -305,12 +305,6 @@ or nil to not include a score with the report.
 
 The standard value of -100 aligns with the behaviour of Element.")
 
-(defvar ement-room-report-content-score-options
-  ;; Set a smaller list of values to make completing-read present fewer options.
-  (eval-when-compile (mapcar #'number-to-string (number-sequence -100 0)))
-  "The list of selectable score values for `ement-room-report-content'.
-Passed as a collection to `completing-read'.")
-
 (defvar ement-room-report-content-score-history nil
   "History of reported score for `ement-room-report-content'.")
 
@@ -2484,28 +2478,28 @@ these all require at least version 29 of Emacs):
 
 (defun ement-room--report-content-interactive ()
   "Interactive arguments for `ement-room-report-content'.
-Returns (event room session reason score)."
+Returns (EVENT ROOM SESSION REASON SCORE)."
   (ement-room-with-highlighted-event-at (point)
-    (let* ((event (ewoc-data (ewoc-locate ement-ewoc))))
+    (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+      (unless (ement-event-p event)
+        (user-error "No event at point"))
       (if (yes-or-no-p "Report this to the server admins or moderators? ")
-          (list event ement-room ement-session
-                (read-string "Reason (optional): "
-                             nil ement-room-report-content-reason-history nil
-                             'inherit-input-method)
-                (if current-prefix-arg
-                    (let ((score (completing-read
-                                  "Score (-100 (offensive) to 0 (inoffensive), or blank \
-to submit no score): "
-                                  ement-room-report-content-score-options nil t
-                                  (if ement-room-report-content-score-default
-                                      (number-to-string
-                                       ement-room-report-content-score-default)
-                                    "")
-                                  ement-room-report-content-score-history)))
-                      (if (string-empty-p score)
-                          nil
-                        (string-to-number score)))
-                  -100))
+          (let ((reason (read-string "Reason (optional): "
+                                     nil ement-room-report-content-reason-history nil
+                                     'inherit-input-method))
+                (score (if current-prefix-arg
+                           ;; Prompt for score.
+                           (pcase (read-number
+                                   "Score (-100=offensive to 0=inoffensive): "
+                                   ement-room-report-content-score-default
+                                   ement-room-report-content-score-history)
+                             ((and (cl-type (integer -100 0)) it)
+                              ;; Hey, look, my pcase cl-type patch is useful!
+                              it)
+                             (_ (user-error "Invalid score (must be -100 to 0)")))
+                         ;; Use default score.
+                         ement-room-report-content-score-default)))
+            (list event ement-room ement-session reason score))
         ;; Aborted.
         (let ((debug-on-quit nil))
           (signal 'quit nil))))))
@@ -2515,16 +2509,16 @@ to submit no score): "
   "Report the message at point to the moderators or administrators.
 
 Reports EVENT in ROOM on SESSION, with optional REASON and SCORE.
-Prompts for a SCORE with a prefix argument, otherwise the value of
-`ement-room-report-content-score-default' is used automatically.
+Prompts for a SCORE with a prefix argument, otherwise the value
+of `ement-room-report-content-score-default' is used.
 
-EVENT, ROOM, SESSION are the relevant Ement objects.  REASON is an
-optional string explaining the reason for the report.  SCORE is an
-optional integer from -100 (offensive) to 0 (inoffensive).
+EVENT, ROOM, SESSION are the relevant Ement objects.  REASON is
+an optional string explaining the reason for the report.  SCORE
+is an optional integer from -100 (offensive) to 0 (inoffensive).
 
-Optional arguments THEN and ELSE are success/failure callbacks passed to
-`ement-api'.  If THEN is not supplied then a confirmation message is
-displayed upon success."
+Optional arguments THEN and ELSE are success/failure callbacks
+passed to `ement-api'.  If THEN is not supplied, a confirmation
+message is displayed upon success."
   (interactive (ement-room--report-content-interactive))
   (pcase-let* (((cl-struct ement-event (id event-id)) event)
                ((cl-struct ement-room (id room-id)) room)
@@ -2543,21 +2537,22 @@ displayed upon success."
     (setq callbacks (list :then then))
     (when else
       (setq callbacks (append (list :else else) callbacks)))
-    ;; Make the API call.
     (apply #'ement-api session endpoint
            :method 'post :data (json-encode content)
            callbacks)))
 
 ;;;; Admin/power commands
 
-(defun ement-room--kick-ban-interactive (prompt)
-  "Interactive arguments for kicking or un/banning a user.
-See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
-Returns (user-id room-id session reason)."
+(defun ement-room--kick-ban-interactive (verb)
+  "Return interactive arguments for kicking or un/banning a user.
+VERB is used in the prompt for user completion.  See
+`ement-room-kick-user', `ement-room-ban-user',
+`ement-room-unban-user'.  Returns (USER-ID ROOM-ID SESSION
+REASON)."
   (cl-flet ((query-confirm (user-id user room session)
               (if (yes-or-no-p
                    (format "%s user %s from room %s? "
-                           prompt
+                           verb
                            (ement--format-user-id
                             (or user user-id) :with-id-p t :room room)
                            (ement--format-room room)))
@@ -2568,44 +2563,44 @@ Returns (user-id room-id session reason)."
                 (let ((debug-on-quit nil))
                   (signal 'quit nil)))))
     ;; Try to use the event at point, unless a prefix arg was supplied.
-    (if-let* (((not current-prefix-arg))
-              (room ement-room)
-              (event (and room (ewoc-data (ewoc-locate ement-ewoc))))
-              (user (and (ement-event-p event)
-                         (ement-event-sender event))))
+    (if-let (((not current-prefix-arg))
+             (room ement-room)
+             (event (and room (ewoc-data (ewoc-locate ement-ewoc))))
+             (user (and (ement-event-p event)
+                        (ement-event-sender event))))
         (ement-room-with-highlighted-event-at (point)
           (query-confirm (ement-user-id user) user room ement-session))
-      ;; No appropriate event at point, so query the arguments interactively.
-      (let ((user-id (ement-complete-user-id :prompt (format "%s user: " prompt))))
-        (cl-destructuring-bind (room session)
-            (ement-complete-room :prompt (format "%s from room: " prompt))
+      ;; No appropriate event at point: query the arguments interactively.
+      (let ((user-id (ement-complete-user-id :prompt (format "%s user: " verb))))
+        (pcase-let ((`(,room ,session)
+                     (ement-complete-room :prompt (format "%s from room: " verb))))
           ;; Pass `user-id' in case `ement-users' does not contain a match.
           (query-confirm user-id (gethash user-id ement-users) room session))))))
 
 (cl-defun ement-room--kick-ban-user (type user-id room-id session reason
                                           &optional successfmt &key then else)
   "Issue the API request for kicking or un/banning a user.
+See `ement-room-kick-user', `ement-room-ban-user',
+`ement-room-unban-user'.
 
-See `ement-room-kick-user', `ement-room-ban-user', `ement-room-unban-user'.
+TYPE is `kick', `ban', or `unban'.  USER-ID, ROOM-ID, SESSION are
+the relevant Matrix IDs and objects for the request.  REASON is
+an optional string giving a reason for the change.  SUCCESSFMT is
+a format string, with placeholders for a user-ID and a room
+description, used to display a success message.
 
-TYPE is `kick', `ban', or `unban'.  USER-ID, ROOM-ID, SESSION are the
-relevant Ement IDs and objects for the request.  REASON is an optional
-string giving a reason for the change.  SUCCESSFMT is a format string,
-with placeholders for a user-id and a room description, used to display
-a success message.
-
-Optional arguments THEN and ELSE are success/failure callbacks passed to
-`ement-api'.  If THEN is not supplied then SUCCESSFMT is a required
-argument, as it is used by the default success callback."
-  ;; Default success callback.
+Optional arguments THEN and ELSE are success/failure callbacks
+passed to `ement-api'.  If THEN is not supplied, SUCCESSFMT is a
+required argument, as it is used by the default success callback."
   (unless then
+    ;; Default success callback.
     (setq then (lambda (_data)
                  (let* ((room (cl-find room-id (ement-session-rooms session)
                                        :key 'ement-room-id :test 'equal))
-                        (room-desc (if room
-                                       (ement--format-room room)
-                                     (format "<%s>" room-id))))
-                   (message successfmt user-id room-desc)))))
+                        (room-description (if room
+                                              (ement--format-room room)
+                                            (format "<%s>" room-id))))
+                   (message successfmt user-id room-description)))))
   ;; Make the API call.
   (let ((endpoint (format "rooms/%s/%s" room-id type))
         (content (if (and reason (not (string-empty-p reason)))
@@ -2622,19 +2617,19 @@ argument, as it is used by the default success callback."
   "Kick USER-ID from ROOM-ID on SESSION, optionally with REASON."
   (interactive (ement-room--kick-ban-interactive "Kick"))
   (ement-room--kick-ban-user 'kick user-id room-id session reason
-                             "User <%s> was kicked out of room %s."))
+                             "User <%s> kicked from room %s."))
 
 (defun ement-room-ban-user (user-id room-id session &optional reason)
   "Ban USER-ID from ROOM-ID on SESSION, optionally with REASON."
   (interactive (ement-room--kick-ban-interactive "Ban"))
   (ement-room--kick-ban-user 'ban user-id room-id session reason
-                             "User <%s> is banned from room %s."))
+                             "User <%s> banned from room %s."))
 
 (defun ement-room-unban-user (user-id room-id session &optional reason)
   "Unban USER-ID from ROOM-ID on SESSION, optionally with REASON."
   (interactive (ement-room--kick-ban-interactive "Unban"))
   (ement-room--kick-ban-user 'unban user-id room-id session reason
-                             "User <%s> is no longer banned from room %s."))
+                             "User <%s> unbanned from room %s."))
 
 ;;;; Functions
 
