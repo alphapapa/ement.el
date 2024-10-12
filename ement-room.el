@@ -421,12 +421,26 @@ this one automatically.")
   "Maximum height in pixels of room avatars shown in header lines."
   :type 'integer)
 
-(defcustom ement-room-coalesce-events t
+(defcustom ement-room-coalesce-events 100
   "Coalesce certain events in room buffers.
 For example, membership events can be overwhelming in large
 rooms, especially ones bridged to IRC.  This option groups them
-together so they take less space."
-  :type 'boolean)
+together so they take less space.
+
+The current, naïve implementation re-renders events as they are
+coalesced, which can cause a performance problem in unusual
+circumstances, so the number of events coalesced into a single,
+rendered event may be limited."
+  :type '(choice (integer :tag "Up to this many events")
+                 (const :tag "An unlimited number of events"
+                        ;; NOTE: As this docstring says, in most cases it should be fine,
+                        ;; but since in those rare cases the problem can be unusually bad
+                        ;; (e.g. taking 15 minutes to render a room's events in
+                        ;; <https://github.com/alphapapa/ement.el/issues/247>), we default
+                        ;; to a safer choice.
+                        :doc "Note that this choice may cause performance problems in rooms with very large numbers of consecutive membership events, but in most cases it should be fine."
+                        t)
+                 (const :tag "Don't coalesce" nil)))
 
 (defcustom ement-room-header-line-format
   ;; TODO: Show in new screenshots.
@@ -1222,7 +1236,7 @@ spec) without requiring all events to use the same margin width."
   "Plain-text body content."
   ;; NOTE: `save-match-data' is required around calls to `ement-room--format-message-body'.
   (let* ((body (save-match-data
-                 (ement-room--format-message-body event :formatted-p nil)))
+                 (ement-room--format-message-body event session :formatted-p nil)))
          (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
@@ -1246,7 +1260,7 @@ spec) without requiring all events to use the same margin width."
 (ement-room-define-event-formatter ?B
   "Formatted body content (i.e. rendered HTML)."
   (let* ((body (save-match-data
-                 (ement-room--format-message-body event)))
+                 (ement-room--format-message-body event session)))
          (body-length (length body))
          (face (ement-room--event-body-face event room session))
          (quote-start (ement--text-property-search-forward 'face
@@ -1870,10 +1884,12 @@ see."
       ;; We use a timeout of 30, because sometimes the server can take a while to
       ;; respond, especially if loading, e.g. hundreds or thousands of events.
       (ement-api session endpoint :timeout 30
-        :params (list (list "from" prev-batch)
-                      (list "dir" "b")
-                      (list "limit" (number-to-string number))
-                      (list "filter" (json-encode ement-room-messages-filter)))
+        :params (remq nil
+                      (list (when prev-batch
+                              (list "from" prev-batch))
+                            (list "dir" "b")
+                            (list "limit" (number-to-string number))
+                            (list "filter" (json-encode ement-room-messages-filter))))
         :then then
         :else (lambda (plz-error)
                 (when buffer
@@ -2248,9 +2264,10 @@ Interactively, to event at point."
                       (setq-local ement-room-replying-to-event event)))
                    (body (ement-room-with-typing
                            (ement-room-read-string prompt nil 'ement-room-message-history
-                                                   nil 'inherit-input-method)))
-                   (replying-to-event (ement--original-event-for event ement-session)))
-        (ement-room-send-message room session :body body :replying-to-event replying-to-event)))))
+                                                   nil 'inherit-input-method))))
+        ;; NOTE: `ement-room-send-message' looks up the original event, so we pass `event'
+        ;; as :replying-to-event.
+        (ement-room-send-message room session :body body :replying-to-event event)))))
 
 (when (assoc "emoji" input-method-alist)
   (defun ement-room-use-emoji-input-method ()
@@ -2487,13 +2504,23 @@ before the earliest-seen message)."
                               (append (ement-room-state room) (append state nil))))
     (ement-with-progress-reporter (:reporter ("Ement: Processing earlier events..." 0 progress-max-value))
       ;; Append timeline events (in the "chunk").
+      ;; NOTE: It's regrettable that we have to turn the chunk vector into a list before
+      ;; appending it to the timeline, but we have to discard events that we've already
+      ;; seen.
+      ;; TODO: Consider looping over the vector and pushing one-by-one instead of using
+      ;; `seq-remove' and `append' (might be faster).
       (cl-loop for event across-ref chunk
-               do (setf event (ement--make-event event))
-               ;; HACK: Put events on events table.  See FIXME above about using the event hook.
-               (ement--put-event event nil session)
+               do (if (gethash (alist-get 'event_id event) (ement-session-events session))
+                      ;; Duplicate event: set to nil to be ignored.
+                      (setf event nil)
+                    ;; New event.
+                    (setf event (ement--make-event event))
+                    ;; HACK: Put events on events table.  See FIXME above about using the event hook.
+                    (ement--put-event event nil session))
                (ement-progress-update)
-               finally do (setf (ement-room-timeline room)
-                                (append (ement-room-timeline room) (append chunk nil))))
+               finally do
+               (setf chunk (seq-remove #'null chunk)
+                     (ement-room-timeline room) (append (ement-room-timeline room) chunk)))
       (when buffer
         ;; Insert events into the room's buffer.
         (with-current-buffer buffer
@@ -2503,7 +2530,10 @@ before the earliest-seen message)."
               (select-window buffer-window))
             ;; FIXME: Use retro-loading in event handlers, or in --handle-events, anyway.
             (ement-room--process-events chunk)
-            (when set-prev-batch
+            ;; Don't set the slot if the response doesn't include an "end" token (that
+            ;; would cause subsequent retro requests to fetch events from the end of the
+            ;; timeline, as if we had just joined).
+            (when (and set-prev-batch end)
               ;; This feels a little hacky, but maybe not too bad.
               (setf (ement-room-prev-batch room) end))
             (setf ement-room-retro-loading nil)))))
@@ -2571,7 +2601,8 @@ the previously oldest event."
   ;; into the auto-generated docstring.
   "Hook run after entering `ement-room-mode'."
   :options '(visual-line-mode)
-  :type 'hook)
+  :type 'hook
+  :group 'ement-room)
 
 (define-derived-mode ement-room-mode fundamental-mode
   `("Ement-Room"
@@ -2595,6 +2626,8 @@ and erases the buffer.
         imenu-create-index-function #'ement-room--imenu-create-index-function
         ;; TODO: Use EWOC header/footer for, e.g. typing messages.
         ement-ewoc (ewoc-create #'ement-room--pp-thing))
+  ;; Prevent line/wrap-prefix formatting properties being included in copied text.
+  (setq-local filter-buffer-substring-function #'ement-room--buffer-substring-filter)
   ;; Set the URL handler.  Note that `browse-url-handlers' was added in 28.1;
   ;; prior to that `browse-url-browser-function' served double-duty.
   ;; TODO: Remove compat code when requiring Emacs >=28.
@@ -2640,6 +2673,7 @@ via `ement-room-mode-self-insert-keymap-update-hook' (see which)."
   :init-value nil
   :global t
   :keymap nil
+  :group 'ement-room
   ;; Ensure the self-insert and advertised keymaps are up to date.
   (if ement-room-self-insert-mode
       (ement-room-mode-self-insert-keymap-update)
@@ -2785,6 +2819,18 @@ data slot."
   "Return STRING with \"%\" escaped.
 Needed to display things in the header line."
   (replace-regexp-in-string (rx "%") "%%" string t t))
+
+(defun ement-room--buffer-substring-filter (beg end &optional delete)
+  "Value for `filter-buffer-substring-function' in Ement rooms.
+
+Strips the `line-prefix' and `wrap-prefix' text properties which
+are used when formatting certain Matrix events, but which should
+not be copied into other buffers."
+  (let ((string (funcall (default-value 'filter-buffer-substring-function)
+                         beg end delete)))
+    (remove-list-of-text-properties
+     0 (length string) '(line-prefix wrap-prefix) string)
+    string))
 
 ;;;;; Imenu
 
@@ -3607,6 +3653,10 @@ the first and last nodes in the buffer, respectively."
 (defun ement-room--coalesce-nodes (a b ewoc)
   "Try to coalesce events in nodes A and B in EWOC.
 Return absorbing node if coalesced."
+  ;; NOTE: This does not coalesce two `ement-room-membership-events' nodes; it only
+  ;; coalesces an individual membership event into another one or into an
+  ;; `ement-room-membership-events' node.
+  ;; TODO: Allow two `ement-room-membership-events' nodes to be coalesced.
   (cl-labels ((coalescable-p (node)
                 (or (and (ement-event-p (ewoc-data node))
                          (member (ement-event-type (ewoc-data node)) '("m.room.member")))
@@ -3616,16 +3666,24 @@ Return absorbing node if coalesced."
                                      (not (ement-room-membership-events-p (ewoc-data b))))
                                  a b))
              (absorbed-node (if (eq absorbing-node a) b a)))
-        (cl-etypecase (ewoc-data absorbing-node)
-          (ement-room-membership-events nil)
-          (ement-event (setf (ewoc-data absorbing-node) (ement-room-membership-events--update
-                                                         (make-ement-room-membership-events
-                                                          :events (list (ewoc-data absorbing-node)))))))
-        (push (ewoc-data absorbed-node) (ement-room-membership-events-events (ewoc-data absorbing-node)))
-        (ement-room-membership-events--update (ewoc-data absorbing-node))
-        (ewoc-delete ewoc absorbed-node)
-        (ewoc-invalidate ewoc absorbing-node)
-        absorbing-node))))
+        (when (cl-etypecase (ewoc-data absorbing-node)
+                (ement-room-membership-events
+                 (pcase-exhaustive ement-room-coalesce-events
+                   ((pred integerp)
+                    (< (length (ement-room-membership-events-events (ewoc-data absorbing-node)))
+                       ement-room-coalesce-events))
+                   (`t t)))
+                (ement-event
+                 (setf (ewoc-data absorbing-node)
+                       (ement-room-membership-events--update
+                        (make-ement-room-membership-events
+                         :events (list (ewoc-data absorbing-node)))))))
+          (push (ewoc-data absorbed-node)
+                (ement-room-membership-events-events (ewoc-data absorbing-node)))
+          (ement-room-membership-events--update (ewoc-data absorbing-node))
+          (ewoc-delete ewoc absorbed-node)
+          (ewoc-invalidate ewoc absorbing-node)
+          absorbing-node)))))
 
 (defun ement-room--insert-event (event)
   "Insert EVENT into current buffer."
@@ -4034,8 +4092,8 @@ Format defaults to `ement-room-message-format-spec', which see."
                          'display `((margin right-margin) ,string))))))
       (buffer-string))))
 
-(cl-defun ement-room--format-message-body (event &key (formatted-p t))
-  "Return formatted body of \"m.room.message\" EVENT.
+(cl-defun ement-room--format-message-body (event session &key (formatted-p t))
+  "Return formatted body of \"m.room.message\" EVENT on SESSION.
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
@@ -4060,7 +4118,7 @@ If FORMATTED-P, return the formatted body content, when available."
                (appendix (pcase msgtype
                            ;; TODO: Face for m.notices.
                            ((or "m.text" "m.emote" "m.notice") nil)
-                           ("m.image" (ement-room--format-m.image event))
+                           ("m.image" (ement-room--format-m.image event session))
                            ("m.file" (ement-room--format-m.file event))
                            ("m.video" (ement-room--format-m.video event))
                            ("m.audio" (ement-room--format-m.audio event))
@@ -5299,26 +5357,58 @@ options `ement-room-image-thumbnail-height' and
                    '((display-buffer-pop-up-frame
                       (pop-up-frame-parameters . ((fullscreen . t) (maximized . t))))))))
 
-(defun ement-room--format-m.image (event)
-  "Return \"m.image\" EVENT formatted as a string.
+(cl-defun ement-room--image-download (event session &key then else (authenticatedp t))
+  "Download image EVENT on SESSION and call THEN, else ELSE.
+If AUTHENTICATEDP, send authenticated request to new
+endpoint (Matrix 1.11, MSC3911); otherwise send old-style,
+unauthenticated request to old endpoint."
+  (declare (indent defun))
+  (pcase-let* (((cl-struct ement-event content) event)
+               ((map ('url mxc)) content))
+    (ement--media-request mxc session :then then :else else
+      :queue ement-images-queue :authenticatedp authenticatedp)))
+
+(defun ement-room--format-m.image (event session)
+  "Return \"m.image\" EVENT on SESSION formatted as a string.
 When `ement-room-images' is non-nil, also download it and then
 show it in the buffer."
-  (pcase-let* (((cl-struct ement-event content (local event-local)) event)
+  (pcase-let* (((cl-struct ement-event (local event-local)) event)
                ;; HACK: Get the room's buffer from the variable (the current buffer
                ;; will be a temp formatting buffer when this is called, but it still
                ;; inherits the `ement-room' variable from the room buffer, thankfully).
                ((cl-struct ement-room local) ement-room)
                ((map buffer) local)
                ;; TODO: Thumbnail support.
-               ((map ('url mxc) info ;; ('thumbnail_url thumbnail-url)
-                     ) content)
-               ((map thumbnail_info) info)
-               ((map ('h _thumbnail-height) ('w _thumbnail-width)) thumbnail_info)
                ((map image) event-local)
-               (url (when mxc
-                      (ement--mxc-to-url mxc ement-session)))
-               ;; (thumbnail-url (ement--mxc-to-url thumbnail-url ement-session))
-               )
+               (then (apply-partially #'ement-room--m.image-callback event ement-room))
+               (else (lambda (plz-error)
+                       "Handle PLZ-ERROR for a failed request to download an image."
+                       (pcase-let* (((cl-struct plz-error response
+                                                (message plz-message)
+                                                (curl-error `(,curl-exit-code . ,curl-message)))
+                                     plz-error)
+                                    (status (when (plz-response-p response)
+                                              (plz-response-status response)))
+                                    (body (when (plz-response-p response)
+                                            (plz-response-body response)))
+                                    (json-object (when body
+                                                   (ignore-errors
+                                                     (json-read-from-string body))))
+                                    (errcode (alist-get 'errcode json-object))
+                                    (error-message (format "%S: %s"
+                                                           (or curl-exit-code status)
+                                                           (or (when json-object
+                                                                 (alist-get 'error json-object))
+                                                               curl-message
+                                                               plz-message))))
+                         (pcase errcode
+                           ("M_UNRECOGNIZED"
+                            ;; Resend unauthenticated media request for older servers.
+                            ;; FIXME: Test the "/versions" endpoint to see what's supported.  See
+                            ;; <https://matrix.org/blog/2024/06/20/matrix-v1.11-release/>.
+                            (ement-room--image-download event session :authenticatedp nil
+                              :then then))
+                           (_ (signal 'ement-api-error (list error-message))))))))
     (if (and ement-room-images image)
         ;; Images enabled and image downloaded: create image and
         ;; return it in a string.
@@ -5361,22 +5451,24 @@ show it in the buffer."
       ;; Image not downloaded: insert URL as button, and download if enabled.
       (prog1
           (ement-room-wrap-prefix "[image]"
-            'action #'browse-url
+            'action (apply-partially #'apply #'ement-room--image-download)
             'button t
-            'button-data url
+            'button-data (list event session
+                               :then (lambda (&rest args)
+                                       ;; Bind non-nil to force the image to be displayed.
+                                       (let ((ement-room-images t))
+                                         (apply then args)))
+                               :else else)
             'category t
             'face 'button
             'follow-link t
-            'help-echo url
+            'help-echo "Show image"
             'keymap button-map
             'mouse-face 'highlight)
-        (when (and ement-room-images url)
-          ;; Images enabled and URL present: download it.
-          (plz-run
-           (plz-queue ement-images-queue
-             'get url :as 'binary
-             :then (apply-partially #'ement-room--m.image-callback event ement-room)
-             :noquery t)))))))
+        (when ement-room-images
+          ;; Images enabled: download it.
+          (ement-room--image-download event session
+            :then then :else else))))))
 
 (defun ement-room--m.image-callback (event room data)
   "Add downloaded image from DATA to EVENT in ROOM.
@@ -5405,19 +5497,17 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype size))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (when size
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5431,18 +5521,16 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype size w h))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5455,19 +5543,17 @@ Then invalidate EVENT's node to show the image."
                                          ('info (map mimetype duration size))
                                          ('url mxc-url))))
                 event)
-               (url (when mxc-url
-                      (ement--mxc-to-url mxc-url ement-session)))
                (human-size (file-size-human-readable size))
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'browse-url
+                        'action #'ement-room-browse-mxc
                         'button t
-                        'button-data url
+                        'button-data mxc-url
                         'category t
                         'face 'button
                         'follow-link t
-                        'help-echo url
+                        'help-echo mxc-url
                         'keymap button-map
                         'mouse-face 'highlight)
             (propertize " "
@@ -5785,6 +5871,24 @@ For use in `completion-at-point-functions'."
           (interactive)
           (or (not ement-auto-sync)
               (not (map-elt ement-syncs ement-session)))))])
+
+;;;; Browsing URLs, EWW
+
+(defun ement-room-browse-mxc (mxc)
+  ;; TODO: If prefix arg, prompt for destination and download to file.
+  "Browse MXC URL on current `ement-session'."
+  ;; For authenticated media, we have to provide our own version of `eww-retrieve'.
+  (let ((session ement-session))
+    (cl-letf (((symbol-function 'eww-retrieve)
+               (lambda (mxc callback cbargs)
+                 (ement--media-request mxc session
+                   :as (lambda ()
+                         ;; EWW wants to parse the headers itself, so widen and decode them.
+                         (widen)
+                         (decode-coding-region (point-min) (point) 'utf-8)
+                         ;; HACK: This STATUS argument to `eww-render' is bogus.
+                         (apply callback 'status cbargs))))))
+      (browse-url mxc))))
 
 ;;;; Footer
 

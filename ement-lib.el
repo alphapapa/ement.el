@@ -1142,7 +1142,8 @@ e.g. `ement-room-send-org-filter')."
     (when filter
       (setf content (funcall filter content room)))
     (when replying-to-event
-      (setf content (ement--add-reply content replying-to-event room)))
+      (setf replying-to-event (ement--original-event-for replying-to-event session)
+            content (ement--add-reply content replying-to-event room)))
     (ement-api session endpoint :method 'put :data (json-encode content)
       :then (apply-partially then :room room :session session
                              ;; Data is added when calling back.
@@ -1362,6 +1363,15 @@ Suitable for use in completion, etc."
           media-id (match-string 2 uri))
     (format "%s/_matrix/media/r0/download/%s/%s"
             uri-prefix server-name media-id)))
+
+(defun ement--mxc-to-endpoint (uri)
+  "Return API endpoint for MXC URI.
+Returns string suitable for the ENDPOINT argument to `ement-api'."
+  (string-match (rx "mxc://" (group (1+ (not (any "/"))))
+                    "/" (group (1+ anything))) uri)
+  (let ((server-name (match-string 1 uri))
+        (media-id (match-string 2 uri)))
+    (format "media/download/%s/%s" server-name media-id)))
 
 (defun ement--remove-face-property (string value)
   "Remove VALUE from STRING's `face' properties.
@@ -1632,33 +1642,34 @@ problems."
           (cl-incf (ement-session-transaction-id session))
           (format-time-string "%s")))
 
-(defun ement--user-displayname-in (room user)
-  "Return the displayname for USER in ROOM."
+(defun ement--user-displayname-in (room user &optional recalculatep)
+  "Return the displayname for USER in ROOM.
+If RECALCULATEP, force recalculation; otherwise return a cached
+name if available."
   ;; SPEC: <https://matrix.org/docs/spec/client_server/r0.6.1#calculating-the-display-name-for-a-user>.
-  ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
-
   ;; NOTE: Both state and timeline events must be searched.  (A helpful user
   ;; in #matrix-dev:matrix.org, Michael (t3chguy), clarified this for me).
-  (if-let ((cached-name (gethash user (ement-room-displaynames room))))
-      cached-name
-    ;; Put timeline events before state events, because IIUC they should be more recent.
-    (cl-labels ((join-displayname-event-p (event)
-                  (and (eq user (ement-event-sender event))
-                       (equal "m.room.member" (ement-event-type event))
-                       (equal "join" (alist-get 'membership (ement-event-content event)))
-                       (alist-get 'displayname (ement-event-content event)))))
-      ;; FIXME: Should probably sort the relevant events to get the latest one.
-      (if-let* ((displayname (or (cl-loop for event in (ement-room-timeline room)
-                                          when (join-displayname-event-p event)
-                                          return (alist-get 'displayname (ement-event-content event)))
-                                 (cl-loop for event in (ement-room-state room)
-                                          when (join-displayname-event-p event)
-                                          return (alist-get 'displayname (ement-event-content event)))))
-                (calculated-name displayname))
-          (puthash user calculated-name (ement-room-displaynames room))
-        ;; No membership state event: use pre-calculated displayname or ID.
-        (or (ement-user-displayname user)
-            (ement-user-id user))))))
+  (or (unless recalculatep
+        (gethash user (ement-room-displaynames room)))
+      (cl-labels ((event-sets-displayname (event)
+                    (and (eq user (ement-event-sender event))
+                         (equal "m.room.member" (ement-event-type event))
+                         (equal "join" (alist-get 'membership (ement-event-content event)))
+                         (alist-get 'displayname (ement-event-content event)))))
+        ;; Search timeline events before state events, because IIUC they should be more
+        ;; recent.  Also, we assume that the timeline and state events are sorted
+        ;; most-recent-first, so the first such event found is the one to use.
+        (puthash user (or (cl-loop for event in (ement-room-timeline room)
+                                   when (event-sets-displayname event)
+                                   return it)
+                          (cl-loop for event in (ement-room-state room)
+                                   when (event-sets-displayname event)
+                                   return it)
+                          ;; FIXME: Add step 3 of the spec.  For now we skip to step 4.
+                          ;; No membership state event: use pre-calculated displayname or ID.
+                          (ement-user-displayname user)
+                          (ement-user-id user))
+                 (ement-room-displaynames room)))))
 
 (defun ement--xml-escape-string (string)
   "Return STRING having been escaped with `xml-escape-string'.
@@ -1790,6 +1801,27 @@ seconds, etc."
                                    (format "%c: %s\n" (car c) (caddr c)))
                                  choices)))
     (read-multiple-choice prompt choices (format help-format help-choices))))
+
+(cl-defun ement--media-request
+    (mxc session &key queue (then #'ignore) (else #'ement-api-error)
+         (as 'binary) (authenticatedp t))
+  "Request media from MXC URL on SESSION.
+If AUTHENTICATEDP, send authenticated request.  Arguments THEN,
+ELSE, and AS are passed to `ement-api' for authenticated media
+requests, or to `plz' for unauthenticated ones, each which see.
+If QUEUE, send request on it."
+  (declare (indent defun))
+  (if authenticatedp
+      (ement-api session (ement--mxc-to-endpoint mxc) :version "v1"
+        :json-read-fn as :then then :else else :queue queue)
+    ;; Send unauthenticated request.
+    (if queue
+        (plz-run
+         (plz-queue queue
+           'get (ement--mxc-to-url mxc session) :as as
+           :then then :else else :noquery t))
+      (plz 'get (ement--mxc-to-url mxc session) :as as
+        :then then :else else :noquery t))))
 
 ;;; Footer
 

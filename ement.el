@@ -5,7 +5,7 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.15.1
+;; Version: 0.16
 ;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.13") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
@@ -356,8 +356,10 @@ in them won't work."
   (dolist (session sessions)
     (let ((user-id (ement-user-id (ement-session-user session))))
       (when-let ((process (map-elt ement-syncs session)))
-        (ignore-errors
-          (delete-process process)))
+        ;; Disable the sync process's ELSE handler, preventing error messages, but still
+        ;; allowing `plz--respond' to clean up the buffer, etc.
+        (setf (process-get process :plz-else) #'ignore)
+        (delete-process process))
       ;; NOTE: I'd like to use `map-elt' here, but not until
       ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=47368> is fixed, I guess.
       (setf (alist-get session ement-syncs nil nil #'equal) nil
@@ -367,7 +369,7 @@ in them won't work."
     ;; to store a per-session users table, but this is probably good enough.
     (clrhash ement-users))
   (run-hooks 'ement-disconnect-hook)
-  (message "Ement: Disconnected (%s)"
+  (message "Ement: Disconnected <%s>."
            (string-join (cl-loop for session in sessions
                                  collect (ement-user-id (ement-session-user session)))
                         ", ")))
@@ -981,17 +983,26 @@ and `session' to the session.  Adds function to
                 event)
                (user (or (gethash state-key ement-users)
                          (puthash state-key
-                                  (make-ement-user :id state-key :avatar-url avatar-url
-                                                   ;; NOTE: The spec doesn't seem to say whether the
-                                                   ;; displayname in the member event applies only to the
-                                                   ;; room or is for the user generally, so we'll save it
-                                                   ;; in the struct anyway.
-                                                   :displayname displayname)
+                                  (make-ement-user
+                                   :id state-key :avatar-url avatar-url
+                                   ;; NOTE: The spec doesn't seem to say whether the
+                                   ;; displayname in the member event applies only to
+                                   ;; the room or is for the user generally, so we'll
+                                   ;; save it in the struct anyway.
+                                   ;; FIXME: This is probably wrong: it probably means
+                                   ;; overwriting the global displayname with any
+                                   ;; room-specific one that was most recently processed.
+                                   :displayname displayname)
                                   ement-users))))
     (pcase membership
       ("join"
        (puthash state-key user members)
-       (puthash user displayname (ement-room-displaynames room)))
+       (if displayname
+           ;; NOTE: This handler is only called for new events, not when retrieving old events.
+           ;; Therefore it's safe to update the cached displayname from such an event.
+           (puthash user displayname (ement-room-displaynames room))
+         ;; No displayname set for this room: recalculate.
+         (ement--user-displayname-in room user 'recalculate)))
       (_ (remhash state-key members)
          (remhash user (ement-room-displaynames room))))))
 

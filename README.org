@@ -297,6 +297,29 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 :TOC:      :depth 0
 :END:
 
+** 0.16
+
+*Compatibility*
+
++ Use authenticated media requests (part of Matrix 1.11; see [[https://github.com/matrix-org/matrix-spec-proposals/pull/3916][MSC3916]] and [[https://matrix.org/blog/2024/06/26/sunsetting-unauthenticated-media/][matrix.org's sunsetting unauthenticated media]]).
+
+*Additions*
+
++ When option ~ement-room-images~ is disabled (preventing automatic download and display of images), individual images may be shown by clicking the button in their events.
+
+*Changes*
+
++ Option ~ement-room-coalesce-events~ may now be set to (and defaults to) a maximum number of events to coalesce together.  (This avoids potential performance problems in rare cases.  See [[https://github.com/alphapapa/ement.el/issues/247][#247]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]] for reporting and [[https://github.com/sergiodj][Sergio Durigan Junior]] for testing.)
+
+*Fixes*
++ Replies to edited messages are correctly sent to the original event (whereas previously they were sent to the edit, which caused reactions to not be shown).  ([[https://github.com/alphapapa/ement.el/issues/230][#230]], [[https://github.com/alphapapa/ement.el/issues/277][#277]].  Thanks to [[https://github.com/phil-s][Phil Sainty]] for suggesting, and to [[https://github.com/dionisos2][dionisos]] for reporting.)
++ Set ~filter-buffer-substring-function~ in room buffers to prevent undesired text properties from being included in copied text.  ([[https://github.com/alphapapa/ement.el/pull/278][#278]].  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Command ~ement-disconnect~ no longer shows an error message.  ([[https://github.com/alphapapa/ement.el/issues/208][#208]].)
++ Retrieval of earlier events in a just-joined room.  ([[https://github.com/alphapapa/ement.el/issues/148][#148]].  Thanks to [[https://github.com/MagicRB][Richard Brežák]] for reporting, and to [[https://github.com/phil-s][Phil Sainty]] for testing.)
++ Cache computed displaynames in rooms (avoiding unnecessary reiteration and recalculation).  ([[https://github.com/alphapapa/ement.el/issues/298][#298]].  Thanks to [[https://github.com/Rutherther][Rutherther]] for reporting and testing, and to [[https://github.com/phil-s][Phil Sainty]].)
++ Customization group for options ~ement-room-mode-hook~ and ~ement-room-self-insert-mode~.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Inheritance for some faces.  ([[https://github.com/alphapapa/ement.el/pull/303][#303]].  Thanks to [[https://github.com/tarsius][Jonas Bernoulli]].) 
+
 ** 0.15.1
 
 *Fixes*
