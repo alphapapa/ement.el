@@ -1409,7 +1409,10 @@ shr.el used the `variable-pitch' face directly.")
                                          (not (equal (or format (alist-get 'format new-content))
                                                      "org.matrix.custom.html")))
                                 ement-room-variable-pitch-face))
-               (body-face (list :inherit (delq nil (list redacted-face context-face type-face shr-text-face)))))
+               (base-body-face (list :inherit (delq nil (list redacted-face context-face type-face))))
+               (body-face (if shr-text-face
+                              (list shr-text-face base-body-face)
+                            base-body-face)))
     (if prism-color
         (plist-put body-face :foreground prism-color)
       body-face)))

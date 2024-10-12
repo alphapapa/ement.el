@@ -317,7 +317,8 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 + Command ~ement-disconnect~ no longer shows an error message.  ([[https://github.com/alphapapa/ement.el/issues/208][#208]].)
 + Retrieval of earlier events in a just-joined room.  ([[https://github.com/alphapapa/ement.el/issues/148][#148]].  Thanks to [[https://github.com/MagicRB][Richard Brežák]] for reporting, and to [[https://github.com/phil-s][Phil Sainty]] for testing.)
 + Cache computed displaynames in rooms (avoiding unnecessary reiteration and recalculation).  ([[https://github.com/alphapapa/ement.el/issues/298][#298]].  Thanks to [[https://github.com/Rutherther][Rutherther]] for reporting and testing, and to [[https://github.com/phil-s][Phil Sainty]].)
-+ Customization group for options ~ement-room-mode-hook~ and ~ement-room-self-insert-mode~.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)  
++ Customization group for options ~ement-room-mode-hook~ and ~ement-room-self-insert-mode~.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Improved face consistency when ~ement-use-variable-pitch~ is enabled.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 ** 0.15.1
 
