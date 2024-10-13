@@ -56,6 +56,7 @@
 (require 'dns)
 (require 'files)
 (require 'map)
+(require 'xdg)
 
 ;; This package.
 (require 'ement-lib)
@@ -130,8 +131,14 @@ Writes the session file when Emacs is killed."
              (add-hook 'kill-emacs-hook #'ement--kill-emacs-hook)
            (remove-hook 'kill-emacs-hook #'ement--kill-emacs-hook))))
 
-(defcustom ement-sessions-file "~/.cache/ement.el"
-  ;; FIXME: Expand correct XDG cache directory (new in Emacs 27).
+(defcustom ement-sessions-file
+  (or (cl-loop for filename in
+               (list "~/.cache/ement.el"
+                     (expand-file-name "ement.el" (xdg-cache-home))
+                     (expand-file-name "ement-sessions.eld" (xdg-cache-home)))
+               when (file-exists-p filename)
+               return filename)
+      (expand-file-name "ement-sessions.eld" (xdg-cache-home)))
   "Save username and access token to this file."
   :type 'file)
 
@@ -384,8 +391,8 @@ in them won't work."
                                  collect (ement-user-id (ement-session-user session)))
                         ", ")))
 
-(defun ement-kill-buffers ()
-  "Kill all Ement buffers.
+(defun ement-kill-buffers (&rest _ignore)
+  "Kill Ement buffers for disconnected sessions.
 Useful in, e.g. `ement-disconnect-hook', which see."
   (interactive)
   (let ((any-connected-p (cl-find-if #'ement-session-has-synced-p ement-sessions :key #'cdr)))
@@ -436,7 +443,8 @@ stored in `ement-read-receipt-idle-timer'."
 (defun ement--stop-idle-timer (&rest _ignore)
   "Stop idle timer stored in `ement-read-receipt-idle-timer'.
 To be called from `ement-disconnect-hook'."
-  (unless ement-sessions
+  (unless (cl-find-if #'ement-session-has-synced-p ement-sessions :key #'cdr)
+    ;; No connected sessions: stop the timer.
     (when (timerp ement-read-receipt-idle-timer)
       (cancel-timer ement-read-receipt-idle-timer)
       (setf ement-read-receipt-idle-timer nil))))
@@ -582,7 +590,8 @@ a filter ID).  When unspecified, the value of
     (when process
       (setf (map-elt ement-syncs session) process)
       (when (and (not quiet) (ement--sync-messages-p session))
-        (ement-message "Sync request sent.  Waiting for response...")))))
+        (ement-message "Sync request sent <%s>.  Waiting for response..."
+                       (ement-user-id (ement-session-user session)))))))
 
 (defun ement--sync-callback (session data)
   "Process sync DATA for SESSION.
