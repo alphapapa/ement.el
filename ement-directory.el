@@ -180,7 +180,8 @@ Show up to LIMIT rooms.  Interactively, with prefix, prompt for
 server and LIMIT.
 
 SINCE may be a next-batch token."
-  (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
+  (interactive (let* ((session (ement-complete-session :prompt "Search on session: "
+                                                       :pred #'ement-session-has-synced-p))
                       (server (if current-prefix-arg
                                   (read-string "Search on server: " nil nil
                                                (ement-server-name (ement-session-server session)))
@@ -227,7 +228,8 @@ SINCE may be a next-batch token."
 (cl-defun ement-directory-search (query &key server session since (limit 1000))
   "View public rooms on SERVER matching QUERY.
 QUERY is a string used to filter results."
-  (interactive (let* ((session (ement-complete-session :prompt "Search on session: "))
+  (interactive (let* ((session (ement-complete-session :prompt "Search on session: "
+                                                       :pred #'ement-session-has-synced-p))
                       (server (if current-prefix-arg
                                   (read-string "Search on server: " nil nil
                                                (ement-server-name (ement-session-server session)))

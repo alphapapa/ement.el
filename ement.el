@@ -225,7 +225,10 @@ the port, e.g.
                  (cl-case (length ement-sessions)
                    (0 (list :user-id (read-string "User ID: " nil 'ement-connect-user-id-history)))
                    (1 (list :session (cdar ement-sessions)))
-                   (otherwise (list :session (ement-complete-session))))))
+                   (otherwise (list :session (ement-complete-session
+                                              :prompt "Connect as user ID: "
+                                              :pred (lambda (session)
+                                                      (not (ement-session-has-synced-p session)))))))))
   (let (sso-server-process)
     (cl-labels ((new-session ()
                   (unless (string-match (rx bos "@" (group (1+ (not (any ":")))) ; Username
@@ -329,6 +332,9 @@ Ement: SSO login accepted; session token received.  Connecting to Matrix server.
       (if session
           ;; Start syncing given session.
           (let ((user-id (ement-user-id (ement-session-user session))))
+            (unless (hash-table-p (ement-session-events session))
+              ;; HACK: Ensure session's events slot is a hash table (when disconnecting, it's cleared).
+              (setf (ement-session-events session) (make-hash-table :test #'equal)))
             ;; HACK: If session is already in ement-sessions, this replaces it.  I think that's okay...
             (setf (alist-get user-id ement-sessions nil nil #'equal) session)
             (ement--sync session :timeout ement-initial-sync-timeout))
@@ -349,10 +355,8 @@ room buffers are left alive and can be read, but other commands
 in them won't work."
   (interactive (list (if current-prefix-arg
                          (mapcar #'cdr ement-sessions)
-                       (list (ement-complete-session)))))
-  (when ement-save-sessions
-    ;; Write sessions before we remove them from the variable.
-    (ement--write-sessions ement-sessions))
+                       (list (ement-complete-session :prompt "Disconnect: "
+                                                     :pred #'ement-session-has-synced-p)))))
   (dolist (session sessions)
     (let ((user-id (ement-user-id (ement-session-user session))))
       (when-let ((process (map-elt ement-syncs session)))
@@ -362,11 +366,16 @@ in them won't work."
         (delete-process process))
       ;; NOTE: I'd like to use `map-elt' here, but not until
       ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=47368> is fixed, I guess.
-      (setf (alist-get session ement-syncs nil nil #'equal) nil
-            (alist-get user-id ement-sessions nil 'remove #'equal) nil)))
-  (unless ement-sessions
-    ;; HACK: If no sessions remain, clear the users table.  It might be best
-    ;; to store a per-session users table, but this is probably good enough.
+      (setf (alist-get session ement-syncs) nil
+            ;; Set the session to an "emptied" one, which only retains slots needed to
+            ;; reconnect.
+            (alist-get user-id ement-sessions nil nil #'equal) (ement--emptied session))))
+  (when ement-save-sessions
+    ;; Write sessions now that we have emptied the session.
+    (ement--write-sessions ement-sessions))
+  (unless (cl-find-if #'ement-session-has-synced-p ement-sessions :key #'cdr)
+    ;; HACK: If no connected sessions remain, clear the users table.  It might be best to
+    ;; store a per-session users table, but this is probably good enough.
     (clrhash ement-users))
   ;; TODO: Should call this hook for each session with the session as argument.
   (run-hooks 'ement-disconnect-hook)
@@ -379,9 +388,15 @@ in them won't work."
   "Kill all Ement buffers.
 Useful in, e.g. `ement-disconnect-hook', which see."
   (interactive)
-  (dolist (buffer (buffer-list))
-    (when (string-prefix-p "ement-" (symbol-name (buffer-local-value 'major-mode buffer)))
-      (kill-buffer buffer))))
+  (let ((any-connected-p (cl-find-if #'ement-session-has-synced-p ement-sessions :key #'cdr)))
+    (dolist (buffer (buffer-list))
+      (when (string-prefix-p "ement-" (symbol-name (buffer-local-value 'major-mode buffer)))
+        (let* ((session (buffer-local-value 'ement-session buffer))
+               (connectedp (and session (not (ement-session-has-synced-p session)))))
+          (unless (or connectedp (and any-connected-p (not session)))
+            ;; Buffer is for a disconnected session, or not for a specific session and no
+            ;; sessions are connected.
+            (kill-buffer buffer)))))))
 
 (defun ement--login-callback (session data)
   "Record DATA from logging in to SESSION and do initial sync."
@@ -873,6 +888,7 @@ Returns nil if unable to read `ement-sessions-file'."
                         :token token
                         :transaction-id transaction-id))))
     (message "Ement: Writing sessions...")
+    ;; TODO: Use `persist'.
     (with-temp-file ement-sessions-file
       (pcase-let* ((print-level nil)
                    (print-length nil)
@@ -884,6 +900,22 @@ Returns nil if unable to read `ement-sessions-file'."
         (prin1 sessions-alist-plist (current-buffer))))
     ;; Ensure permissions are safe.
     (chmod ement-sessions-file #o600)))
+
+(cl-defmethod ement--emptied ((session ement-session))
+  "Return a copy of SESSION with most slots nulled.
+The copy only includes these slots: user, server, token, and
+transaction-id.  This is suitable for persisting upon disconnect
+so the session can be reconnected, but allowing most data to be
+garbage-collected."
+  (pcase-let* (((cl-struct ement-session user server token transaction-id) session)
+               ((cl-struct ement-user (id user-id) username) user)
+               ((cl-struct ement-server (name server-name) uri-prefix) server))
+    (make-ement-session :user (make-ement-user :id user-id
+                                               :username username)
+                        :server (make-ement-server :name server-name
+                                                   :uri-prefix uri-prefix)
+                        :token token
+                        :transaction-id transaction-id)))
 
 (defun ement--kill-emacs-hook ()
   "Function to be added to `kill-emacs-hook'.

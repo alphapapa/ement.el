@@ -122,7 +122,8 @@ LIMIT may be a maximum number of events to return.  ONLY may be
 the string \"highlight\" to only return notifications that have
 the highlight tweak set.  THEN and ELSE may be callbacks passed
 to `ement-api', which see."
-  (interactive (list (ement-complete-session)
+  (interactive (list (ement-complete-session :prompt "Show notifications for: "
+                                             :pred #'ement-session-has-synced-p)
                      :only (when current-prefix-arg
                              "highlight")))
   (if-let ((buffer (get-buffer "*Ement Notifications*")))
@@ -170,7 +171,8 @@ to `ement-api', which see."
   ;; FIXME: Naming things is hard.
   "Retrieve NUMBER older notifications on SESSION."
   ;; FIXME: Support multiple sessions.
-  (interactive (list (ement-complete-session)
+  (interactive (list (ement-complete-session :prompt "Retrieve notifications for: "
+                                             :pred #'ement-session-has-synced-p)
                      (cl-typecase current-prefix-arg
                        (null 100)
                        (list (read-number "Number of messages: "))
@@ -292,7 +294,9 @@ to `ement-api', which see."
   ;; the command is asynchronous in that case, so the buffer can be displayed in the wrong
   ;; window.  Fixing this would be hacky and awkward, but a partial solution is probably
   ;; possible.
-  (ement-notifications (ement-complete-session)))
+  (ement-notifications
+   (ement-complete-session :prompt "Show notifications for: "
+                           :pred #'ement-session-has-synced-p)))
 
 ;;; Footer
 
