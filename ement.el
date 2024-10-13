@@ -368,6 +368,7 @@ in them won't work."
     ;; HACK: If no sessions remain, clear the users table.  It might be best
     ;; to store a per-session users table, but this is probably good enough.
     (clrhash ement-users))
+  ;; TODO: Should call this hook for each session with the session as argument.
   (run-hooks 'ement-disconnect-hook)
   (message "Ement: Disconnected <%s>."
            (string-join (cl-loop for session in sessions
