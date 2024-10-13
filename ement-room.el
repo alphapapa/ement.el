@@ -2476,6 +2476,26 @@ these all require at least version 29 of Emacs):
 
 ;;;;; Reporting content.
 
+(defun ement-room--report-content-read-score ()
+  "Read a score value from the user for `ement-room-report-content'.
+See also `ement-room-report-content-score-default'."
+  (let ((score (string-trim
+                (read-string
+                 "Score (optional; -100=offensive to 0=inoffensive): "
+                 (if ement-room-report-content-score-default
+                     (number-to-string
+                      ement-room-report-content-score-default)
+                   "")
+                 ement-room-report-content-score-history))))
+    (if (or (string-empty-p score)
+            (string-match-p "[^0-9-]" score))
+        nil
+      (pcase (string-to-number score)
+        ((and (cl-type (integer -100 0)) it)
+         ;; Hey, look, my pcase cl-type patch is useful!
+         it)
+        (_ (user-error "Invalid score (must be -100 to 0)"))))))
+  
 (defun ement-room--report-content-interactive ()
   "Interactive arguments for `ement-room-report-content'.
 Returns (EVENT ROOM SESSION REASON SCORE)."
@@ -2488,16 +2508,7 @@ Returns (EVENT ROOM SESSION REASON SCORE)."
                                      nil ement-room-report-content-reason-history nil
                                      'inherit-input-method))
                 (score (if current-prefix-arg
-                           ;; Prompt for score.
-                           (pcase (read-number
-                                   "Score (-100=offensive to 0=inoffensive): "
-                                   ement-room-report-content-score-default
-                                   ement-room-report-content-score-history)
-                             ((and (cl-type (integer -100 0)) it)
-                              ;; Hey, look, my pcase cl-type patch is useful!
-                              it)
-                             (_ (user-error "Invalid score (must be -100 to 0)")))
-                         ;; Use default score.
+                           (ement-room--report-content-read-score)
                          ement-room-report-content-score-default)))
             (list event ement-room ement-session reason score))
         ;; Aborted.
@@ -2524,22 +2535,22 @@ message is displayed upon success."
                ((cl-struct ement-room (id room-id)) room)
                (endpoint (format "rooms/%s/report/%s" room-id event-id))
                (content)
-               (callbacks))
+               (args))
     ;; Set the request content.
     (when (and reason (not (string-empty-p reason)))
       (push (cons "reason" reason) content))
     (when score
       (push (cons "score" score) content))
+    (setq args (plist-put args :data (let ((json-null :json-null))
+                                       (json-encode content))))
     ;; API success/failure callbacks.
     (unless then
       (setq then (lambda (_data)
                    (message "Content reported."))))
-    (setq callbacks (list :then then))
+    (setq args (plist-put args :then then))
     (when else
-      (setq callbacks (append (list :else else) callbacks)))
-    (apply #'ement-api session endpoint
-           :method 'post :data (json-encode content)
-           callbacks)))
+      (setq args (plist-put args :else else)))
+    (apply #'ement-api session endpoint :method 'post args)))
 
 ;;;; Admin/power commands
 
