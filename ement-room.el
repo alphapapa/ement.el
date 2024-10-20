@@ -2642,6 +2642,32 @@ required argument, as it is used by the default success callback."
   (ement-room--kick-ban-user 'unban user-id room-id session reason
                              "User <%s> unbanned from room %s."))
 
+(defun ement-room-report-delete-ban (event room session reason)
+  "Report the current message, delete it, and ban the sender from the room."
+  (interactive
+   (ement-room-with-highlighted-event-at (point)
+     (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+       (unless (ement-event-p event)
+         (user-error "No event at point"))
+       (if (yes-or-no-p "Report, Delete, and Ban? ")
+           (let ((reason (string-trim
+                          (read-string "Reason: "
+                                       nil ement-room-report-content-reason-history nil
+                                       'inherit-input-method))))
+             (list event ement-room ement-session reason))
+         ;; Aborted.
+         (let ((debug-on-quit nil))
+           (signal 'quit nil))))))
+  ;; Insist on a reason for this particular command.
+  (when (string-empty-p reason)
+    (user-error "Must supply a reason."))
+  ;; Do all the things.
+  (let ((user-id (ement-user-id (ement-event-sender event)))
+        (room-id (ement-room-id room)))
+    (ement-room-report-content event room session reason -100)
+    (ement-room-delete-message event room session reason)
+    (ement-room-ban-user user-id room-id session reason)))
+
 ;;;; Functions
 
 (defun ement-room-view (room session)
