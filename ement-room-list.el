@@ -35,10 +35,6 @@
 
 (require 'ement-lib)
 
-(defgroup ement-room-list nil
-  "Group Ement rooms with Taxy."
-  :group 'ement)
-
 ;;;; Mouse commands
 
 ;; Since mouse-activated commands must handle mouse events, we define a simple macro to
@@ -127,6 +123,11 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 ;;;; Customization
 
+(defgroup ement-room-list-faces nil
+  "Faces for room list buffers."
+  :group 'ement-room-list
+  :group 'ement-faces)
+
 (defgroup ement-room-list nil
   "Options for room list buffers."
   :group 'ement)
@@ -156,44 +157,53 @@ Set automatically when `ement-room-list-mode' is activated.")
     (copy-face 'font-lock-constant-face 'ement--font-lock-constant-face)
     (set-face-attribute 'ement--font-lock-constant-face nil :weight 'unspecified)
     '((t (:inherit (ement--font-lock-constant-face ement-room-list-name)))))
-  "Direct rooms.")
+  "Direct rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
-  "Favourite rooms.")
+  "Favourite rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-invited
   '((t (:inherit (italic ement-room-list-name))))
-  "Invited rooms.")
+  "Invited rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-left
   '((t (:strike-through t :inherit ement-room-list-name)))
-  "Left rooms.")
+  "Left rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-room-list-name))))
-  "Low-priority rooms.")
+  "Low-priority rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-name
   '((t (:inherit (font-lock-function-name-face button))))
-  "Non-direct rooms.")
+  "Non-direct rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
   "Space rooms."
-  :group 'ement-room-list)
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-unread
   '((t (:inherit (bold ement-room-list-name))))
-  "Unread rooms.")
+  "Unread rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-recent '((t (:inherit font-lock-warning-face)))
   "Latest timestamp of recently updated rooms.
 The foreground color is used to generate a gradient of colors
 from recent to non-recent for rooms updated in the past 24
-hours but at least one hour ago.")
+hours but at least one hour ago."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-very-recent '((t (:inherit error)))
   "Latest timestamp of very recently updated rooms.
 The foreground color is used to generate a gradient of colors
-from recent to non-recent for rooms updated in the past hour.")
+from recent to non-recent for rooms updated in the past hour."
+  :group 'ement-room-list-faces)
 
 ;;;; Keys
 
