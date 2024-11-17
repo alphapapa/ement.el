@@ -583,7 +583,8 @@ from recent to non-recent for rooms updated in the past hour."
 ;;;###autoload
 (defun ement-room-list--after-initial-sync (&rest _ignore)
   "Call `ement-room-list', ignoring arguments.
-To be called from `ement-after-initial-sync-hook'."
+To be called from `ement-after-initial-sync-hook'.
+See also `ement-room-list--side-window-after-initial-sync'."
   (ement-room-list))
 
 ;;;###autoload
@@ -598,7 +599,9 @@ To be called from `ement-after-initial-sync-hook'."
   "Show a buffer listing Ement rooms, grouped with Taxy KEYS.
 After showing it, its window is selected.  The buffer is named
 BUFFER-NAME and is shown with DISPLAY-BUFFER-ACTION; or if
-DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
+DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed.
+
+See also `ement-room-list-side-window'."
   (interactive)
   (let ((window-start 0) (window-point 0)
         format-table column-sizes)
@@ -757,8 +760,16 @@ DISPLAY-BUFFER-ACTION is nil, the buffer is not displayed."
         ;; must be set as the current buffer, so we have to do this explicitly here.
         (set-buffer buffer-name)))))
 
+;;;###autoload
+(defun ement-room-list--side-window-after-initial-sync (&rest _ignore)
+  "Call `ement-room-list-side-window' ignoring arguments.
+To be called from `ement-after-initial-sync-hook'.
+See also `ement-room-list--after-initial-sync'."
+  (ement-room-list-side-window))
+
+;;;###autoload
 (cl-defun ement-room-list-side-window (&key (side 'left))
-  "Show room list in side window on SIDE.
+  "Show `ement-room-list' in side window on SIDE.
 Interactively, with prefix, show on right side; otherwise, on
 left."
   (interactive (when current-prefix-arg
