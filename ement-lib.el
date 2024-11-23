@@ -167,7 +167,8 @@ include with the request (see Matrix spec)."
   ;; TODO: Document other arguments.
   ;; SPEC: 10.1.1.
   (declare (indent defun))
-  (interactive (list (ement-complete-session)
+  (interactive (list (ement-complete-session :prompt "Make room as: "
+                                             :pred #'ement-session-has-synced-p)
 		     :name (read-string "New room name: ")
 		     :alias (read-string "New room alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
 		     :topic (read-string "New room topic: ")
@@ -200,7 +201,8 @@ include with the request (see Matrix spec)."
 Then call function THEN with response data.  Optional string
 arguments are NAME, ALIAS, and TOPIC."
   (declare (indent defun))
-  (interactive (list (ement-complete-session)
+  (interactive (list (ement-complete-session :prompt "Make space as: "
+                                             :pred #'ement-session-has-synced-p)
 		     :name (read-string "New space name: ")
 		     :alias (read-string "New space alias (e.g. \"foo\" for \"#foo:matrix.org\"): ")
 		     :topic (read-string "New space topic: ")
@@ -292,7 +294,8 @@ when necessary, and forget the room without prompting."
   "Ignore USER-ID on SESSION.
 If UNIGNORE-P (interactively, with prefix), un-ignore USER."
   (interactive (list (ement-complete-user-id)
-                     (ement-complete-session)
+                     (ement-complete-session :prompt "Ignore user as: "
+                                             :pred #'ement-session-has-synced-p)
                      current-prefix-arg))
   (pcase-let* (((cl-struct ement-session account-data) session)
                ;; TODO: Store session account-data events in an alist keyed on type.
@@ -376,7 +379,8 @@ Uses the latest existing direct room with the user, or creates a
 new one automatically if necessary."
   ;; SPEC: 13.23.2.
   (interactive
-   (let* ((session (ement-complete-session))
+   (let* ((session (ement-complete-session :prompt "Send as: "
+                                           :pred #'ement-session-has-synced-p))
 	  (user-id (ement-complete-user-id))
 	  (message (read-string "Message: ")))
      (list session user-id message)))
@@ -449,7 +453,8 @@ new one automatically if necessary."
   "Set DISPLAY-NAME for user on SESSION.
 Sets global displayname."
   (interactive
-   (let* ((session (ement-complete-session))
+   (let* ((session (ement-complete-session :prompt "Set name for: "
+                                           :pred #'ement-session-has-synced-p))
           (display-name (read-string "Set display-name to: " nil nil
                                      (ement-user-displayname (ement-session-user session)))))
      (list display-name session)))
@@ -772,14 +777,18 @@ THEN and ELSE are passed to `ement-api', which see."
     :content-type content-type :data data :data-type 'binary
     :then then :else else))
 
-(cl-defun ement-complete-session (&key (prompt "Session: "))
-  "Return an Ement session selected with completion."
+(cl-defun ement-complete-session (&key (pred #'identity) (prompt "Session: "))
+  "Return an Ement session selected with completion.
+PROMPT is passed to `completing-read'.  Only offer sessions
+matching PRED."
   (pcase (length ement-sessions)
-    (0 (user-error "No active sessions.  Call `ement-connect' to log in"))
-    (1 (cdar ement-sessions))
-    (_ (let* ((ids (mapcar #'car ement-sessions))
-              (selected-id (completing-read prompt ids nil t)))
-         (alist-get selected-id ement-sessions nil nil #'equal)))))
+    (0 (user-error "No sessions.  Call `ement-connect' to log in"))
+    (_ (let ((sessions (cl-remove-if-not pred ement-sessions :key #'cdr)))
+         (pcase (length sessions)
+           (1 (cdar sessions))
+           (_ (let* ((ids (mapcar #'car sessions))
+                     (selected-id (completing-read prompt ids nil t)))
+                (alist-get selected-id sessions nil nil #'equal))))))))
 
 (declare-function ewoc-locate "ewoc")
 (defun ement-complete-user-id ()
