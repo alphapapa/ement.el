@@ -146,6 +146,9 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 ;;;;; Faces
 
+;; TODO: Inherit from a single face to allow certain attributes to be disabled
+;; (e.g. underline), in case a face inherited from has such attributes.
+
 (defface ement-room-list-direct
   ;; We want to use `font-lock-constant-face' as the base face (because it seems to look
   ;; nice with most themes), but that face sometimes is defined as bold, which interferes
@@ -156,7 +159,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   (progn
     (copy-face 'font-lock-constant-face 'ement--font-lock-constant-face)
     (set-face-attribute 'ement--font-lock-constant-face nil :weight 'unspecified)
-    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name)))))
+    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name) :underline nil))))
   "Direct rooms."
   :group 'ement-room-list-faces)
 
@@ -179,7 +182,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   :group 'ement-room-list-faces)
 
 (defface ement-room-list-name
-  '((t (:inherit (font-lock-function-name-face button))))
+  '((t (:inherit (font-lock-function-name-face button) :underline nil)))
   "Non-direct rooms."
   :group 'ement-room-list-faces)
 

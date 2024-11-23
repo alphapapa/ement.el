@@ -303,6 +303,10 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Customization groups for faces.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
+*Changes*
+
++ Disable underline for faces ~ement-room-list-direct~ and ~ement-room-list-name~ (in case a face they inherit from enables it, e.g. when themed).
+
 ** 0.16
 
 *Compatibility*
