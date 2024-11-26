@@ -89,6 +89,9 @@
 Hooks are called with one argument, the session that was
 synced.")
 
+(defvar ement-sync-watchdog-timer nil
+  "Timer used by `ement-sync-watchdog-mode'.")
+
 (defvar ement-event-hook
   '(ement-notify ement--process-event ement--put-event)
   "Hook called for events.
@@ -140,7 +143,14 @@ Writes the session file when Emacs is killed."
   :type 'file)
 
 (defcustom ement-auto-sync t
-  "Automatically sync again after syncing."
+  "Automatically sync again after syncing.
+
+Customizing this option also enables or disables
+`ement-sync-watchdog-mode'."
+  :set (lambda (option value)
+         (set-default-toplevel-value option value)
+         (when (fboundp 'ement-sync-watchdog-mode)
+           (ement-sync-watchdog-mode (if value 1 0))))
   :type 'boolean)
 
 (defcustom ement-after-initial-sync-hook
@@ -161,6 +171,19 @@ might be necessary."
 Alist mapping user IDs to a list of room aliases/IDs to open buffers for."
   :type '(alist :key-type (string :tag "Local user ID")
                 :value-type (repeat (string :tag "Room alias/ID"))))
+
+(defcustom ement-sync-watchdog-interval 300
+  "The interval in seconds for `ement-sync-watchdog-mode'."
+  :type 'integer)
+
+(defcustom ement-sync-watchdog-sessions t
+  "Sessions for `ement-sync-watchdog-mode' to watch.
+
+Either t, meaning \"all known sessions\", or a list of User ID
+strings of the form @USERNAME:SERVER to identify which sessions
+should be automatically re-sync'd by this mode."
+  :type '(choice (const :tag "All sessions" t)
+                 (repeat :tag "User ID list" string)))
 
 (defcustom ement-disconnect-hook '(ement-kill-buffers ement--stop-idle-timer)
   ;; FIXME: Put private functions in a private hook.
@@ -395,6 +418,28 @@ Useful in, e.g. `ement-disconnect-hook', which see."
           (alist-get user-id ement-sessions nil nil #'equal) session)
     (ement--sync session :timeout ement-initial-sync-timeout)))
 
+(define-minor-mode ement-sync-watchdog-mode
+  "Periodically re-sync sessions as a `ement-auto-sync' failsafe.
+
+Calls function `ement-sync-watchdog-sessions' every
+`ement-sync-watchdog-interval' seconds.
+
+Customizing `ement-auto-sync' also enables/disables this mode."
+  :global t
+  :init-value nil
+  :lighter ""
+  (when (and ement-sync-watchdog-timer
+	     (timerp ement-sync-watchdog-timer))
+    (cancel-timer ement-sync-watchdog-timer)
+    (setq ement-sync-watchdog-timer nil))
+  (when ement-sync-watchdog-mode
+    (setq ement-sync-watchdog-timer
+	  (run-at-time t ement-sync-watchdog-interval
+		       #'ement-sync-watchdog-sessions))))
+
+;; Enable the mode if `ement-auto-sync' is also enabled.
+(ement-sync-watchdog-mode (if ement-auto-sync 1 0))
+
 ;;;; Functions
 
 (defun ement-interrupted-sync-warning (session)
@@ -413,6 +458,23 @@ Useful in, e.g. `ement-disconnect-hook', which see."
    (substitute-command-keys
     "\\<ement-room-mode-map>Syncing of session <%s> was interrupted.  Use command `ement-room-sync' in a room buffer to retry.")
    (ement-user-id (ement-session-user session))))
+
+(defun ement-sync-watchdog-sessions ()
+  "Re-sync known sessions.
+
+Called every `ement-sync-watchdog-interval' seconds when
+`ement-sync-watchdog-mode' is enabled.
+
+Syncs all sessions by default.  To constrain it to a limited set,
+customize option `ement-sync-watchdog-sessions'."
+  (let ((sessions (if (eq ement-sync-watchdog-sessions t)
+                      ement-sessions
+                    (delq nil (mapcar (lambda (id)
+                                        (assoc id ement-sessions))
+                                      ement-sync-watchdog-sessions)))))
+    (cl-loop for (_id . session) in sessions
+             do (ignore-errors
+                  (ement--sync session)))))
 
 (defun ement--run-idle-timer (&rest _ignore)
   "Run idle timer that updates read receipts.
