@@ -2651,7 +2651,7 @@ required argument, as it is used by the default success callback."
          (user-error "No event at point"))
        (if (yes-or-no-p "Report, Delete, and Ban? ")
            (let ((reason (string-trim
-                          (read-string "Reason: "
+                          (read-string "Reason (required): "
                                        nil ement-room-report-content-reason-history nil
                                        'inherit-input-method))))
              (list event ement-room ement-session reason))
@@ -2667,6 +2667,89 @@ required argument, as it is used by the default success callback."
     (ement-room-report-content event room session reason -100)
     (ement-room-delete-message event room session reason)
     (ement-room-ban-user user-id room-id session reason)))
+
+(cl-defun ement-room-occur-select-messages (&key prompt user-id regexp pred header)
+  "Invoke `ement-room-occur' and PROMPT user to select each message in turn.
+Return a list of the selected message events."
+  (let ((win (selected-window))
+        (buf (current-buffer))
+        (occurbuf (ement-room-occur
+                   :user-id user-id :regexp (or regexp "")
+                   :pred pred :header header
+                   :display-action (cons 'display-buffer-same-window
+                                         '(inhibit-same-window . nil))))
+        selected)
+    (with-current-buffer occurbuf
+      (goto-char (point-min))
+      (unwind-protect
+          (when-let ((node (ewoc-locate ement-ewoc)))
+            (while node
+              (ewoc-goto-node ement-ewoc node)
+              (let ((event (ewoc-data node)))
+                (when (and (ement-event-p event)
+                           (equal (ement-event-type event) "m.room.message"))
+                  (ement-room-with-highlighted-event-at (point)
+                    (when (y-or-n-p (or prompt "Select message?"))
+                      (push event selected))))
+                (setq node (ewoc-next ement-ewoc node))))
+            ;; Return the list of events.
+            (nreverse selected))
+        ;; Unwindforms: Return to the room buffer.
+        (quit-window 'kill)
+        (if (not (window-live-p win))
+            (pop-to-buffer buf)
+          (set-window-buffer win buf)
+          (select-window win))))))
+
+(defun ement-room-report-delete-ban-selected (events room session reason)
+  "Report and delete selected messages, and ban the sender from the room."
+  (interactive
+   (if-let* ((node (ewoc-locate ement-ewoc))
+             (event (and node (ewoc-data node)))
+             ((ement-event-p event))
+             (user (ement-user-id (ement-event-sender event))))
+       (let ((events (ement-room-occur-select-messages
+                      :prompt "Report and delete?"
+                      :user-id user
+                      :header (format "Report and delete messages from %s" user)))
+             overlays)
+         (unless events
+           (user-error "No events selected"))
+         (unwind-protect
+             (progn
+               ;; Highlight the selected events in the room buffer, and confirm whether to
+               ;; proceed with the actions.
+               (dolist (event events)
+                 (ement-room-goto-event event)
+                 (ement-room-highlight-event-at (point))
+                 (push ement-room-replying-to-overlay overlays))
+               (if (yes-or-no-p "Report, Delete, and Ban? ")
+                   (let ((reason (string-trim
+                                  (read-string "Reason (required): " nil
+                                               ement-room-report-content-reason-history
+                                               nil 'inherit-input-method))))
+                     ;; Interactive arguments.
+                     (list events ement-room ement-session reason))
+                 ;; Aborted.
+                 (let ((debug-on-quit nil))
+                   (signal 'quit nil))))
+           ;; Unwindforms: Delete the highlighting.
+           (mapc #'delete-overlay overlays)))
+     ;; No ewoc node or event.
+     (user-error "No event at point")))
+  ;; Insist on a reason for this particular command.
+  (when (string-empty-p reason)
+    (user-error "Must supply a reason."))
+  ;; Do all the things.
+  (let ((user-id (ement-user-id (ement-event-sender (car events))))
+        (room-id (ement-room-id room)))
+    ;; (ement-room-ban-user user-id room-id session reason)
+    (message "Ban user %s from room %s" user-id room-id)
+    (dolist (event events)
+      ;; (ement-room-report-content event room session reason -100)
+      ;; (ement-room-delete-message event room session reason)
+      (message "Report and delete event %s" (ement-event-id event))
+      )))
 
 ;;;; Functions
 
@@ -3110,7 +3193,7 @@ For use as `imenu-create-index-function'."
   (define-key ement-room-occur-mode-map (kbd "n") #'ement-room-occur-next)
   (define-key ement-room-occur-mode-map (kbd "p") #'ement-room-occur-prev))
 
-(cl-defun ement-room-occur (&key user-id regexp pred header)
+(cl-defun ement-room-occur (&key user-id regexp pred header display-action)
   "Show known events in current buffer matching args in a new buffer.
 If REGEXP, show events whose sender or body content match it.  Or
 if USER-ID, show events from that user.  Or if PRED, show events
@@ -3124,7 +3207,7 @@ arguments."
          (room ement-room)
          (occur-buffer (get-buffer-create (format "*Ement Room Occur: %s*" (ement-room-display-name room))))
          (pred (cond (pred)
-                     ((not (string-empty-p regexp))
+                     ((not (or (null regexp) (string-empty-p regexp)))
                       (lambda (data)
                         (and (ement-event-p data)
                              (or (string-match regexp (ement-user-id (ement-event-sender data)))
@@ -3138,7 +3221,7 @@ arguments."
                         (and (ement-event-p data)
                              (equal user-id (ement-user-id (ement-event-sender data))))))))
          (header (cond (header)
-                       ((not (string-empty-p regexp))
+                       ((not (or (null regexp) (string-empty-p regexp)))
                         (format "Events matching %S in %s" regexp (ement-room-display-name room)))
                        (user-id
                         (format "Events from %s in %s" user-id (ement-room-display-name room))))))
@@ -3163,7 +3246,7 @@ arguments."
       (ewoc-filter ement-ewoc pred)
       ;; TODO: Insert date header before first event.
       (ement-room--insert-ts-headers))
-    (pop-to-buffer occur-buffer)))
+    (pop-to-buffer occur-buffer display-action)))
 
 (defun ement-room-occur-find-event (event)
   "Find EVENT in room's main buffer."
