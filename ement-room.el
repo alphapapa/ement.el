@@ -2580,11 +2580,13 @@ VERB is used in the prompt for user completion.  See
 REASON)."
   (cl-flet ((query-confirm (user-id user room session)
               (if (yes-or-no-p
-                   (format "%s user %s from room %s? "
-                           verb
-                           (ement--format-user-id
-                            (or user user-id) :with-id-p t :room room)
-                           (ement--format-room room)))
+                   (propertize
+                    (format "%s user %s from room %s? "
+                            verb
+                            (ement--format-user-id
+                             (or user user-id) :with-id-p t :room room)
+                            (ement--format-room room))
+                    'face 'warning))
                   (list user-id (ement-room-id room) session
                         (read-string "Reason (optional): "
                                      nil nil nil 'inherit-input-method))
@@ -2668,7 +2670,8 @@ See also `ement-room-hide-reported-messages'."
      (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
        (unless (ement-event-p event)
          (user-error "No event at point"))
-       (if (yes-or-no-p "Report, Delete, and Ban? ")
+       (if (yes-or-no-p (propertize "Report, Delete, and Ban? "
+                                    'face 'warning))
            (let ((reason (string-trim
                           (read-string "Reason (required): "
                                        nil ement-room-report-content-reason-history nil
@@ -2731,7 +2734,10 @@ See also `ement-room-hide-reported-messages'."
        (let ((events (ement-room-occur-select-messages
                       :prompt "Report and delete?"
                       :user-id user
-                      :header (format "Report and delete messages from %s" user)))
+                      :header (format (propertize
+                                       "Select messages from %s to report and delete:"
+                                       'face 'warning)
+                                      user)))
              overlays)
          (unless events
            (user-error "No events selected"))
@@ -2743,7 +2749,8 @@ See also `ement-room-hide-reported-messages'."
                  (ement-room-goto-event event)
                  (ement-room-highlight-event-at (point))
                  (push ement-room-replying-to-overlay overlays))
-               (if (yes-or-no-p "Report, Delete, and Ban? ")
+               (if (yes-or-no-p (propertize "Report, Delete, and Ban? "
+                                            'face 'warning))
                    (let ((reason (string-trim
                                   (read-string "Reason (required): " nil
                                                ement-room-report-content-reason-history
