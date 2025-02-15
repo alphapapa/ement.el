@@ -1134,6 +1134,12 @@ When using a light theme, it may be necessary to use a negative
 number (to darken rather than lighten)."
   :type 'integer)
 
+(defcustom ement-room-hide-reported-messages nil
+  "Whether to automatically hide the content of a message after reporting it.
+Messages can be reported with `ement-room-report-content'
+See `ement-room-hide-message-content' and `ement-room-unhide-message-content'."
+  :type 'boolean)
+
 ;;;; Macros
 
 (defmacro ement-room-with-highlighted-event-at (position &rest body)
@@ -2529,7 +2535,9 @@ is an optional integer from -100 (offensive) to 0 (inoffensive).
 
 Optional arguments THEN and ELSE are success/failure callbacks
 passed to `ement-api'.  If THEN is not supplied, a confirmation
-message is displayed upon success."
+message is displayed upon success.
+
+See also `ement-room-hide-reported-messages'."
   (interactive (ement-room--report-content-interactive))
   (pcase-let* (((cl-struct ement-event (id event-id)) event)
                ((cl-struct ement-room (id room-id)) room)
@@ -2546,7 +2554,9 @@ message is displayed upon success."
     ;; API success/failure callbacks.
     (unless then
       (setq then (lambda (_data)
-                   (message "Content reported."))))
+                   (message "Content reported.")
+                   (when ement-room-hide-reported-messages
+                     (ement-room-hide-message-content event)))))
     (setq args (plist-put args :then then))
     (when else
       (setq args (plist-put args :else else)))
@@ -2643,7 +2653,8 @@ required argument, as it is used by the default success callback."
                              "User <%s> unbanned from room %s."))
 
 (defun ement-room-report-delete-ban (event room session reason)
-  "Report the current message, delete it, and ban the sender from the room."
+  "Report the current message, delete it, and ban the sender from the room.
+See also `ement-room-hide-reported-messages'."
   (interactive
    (ement-room-with-highlighted-event-at (point)
      (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
@@ -2702,7 +2713,8 @@ Return a list of the selected message events."
           (select-window win))))))
 
 (defun ement-room-report-delete-ban-selected (events room session reason)
-  "Report and delete selected messages, and ban the sender from the room."
+  "Report and delete selected messages, and ban the sender from the room.
+See also `ement-room-hide-reported-messages'."
   (interactive
    (if-let* ((node (ewoc-locate ement-ewoc))
              (event (and node (ewoc-data node)))
@@ -2750,6 +2762,46 @@ Return a list of the selected message events."
       ;; (ement-room-delete-message event room session reason)
       (message "Report and delete event %s" (ement-event-id event))
       )))
+
+(defun ement-room-hide-message-content (&optional event)
+  "Hide the content of the message at point, for the current session.
+The message can be restored with `ement-room-unhide-message-content'."
+  (interactive)
+  (unless event
+    (when-let ((node (ewoc-locate ement-ewoc (point))))
+      (setq event (ewoc-data node))))
+  (when event
+    (setf (map-elt (ement-event-local event) 'hidden-content)
+          (ement-event-content event))
+    (setf (ement-event-content event) nil)
+    (ement-room--replace-event event)
+    (when-let ((buf (get-buffer "*Ement Notifications*")))
+      (with-current-buffer buf
+        (ement-room--replace-event event)))
+    (when-let ((buf (get-buffer "*Ement Mentions*")))
+      (with-current-buffer buf
+        (ement-room--replace-event event)))
+    (message "Removed content of event.")))
+
+(defun ement-room-unhide-message-content (&optional event)
+  "Un-hide the content of the message at point.
+This restores a message hidden by `ement-room-hide-message-content'."
+  (interactive)
+  (unless event
+    (when-let ((node (ewoc-locate ement-ewoc (point))))
+      (setq event (ewoc-data node))))
+  (when-let ((content (and event (map-elt (ement-event-local event)
+                                          'hidden-content))))
+    (setf (ement-event-content event) content
+          (map-elt (ement-event-local event) 'hidden-content) nil)
+    (ement-room--replace-event event)
+    (when-let ((buf (get-buffer "*Ement Notifications*")))
+      (with-current-buffer buf
+        (ement-room--replace-event event)))
+    (when-let ((buf (get-buffer "*Ement Mentions*")))
+      (with-current-buffer buf
+        (ement-room--replace-event event)))
+    (message "Restored content of event.")))
 
 ;;;; Functions
 
