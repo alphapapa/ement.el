@@ -154,6 +154,7 @@ keymap directly the issue may be visible.")
         (prefixes '(("M-g" . "group:switching")
                     ("s" . "group:messages")
                     ("u" . "group:users")
+                    ("a" . "group:admin")
                     ("r" . "group:room")
                     ("R" . "group:membership"))))
     ;; Use symbols for prefix maps so that `which-key' can display their names.
@@ -200,6 +201,13 @@ keymap directly the issue may be visible.")
     (define-key map (kbd "u RET") #'ement-send-direct-message)
     (define-key map (kbd "u i") #'ement-invite-user)
     (define-key map (kbd "u I") #'ement-ignore-user)
+
+    ;; Admin
+    (define-key map (kbd "a r") #'ement-room-report-content)
+    (define-key map (kbd "a k") #'ement-room-kick-user)
+    (define-key map (kbd "a b") #'ement-room-ban-user)
+    (define-key map (kbd "a B") #'ement-room-unban-user)
+    (define-key map (kbd "a C-k") #'ement-room-report-delete-ban-selected)
 
     ;; Room
     (define-key map (kbd "M-s o") #'ement-room-occur)
@@ -6182,7 +6190,13 @@ For use in `completion-at-point-functions'."
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
-              ("u I" "Ignore user" ement-ignore-user)]]
+              ("u I" "Ignore user" ement-ignore-user)
+              ""
+              ("a r" "Report message" ement-room-report-content)
+              ("a k" "Kick user" ement-room-kick-user)
+              ("a b" "Ban user" ement-room-ban-user)
+              ("a B" "Unban user" ement-room-unban-user)
+              ("a C-k" "Select, report, delete, kick, ban" ement-room-report-delete-ban-selected)]]
   [:pad-keys t
              ["Room"
               ("M-s o" "Occur search in room" ement-room-occur)
