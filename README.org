@@ -302,6 +302,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Additions*
 
 + Customization groups for faces.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Option ~ement-room-hide-redacted-message-content~, which hides the content of redacted messages by default.  It may be disabled to keep redacted content visible with a strikethrough face, which may be useful for room moderators, but users should keep in mind that doing so will leave unpleasant content visible in the current session, even after being redacted by moderators.
 
 *Changes*
 

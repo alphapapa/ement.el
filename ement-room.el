@@ -336,6 +336,23 @@ If more than this many users have sent a reaction, show the
 number of senders instead (and the names in a tooltip)."
   :type 'natnum)
 
+(defcustom ement-room-hide-redacted-message-content t
+  "Hide content in redacted messages.
+If nil, redacted messages' content will remain visible with a
+strikethrough face until the session is terminated (a new session
+will not receive the redacted content).
+
+Disabling this option may be useful for room administrators and
+moderators, so they can see content redacted by other users and
+handle it appropriately.  However, one should use this option
+with caution, as it will keep unpleasant content visible even
+after it has been redacted.
+
+After changing this option, a room's buffer must be killed and
+reopened for existing messages to be rendered accordingly."
+  :type '(choice (const :tag "Hide content" t)
+                 (const :tag "Strikethrough" nil)))
+
 ;;;;; Faces
 
 (defface ement-room-name
@@ -4164,6 +4181,14 @@ If FORMATTED-P, return the formatted body content, when available."
     (when (equal "m.replace" rel-type)
       ;; Message is an edit.
       (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
+    (when (and (or local-redacted-by unsigned-redacted-by)
+               ement-room-hide-redacted-message-content)
+      ;; Message is redacted and hiding is enabled: override the body to hide the content.
+      ;; (This is a bit of a hack, since we've already prepared the body at this point,
+      ;; but retrofitting this into the existing logic is more than I want to do right
+      ;; now.  There are probably 3 or 4 different ways and places we could handle
+      ;; redaction of content, and this seems like the simplest.)
+      (setf body "[redacted]"))
     body))
 
 (defun ement-room--render-html (string)
