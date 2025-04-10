@@ -303,6 +303,17 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 
 + Customization groups for faces.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 + Option ~ement-room-hide-redacted-message-content~, which hides the content of redacted messages by default.  It may be disabled to keep redacted content visible with a strikethrough face, which may be useful for room moderators, but users should keep in mind that doing so will leave unpleasant content visible in the current session, even after being redacted by moderators.
++ Support for reporting and hiding offensive content.  (#297.  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+  - Command ~ement-room-report-content~ reports a message to the room moderators or administrators.
+  - Command ~ement-room-hide-message-content~ hides the content of a message for the current session.
+  - Command ~ement-room-unhide-message-content~ restores hidden message contents.
+  - Option ~ement-room-hide-reported-messages~ determines whether reporting a message should also automatically hide it.
++ "Power commands" for room administrators.  (#297.  Thanks to [[https://github.com/phil-s][Phil Sainty]].)
+  - Command ~ement-room-kick-user~ kicks a user from a room.
+  - Command ~ement-room-ban-user~ bans a user from a room.
+  - Command ~ement-room-unban-user~ 'unbans' a user from a room.
+  - Command ~ement-room-report-delete-ban~ is a 'combo' command which reports a single message, deletes it, and kicks and bans the sender from the room.
+  - Command ~ement-room-report-delete-ban-selected~ provides a UI to select multiple messages from the same sender to be reported and deleted, and kicks and bans that sender from the room.
 
 *Changes*
 

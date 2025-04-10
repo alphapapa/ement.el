@@ -154,6 +154,7 @@ keymap directly the issue may be visible.")
         (prefixes '(("M-g" . "group:switching")
                     ("s" . "group:messages")
                     ("u" . "group:users")
+                    ("a" . "group:admin")
                     ("r" . "group:room")
                     ("R" . "group:membership"))))
     ;; Use symbols for prefix maps so that `which-key' can display their names.
@@ -200,6 +201,13 @@ keymap directly the issue may be visible.")
     (define-key map (kbd "u RET") #'ement-send-direct-message)
     (define-key map (kbd "u i") #'ement-invite-user)
     (define-key map (kbd "u I") #'ement-ignore-user)
+
+    ;; Admin
+    (define-key map (kbd "a r") #'ement-room-report-content)
+    (define-key map (kbd "a k") #'ement-room-kick-user)
+    (define-key map (kbd "a b") #'ement-room-ban-user)
+    (define-key map (kbd "a B") #'ement-room-unban-user)
+    (define-key map (kbd "a C-k") #'ement-room-report-delete-ban-selected)
 
     ;; Room
     (define-key map (kbd "M-s o") #'ement-room-occur)
@@ -294,6 +302,22 @@ Does not include filenames, emotes, etc.")
 
 (defvar ement-room-emote-history nil
   "History list of emotes entered with `ement-room' commands.")
+
+(defvar ement-room-report-content-score-default -100
+  "The default score value used by `ement-room-report-content'.
+This value is used automatically, without prompting, unless a prefix
+argument is used.
+
+The value must be an integer from -100 (offensive) to 0 (inoffensive),
+or nil to not include a score with the report.
+
+The standard value of -100 aligns with the behaviour of Element.")
+
+(defvar ement-room-report-content-score-history nil
+  "History of reported score for `ement-room-report-content'.")
+
+(defvar ement-room-report-content-reason-history nil
+  "History of reported reasons for `ement-room-report-content'.")
 
 ;; Variables from other files.
 (defvar ement-sessions)
@@ -1117,6 +1141,12 @@ Makes message bodies a bit less intense.
 When using a light theme, it may be necessary to use a negative
 number (to darken rather than lighten)."
   :type 'integer)
+
+(defcustom ement-room-hide-reported-messages nil
+  "Whether to automatically hide the content of a message after reporting it.
+Messages can be reported with `ement-room-report-content'
+See `ement-room-hide-content'."
+  :type 'boolean)
 
 ;;;; Macros
 
@@ -2458,6 +2488,314 @@ these all require at least version 29 of Emacs):
                                ('remove "removed from"))
                              (ement--format-room space))))))
 
+;;;;; Reporting content.
+
+(defun ement-room--report-content-read-score ()
+  "Read a score value from the user for `ement-room-report-content'.
+See also `ement-room-report-content-score-default'."
+  (let ((score (string-trim
+                (read-string
+                 "Score (optional; -100=offensive to 0=inoffensive): "
+                 (if ement-room-report-content-score-default
+                     (number-to-string
+                      ement-room-report-content-score-default)
+                   "")
+                 ement-room-report-content-score-history))))
+    (if (or (string-empty-p score)
+            (string-match-p "[^0-9-]" score))
+        nil
+      (pcase (string-to-number score)
+        ((and (cl-type (integer -100 0)) it)
+         ;; Hey, look, my pcase cl-type patch is useful!
+         it)
+        (_ (user-error "Invalid score (must be -100 to 0)"))))))
+  
+(defun ement-room--report-content-interactive ()
+  "Interactive arguments for `ement-room-report-content'.
+Returns (EVENT ROOM SESSION REASON SCORE)."
+  (ement-room-with-highlighted-event-at (point)
+    (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+      (unless (ement-event-p event)
+        (user-error "No event at point"))
+      (if (yes-or-no-p "Report this to the server admins or moderators? ")
+          (let ((reason (read-string "Reason (optional): "
+                                     nil ement-room-report-content-reason-history nil
+                                     'inherit-input-method))
+                (score (if current-prefix-arg
+                           (ement-room--report-content-read-score)
+                         ement-room-report-content-score-default)))
+            (list event ement-room ement-session reason score))
+        ;; Aborted.
+        (let ((debug-on-quit nil))
+          (signal 'quit nil))))))
+
+(cl-defun ement-room-report-content (event room session &optional reason score
+                                           &key then else)
+  "Report the message at point to the moderators or administrators.
+
+Reports EVENT in ROOM on SESSION, with optional REASON and SCORE.
+Prompts for a SCORE with a prefix argument, otherwise the value
+of `ement-room-report-content-score-default' is used.
+
+EVENT, ROOM, SESSION are the relevant Ement objects.  REASON is
+an optional string explaining the reason for the report.  SCORE
+is an optional integer from -100 (offensive) to 0 (inoffensive).
+
+Optional arguments THEN and ELSE are success/failure callbacks
+passed to `ement-api'.  If THEN is not supplied, a confirmation
+message is displayed upon success.
+
+See also `ement-room-hide-reported-messages'."
+  (interactive (ement-room--report-content-interactive))
+  (pcase-let* (((cl-struct ement-event (id event-id)) event)
+               ((cl-struct ement-room (id room-id)) room)
+               (endpoint (format "rooms/%s/report/%s" room-id event-id))
+               (content)
+               (args))
+    ;; Set the request content.
+    (when (and reason (not (string-empty-p reason)))
+      (push (cons "reason" reason) content))
+    (when score
+      (push (cons "score" score) content))
+    (setq args (plist-put args :data (let ((json-null :json-null))
+                                       (json-encode content))))
+    ;; API success/failure callbacks.
+    (unless then
+      (setq then (lambda (_data)
+                   (message "Content reported.")
+                   (when ement-room-hide-reported-messages
+                     (ement-room-hide-content event 'hide)))))
+    (setq args (plist-put args :then then))
+    (when else
+      (setq args (plist-put args :else else)))
+    (apply #'ement-api session endpoint :method 'post args)))
+
+;;;; Admin/power commands
+
+(defun ement-room--kick-ban-interactive (verb)
+  "Return interactive arguments for kicking or un/banning a user.
+VERB is used in the prompt for user completion.  See
+`ement-room-kick-user', `ement-room-ban-user',
+`ement-room-unban-user'.  Returns (USER-ID ROOM-ID SESSION
+REASON)."
+  (cl-flet ((query-confirm (user-id user room session)
+              (if (yes-or-no-p
+                   (propertize
+                    (format "%s user %s from room %s? "
+                            verb
+                            (ement--format-user-id
+                             (or user user-id) :with-id-p t :room room)
+                            (ement--format-room room))
+                    'face 'warning))
+                  (list user-id (ement-room-id room) session
+                        (read-string "Reason (optional): "
+                                     nil nil nil 'inherit-input-method))
+                ;; Aborted.
+                (let ((debug-on-quit nil))
+                  (signal 'quit nil)))))
+    ;; Try to use the event at point, unless a prefix arg was supplied.
+    (if-let (((not current-prefix-arg))
+             (room ement-room)
+             (event (and room (ewoc-data (ewoc-locate ement-ewoc))))
+             (user (and (ement-event-p event)
+                        (ement-event-sender event))))
+        (ement-room-with-highlighted-event-at (point)
+          (query-confirm (ement-user-id user) user room ement-session))
+      ;; No appropriate event at point: query the arguments interactively.
+      (let ((user-id (ement-complete-user-id :prompt (format "%s user: " verb))))
+        (pcase-let ((`(,room ,session)
+                     (ement-complete-room :prompt (format "%s from room: " verb))))
+          ;; Pass `user-id' in case `ement-users' does not contain a match.
+          (query-confirm user-id (gethash user-id ement-users) room session))))))
+
+(cl-defun ement-room--kick-ban-user (type user-id room-id session reason
+                                          &optional successfmt &key then else)
+  "Issue the API request for kicking or un/banning a user.
+See `ement-room-kick-user', `ement-room-ban-user',
+`ement-room-unban-user'.
+
+TYPE is `kick', `ban', or `unban'.  USER-ID, ROOM-ID, SESSION are
+the relevant Matrix IDs and objects for the request.  REASON is
+an optional string giving a reason for the change.  SUCCESSFMT is
+a format string, with placeholders for a user-ID and a room
+description, used to display a success message.
+
+Optional arguments THEN and ELSE are success/failure callbacks
+passed to `ement-api'.  If THEN is not supplied, SUCCESSFMT is a
+required argument, as it is used by the default success callback."
+  (unless then
+    ;; Default success callback.
+    (setq then (lambda (_data)
+                 (let* ((room (cl-find room-id (ement-session-rooms session)
+                                       :key 'ement-room-id :test 'equal))
+                        (room-description (if room
+                                              (ement--format-room room)
+                                            (format "<%s>" room-id))))
+                   (message successfmt user-id room-description)))))
+  ;; Make the API call.
+  (let ((endpoint (format "rooms/%s/%s" room-id type))
+        (content (if (and reason (not (string-empty-p reason)))
+                     (ement-alist "user_id" user-id "reason" reason)
+                   (ement-alist "user_id" user-id)))
+        (callbacks (list :then then)))
+    (when else
+      (setf callbacks (append (list :else else) callbacks)))
+    (apply #'ement-api session endpoint
+           :method 'post :data (json-encode content)
+           callbacks)))
+
+(defun ement-room-kick-user (user-id room-id session &optional reason)
+  "Kick USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Kick"))
+  (ement-room--kick-ban-user 'kick user-id room-id session reason
+                             "User <%s> kicked from room %s."))
+
+(defun ement-room-ban-user (user-id room-id session &optional reason)
+  "Ban USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Ban"))
+  (ement-room--kick-ban-user 'ban user-id room-id session reason
+                             "User <%s> banned from room %s."))
+
+(defun ement-room-unban-user (user-id room-id session &optional reason)
+  "Unban USER-ID from ROOM-ID on SESSION, optionally with REASON."
+  (interactive (ement-room--kick-ban-interactive "Unban"))
+  (ement-room--kick-ban-user 'unban user-id room-id session reason
+                             "User <%s> unbanned from room %s."))
+
+(defun ement-room-report-delete-ban (event room session reason)
+  "Report the current message, delete it, and ban the sender from the room.
+See also `ement-room-hide-reported-messages'."
+  (interactive
+   (ement-room-with-highlighted-event-at (point)
+     (let ((event (ewoc-data (ewoc-locate ement-ewoc))))
+       (unless (ement-event-p event)
+         (user-error "No event at point"))
+       (if (yes-or-no-p (propertize "Report, Delete, and Ban? "
+                                    'face 'warning))
+           (let ((reason (string-trim
+                          (read-string "Reason (required): "
+                                       nil ement-room-report-content-reason-history nil
+                                       'inherit-input-method))))
+             (list event ement-room ement-session reason))
+         ;; Aborted.
+         (let ((debug-on-quit nil))
+           (signal 'quit nil))))))
+  ;; Insist on a reason for this particular command.
+  (when (string-empty-p reason)
+    (user-error "Must supply a reason."))
+  ;; Do all the things.
+  (let ((user-id (ement-user-id (ement-event-sender event)))
+        (room-id (ement-room-id room)))
+    (ement-room-report-content event room session reason -100)
+    (ement-room-delete-message event room session reason)
+    (ement-room-ban-user user-id room-id session reason)))
+
+(cl-defun ement-room-occur-select-messages (&key prompt user-id regexp pred header)
+  "Invoke `ement-room-occur' and PROMPT user to select each message in turn.
+Return a list of the selected message events."
+  (let ((win (selected-window))
+        (buf (current-buffer))
+        (occurbuf (ement-room-occur
+                   :user-id user-id :regexp (or regexp "")
+                   :pred pred :header header
+                   :display-action (cons 'display-buffer-same-window
+                                         '(inhibit-same-window . nil))))
+        selected)
+    (with-current-buffer occurbuf
+      (goto-char (point-min))
+      (unwind-protect
+          (when-let ((node (ewoc-locate ement-ewoc)))
+            (while node
+              (ewoc-goto-node ement-ewoc node)
+              (let ((event (ewoc-data node)))
+                (when (and (ement-event-p event)
+                           (equal (ement-event-type event) "m.room.message"))
+                  (ement-room-with-highlighted-event-at (point)
+                    (when (y-or-n-p (or prompt "Select message?"))
+                      (push event selected))))
+                (setq node (ewoc-next ement-ewoc node))))
+            ;; Return the list of events.
+            (nreverse selected))
+        ;; Unwindforms: Return to the room buffer.
+        (quit-window 'kill)
+        (if (not (window-live-p win))
+            (pop-to-buffer buf)
+          (set-window-buffer win buf)
+          (select-window win))))))
+
+(defun ement-room-report-delete-ban-selected (events room session reason)
+  "Report and delete selected messages, and ban the sender from the room.
+See also `ement-room-hide-reported-messages'."
+  (interactive
+   (if-let* ((node (ewoc-locate ement-ewoc))
+             (event (and node (ewoc-data node)))
+             ((ement-event-p event))
+             (user (ement-user-id (ement-event-sender event))))
+       (let ((events (ement-room-occur-select-messages
+                      :prompt "Report and delete?"
+                      :user-id user
+                      :header (format (propertize
+                                       "Select messages from %s to report and delete:"
+                                       'face 'warning)
+                                      user)))
+             overlays)
+         (unless events
+           (user-error "No events selected"))
+         (unwind-protect
+             (progn
+               ;; Highlight the selected events in the room buffer, and confirm whether to
+               ;; proceed with the actions.
+               (dolist (event events)
+                 (ement-room-goto-event event)
+                 (ement-room-highlight-event-at (point))
+                 (push ement-room-replying-to-overlay overlays))
+               (if (yes-or-no-p (propertize "Report, Delete, and Ban? "
+                                            'face 'warning))
+                   (let ((reason (string-trim
+                                  (read-string "Reason (required): " nil
+                                               ement-room-report-content-reason-history
+                                               nil 'inherit-input-method))))
+                     ;; Interactive arguments.
+                     (list events ement-room ement-session reason))
+                 ;; Aborted.
+                 (let ((debug-on-quit nil))
+                   (signal 'quit nil))))
+           ;; Unwindforms: Delete the highlighting.
+           (mapc #'delete-overlay overlays)))
+     ;; No ewoc node or event.
+     (user-error "No event at point")))
+  ;; Insist on a reason for this particular command.
+  (when (string-empty-p reason)
+    (user-error "Must supply a reason."))
+  ;; Do all the things.
+  (let ((user-id (ement-user-id (ement-event-sender (car events))))
+        (room-id (ement-room-id room)))
+    ;; (ement-room-ban-user user-id room-id session reason)
+    (message "Ban user %s from room %s" user-id room-id)
+    (dolist (event events)
+      ;; (ement-room-report-content event room session reason -100)
+      ;; (ement-room-delete-message event room session reason)
+      (message "Report and delete event %s" (ement-event-id event))
+      )))
+
+(defun ement-room-hide-content (event &optional action)
+  "Hide or unhide content of message EVENT.
+If ACTION is `hide', do so; if `reveal', do so; otherwise, toggle
+visibility.  Interactively, toggle the message EVENT at point."
+  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
+  (setf (alist-get 'hiddenp (ement-event-local event))
+        (pcase action
+          ('hide t)
+          ('reveal nil)
+          (_ (not (alist-get 'hiddenp (ement-event-local event))))))
+  (dolist (buffer (remq nil (list (current-buffer)
+                                  (get-buffer "*Ement Notifications*")
+                                  (get-buffer "*Ement Mentions*"))))
+    (with-current-buffer buffer
+      (ewoc-map (lambda (data)
+                  (eq event data))
+                ement-ewoc))))
+
 ;;;; Functions
 
 (defun ement-room-view (room session)
@@ -2900,7 +3238,7 @@ For use as `imenu-create-index-function'."
   (define-key ement-room-occur-mode-map (kbd "n") #'ement-room-occur-next)
   (define-key ement-room-occur-mode-map (kbd "p") #'ement-room-occur-prev))
 
-(cl-defun ement-room-occur (&key user-id regexp pred header)
+(cl-defun ement-room-occur (&key user-id regexp pred header display-action)
   "Show known events in current buffer matching args in a new buffer.
 If REGEXP, show events whose sender or body content match it.  Or
 if USER-ID, show events from that user.  Or if PRED, show events
@@ -2914,7 +3252,7 @@ arguments."
          (room ement-room)
          (occur-buffer (get-buffer-create (format "*Ement Room Occur: %s*" (ement-room-display-name room))))
          (pred (cond (pred)
-                     ((not (string-empty-p regexp))
+                     ((not (or (null regexp) (string-empty-p regexp)))
                       (lambda (data)
                         (and (ement-event-p data)
                              (or (string-match regexp (ement-user-id (ement-event-sender data)))
@@ -2928,7 +3266,7 @@ arguments."
                         (and (ement-event-p data)
                              (equal user-id (ement-user-id (ement-event-sender data))))))))
          (header (cond (header)
-                       ((not (string-empty-p regexp))
+                       ((not (or (null regexp) (string-empty-p regexp)))
                         (format "Events matching %S in %s" regexp (ement-room-display-name room)))
                        (user-id
                         (format "Events from %s in %s" user-id (ement-room-display-name room))))))
@@ -2953,7 +3291,7 @@ arguments."
       (ewoc-filter ement-ewoc pred)
       ;; TODO: Insert date header before first event.
       (ement-room--insert-ts-headers))
-    (pop-to-buffer occur-buffer)))
+    (pop-to-buffer occur-buffer display-action)))
 
 (defun ement-room-occur-find-event (event)
   "Find EVENT in room's main buffer."
@@ -4134,7 +4472,7 @@ Format defaults to `ement-room-message-format-spec', which see."
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
-                           (local (map ('redacted-by local-redacted-by))))
+                           (local (map ('redacted-by local-redacted-by) hiddenp)))
                 event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
@@ -4189,6 +4527,8 @@ If FORMATTED-P, return the formatted body content, when available."
       ;; now.  There are probably 3 or 4 different ways and places we could handle
       ;; redaction of content, and this seems like the simplest.)
       (setf body "[redacted]"))
+    (when hiddenp
+      (setf body (propertize "[content hidden]" 'face 'font-lock-comment-face)))
     body))
 
 (defun ement-room--render-html (string)
@@ -5837,7 +6177,13 @@ For use in `completion-at-point-functions'."
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
-              ("u I" "Ignore user" ement-ignore-user)]]
+              ("u I" "Ignore user" ement-ignore-user)
+              ""
+              ("a r" "Report message" ement-room-report-content)
+              ("a k" "Kick user" ement-room-kick-user)
+              ("a b" "Ban user" ement-room-ban-user)
+              ("a B" "Unban user" ement-room-unban-user)
+              ("a C-k" "Select, report, delete, kick, ban" ement-room-report-delete-ban-selected)]]
   [:pad-keys t
              ["Room"
               ("M-s o" "Occur search in room" ement-room-occur)
