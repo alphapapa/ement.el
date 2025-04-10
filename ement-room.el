@@ -1145,7 +1145,7 @@ number (to darken rather than lighten)."
 (defcustom ement-room-hide-reported-messages nil
   "Whether to automatically hide the content of a message after reporting it.
 Messages can be reported with `ement-room-report-content'
-See `ement-room-hide-message-content' and `ement-room-unhide-message-content'."
+See `ement-room-hide-content'."
   :type 'boolean)
 
 ;;;; Macros
@@ -2564,7 +2564,7 @@ See also `ement-room-hide-reported-messages'."
       (setq then (lambda (_data)
                    (message "Content reported.")
                    (when ement-room-hide-reported-messages
-                     (ement-room-hide-message-content event)))))
+                     (ement-room-hide-content event 'hide)))))
     (setq args (plist-put args :then then))
     (when else
       (setq args (plist-put args :else else)))
@@ -2778,45 +2778,23 @@ See also `ement-room-hide-reported-messages'."
       (message "Report and delete event %s" (ement-event-id event))
       )))
 
-(defun ement-room-hide-message-content (&optional event)
-  "Hide the content of the message at point, for the current session.
-The message can be restored with `ement-room-unhide-message-content'."
-  (interactive)
-  (unless event
-    (when-let ((node (ewoc-locate ement-ewoc (point))))
-      (setq event (ewoc-data node))))
-  (when event
-    (setf (map-elt (ement-event-local event) 'hidden-content)
-          (ement-event-content event))
-    (setf (ement-event-content event) nil)
-    (ement-room--replace-event event)
-    (when-let ((buf (get-buffer "*Ement Notifications*")))
-      (with-current-buffer buf
-        (ement-room--replace-event event)))
-    (when-let ((buf (get-buffer "*Ement Mentions*")))
-      (with-current-buffer buf
-        (ement-room--replace-event event)))
-    (message "Removed content of event.")))
-
-(defun ement-room-unhide-message-content (&optional event)
-  "Un-hide the content of the message at point.
-This restores a message hidden by `ement-room-hide-message-content'."
-  (interactive)
-  (unless event
-    (when-let ((node (ewoc-locate ement-ewoc (point))))
-      (setq event (ewoc-data node))))
-  (when-let ((content (and event (map-elt (ement-event-local event)
-                                          'hidden-content))))
-    (setf (ement-event-content event) content
-          (map-elt (ement-event-local event) 'hidden-content) nil)
-    (ement-room--replace-event event)
-    (when-let ((buf (get-buffer "*Ement Notifications*")))
-      (with-current-buffer buf
-        (ement-room--replace-event event)))
-    (when-let ((buf (get-buffer "*Ement Mentions*")))
-      (with-current-buffer buf
-        (ement-room--replace-event event)))
-    (message "Restored content of event.")))
+(defun ement-room-hide-content (event &optional action)
+  "Hide or unhide content of message EVENT.
+If ACTION is `hide', do so; if `reveal', do so; otherwise, toggle
+visibility.  Interactively, toggle the message EVENT at point."
+  (interactive (list (ewoc-data (ewoc-locate ement-ewoc))))
+  (setf (alist-get 'hiddenp (ement-event-local event))
+        (pcase action
+          ('hide t)
+          ('reveal nil)
+          (_ (not (alist-get 'hiddenp (ement-event-local event))))))
+  (dolist (buffer (remq nil (list (current-buffer)
+                                  (get-buffer "*Ement Notifications*")
+                                  (get-buffer "*Ement Mentions*"))))
+    (with-current-buffer buffer
+      (ewoc-map (lambda (data)
+                  (eq event data))
+                ement-ewoc))))
 
 ;;;; Functions
 
@@ -4494,7 +4472,7 @@ Format defaults to `ement-room-message-format-spec', which see."
 If FORMATTED-P, return the formatted body content, when available."
   (pcase-let* (((cl-struct ement-event content
                            (unsigned (map ('redacted_by unsigned-redacted-by)))
-                           (local (map ('redacted-by local-redacted-by))))
+                           (local (map ('redacted-by local-redacted-by) hiddenp)))
                 event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
@@ -4549,6 +4527,8 @@ If FORMATTED-P, return the formatted body content, when available."
       ;; now.  There are probably 3 or 4 different ways and places we could handle
       ;; redaction of content, and this seems like the simplest.)
       (setf body "[redacted]"))
+    (when hiddenp
+      (setf body (propertize "[content hidden]" 'face 'font-lock-comment-face)))
     body))
 
 (defun ement-room--render-html (string)
