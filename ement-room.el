@@ -5946,7 +5946,7 @@ For use in `completion-at-point-functions'."
                      (dir (if (stringp eww-download-directory)
                               eww-download-directory
                             (funcall eww-download-directory)))
-                     (filename (expand-file-name (file-name-nondirectory event-filename) dir)))
+                     (filename (expand-file-name(read-file-name "Download to: " (file-name-concat dir (file-name-nondirectory event-filename))))))
                  (access-file dir "Download failed")
                  (ement--media-request mxc-url session :as (list 'file filename)))))
 
