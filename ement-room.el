@@ -5546,9 +5546,9 @@ Then invalidate EVENT's node to show the image."
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-event-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5569,9 +5569,9 @@ Then invalidate EVENT's node to show the image."
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-event-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5592,9 +5592,9 @@ Then invalidate EVENT's node to show the image."
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-event-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
