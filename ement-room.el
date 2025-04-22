@@ -5933,7 +5933,7 @@ For use in `completion-at-point-functions'."
                          (decode-coding-region (point-min) (point) 'utf-8)
                          ;; HACK: This STATUS argument to `eww-render' is bogus.
                          (apply callback 'status cbargs))))))
-      (browse-url mxc))))
+      (eww-browse-url mxc))))
 
 ;;;; Footer
 
