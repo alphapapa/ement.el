@@ -5935,6 +5935,21 @@ For use in `completion-at-point-functions'."
                          (apply callback 'status cbargs))))))
       (eww-browse-url mxc))))
 
+;;;; Downloading media/files
+
+(defun ement-room-download-event-file (event)
+  (pcase-let* (((cl-struct ement-event
+                           (content (map ('filename event-filename)
+                                         ('url mxc-url))))
+                event))
+               (let* ((session ement-session)
+                     (dir (if (stringp eww-download-directory)
+                              eww-download-directory
+                            (funcall eww-download-directory)))
+                     (filename (expand-file-name (file-name-nondirectory event-filename) dir)))
+                 (access-file dir "Download failed")
+                 (ement--media-request mxc-url session :as (list 'file filename)))))
+
 ;;;; Footer
 
 (provide 'ement-room)
