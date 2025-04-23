@@ -2502,6 +2502,17 @@ To be used in `ement-room-view-hook', which see."
       (goto-char (ewoc-location node))
     (error "Event not found in buffer: %S" (ement-event-id event))))
 
+(defun ement-room--event-at (pos)
+  "Return event at POS or signal an error."
+  ;; TODO: Use this where appropriate.
+  (save-excursion
+    (goto-char pos)
+    (cl-assert ement-ewoc)
+    (let ((data (ewoc-data (ewoc-locate ement-ewoc))))
+      (cl-typecase data
+        (ement-event data)
+        (otherwise (user-error "No event at point"))))))
+
 (cl-defun ement-room-retro-callback (room session data
                                           &key (set-prev-batch t))
   "Push new DATA to ROOM on SESSION and add events to room buffer.
@@ -5546,7 +5557,7 @@ Then invalidate EVENT's node to show the image."
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'ement-room-download-event-file
+                        'action #'ement-room-download-file
                         'button t
                         'button-data event
                         'category t
@@ -5569,7 +5580,7 @@ Then invalidate EVENT's node to show the image."
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'ement-room-download-event-file
+                        'action #'ement-room-download-file
                         'button t
                         'button-data event
                         'category t
@@ -5592,7 +5603,7 @@ Then invalidate EVENT's node to show the image."
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'ement-room-download-event-file
+                        'action #'ement-room-download-file
                         'button t
                         'button-data event
                         'category t
@@ -5937,18 +5948,49 @@ For use in `completion-at-point-functions'."
 
 ;;;; Downloading media/files
 
-(defun ement-room-download-event-file (event)
-  (pcase-let* (((cl-struct ement-event
-                           (content (map ('filename event-filename)
-                                         ('url mxc-url))))
-                event))
-               (let* ((session ement-session)
-                     (dir (if (stringp eww-download-directory)
-                              eww-download-directory
-                            (funcall eww-download-directory)))
-                     (filename (expand-file-name(read-file-name "Download to: " (file-name-concat dir (file-name-nondirectory event-filename))))))
-                 (access-file dir "Download failed")
-                 (ement--media-request mxc-url session :as (list 'file filename)))))
+(defvar eww-download-directory)
+
+(defun ement-room-download-file (event destination)
+  "Download EVENT's file to DESTINATION.
+If DESTINATION is a directory, use the file's default name;
+otherwise, download to the filename.  Interactively, download to
+`eww-download-directory'; with prefix, prompt for destination."
+  (interactive (list (ement-room--event-at (point))
+                     (if current-prefix-arg
+                         (expand-file-name
+                          (read-file-name
+                           "Download to: "
+                           (cl-typecase eww-download-directory
+                             (string eww-download-directory)
+                             (function (funcall eww-download-directory)))))
+                       (expand-file-name
+                        (cl-typecase eww-download-directory
+                          (string eww-download-directory)
+                          (function (funcall eww-download-directory)))))))
+  (pcase-let (((cl-struct ement-event
+                          (content (map ('filename event-filename)
+                                        ('url mxc-url))))
+               event)
+              (started-at (current-time)))
+    (when (directory-name-p destination)
+      (unless (file-exists-p destination)
+        (make-directory destination 'parents))
+      (setf destination (file-name-concat destination event-filename)))
+    (unless (file-writable-p destination)
+      (user-error "Destination path not writable: %S" destination))
+    (when (file-exists-p destination)
+      (user-error "File already exists: %S" destination))
+    (ement--media-request mxc-url ement-session :authenticatedp t
+      :as `(file ,destination)
+      :then (lambda (&rest _)
+              (let* ((file-size (file-attribute-size
+                                 (file-attributes destination)))
+                     (duration (float-time (time-subtract (current-time) started-at)))
+                     (speed (file-size-human-readable (/ file-size duration))))
+                (message "File downloaded: %S (%s in %s at %s/sec) "
+                         destination (file-size-human-readable file-size)
+                         (format-seconds "%h:%m:%s%z seconds" duration)
+                         speed))))))
 
 ;;;; Footer
 
