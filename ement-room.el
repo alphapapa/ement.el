@@ -5980,6 +5980,9 @@ otherwise, download to the filename.  Interactively, download to
       (user-error "Destination path not writable: %S" destination))
     (when (file-exists-p destination)
       (user-error "File already exists: %S" destination))
+    ;; TODO: For bonus points, provide a way to cancel a download (otherwise the user
+    ;; would have to use `list-processes' and find the right one to delete), and to see
+    ;; progress (perhaps borrowing some of the relevant code in hyperdrive.el).
     (ement--media-request mxc-url ement-session :authenticatedp t
       :as `(file ,destination)
       :then (lambda (&rest _)
