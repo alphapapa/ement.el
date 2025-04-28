@@ -195,6 +195,7 @@ keymap directly the issue may be visible.")
     (define-key map (kbd "s f") #'ement-room-send-file)
     (define-key map (kbd "s i") #'ement-room-send-image)
     (define-key map (kbd "v") #'ement-room-view-event)
+    (define-key map (kbd "D") #'ement-room-download-file)
 
     ;; Users
     (define-key map (kbd "u RET") #'ement-send-direct-message)
@@ -5844,7 +5845,8 @@ For use in `completion-at-point-functions'."
               ("s r" "Send reaction" ement-room-send-reaction)
               ("s e" "Send emote" ement-room-send-emote)
               ("s f" "Send file" ement-room-send-file)
-              ("s i" "Send image" ement-room-send-image)]
+              ("s i" "Send image" ement-room-send-image)
+              ("D" "Download event media" ement-room-download-file)]
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
