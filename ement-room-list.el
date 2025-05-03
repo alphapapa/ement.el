@@ -140,6 +140,10 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Show room avatars in the room list."
   :type 'boolean)
 
+(defcustom ement-room-list-avatars-generation (image-type-available-p 'svg)
+  "Generate SVG-based avatars for rooms that have none."
+  :type 'boolean)
+
 (defcustom ement-room-list-space-prefix "Space: "
   "Prefix applied to space names."
   :type 'string)
@@ -416,15 +420,18 @@ from recent to non-recent for rooms updated in the past hour."
                        (propertize " " 'display
                                    (ement--resize-image (get-text-property 0 'display avatar)
                                                         nil (frame-char-height)))
-                     ;; Room has no avatar: make one.
-                     (let* ((string (or display-name (ement--room-display-name room)))
-                            (ement-room-prism-minimum-contrast 1)
-                            (color (ement--prism-color string :contrast-with "white")))
-                       (when (string-match (rx bos (or "#" "!" "@")) string)
-                         (setf string (substring string 1)))
-                       (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
-                                                             :background color :foreground "white"
-                                                             :stroke 0))))))
+                     ;; Room has no avatar.
+                     (if ement-room-list-avatars-generation
+                         (let* ((string (or display-name (ement--room-display-name room)))
+                                (ement-room-prism-minimum-contrast 1)
+                                (color (ement--prism-color string :contrast-with "white")))
+                           (when (string-match (rx bos (or "#" "!" "@")) string)
+                             (setf string (substring string 1)))
+                           (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
+                                                                 :background color :foreground "white"
+                                                                 :stroke 0)))
+                       ;; Avatar generation disabled: use a two-space string.
+                       " "))))
               (setf (alist-get 'room-list-avatar (ement-room-local room)) new-avatar)))
       ;; Avatars disabled: use a two-space string.
       " ")))
