@@ -110,6 +110,38 @@ Used to avoid overlapping requests.")
 (defvar ement-room-message-format-spec)
 (defvar ement-room-sender-in-left-margin)
 
+;;;; Customization
+
+(defcustom ement-notifications-room-button-separator
+  (rx ">" (or " " eol))
+  "Regexp identifying how notification button properties will be applied.
+The button will cover the text up until the end of the first match.
+
+See `ement-notifications-message-format-spec'."
+  :type 'regexp
+  :group 'ement-notify)
+
+(defcustom ement-notifications-message-format-spec "%o%O »%W %S> %B%R%t"
+  "Format *Ement Notifications* buffer messages according to this spec.
+
+See `ement-room-message-format-spec' for format details.
+
+The regexp `ement-notifications-room-button-separator' should match a
+position between the room/sender and the message body.  With the default
+regexp, the format-spec must contain a \">\" character followed by
+either a space or a newline.
+
+Applying the button properties only to the room and sender names allows
+any buttons in the rest of the message to remain usable."
+  :type '(choice (const :tag "Default" "%o%O »%W %S> %B%R%t")
+                 (string :tag "Custom format"))
+  :set #'ement-room-message-format-spec-setter
+  :set-after '(ement-room-message-format-spec)
+  ;; This file must be loaded before calling the setter to define the
+  ;; `ement-room-user' face used in it.
+  :require 'ement-room
+  :group 'ement-notify)
+
 ;;;; Commands
 
 ;;;###autoload
@@ -212,7 +244,7 @@ to `ement-api', which see."
                                                 :key #'ement-room-id :test #'equal)
                                        (error "ement-notifications-log-to-buffer: Can't find room <%s>; discarding notification" room-id)))
                        (ement-room-sender-in-left-margin nil)
-                       (ement-room-message-format-spec "%o%O »%W %S> %B%R%t")
+                       (ement-room-message-format-spec ement-notifications-message-format-spec)
                        (new-node (ement-room--insert-event event))
                        (inhibit-read-only t)
                        (start) (end))
@@ -221,7 +253,7 @@ to `ement-api', which see."
             ;; allowing buttons in the rest of the message to remain separate.
             (setf start (point)
                   end (save-excursion
-                        (re-search-forward (rx "> "))))
+                        (re-search-forward ement-notifications-room-button-separator)))
             (add-text-properties start end '( button (t)
                                               category default-button
                                               action ement-notify-button-action))
@@ -269,7 +301,7 @@ to `ement-api', which see."
   (setf ement-room-sender-in-left-margin nil
         left-margin-width 0
         right-margin-width 8)
-  (setq-local ement-room-message-format-spec "[%o%O] %S> %B%R%t"
+  (setq-local ement-room-message-format-spec ement-notifications-message-format-spec
               bookmark-make-record-function #'ement-notifications-bookmark-make-record))
 
 ;;;; Bookmark support
