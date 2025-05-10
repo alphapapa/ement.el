@@ -195,6 +195,7 @@ keymap directly the issue may be visible.")
     (define-key map (kbd "s f") #'ement-room-send-file)
     (define-key map (kbd "s i") #'ement-room-send-image)
     (define-key map (kbd "v") #'ement-room-view-event)
+    (define-key map (kbd "D") #'ement-room-download-file)
 
     ;; Users
     (define-key map (kbd "u RET") #'ement-send-direct-message)
@@ -2501,6 +2502,17 @@ To be used in `ement-room-view-hook', which see."
                           (equal (ement-event-id event) (ement-event-id data)))))))
       (goto-char (ewoc-location node))
     (error "Event not found in buffer: %S" (ement-event-id event))))
+
+(defun ement-room--event-at (pos)
+  "Return event at POS or signal an error."
+  ;; TODO: Use this where appropriate.
+  (save-excursion
+    (goto-char pos)
+    (cl-assert ement-ewoc)
+    (let ((data (ewoc-data (ewoc-locate ement-ewoc))))
+      (cl-typecase data
+        (ement-event data)
+        (otherwise (user-error "No event at point"))))))
 
 (cl-defun ement-room-retro-callback (room session data
                                           &key (set-prev-batch t))
@@ -5546,9 +5558,9 @@ Then invalidate EVENT's node to show the image."
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5569,9 +5581,9 @@ Then invalidate EVENT's node to show the image."
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5592,9 +5604,9 @@ Then invalidate EVENT's node to show the image."
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5833,7 +5845,8 @@ For use in `completion-at-point-functions'."
               ("s r" "Send reaction" ement-room-send-reaction)
               ("s e" "Send emote" ement-room-send-emote)
               ("s f" "Send file" ement-room-send-file)
-              ("s i" "Send image" ement-room-send-image)]
+              ("s i" "Send image" ement-room-send-image)
+              ("D" "Download event media" ement-room-download-file)]
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
@@ -5933,7 +5946,56 @@ For use in `completion-at-point-functions'."
                          (decode-coding-region (point-min) (point) 'utf-8)
                          ;; HACK: This STATUS argument to `eww-render' is bogus.
                          (apply callback 'status cbargs))))))
-      (browse-url mxc))))
+      (eww-browse-url mxc))))
+
+;;;; Downloading media/files
+
+(defvar eww-download-directory)
+
+(defun ement-room-download-file (event destination)
+  "Download EVENT's file to DESTINATION.
+If DESTINATION is a directory, use the file's default name;
+otherwise, download to the filename.  Interactively, download to
+`eww-download-directory'; with prefix, prompt for destination."
+  (interactive (list (ement-room--event-at (point))
+                     (if current-prefix-arg
+                         (expand-file-name
+                          (read-file-name
+                           "Download to: "
+                           (cl-typecase eww-download-directory
+                             (string eww-download-directory)
+                             (function (funcall eww-download-directory)))))
+                       (expand-file-name
+                        (cl-typecase eww-download-directory
+                          (string eww-download-directory)
+                          (function (funcall eww-download-directory)))))))
+  (pcase-let (((cl-struct ement-event
+                          (content (map ('filename event-filename)
+                                        ('url mxc-url))))
+               event)
+              (started-at (current-time)))
+    (when (directory-name-p destination)
+      (unless (file-exists-p destination)
+        (make-directory destination 'parents))
+      (setf destination (file-name-concat destination event-filename)))
+    (unless (file-writable-p destination)
+      (user-error "Destination path not writable: %S" destination))
+    (when (file-exists-p destination)
+      (user-error "File already exists: %S" destination))
+    ;; TODO: For bonus points, provide a way to cancel a download (otherwise the user
+    ;; would have to use `list-processes' and find the right one to delete), and to see
+    ;; progress (perhaps borrowing some of the relevant code in hyperdrive.el).
+    (ement--media-request mxc-url ement-session :authenticatedp t
+      :as `(file ,destination)
+      :then (lambda (&rest _)
+              (let* ((file-size (file-attribute-size
+                                 (file-attributes destination)))
+                     (duration (float-time (time-subtract (current-time) started-at)))
+                     (speed (file-size-human-readable (/ file-size duration))))
+                (message "File downloaded: %S (%s in %s at %s/sec) "
+                         destination (file-size-human-readable file-size)
+                         (format-seconds "%h:%m:%s%z seconds" duration)
+                         speed))))))
 
 ;;;; Footer
 
