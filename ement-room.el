@@ -5558,9 +5558,9 @@ Then invalidate EVENT's node to show the image."
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'ement-room-download-file
+                        'action #'call-interactively
                         'button t
-                        'button-data event
+                        'button-data #'ement-room-download-file
                         'category t
                         'face 'button
                         'follow-link t
@@ -5581,9 +5581,9 @@ Then invalidate EVENT's node to show the image."
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'ement-room-download-file
+                        'action #'call-interactively
                         'button t
-                        'button-data event
+                        'button-data #'ement-room-download-file
                         'category t
                         'face 'button
                         'follow-link t
@@ -5972,19 +5972,26 @@ otherwise, download to the filename.  Interactively, download to
                           (cl-typecase eww-download-directory
                             (string eww-download-directory)
                             (function (funcall eww-download-directory))))))))
-  (pcase-let (((cl-struct ement-event
-                          (content (map ('filename event-filename)
-                                        ('url mxc-url))))
-               event)
-              (started-at (current-time)))
-    (when (directory-name-p destination)
+  (pcase-let* (((cl-struct ement-event
+                           (content (map ('filename event-filename) ('url mxc-url)
+                                         body)))
+                event)
+               (started-at (current-time))
+               (filename (if (not event-filename)
+                             body
+                           (if (equal body event-filename)
+                               body
+                             event-filename))))
+    (when (file-directory-p destination)
       (unless (file-exists-p destination)
         (make-directory destination 'parents))
-      (setf destination (file-name-concat destination event-filename)))
+      (setf destination (file-name-concat destination filename)))
     (unless (file-writable-p destination)
-      (user-error "Destination path not writable: %S" destination))
+      ;; FIXME: Pressing "C-u" before clicking a download link doesn't work.
+      (user-error "Destination path not writable: %S (Call with prefix to prompt for filename)"
+                  destination))
     (when (file-exists-p destination)
-      (user-error "File already exists: %S" destination))
+      (user-error "File already exists: %S (Call with prefix to prompt for filename)" destination))
     ;; TODO: For bonus points, provide a way to cancel a download (otherwise the user
     ;; would have to use `list-processes' and find the right one to delete), and to see
     ;; progress (perhaps borrowing some of the relevant code in hyperdrive.el).
@@ -5998,7 +6005,8 @@ otherwise, download to the filename.  Interactively, download to
                 (message "File downloaded: %S (%s in %s at %s/sec) "
                          destination (file-size-human-readable file-size)
                          (format-seconds "%h:%m:%s%z seconds" duration)
-                         speed))))))
+                         speed))))
+    (message "Downloading to %S..." destination)))
 
 ;;;; Footer
 
