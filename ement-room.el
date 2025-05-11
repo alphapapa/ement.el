@@ -5950,6 +5950,7 @@ For use in `completion-at-point-functions'."
 
 ;;;; Downloading media/files
 
+;; We load `eww' to define this variable on-demand.
 (defvar eww-download-directory)
 
 (defun ement-room-download-file (event destination)
@@ -5957,18 +5958,20 @@ For use in `completion-at-point-functions'."
 If DESTINATION is a directory, use the file's default name;
 otherwise, download to the filename.  Interactively, download to
 `eww-download-directory'; with prefix, prompt for destination."
-  (interactive (list (ement-room--event-at (point))
-                     (if current-prefix-arg
+  (interactive (progn
+                 (require 'eww)
+                 (list (ement-room--event-at (point))
+                       (if current-prefix-arg
+                           (expand-file-name
+                            (read-file-name
+                             "Download to: "
+                             (cl-typecase eww-download-directory
+                               (string eww-download-directory)
+                               (function (funcall eww-download-directory)))))
                          (expand-file-name
-                          (read-file-name
-                           "Download to: "
-                           (cl-typecase eww-download-directory
-                             (string eww-download-directory)
-                             (function (funcall eww-download-directory)))))
-                       (expand-file-name
-                        (cl-typecase eww-download-directory
-                          (string eww-download-directory)
-                          (function (funcall eww-download-directory)))))))
+                          (cl-typecase eww-download-directory
+                            (string eww-download-directory)
+                            (function (funcall eww-download-directory))))))))
   (pcase-let (((cl-struct ement-event
                           (content (map ('filename event-filename)
                                         ('url mxc-url))))
