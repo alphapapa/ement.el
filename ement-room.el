@@ -4150,20 +4150,14 @@ If FORMATTED-P, return the formatted body content, when available."
                 event)
                ((map ('body main-body) msgtype ('format content-format) ('formatted_body formatted-body)
                      ('m.relates_to (map ('rel_type rel-type)))
+                     ('m.relates_to (map ('m.in_reply_to (map ('event_id replied-to-event-id)))))
                      ('m.new_content (map ('body new-body) ('formatted_body new-formatted-body)
                                           ('format new-content-format))))
                 content)
                (body (or new-body main-body))
                (formatted-body (or new-formatted-body formatted-body))
-               (body (if (or (not formatted-p) (not formatted-body))
-                         ;; Copy the string so as not to add face properties to the one in the struct.
-                         (copy-sequence body)
-                       (pcase (or new-content-format content-format)
-                         ("org.matrix.custom.html"
-                          (save-match-data
-                            (ement-room--render-html formatted-body)))
-                         (_ (format "[unknown body format: %s] %s"
-                                    (or new-content-format content-format) body)))))
+               (quote-in-body-p (and formatted-body
+                                     (string-match-p "<mx-reply>" formatted-body)))
                (appendix (pcase msgtype
                            ;; TODO: Face for m.notices.
                            ((or "m.text" "m.emote" "m.notice") nil)
@@ -4173,7 +4167,45 @@ If FORMATTED-P, return the formatted body content, when available."
                            ("m.audio" (ement-room--format-m.audio event))
                            (_ (if (or local-redacted-by unsigned-redacted-by)
                                   nil
-                                (format "[unsupported msgtype: %s]" msgtype ))))))
+                                (format "[unsupported msgtype: %s]" msgtype)))))
+               (event-replied-to))
+    ;; This is an edit event and this doesn't have the quoted event ID in m.relates_to,
+    ;; only the message being edited (even if it is an edit of an edit)
+    (when (and (equal rel-type "m.replace") (null replied-to-event-id))
+      ;; The original event is already fetched, use it.
+      (if-let ((orig-event-id (map-nested-elt content '(m.relates_to event_id)))
+               (orig-event (gethash orig-event-id (ement-session-events ement-session))))
+          (setq replied-to-event-id
+                (map-nested-elt (ement-event-content orig-event)
+                                '(m.relates_to m.in_reply_to event_id)))
+        ;; The original event is not found: fetch it and redisplay this event.
+        (ement-api ement-session (format "rooms/%s/event/%s" (ement-room-id ement-room) orig-event-id)
+          :then (ement-room--rich-reply-callback ement-room ement-session event))))
+    (when replied-to-event-id
+      ;; Message is a reply, find or fetch the event being replied to.
+      (if-let ((replied-to-event (gethash replied-to-event-id (ement-session-events ement-session))))
+          ;; Found event in session's events table: use it.
+          (setf event-replied-to replied-to-event)
+        ;; Replied-to event not found: fetch it and redisplay this event.
+        (ement-api ement-session (format "rooms/%s/event/%s" (ement-room-id ement-room) replied-to-event-id)
+          :then (ement-room--rich-reply-callback ement-room ement-session event))))
+    (setf body (if (or (not formatted-p) (not formatted-body))
+                   ;; FIXME: This should check if the quote is the plain text body but
+                   ;; that is not easy...
+                   (if (and event-replied-to (not quote-in-body-p))
+                       (concat (ement-room--format-quotation-text event-replied-to)
+                               "\n" body)
+                     ;; Copy the string so as not to add face properties to the one in the struct.
+                     (copy-sequence body))
+                 (pcase (or new-content-format content-format)
+                   ("org.matrix.custom.html"
+                    (save-match-data
+                      (ement-room--render-html
+                       (if event-replied-to
+                           (ement-room--format-quotation-html event-replied-to formatted-body ement-room)
+                         formatted-body))))
+                   (_ (format "[unknown body format: %s] %s"
+                              (or new-content-format content-format) body)))))
     (when body
       ;; HACK: Once I got an error when body was nil, so let's avoid that.
       (setf body (ement-room--linkify-urls body)))
@@ -4202,6 +4234,68 @@ If FORMATTED-P, return the formatted body content, when available."
       ;; redaction of content, and this seems like the simplest.)
       (setf body "[redacted]"))
     body))
+
+(defun ement-room--rich-reply-callback (room session event)
+  "Return callback function for rich reply in EVENT in ROOM of SESSION."
+  (lambda (fetched-event)
+    (pcase-let* ((new-event (ement--make-event fetched-event))
+                 ((cl-struct ement-room (local (map buffer))) room))
+      (ement--put-event new-event room session)
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (when-let ((node (ement-room--ewoc-last-matching ement-ewoc
+                             ;; This is probably ok, but it might be safer
+                             ;; to test the event ID.
+                             (lambda (data) (eq data event)))))
+            (ewoc-invalidate ement-ewoc node)))))))
+
+(defun ement-room--format-quotation-text (quoted-event)
+  "Return text for QUOTED-EVENT."
+  (pcase-let* (((cl-struct ement-event sender (content (map body))) quoted-event)
+               ((cl-struct ement-user (id sender-id)) sender))
+    (with-temp-buffer
+      (insert "> " "<" sender-id ">" body)
+      (goto-char (point-min))
+      (forward-line 1)
+      (while (not (eobp))
+        (insert "> ")
+        (forward-line 1))
+      (insert "\n")
+      (buffer-string))))
+
+(defun ement-room--format-quotation-html (quoted-event reply-body room)
+  "Include QUOTED-EVENT in formatted REPLY-BODY in ROOM."
+  (pcase-let* (((cl-struct ement-room (id room-id)) room)
+               ((cl-struct ement-event content (id event-id) sender) quoted-event)
+               ((cl-struct ement-user (id sender-id)) sender)
+               ((map format ('body quoted-body) ('formatted_body formatted-quoted-body)) content)
+               (new-quote (format "<mx-reply><blockquote>
+    <a href=\"https://matrix.to/#/%s/%s\">In reply to</a>
+    <a href=\"https://matrix.to/#/%s\">%s</a>
+    <br />
+%s
+  </blockquote></mx-reply>"
+                                  room-id event-id sender-id
+                                  (ement--user-displayname-in room sender)
+                                  (pcase format
+                                    ("org.matrix.custom.html" formatted-quoted-body)
+                                    (_ quoted-body)))))
+    (if (string-match-p "<mx-reply>" reply-body)
+        (let (new-quote-dom reply-body-dom)
+          (with-current-buffer (get-buffer-create " *ement-room--rich-reply*")
+            (erase-buffer)
+            (insert new-quote)
+            (setq new-quote-dom
+                  (dom-by-tag (libxml-parse-html-region (point-min) (point-max)) 'blockquote))
+            (erase-buffer)
+            (insert reply-body)
+            (setq reply-body-dom (libxml-parse-html-region (point-min) (point-max)))
+            (setcar (cddar (dom-by-tag reply-body-dom 'mx-reply))
+                    (car new-quote-dom))
+            (erase-buffer)
+            (dom-print (dom-by-tag reply-body-dom 'body))
+            (buffer-string)))
+      (concat new-quote "\n" reply-body))))
 
 (defun ement-room--render-html (string)
   "Return rendered version of HTML STRING.
