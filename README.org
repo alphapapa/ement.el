@@ -284,6 +284,28 @@ Emacs may not display certain symbols and emojis well by default.  Based on [[ht
   (set-fontset-font t 'unicode "Noto Emoji" nil 'append)
 #+END_SRC
 
+*** Wrapping message display
+
+Long lines can be wrapped, and even centered, with the [[https://codeberg.org/joostkremers/visual-fill-column][visual-fill-column-mode]] package. However, care must be taken to ensure that the margins are correctly configured so as not to clip the sender/timestamp display. The snippet below will setup ~visual-fill-column-mode~, configure the margins, and center the message text:
+
+#+BEGIN_SRC elisp
+  (defun my/ement-room-visual-fill-column-setup ()
+    (setf
+     ;; Configure the margins.
+     visual-fill-column-extra-text-width (cons (- ement-room-left-margin-width)
+                                               (- ement-room-right-margin-width))
+     ;; Optionally configure max text width (defaults to `fill-column').
+     visual-fill-column-width 100
+     ;; Optionally center the text.
+     visual-fill-column-center-text t)
+    (visual-fill-column-mode 1))
+  (add-hook 'ement-room-mode-hook 'my/ement-room-visual-fill-column-setup)
+#+END_SRC
+
+And this is what it looks like:
+
+[[images/screenshot-visual-fill-column.png]]
+
 ** Encrypted room support through Pantalaimon
 
 Ement.el doesn't support encrypted rooms natively, but it can be used transparently with the E2EE-aware reverse proxy daemon [[https://github.com/matrix-org/pantalaimon/][Pantalaimon]].  After configuring it according to its documentation, call ~ement-connect~ with the appropriate hostname and port, like:
