@@ -897,6 +897,7 @@ non-nil, set the variables buffer-locally (i.e. when called from
         (message "Ement: Kill and reopen room buffers to display in new format")))))
 
 (defcustom ement-room-message-format-spec "%S%L%B%r%R%t"
+  ;; Formatter definitions: (occur "(\\ement-room-define-event-formatter")
   "Format messages according to this spec.
 It may contain these specifiers:
 
@@ -916,7 +917,9 @@ It may contain these specifiers:
 
 Note that margin sizes must be set manually with
 `ement-room-left-margin-width' and
-`ement-room-right-margin-width'."
+`ement-room-right-margin-width'.
+
+See also `ement-notifications-message-format-spec'."
   :type '(choice (const :tag "IRC-style using margins" "%S%L%B%r%R%t")
                  (const :tag "IRC-style without margins" "[%t] %S> %B%r")
                  (const :tag "IRC-style without margins, with wrap-prefix" "[%t] %S> %W%B%r")
@@ -4049,6 +4052,8 @@ Formats according to `ement-room-message-format-spec', which see."
 (cl-defun ement-room--format-message (event room session &optional (format ement-room-message-format-spec))
   "Return EVENT in ROOM on SESSION formatted according to FORMAT.
 Format defaults to `ement-room-message-format-spec', which see."
+  ;; Formatter definitions: (occur "(\\ement-room-define-event-formatter")
+  ;;
   ;; Bind this locally so formatters can modify it for this call.
   (let ((ement-room--format-message-margin-p)
         (left-margin-width ement-room-left-margin-width)
