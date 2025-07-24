@@ -1813,7 +1813,8 @@ THEN may be a function to call after joining the room (and when
 buffer).  It receives two arguments, the room and the session."
   (interactive (list (read-string "Join room (ID or alias): ")
                      (or ement-session
-                         (ement-complete-session))))
+                         (ement-complete-session :prompt "Join as: "
+                                                 :pred #'ement-session-has-synced-p))))
   (cl-assert id-or-alias) (cl-assert session)
   (unless (string-match-p
            ;; According to tulir in #matrix-dev:matrix.org, ": is not
@@ -2464,7 +2465,11 @@ these all require at least version 29 of Emacs):
 (defun ement-room-view (room session)
   "Switch to a buffer showing ROOM on SESSION.
 Uses action `ement-view-room-display-buffer-action', which see."
-  (interactive (ement-complete-room :session (ement-complete-session) :suggest nil
+  (interactive (ement-complete-room
+                 :session (ement-complete-session
+                           :prompt "View as: "
+                           :pred  #'ement-session-has-synced-p)
+                 :suggest nil
                  :predicate (lambda (room)
                               (not (ement--space-p room)))))
   (pcase-let* (((cl-struct ement-room (local (map buffer))) room))
