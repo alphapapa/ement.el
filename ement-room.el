@@ -3540,7 +3540,7 @@ buries the buffer and shows the next unread room, if any."
         (set-buffer-modified-p nil)
         (if-let ((rooms-window (cl-find-if (lambda (window)
                                              (member (buffer-name (window-buffer window))
-                                                     '("*Ement Taxy*" "*Ement Rooms*")))
+                                                     '("*Ement Room List*" "*Ement Rooms*")))
                                            (window-list))))
             ;; Rooms buffer already displayed: select its window and move to next unread room.
             (progn
