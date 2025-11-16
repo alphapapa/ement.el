@@ -93,7 +93,8 @@
       (_ (when-let ((room (cl-find id (ement-session-rooms session)
                                    :key #'ement-room-id :test #'equal))
                     ((ement--room-direct-p room session)))
-           (propertize "People" 'face 'ement-room-list-direct))))))
+           (ement-propertize "People"
+             'face 'ement-room-list-direct))))))
 
 (defcustom ement-directory-default-keys
   '((joined-p
@@ -143,8 +144,8 @@
                             'ement-room-list-name)))))
     ;; NOTE: We can't use `ement--room-display-name' because these aren't room structs,
     ;; and we don't have membership data.
-    (propertize (or name canonical-alias "[unnamed]")
-                'face face)))
+    (ement-propertize (or name canonical-alias "[unnamed]")
+      'face face)))
 
 (ement-directory-define-column "Alias" (:max-width 25)
   (pcase-let (((map ('canonical_alias alias)) item))
@@ -419,8 +420,8 @@ SPACE may be a room ID or an `ement-room' struct."
                   ;; TODO: Use space's alias where possible.
                   :buffer-name (format "*Ement Directory: space %s" (ement--format-room space session))
                   :root-section-name (format "*Ement Directory: rooms in %s %s"
-                                             (propertize "space"
-                                                         'face 'font-lock-type-face)
+                                             (ement-propertize "space"
+                                               'face 'font-lock-type-face)
                                              (ement--format-room space session))
                   :init-fn (lambda ()
                              (setf (alist-get 'session ement-directory-etc) session

@@ -313,6 +313,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Fixes*
 
 + Call ~eww-browse-url~ instead of ~browse-url~ in ~ement-room-browse-mxc~ (because the latter is not useful for authenticated media if the user has configured it to use a different browser).  ([[https://github.com/alphapapa/ement.el/pull/323][#323]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
++ Workaround change in ~magit-section~ that broke fontification in room-list and directory buffers.  (See [[https://github.com/alphapapa/ement.el/issues/331][#331]].)
 
 ** 0.16
 

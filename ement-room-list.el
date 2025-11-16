@@ -254,7 +254,7 @@ from recent to non-recent for rooms updated in the past hour."
 (ement-room-list-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
-      (propertize "People" 'face 'ement-room-list-direct))))
+      (ement-propertize "People" 'face 'ement-room-list-direct))))
 
 (ement-room-list-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
@@ -285,7 +285,7 @@ from recent to non-recent for rooms updated in the past hour."
                           (_
                            ;; TODO: How to handle this better?  (though it should be very rare)
                            (string-join (mapcar #'format-space parents) ", "))))))
-        (propertize key 'face 'ement-room-list-space)))))
+        (ement-propertize key 'face 'ement-room-list-space)))))
 
 (ement-room-list-define-key space-p ()
   "Groups rooms that are themselves spaces."
@@ -355,7 +355,7 @@ from recent to non-recent for rooms updated in the past hour."
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
-      (propertize "Favourite" 'face 'ement-room-list-favourite))))
+      (ement-propertize "Favourite" 'face 'ement-room-list-favourite))))
 
 (ement-room-list-define-key low-priority ()
   :then #'identity
@@ -462,10 +462,10 @@ from recent to non-recent for rooms updated in the past hour."
              (push 'ement-room-list-invited (map-elt face :inherit)))
             ('leave
              (push 'ement-room-list-left (map-elt face :inherit))))
-          (propertize display-name
-                      'face face
-                      'mouse-face 'highlight
-                      'keymap ement-room-list-button-map))
+          (ement-propertize display-name
+            'face face
+            'mouse-face 'highlight
+            'keymap ement-room-list-button-map))
         "")))
 
 (ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
@@ -475,13 +475,13 @@ from recent to non-recent for rooms updated in the past hour."
             (and (equal 0 notification_count)
                  (equal 0 highlight_count)))
         ""
-      (concat (propertize (number-to-string notification_count)
-                          'face (if (zerop highlight_count)
-                                    'default
-                                  'ement-room-mention))
+      (concat (ement-propertize (number-to-string notification_count)
+                'face (if (zerop highlight_count)
+                          'default
+                        'ement-room-mention))
               ":"
-              (propertize (number-to-string highlight_count)
-                          'face 'highlight)))))
+              (ement-propertize (number-to-string highlight_count)
+                'face 'highlight)))))
 
 (ement-room-list-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
@@ -498,8 +498,9 @@ from recent to non-recent for rooms updated in the past hour."
                (face (list :foreground (elt ement-room-list-timestamp-colors n)))
                (formatted-ts (ement--human-format-duration difference-seconds 'abbreviate)))
           (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
-          (propertize (match-string 0 formatted-ts) 'face face
-                      'help-echo formatted-ts))
+          (ement-propertize (match-string 0 formatted-ts)
+            'face face
+            'help-echo formatted-ts))
       "")))
 
 (ement-room-list-define-column "Topic" (:max-width 35)
@@ -508,11 +509,11 @@ from recent to non-recent for rooms updated in the past hour."
     (when topic
       (setf topic (replace-regexp-in-string "\n" " " topic 'fixedcase 'literal)))
     (pcase status
-      ('invite (concat (propertize "[invited]"
-                                   'face 'ement-room-list-invited)
+      ('invite (concat (ement-propertize "[invited]"
+                         'face 'ement-room-list-invited)
                        " " topic))
-      ('leave (concat (propertize "[left]"
-                                  'face 'ement-room-list-left)
+      ('leave (concat (ement-propertize "[left]"
+                        'face 'ement-room-list-left)
                       " " topic))
       (_ (or topic "")))))
 
