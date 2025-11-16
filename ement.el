@@ -5,7 +5,7 @@
 ;; Author: Adam Porter <adam@alphapapa.net>
 ;; Maintainer: Adam Porter <adam@alphapapa.net>
 ;; URL: https://github.com/alphapapa/ement.el
-;; Version: 0.16
+;; Version: 0.17
 ;; Package-Requires: ((emacs "27.1") (map "2.1") (persist "0.5") (plz "0.6") (taxy "0.10") (taxy-magit-section "0.13") (svg-lib "0.2.5") (transient "0.3.7"))
 ;; Keywords: comm
 
@@ -115,6 +115,10 @@ by users; ones who do so should know what they're doing.")
 (defvar ement-room-avatar-max-height)
 
 ;;;; Customization
+
+(defgroup ement-faces nil
+  "Faces for Ement."
+  :group 'ement)
 
 (defgroup ement nil
   "Options for Ement, the Matrix client."
@@ -1091,7 +1095,8 @@ interactive arguments passed to the command, which in our case
 includes large data structures that should never be persisted!"
     (setf command-history
           (cl-remove-if (pcase-lambda (`(,command . ,_))
-                          (string-match-p (rx bos "ement-") (symbol-name command)))
+                          (cl-typecase command
+                            (symbol (string-match-p (rx bos "ement-") (symbol-name command)))))
                         command-history)))
   (cl-pushnew 'ement--savehist-save-hook savehist-save-hook))
 

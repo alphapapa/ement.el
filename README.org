@@ -297,6 +297,25 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 :TOC:      :depth 0
 :END:
 
+** 0.17
+
+*Additions*
+
++ Command ~ement-room-download-file~, which downloads the file in the event at point (for image, audio, video, and file messages).  ([[https://github.com/alphapapa/ement.el/pull/323][#323]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
++ Customization groups for faces.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
++ Option ~ement-room-hide-redacted-message-content~, which hides the content of redacted messages by default.  It may be disabled to keep redacted content visible with a strikethrough face, which may be useful for room moderators, but users should keep in mind that doing so will leave unpleasant content visible in the current session, even after being redacted by moderators.
++ Option ~ement-room-list-avatar-generation~: if disabled, SVG-based room avatars are not generated.  This option automatically tests whether SVG support is available in Emacs, and should allow use with builds of Emacs that lack =librsvg= support. 
+
+*Changes*
+
++ Disable underline for faces ~ement-room-list-direct~ and ~ement-room-list-name~ (in case a face they inherit from enables it, e.g. when themed).
+
+*Fixes*
+
++ Call ~eww-browse-url~ instead of ~browse-url~ in ~ement-room-browse-mxc~ (because the latter is not useful for authenticated media if the user has configured it to use a different browser).  ([[https://github.com/alphapapa/ement.el/pull/323][#323]].  Thanks to [[https://github.com/viiru-][Arto Jantunen]].)
++ Workaround change in ~magit-section~ that broke fontification in room-list and directory buffers.  (See [[https://github.com/alphapapa/ement.el/issues/331][#331]].)
++ Handle non-symbol commands in ~command-history~.  ([[https://github.com/alphapapa/ement.el/issues/330][#330]].  Thanks to [[https://github.com/stsquad][Alex Bennée]] for reporting.)
+
 ** 0.16
 
 *Compatibility*

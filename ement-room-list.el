@@ -35,10 +35,6 @@
 
 (require 'ement-lib)
 
-(defgroup ement-room-list nil
-  "Group Ement rooms with Taxy."
-  :group 'ement)
-
 ;;;; Mouse commands
 
 ;; Since mouse-activated commands must handle mouse events, we define a simple macro to
@@ -127,6 +123,11 @@ Set automatically when `ement-room-list-mode' is activated.")
 
 ;;;; Customization
 
+(defgroup ement-room-list-faces nil
+  "Faces for room list buffers."
+  :group 'ement-room-list
+  :group 'ement-faces)
+
 (defgroup ement-room-list nil
   "Options for room list buffers."
   :group 'ement)
@@ -139,11 +140,18 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Show room avatars in the room list."
   :type 'boolean)
 
+(defcustom ement-room-list-avatar-generation (image-type-available-p 'svg)
+  "Generate SVG-based avatars for rooms that have none."
+  :type 'boolean)
+
 (defcustom ement-room-list-space-prefix "Space: "
   "Prefix applied to space names."
   :type 'string)
 
 ;;;;; Faces
+
+;; TODO: Inherit from a single face to allow certain attributes to be disabled
+;; (e.g. underline), in case a face inherited from has such attributes.
 
 (defface ement-room-list-direct
   ;; We want to use `font-lock-constant-face' as the base face (because it seems to look
@@ -155,45 +163,54 @@ Set automatically when `ement-room-list-mode' is activated.")
   (progn
     (copy-face 'font-lock-constant-face 'ement--font-lock-constant-face)
     (set-face-attribute 'ement--font-lock-constant-face nil :weight 'unspecified)
-    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name)))))
-  "Direct rooms.")
+    '((t (:inherit (ement--font-lock-constant-face ement-room-list-name) :underline nil))))
+  "Direct rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-favourite '((t (:inherit (font-lock-doc-face ement-room-list-name))))
-  "Favourite rooms.")
+  "Favourite rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-invited
   '((t (:inherit (italic ement-room-list-name))))
-  "Invited rooms.")
+  "Invited rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-left
   '((t (:strike-through t :inherit ement-room-list-name)))
-  "Left rooms.")
+  "Left rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-low-priority '((t (:inherit (font-lock-comment-face ement-room-list-name))))
-  "Low-priority rooms.")
+  "Low-priority rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-name
-  '((t (:inherit (font-lock-function-name-face button))))
-  "Non-direct rooms.")
+  '((t (:inherit (font-lock-function-name-face button) :underline nil)))
+  "Non-direct rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-space '((t (:inherit (font-lock-regexp-grouping-backslash ement-room-list-name))))
   "Space rooms."
-  :group 'ement-room-list)
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-unread
   '((t (:inherit (bold ement-room-list-name))))
-  "Unread rooms.")
+  "Unread rooms."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-recent '((t (:inherit font-lock-warning-face)))
   "Latest timestamp of recently updated rooms.
 The foreground color is used to generate a gradient of colors
 from recent to non-recent for rooms updated in the past 24
-hours but at least one hour ago.")
+hours but at least one hour ago."
+  :group 'ement-room-list-faces)
 
 (defface ement-room-list-very-recent '((t (:inherit error)))
   "Latest timestamp of very recently updated rooms.
 The foreground color is used to generate a gradient of colors
-from recent to non-recent for rooms updated in the past hour.")
+from recent to non-recent for rooms updated in the past hour."
+  :group 'ement-room-list-faces)
 
 ;;;; Keys
 
@@ -237,7 +254,7 @@ from recent to non-recent for rooms updated in the past hour.")
 (ement-room-list-define-key people ()
   (pcase-let ((`[,room ,session] item))
     (when (ement--room-direct-p room session)
-      (propertize "People" 'face 'ement-room-list-direct))))
+      (ement-propertize "People" 'face 'ement-room-list-direct))))
 
 (ement-room-list-define-key space (&key name id)
   (pcase-let* ((`[,room ,session] item)
@@ -268,7 +285,7 @@ from recent to non-recent for rooms updated in the past hour.")
                           (_
                            ;; TODO: How to handle this better?  (though it should be very rare)
                            (string-join (mapcar #'format-space parents) ", "))))))
-        (propertize key 'face 'ement-room-list-space)))))
+        (ement-propertize key 'face 'ement-room-list-space)))))
 
 (ement-room-list-define-key space-p ()
   "Groups rooms that are themselves spaces."
@@ -338,7 +355,7 @@ from recent to non-recent for rooms updated in the past hour.")
   :then #'identity
   (pcase-let ((`[,room ,_session] item))
     (when (ement--room-favourite-p room)
-      (propertize "Favourite" 'face 'ement-room-list-favourite))))
+      (ement-propertize "Favourite" 'face 'ement-room-list-favourite))))
 
 (ement-room-list-define-key low-priority ()
   :then #'identity
@@ -403,15 +420,18 @@ from recent to non-recent for rooms updated in the past hour.")
                        (propertize " " 'display
                                    (ement--resize-image (get-text-property 0 'display avatar)
                                                         nil (frame-char-height)))
-                     ;; Room has no avatar: make one.
-                     (let* ((string (or display-name (ement--room-display-name room)))
-                            (ement-room-prism-minimum-contrast 1)
-                            (color (ement--prism-color string :contrast-with "white")))
-                       (when (string-match (rx bos (or "#" "!" "@")) string)
-                         (setf string (substring string 1)))
-                       (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
-                                                             :background color :foreground "white"
-                                                             :stroke 0))))))
+                     ;; Room has no avatar.
+                     (if ement-room-list-avatar-generation
+                         (let* ((string (or display-name (ement--room-display-name room)))
+                                (ement-room-prism-minimum-contrast 1)
+                                (color (ement--prism-color string :contrast-with "white")))
+                           (when (string-match (rx bos (or "#" "!" "@")) string)
+                             (setf string (substring string 1)))
+                           (propertize " " 'display (svg-lib-tag (substring string 0 1) nil
+                                                                 :background color :foreground "white"
+                                                                 :stroke 0)))
+                       ;; Avatar generation disabled: use a two-space string.
+                       " "))))
               (setf (alist-get 'room-list-avatar (ement-room-local room)) new-avatar)))
       ;; Avatars disabled: use a two-space string.
       " ")))
@@ -442,10 +462,10 @@ from recent to non-recent for rooms updated in the past hour.")
              (push 'ement-room-list-invited (map-elt face :inherit)))
             ('leave
              (push 'ement-room-list-left (map-elt face :inherit))))
-          (propertize display-name
-                      'face face
-                      'mouse-face 'highlight
-                      'keymap ement-room-list-button-map))
+          (ement-propertize display-name
+            'face face
+            'mouse-face 'highlight
+            'keymap ement-room-list-button-map))
         "")))
 
 (ement-room-list-define-column #("Unread" 0 6 (help-echo "Unread events (Notifications:Highlights)")) (:align 'right)
@@ -455,13 +475,13 @@ from recent to non-recent for rooms updated in the past hour.")
             (and (equal 0 notification_count)
                  (equal 0 highlight_count)))
         ""
-      (concat (propertize (number-to-string notification_count)
-                          'face (if (zerop highlight_count)
-                                    'default
-                                  'ement-room-mention))
+      (concat (ement-propertize (number-to-string notification_count)
+                'face (if (zerop highlight_count)
+                          'default
+                        'ement-room-mention))
               ":"
-              (propertize (number-to-string highlight_count)
-                          'face 'highlight)))))
+              (ement-propertize (number-to-string highlight_count)
+                'face 'highlight)))))
 
 (ement-room-list-define-column "Latest" ()
   (pcase-let ((`[,(cl-struct ement-room latest-ts) ,_session] item))
@@ -478,8 +498,9 @@ from recent to non-recent for rooms updated in the past hour.")
                (face (list :foreground (elt ement-room-list-timestamp-colors n)))
                (formatted-ts (ement--human-format-duration difference-seconds 'abbreviate)))
           (string-match (rx (1+ digit) (repeat 1 alpha)) formatted-ts)
-          (propertize (match-string 0 formatted-ts) 'face face
-                      'help-echo formatted-ts))
+          (ement-propertize (match-string 0 formatted-ts)
+            'face face
+            'help-echo formatted-ts))
       "")))
 
 (ement-room-list-define-column "Topic" (:max-width 35)
@@ -488,11 +509,11 @@ from recent to non-recent for rooms updated in the past hour.")
     (when topic
       (setf topic (replace-regexp-in-string "\n" " " topic 'fixedcase 'literal)))
     (pcase status
-      ('invite (concat (propertize "[invited]"
-                                   'face 'ement-room-list-invited)
+      ('invite (concat (ement-propertize "[invited]"
+                         'face 'ement-room-list-invited)
                        " " topic))
-      ('leave (concat (propertize "[left]"
-                                  'face 'ement-room-list-left)
+      ('leave (concat (ement-propertize "[left]"
+                        'face 'ement-room-list-left)
                       " " topic))
       (_ (or topic "")))))
 

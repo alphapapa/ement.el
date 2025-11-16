@@ -195,6 +195,7 @@ keymap directly the issue may be visible.")
     (define-key map (kbd "s f") #'ement-room-send-file)
     (define-key map (kbd "s i") #'ement-room-send-image)
     (define-key map (kbd "v") #'ement-room-view-event)
+    (define-key map (kbd "D") #'ement-room-download-file)
 
     ;; Users
     (define-key map (kbd "u RET") #'ement-send-direct-message)
@@ -309,6 +310,11 @@ Does not include filenames, emotes, etc.")
 
 ;;;; Customization
 
+(defgroup ement-room-faces nil
+  "Faces for room buffers."
+  :group 'ement-room
+  :group 'ement-faces)
+
 (defgroup ement-room nil
   "Options for room buffers."
   :group 'ement)
@@ -331,77 +337,109 @@ If more than this many users have sent a reaction, show the
 number of senders instead (and the names in a tooltip)."
   :type 'natnum)
 
+(defcustom ement-room-hide-redacted-message-content t
+  "Hide content in redacted messages.
+If nil, redacted messages' content will remain visible with a
+strikethrough face until the session is terminated (a new session
+will not receive the redacted content).
+
+Disabling this option may be useful for room administrators and
+moderators, so they can see content redacted by other users and
+handle it appropriately.  However, one should use this option
+with caution, as it will keep unpleasant content visible even
+after it has been redacted.
+
+After changing this option, a room's buffer must be killed and
+reopened for existing messages to be rendered accordingly."
+  :type '(choice (const :tag "Hide content" t)
+                 (const :tag "Strikethrough" nil)))
+
 ;;;;; Faces
 
 (defface ement-room-name
   '((t (:inherit font-lock-function-name-face)))
-  "Room name shown in header line.")
+  "Room name shown in header line."
+  :group 'ement-room-faces)
 
 (defface ement-room-membership
   '((t (:height 0.8 :inherit font-lock-comment-face)))
-  "Membership events (join/part).")
+  "Membership events (join/part)."
+  :group 'ement-room-faces)
 
 (defface ement-room-reactions
   '((t (:inherit font-lock-comment-face :height 0.9)))
-  "Reactions to messages (including the user count).")
+  "Reactions to messages (including the user count)."
+  :group 'ement-room-faces)
 
 (defface ement-room-reactions-key
   '((t (:inherit ement-room-reactions :height 1.5)))
   "Reactions to messages (the key, i.e. the emoji part).
 Uses a separate face to allow the key to be shown at a different
 size, because in some fonts, emojis are too small relative to
-normal text.")
+normal text."
+  :group 'ement-room-faces)
 
 (defface ement-room-timestamp
   '((t (:inherit font-lock-comment-face)))
-  "Event timestamps.")
+  "Event timestamps."
+  :group 'ement-room-faces)
 
 (defface ement-room-user
   '((t (:inherit font-lock-function-name-face :weight bold :overline t)))
-  "Usernames.")
+  "Usernames."
+  :group 'ement-room-faces)
 
 (defface ement-room-self
   '((t (:inherit (font-lock-variable-name-face ement-room-user) :weight bold)))
-  "Own username.")
+  "Own username."
+  :group 'ement-room-faces)
 
 (defface ement-room-message-text
   '((t (:inherit default)))
-  "Text message bodies.")
+  "Text message bodies."
+  :group 'ement-room-faces)
 
 (defface ement-room-message-emote
   '((t (:inherit italic)))
-  "Emote message bodies.")
+  "Emote message bodies."
+  :group 'ement-room-faces)
 
 (defface ement-room-quote
   '((t (:height 0.9 :inherit font-lock-comment-face)))
   "Quoted parts of messages.
-Anything wrapped by HTML BLOCKQUOTE tag.")
+Anything wrapped by HTML BLOCKQUOTE tag."
+  :group 'ement-room-faces)
 
 (defface ement-room-redacted
   '((t (:strike-through t)))
-  "Redacted messages.")
+  "Redacted messages."
+  :group 'ement-room-faces)
 
 (defface ement-room-self-message
   '((t (:inherit (font-lock-variable-name-face))))
   "Oneself's message bodies.
 Note that this does not need to inherit
 `ement-room-message-text', because that face is combined with
-this one automatically.")
+this one automatically."
+  :group 'ement-room-faces)
 
 (defface ement-room-timestamp-header
   '((t (:inherit header-line :weight bold :height 1.1)))
-  "Timestamp headers.")
+  "Timestamp headers."
+  :group 'ement-room-faces)
 
 (defface ement-room-mention
   ;; TODO(30.1): Remove when not supporting Emacs 27 anymore.
   (if (version< emacs-version "27.1")
       '((t (:inherit hl-line)))
     '((t (:inherit hl-line :extend t))))
-  "Messages that mention the local user.")
+  "Messages that mention the local user."
+  :group 'ement-room-faces)
 
 (defface ement-room-wrap-prefix
   `((t :inherit highlight))
-  "Face applied to `ement-room-wrap-prefix', which see.")
+  "Face applied to `ement-room-wrap-prefix', which see."
+  :group 'ement-room-faces)
 
 ;;;;; Options
 
@@ -2465,6 +2503,17 @@ To be used in `ement-room-view-hook', which see."
       (goto-char (ewoc-location node))
     (error "Event not found in buffer: %S" (ement-event-id event))))
 
+(defun ement-room--event-at (pos)
+  "Return event at POS or signal an error."
+  ;; TODO: Use this where appropriate.
+  (save-excursion
+    (goto-char pos)
+    (cl-assert ement-ewoc)
+    (let ((data (ewoc-data (ewoc-locate ement-ewoc))))
+      (cl-typecase data
+        (ement-event data)
+        (otherwise (user-error "No event at point"))))))
+
 (cl-defun ement-room-retro-callback (room session data
                                           &key (set-prev-batch t))
   "Push new DATA to ROOM on SESSION and add events to room buffer.
@@ -3237,12 +3286,12 @@ function to `ement-room-event-fns', which see."
 (defface ement-room-read-receipt-marker
   '((t (:inherit show-paren-match)))
   "Read marker line in rooms."
-  :group 'ement-room)
+  :group 'ement-room-faces)
 
 (defface ement-room-fully-read-marker
   '((t (:inherit isearch)))
   "Fully read marker line in rooms."
-  :group 'ement-room)
+  :group 'ement-room-faces)
 
 (defcustom ement-room-send-read-receipts t
   "Whether to send read receipts.
@@ -4144,6 +4193,14 @@ If FORMATTED-P, return the formatted body content, when available."
     (when (equal "m.replace" rel-type)
       ;; Message is an edit.
       (setf body (concat body " " (propertize "[edited]" 'face 'font-lock-comment-face))))
+    (when (and (or local-redacted-by unsigned-redacted-by)
+               ement-room-hide-redacted-message-content)
+      ;; Message is redacted and hiding is enabled: override the body to hide the content.
+      ;; (This is a bit of a hack, since we've already prepared the body at this point,
+      ;; but retrofitting this into the existing logic is more than I want to do right
+      ;; now.  There are probably 3 or 4 different ways and places we could handle
+      ;; redaction of content, and this seems like the simplest.)
+      (setf body "[redacted]"))
     body))
 
 (defun ement-room--render-html (string)
@@ -5501,9 +5558,9 @@ Then invalidate EVENT's node to show the image."
                              (file-size-human-readable size)))
                (string (format "[file: %s (%s) (%s)]" filename mimetype human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'call-interactively
                         'button t
-                        'button-data mxc-url
+                        'button-data #'ement-room-download-file
                         'category t
                         'face 'button
                         'follow-link t
@@ -5524,9 +5581,9 @@ Then invalidate EVENT's node to show the image."
                (human-size (file-size-human-readable size))
                (string (format "[video: %s (%s) (%sx%s) (%s)]" body mimetype w h human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'call-interactively
                         'button t
-                        'button-data mxc-url
+                        'button-data #'ement-room-download-file
                         'category t
                         'face 'button
                         'follow-link t
@@ -5547,9 +5604,9 @@ Then invalidate EVENT's node to show the image."
                (human-duration (format-seconds "%m:%s" (/ duration 1000)))
                (string (format "[audio: %s (%s) (%s) (%s)]" body mimetype human-duration human-size)))
     (concat (propertize string
-                        'action #'ement-room-browse-mxc
+                        'action #'ement-room-download-file
                         'button t
-                        'button-data mxc-url
+                        'button-data event
                         'category t
                         'face 'button
                         'follow-link t
@@ -5788,7 +5845,8 @@ For use in `completion-at-point-functions'."
               ("s r" "Send reaction" ement-room-send-reaction)
               ("s e" "Send emote" ement-room-send-emote)
               ("s f" "Send file" ement-room-send-file)
-              ("s i" "Send image" ement-room-send-image)]
+              ("s i" "Send image" ement-room-send-image)
+              ("D" "Download event media" ement-room-download-file)]
              ["Users"
               ("u RET" "Send direct message" ement-send-direct-message)
               ("u i" "Invite user" ement-invite-user)
@@ -5888,7 +5946,67 @@ For use in `completion-at-point-functions'."
                          (decode-coding-region (point-min) (point) 'utf-8)
                          ;; HACK: This STATUS argument to `eww-render' is bogus.
                          (apply callback 'status cbargs))))))
-      (browse-url mxc))))
+      (eww-browse-url mxc))))
+
+;;;; Downloading media/files
+
+;; We load `eww' to define this variable on-demand.
+(defvar eww-download-directory)
+
+(defun ement-room-download-file (event destination)
+  "Download EVENT's file to DESTINATION.
+If DESTINATION is a directory, use the file's default name;
+otherwise, download to the filename.  Interactively, download to
+`eww-download-directory'; with prefix, prompt for destination."
+  (interactive (progn
+                 (require 'eww)
+                 (list (ement-room--event-at (point))
+                       (if current-prefix-arg
+                           (expand-file-name
+                            (read-file-name
+                             "Download to: "
+                             (cl-typecase eww-download-directory
+                               (string eww-download-directory)
+                               (function (funcall eww-download-directory)))))
+                         (expand-file-name
+                          (cl-typecase eww-download-directory
+                            (string eww-download-directory)
+                            (function (funcall eww-download-directory))))))))
+  (pcase-let* (((cl-struct ement-event
+                           (content (map ('filename event-filename) ('url mxc-url)
+                                         body)))
+                event)
+               (started-at (current-time))
+               (filename (if (not event-filename)
+                             body
+                           (if (equal body event-filename)
+                               body
+                             event-filename))))
+    (when (file-directory-p destination)
+      (unless (file-exists-p destination)
+        (make-directory destination 'parents))
+      (setf destination (file-name-concat destination filename)))
+    (unless (file-writable-p destination)
+      ;; FIXME: Pressing "C-u" before clicking a download link doesn't work.
+      (user-error "Destination path not writable: %S (Call with prefix to prompt for filename)"
+                  destination))
+    (when (file-exists-p destination)
+      (user-error "File already exists: %S (Call with prefix to prompt for filename)" destination))
+    ;; TODO: For bonus points, provide a way to cancel a download (otherwise the user
+    ;; would have to use `list-processes' and find the right one to delete), and to see
+    ;; progress (perhaps borrowing some of the relevant code in hyperdrive.el).
+    (ement--media-request mxc-url ement-session :authenticatedp t
+      :as `(file ,destination)
+      :then (lambda (&rest _)
+              (let* ((file-size (file-attribute-size
+                                 (file-attributes destination)))
+                     (duration (float-time (time-subtract (current-time) started-at)))
+                     (speed (file-size-human-readable (/ file-size duration))))
+                (message "File downloaded: %S (%s in %s at %s/sec) "
+                         destination (file-size-human-readable file-size)
+                         (format-seconds "%h:%m:%s%z seconds" duration)
+                         speed))))
+    (message "Downloading to %S..." destination)))
 
 ;;;; Footer
 
