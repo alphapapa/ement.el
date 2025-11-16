@@ -325,6 +325,7 @@ Ement.el doesn't support encrypted rooms natively, but it can be used transparen
 *Additions*
 
 + When option ~ement-room-images~ is disabled (preventing automatic download and display of images), individual images may be shown by clicking the button in their events.
++ New options ~ement-notifications-message-format-spec~ and ~ement-notifications-room-button-separator~ allow the notification buffer message rendering to be customised.  (Thanks to [[https://github.com/phil-s][Phil Sainty]].)
 
 *Changes*
 
