@@ -1095,7 +1095,8 @@ interactive arguments passed to the command, which in our case
 includes large data structures that should never be persisted!"
     (setf command-history
           (cl-remove-if (pcase-lambda (`(,command . ,_))
-                          (string-match-p (rx bos "ement-") (symbol-name command)))
+                          (cl-typecase command
+                            (symbol (string-match-p (rx bos "ement-") (symbol-name command)))))
                         command-history)))
   (cl-pushnew 'ement--savehist-save-hook savehist-save-hook))
 
