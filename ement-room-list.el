@@ -140,7 +140,7 @@ Set automatically when `ement-room-list-mode' is activated.")
   "Show room avatars in the room list."
   :type 'boolean)
 
-(defcustom ement-room-list-avatars-generation (image-type-available-p 'svg)
+(defcustom ement-room-list-avatar-generation (image-type-available-p 'svg)
   "Generate SVG-based avatars for rooms that have none."
   :type 'boolean)
 
@@ -421,7 +421,7 @@ from recent to non-recent for rooms updated in the past hour."
                                    (ement--resize-image (get-text-property 0 'display avatar)
                                                         nil (frame-char-height)))
                      ;; Room has no avatar.
-                     (if ement-room-list-avatars-generation
+                     (if ement-room-list-avatar-generation
                          (let* ((string (or display-name (ement--room-display-name room)))
                                 (ement-room-prism-minimum-contrast 1)
                                 (color (ement--prism-color string :contrast-with "white")))
