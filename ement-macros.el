@@ -237,20 +237,23 @@ the same value."
   ;; we should preserve backward compatibility.  Someday this can be removed and we'll
   ;; just call `propertize' again.
   (declare (indent defun))
-  (when (and (member ''face properties)
-             (not (member ''font-lock-face properties)))
-    (pcase (plist-get properties ''face #'equal)
-      ((or (pred atom) `(quote ,(pred atom)))
-       `(propertize ,string ,@properties
-                    'font-lock-face ,(plist-get properties ''face #'equal)))
-      (_
-       ;; Avoid evaluating the 'face property's form twice.
-       (let ((value-form (plist-get properties ''face #'equal))
-             (value-var (gensym "ement-propertize-")))
-         (setf (plist-get properties ''face #'equal) value-var
-               (plist-get properties ''font-lock-face #'equal) value-var)
-         `(let ((,value-var ,value-form))
-            (propertize ,string ,@properties)))))))
+  (if (and (member ''face properties)
+           (not (member ''font-lock-face properties)))
+      (pcase (plist-get properties ''face #'equal)
+        ((or (pred atom) `(quote ,(pred atom)))
+         ;; Face property value is an atom: probably safe to just reuse the form.
+         `(propertize ,string ,@properties
+                      'font-lock-face ,(plist-get properties ''face #'equal)))
+        (_
+         ;; Not an atom: avoid evaluating the 'face property's form twice.
+         (let ((value-form (plist-get properties ''face #'equal))
+               (value-var (gensym "ement-propertize-")))
+           (setf (plist-get properties ''face #'equal) value-var
+                 (plist-get properties ''font-lock-face #'equal) value-var)
+           `(let ((,value-var ,value-form))
+              (propertize ,string ,@properties)))))
+    ;; Passthrough unchanged.
+    `(propertize ,string ,@properties)))
 
 ;;;; Variables
 
