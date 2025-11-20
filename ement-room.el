@@ -2640,7 +2640,9 @@ the previously oldest event."
                (endpoint (format "rooms/%s/typing/%s"
                                  (url-hexify-string room-id) (url-hexify-string user-id)))
                (data (ement-alist "typing" typing "timeout" 20000)))
-    (ement-api session endpoint :method 'put :data (json-encode data)
+    (ement-api session endpoint :method 'put
+      :data (let ((json-false nil))
+              (json-encode data))
       ;; We don't really care about the response, I think.
       :then #'ignore)))
 
